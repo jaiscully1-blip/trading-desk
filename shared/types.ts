@@ -50,6 +50,11 @@ export interface MacroPoint {
 export interface MacroResult {
   vix: MacroPoint | null;
   tnx: MacroPoint | null;
+  /** 10y-2y and 10y-3m Treasury spreads (FRED, end of day) */
+  t10y2y?: MacroPoint | null;
+  t10y3m?: MacroPoint | null;
+  /** SPY full-chain put/call ratio (Alpha Vantage) */
+  putCall?: { ratio: number; asOf: number } | null;
   source: string;
   freshness: Freshness;
   asOf: number;

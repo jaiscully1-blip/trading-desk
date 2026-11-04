@@ -167,3 +167,71 @@ describe('/api/movers', () => {
     expect(j.movers.map((m: { sym: string }) => m.sym)).toEqual(['CHSN', 'RDAC', 'PARA', 'INTC', 'NVDA', 'SOXL']);
   });
 });
+
+import { GET as newsApi } from '../api/news';
+import { GET as calApi } from '../api/calendar';
+
+describe('/api/news', () => {
+  it('merges RSS + Finnhub, tags, reports failing feeds without failing', async () => {
+    const rss = `<rss><channel><item><title>Nvidia beats estimates</title><link>https://x/1</link><pubDate>${new Date(Date.now() - 3600e3).toUTCString()}</pubDate></item></channel></rss>`;
+    routes.push((u) => (u.host === 'search.cnbc.com' ? { body: undefined as unknown } : undefined));
+    routes.push((u) => (u.host === 'finnhub.io' && u.pathname.endsWith('/news') ? { body: [{ datetime: Math.floor(Date.now() / 1000) - 600, headline: 'Fed holds rates steady', id: 1, source: 'Reuters', url: 'https://x/2' }] } : undefined));
+    routes.push((u) => (u.host === 'finnhub.io' && u.pathname.endsWith('/company-news') ? { body: [{ datetime: Math.floor(Date.now() / 1000) - 1200, headline: 'Supplier deal announced', id: 2, source: 'X', url: 'https://x/3' }] } : undefined));
+    routes.push((u) => (u.host === 'finnhub.io' && u.pathname.endsWith('/profile2') ? { body: u.searchParams.get('symbol') === 'NVDA' ? { name: 'NVIDIA Corp', shareOutstanding: 24300 } : { name: 'Advanced Micro Devices Inc' } } : undefined));
+    // text feeds: stub fetch returns JSON-encoded bodies, so route the RSS through a raw Response
+    vi.stubGlobal('fetch', async (input: string) => {
+      const u = new URL(input);
+      calls.push(u.host + u.pathname);
+      if (u.host === 'feeds.content.dowjones.io') return new Response(rss, { status: 200 });
+      if (u.host === 'www.bls.gov') return new Response('forbidden', { status: 403 });
+      for (const r of routes) { const hit = r(u); if (hit && hit.body !== undefined) return new Response(JSON.stringify(hit.body), { status: 200, headers: { 'content-type': 'application/json' } }); }
+      return new Response('nope', { status: 404 });
+    });
+    const j = await (await newsApi(req('/api/news?symbols=NVDA,AMD'))).json();
+    const titles = j.items.map((x: { title: string }) => x.title);
+    expect(titles).toEqual(['Fed holds rates steady', 'Supplier deal announced', 'Nvidia beats estimates']);
+    expect(j.items.find((x: { title: string }) => x.title === 'Supplier deal announced').syms).toContain('NVDA'); // explicit company-news symbol
+    expect(j.items[0]).toMatchObject({ macro: true });
+    expect(j.items[2]).toMatchObject({ syms: ['NVDA'], sentiment: 1, src: 'MarketWatch' });
+    const bls = j.sources.find((s: { name: string }) => s.name === 'BLS');
+    expect(bls).toMatchObject({ ok: false });
+  });
+});
+
+describe('/api/calendar', () => {
+  it('builds econ events with SPY history, Kalshi odds, earnings for my tickers; one failure doesn’t sink the rest', async () => {
+    const today = new Date().toISOString().slice(0, 10);
+    const future = new Date(Date.now() + 5 * 86400e3).toISOString().slice(0, 10);
+    routes.push((u) => (u.pathname === '/fred/releases' ? { body: { releases: [{ id: 10, name: 'Consumer Price Index' }, { id: 50, name: 'Employment Situation' }] } } : undefined));
+    routes.push((u) => (u.pathname === '/fred/release/dates' ? { body: { release_dates: [{ date: '2026-09-11' }, { date: '2026-10-15' }, { date: future }] } } : undefined));
+    routes.push((u) => (u.host === 'api.twelvedata.com' ? { body: tdDaily(ramp(600, 760, 120)) } : undefined));
+    routes.push((u) => (u.host === 'external-api.kalshi.com' ? { body: { markets: [{ ticker: 'KXFEDDECISION-26DEC-H0', event_ticker: 'KXFEDDECISION-26DEC', title: 'Fed decision in Dec 2026?', close_time: '2026-12-09T19:00:00Z', last_price_dollars: '0.87' }] } } : undefined));
+    vi.stubGlobal('fetch', async (input: string) => {
+      const u = new URL(input);
+      if (u.host === 'www.alphavantage.co' && u.searchParams.get('function') === 'EARNINGS_CALENDAR')
+        return new Response(`symbol,name,reportDate,fiscalDateEnding,estimate,currency,timeOfTheDay\r\nNVDA,NVIDIA CORPORATION,${future},2026-10-31,2.49,USD,post-market\r\nZZZZ,Other,${future},2026-10-31,,USD,pre-market\r\n`);
+      if (u.host === 'www.alphavantage.co') return new Response('{"Information":"We have detected your API key and our standard API rate limit is 25 requests per day."}');
+      for (const r of routes) { const hit = r(u); if (hit) return new Response(JSON.stringify(hit.body), { status: 200, headers: { 'content-type': 'application/json' } }); }
+      return new Response('nope', { status: 404 });
+    });
+    const j = await (await calApi(req('/api/calendar?symbols=NVDA'))).json();
+    expect(j.econ.map((e: { label: string; date: string }) => [e.label, e.date])).toEqual([['CPI', future], ['Jobs report (NFP)', future]]);
+    expect(j.odds.outcomes[0]).toEqual({ label: 'Hold', prob: 0.87 });
+    expect(j.earnings.mine.map((e: { sym: string }) => e.sym)).toEqual(['NVDA']);
+    expect(j.earnings.week.length).toBe(2);
+    expect(j.ipos).toBeNull();
+    expect(j.errors.ipos).toMatch(/25 requests per day/);
+    expect(j.fomc.length).toBeGreaterThan(8);
+    expect(today).toBeTruthy();
+  });
+});
+
+describe('/api/macro fear inputs', () => {
+  it('adds yield curve and the SPY put/call ratio (real Alpha Vantage shape)', async () => {
+    routes.push((u) => (u.host === 'api.stlouisfed.org' ? { body: { observations: [{ date: '2026-11-02', value: u.searchParams.get('series_id') === 'T10Y2Y' ? '0.52' : '4.21' }] } } : undefined));
+    routes.push((u) => (u.host === 'www.alphavantage.co' ? { body: { symbol: 'SPY', put_call_ratio_full_chain: '1.12', put_call_ratio_by_expiration: [{ date: '2026-11-04', value: '1.03' }] } } : undefined));
+    const j = await (await macro()).json();
+    expect(j.t10y2y).toMatchObject({ value: 0.52 });
+    expect(j.putCall.ratio).toBe(1.12);
+  });
+});

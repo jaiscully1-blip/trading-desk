@@ -3,7 +3,7 @@
 import { ProviderError } from '../../shared/parse';
 import { clock } from '../../shared/clock';
 
-export type Provider = 'twelvedata' | 'finnhub' | 'alphavantage' | 'fred' | 'finra';
+export type Provider = 'twelvedata' | 'finnhub' | 'alphavantage' | 'fred' | 'finra' | 'kalshi';
 
 export const KEY_ENV: Record<Provider, string> = {
   twelvedata: 'TWELVEDATA_API_KEY',
@@ -11,6 +11,7 @@ export const KEY_ENV: Record<Provider, string> = {
   alphavantage: 'ALPHAVANTAGE_API_KEY',
   fred: 'FRED_API_KEY',
   finra: '', // keyless public dataset
+  kalshi: '', // public market data
 };
 
 export function key(p: Provider): string {
@@ -33,6 +34,7 @@ const LIMITS: Record<Provider, { perMin: number; perDay: number }> = {
   alphavantage: { perMin: 5, perDay: 24 },
   fred: { perMin: 60, perDay: Infinity },
   finra: { perMin: 10, perDay: 200 },
+  kalshi: { perMin: 10, perDay: 500 },
 };
 const hits: Record<string, number[]> = {};
 const dayCount: Record<string, { day: string; n: number }> = {};

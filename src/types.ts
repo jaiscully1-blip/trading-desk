@@ -2,7 +2,7 @@ export type { TF, Mode, Freshness, Bar, SeriesResult, QuoteResult, MacroResult, 
 import type { TF } from '../shared/types';
 
 export type Board = 'setups' | 'watching' | 'avoid';
-export type RightTab = 'news' | 'scanner' | 'journal' | 'risk';
+export type RightTab = 'news' | 'scanner' | 'journal' | 'risk' | 'calendar';
 export type Overlay = 'map' | 'globe' | 'help' | null;
 export type OrMinutes = 5 | 15 | 30;
 
@@ -39,6 +39,7 @@ export interface Layout {
   tf: TF;
   tickerOpen: boolean;
   levelsOpen?: boolean;
+  fearOpen?: boolean;
 }
 
 export interface JournalDraft {

@@ -21,6 +21,9 @@ import { DEFAULT_SETTINGS, etDay, guard, viewTrade, violations as findViolations
 import { Scanner } from './components/Scanner';
 import { PlaybookEditor } from './components/Playbooks';
 import { useMovers, useScan, useUniverse } from './data/scan';
+import { useCalendar, useNews } from './data/news';
+import { Calendars } from './components/Calendars';
+import { FearStrip } from './components/FearStrip';
 import { cloudConfigured, signIn, signOut, useCloudItems, useCloudSync, useCloudUser } from './data/cloud';
 import { DEFAULT_THRESHOLDS, liveRow, rankRs, type ScanRow } from '../shared/scan';
 import { DEFAULT_PLAYBOOKS, gradeRow, type GradeResult, type Playbook, type SavedFilter } from './lib/playbook';
@@ -162,10 +165,14 @@ export default function App() {
   const movers = useMovers(dataMode, scanPrefs.includeMovers);
   // QQQ is always scanned (SPY is added server-side) so the index day trades get playbook grades too
   const universe = useUniverse(['QQQ', ...wlSyms], live ? scanList : [...scanList, ...Object.keys(DEMO_QUOTES).filter((s) => !INDEXES.includes(s))], movers?.movers, scanPrefs.includeMovers);
-  const quoteSyms = useMemo(() => [...new Set([...INDEXES, sel, ...wlSyms, ...universe])].slice(0, 50), [wlSyms, sel, universe]);
+  // USO/UUP are the fear strip's live oil and dollar proxies
+  const quoteSyms = useMemo(() => [...new Set([...INDEXES, 'USO', 'UUP', sel, ...wlSyms, ...universe])].slice(0, 52), [wlSyms, sel, universe]);
   const qs = useQuotes(quoteSyms, dataMode);
   const scan = useScan(universe, dataMode, (s) => DEMO_QUOTES[s]?.last ?? 100);
   const macro = useMacro(dataMode);
+  const newsSyms = useMemo(() => [...new Set([sel, ...INDEXES, ...wlSyms])], [sel, wlSyms]);
+  const news = useNews(newsSyms, dataMode, HEADLINES);
+  const cal = useCalendar(useMemo(() => [...new Set([...wlSyms, ...universe])], [wlSyms, universe]), dataMode);
 
   // Scan rows: daily stats finished with the live quote, then RS-ranked across the universe
   const todayDay = Math.floor(encodeInstant(now) / 86400);
@@ -339,6 +346,10 @@ export default function App() {
     { id: 'or30', label: 'Opening range: 30 minutes', run: () => setOrMin(30) },
     { id: 'alerts', label: `Toggle level alerts for ${sel}`, run: () => toggleAlerts(sel) },
     { id: 'news', label: 'Open news', hint: 'N', run: () => setTab('news') },
+    { id: 'calendar', label: 'Calendars: economic, Fed, earnings, IPOs', hint: 'C', run: () => setTab('calendar') },
+    { id: 'fed', label: 'Fed meeting countdown and rate odds', run: () => setTab('calendar') },
+    { id: 'earnings', label: 'Earnings calendar', run: () => setTab('calendar') },
+    { id: 'fear', label: 'Show/hide fear strip', hint: 'F', run: () => setLayout({ fearOpen: layout.fearOpen === false }) },
     { id: 'journal', label: 'Open full journal (trades, stats, violations, import)', hint: 'Shift J', run: () => setJnOpen(true) },
     { id: 'ticket', label: 'Quick journal / trade ticket', hint: 'Q', run: () => setTab('journal') },
     { id: 'import', label: 'Import broker CSV', run: () => setJnOpen(true) },
@@ -378,7 +389,8 @@ export default function App() {
         p: () => setPbOpen(true),
         J: () => setJnOpen(true),
         '1': () => setTf('D'), '2': () => setTf('1H'), '3': () => setTf('5m'),
-        n: () => setTab('news'), s: () => setTab('scanner'), q: () => setTab('journal'), r: () => setTab('risk'),
+        n: () => setTab('news'), s: () => setTab('scanner'), q: () => setTab('journal'), r: () => setTab('risk'), c: () => setTab('calendar'),
+        f: () => setLayout({ fearOpen: layout.fearOpen === false }),
         '[': () => setLayout({ leftOpen: !layout.leftOpen }),
         ']': () => setLayout({ rightOpen: !layout.rightOpen }),
         b: () => setLayout({ tickerOpen: !layout.tickerOpen }),
@@ -430,13 +442,15 @@ export default function App() {
   );
   const riskSlot = <RiskPanel guard={g} settings={settings} setSettings={setSettings} checkin={checkin} onCheckIn={() => setCiOpen(true)} violations={viols} now={now} last={Number.isFinite(q.last) ? q.last : undefined} />;
   const rightProps = {
-    tab: layout.tab, onTab: setTab, quotes, boards, headlines: HEADLINES, sel, onSelect: setSel, addSym,
-    newsFilter, setNewsFilter, scanner, journal: journalSlot, risk: riskSlot,
+    tab: layout.tab, onTab: setTab, quotes, boards, sel, onSelect: setSel, addSym,
+    newsFilter, setNewsFilter, scanner, journal: journalSlot, risk: riskSlot, news,
+    calendar: <Calendars cal={cal} now={now} onSelect={setSel} mySyms={new Set(wlSyms)} />,
   };
   const chart = (onPopout?: () => void) => (
     <ChartPanel
       sym={sel} name={q.name} last={live ? q.last : chartSeries.bars.at(-1)?.close ?? q.last} chgPct={q.chgPct}
       tf={layout.tf} onTf={setTf} theme={theme} series={chartSeries} levels={selLevels} onPopout={onPopout}
+      news={news.items} onSelect={setSel}
     />
   );
   const levelsPanel = (
@@ -454,7 +468,7 @@ export default function App() {
         {POPOUT === 'chart' && <div className="center">{chart()}{layout.levelsOpen && levelsPanel}</div>}
         {POPOUT === 'watchlist' && <Watchlist {...wlProps} />}
         {POPOUT === 'right' && <RightRail {...rightProps} />}
-        {POPOUT === 'ticker' && <NewsTicker headlines={HEADLINES} boards={boards} watchOnly={watchOnly} setWatchOnly={setWatchOnly} onSelect={setSel} />}
+        {POPOUT === 'ticker' && <NewsTicker headlines={news.items} fresh={news.freshness} asOf={news.asOf} boards={boards} watchOnly={watchOnly} setWatchOnly={setWatchOnly} onSelect={setSel} />}
         {toast && <div className="toast" role="status">{toast}</div>}
       </div>
     );
@@ -471,13 +485,14 @@ export default function App() {
   /* ---------- Desk ---------- */
   const cols3 = `${layout.leftOpen ? `${layout.left}px 5px` : '0 0'} minmax(0,1fr) ${layout.rightOpen ? `5px ${layout.right}px` : '0 0'}`;
   return (
-    <div className={`app ${layout.tickerOpen ? '' : 'no-ticker'}`}>
+    <div className={`app ${layout.tickerOpen ? '' : 'no-ticker'} ${layout.fearOpen !== false ? 'has-fear' : ''}`}>
       <TopStrip
         quotes={quotes} clk={clk} mode={mode} override={override} onOverride={setOverride} onSelect={setSel}
         onAccount={() => setDrawer((d) => !d)} accountOpen={drawer} theme={theme} onTheme={toggleTheme} onCmd={() => setCmdOpen(true)}
         account={{ guard: g, settings, demo: views.some((v) => v.t.demo), demoPrices }}
         quoteFresh={quoteFresh} quoteAsOf={live ? qs?.asOf : DEMO_AT} quoteSource={live ? qs?.source : 'Generated sample quotes'} macro={macro} live={live}
       />
+      {layout.fearOpen !== false && <FearStrip macro={macro} quotes={quotes} live={live} />}
       <main className="main" style={{ gridTemplateColumns: cols3 }}>
         <div className="rail-slot">{layout.leftOpen && <Watchlist {...wlProps} onPopout={() => popout('watchlist', sel)} />}</div>
         <div className={`gutter ${layout.leftOpen ? '' : 'hidden'}`} onPointerDown={drag('left')} title="Drag to resize · [ to hide" />
@@ -488,7 +503,7 @@ export default function App() {
         <div className={`gutter ${layout.rightOpen ? '' : 'hidden'}`} onPointerDown={drag('right')} title="Drag to resize · ] to hide" />
         <div className="rail-slot">{layout.rightOpen && <RightRail {...rightProps} onPopout={() => popout('right', sel)} />}</div>
       </main>
-      {layout.tickerOpen && <NewsTicker headlines={HEADLINES} boards={boards} watchOnly={watchOnly} setWatchOnly={setWatchOnly} onSelect={setSel} />}
+      {layout.tickerOpen && <NewsTicker headlines={news.items} fresh={news.freshness} asOf={news.asOf} boards={boards} watchOnly={watchOnly} setWatchOnly={setWatchOnly} onSelect={setSel} />}
 
       <div className="statusbar">
         <span>Layout: <b>{modeLabel(mode)}</b>{override ? ' (manual)' : ' (auto)'}, changes save to this mode</span>

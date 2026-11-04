@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { Board, Headline } from '../types';
+import type { Board, Freshness, Headline } from '../types';
 import { DEMO_AT } from '../lib/demo';
 import { etTime } from '../lib/clock';
 import { Fresh, Kbd } from './common';
@@ -11,14 +11,18 @@ export function NewsTicker({
   watchOnly,
   setWatchOnly,
   onSelect,
+  fresh = 'demo',
+  asOf = DEMO_AT,
 }: {
-  headlines: Headline[];
+  headlines: (Headline & { sentiment?: number; url?: string })[];
+  fresh?: Freshness;
+  asOf?: number;
   boards: Record<string, Board>;
   watchOnly: boolean;
   setWatchOnly: (v: boolean) => void;
   onSelect: (s: string) => void;
 }) {
-  const items = headlines.filter((h) => !watchOnly || h.syms.some((s) => boards[s])).slice(0, 24);
+  const items = headlines.filter((h) => !watchOnly || h.syms.some((s) => boards[s])).slice(0, 30);
   const dur = Math.max(40, items.length * 7);
   return (
     <footer className="ticker">
@@ -36,14 +40,16 @@ export function NewsTicker({
                   {h.syms.map((s) => (
                     <button key={s} className="sym-chip" onClick={() => onSelect(s)} tabIndex={k ? -1 : 0}>{s}</button>
                   ))}{' '}
+                  {h.sentiment != null && <span className={`sent ${h.sentiment > 0 ? 'up' : h.sentiment < 0 ? 'down' : 'muted'}`}>● </span>}
                   {h.title}
+                  <span className="muted small"> · {h.src}</span>
                 </span>
               ))}
             </span>
           ))}
         </div>
       </div>
-      <Fresh kind="demo" at={DEMO_AT} />
+      <Fresh kind={fresh} at={asOf || undefined} />
     </footer>
   );
 }
@@ -145,6 +151,8 @@ export function OverlayView({ kind, onClose }: { kind: 'map' | 'globe' | 'help';
       ['N  S  Q  R', 'Right rail: News, Scanner, Quick Journal (trade ticket), Risk'],
       ['[   ]', 'Hide/show left or right rail'],
       ['B', 'Hide/show news ticker'],
+      ['F', 'Hide/show fear strip'],
+      ['C', 'Calendars tab (economic, Fed, earnings, IPOs)'],
       ['A', 'Account drawer'],
       ['Shift J', 'Full journal: trades, stats, violations, CSV import'],
       ['M', 'World map overlay'],

@@ -3,9 +3,9 @@
 Personal trading desk for swing momentum names and intraday SPY/QQQ. Dense, keyboard-first, Bloomberg-style.
 It never places trades: it shows information and enforces your own rules.
 
-**Status: Milestone 4 (journal, checklist, CSV import, account, guardrails).** With API keys set, quotes, candles, VIX/10Y,
-SPY/QQQ levels, the scanner and RS rank are real. The journal and account are always your own data. Without keys (or in the
-static preview) market data falls back to generated sample data behind a `DEMO DATA` badge. News stays DEMO until Milestone 5.
+**Status: Milestone 5 (news, chart news flags, calendars, fear strip).** With API keys set, quotes, candles, VIX/10Y,
+SPY/QQQ levels, the scanner, RS rank, news, calendars and the fear strip are real. The journal and account are always your own
+data. Without keys (or in the static preview) market data falls back to generated sample data behind a `DEMO DATA` badge.
 
 ## Run
 
@@ -98,6 +98,28 @@ for charts) and then refreshes daily bars hourly. Each ticker costs about 8 cred
 - **Storage:** journal, transfers and check-ins in IndexedDB (screenshots are compressed to ≤1280px JPEG); with Supabase each trade is
   a row in `desk_items` and edits merge per trade.
 
+## News, calendars and fear strip (M5)
+
+```
+/api/news      ─> Finnhub market news + company news (watchlist), RSS: CNBC, MarketWatch, Yahoo Finance, Federal Reserve, BLS
+/api/calendar  ─> FRED release calendar (+ SPY reaction history), FOMC schedule, Kalshi Fed odds, Alpha Vantage earnings + IPOs
+/api/macro     ─> FRED VIX, 10Y, 2s10s, 3m10y (end of day) + Alpha Vantage SPY put/call (every 2h)
+```
+
+- **24/7 ticker** and **News tab**: merged, de-duplicated, tagged to tickers (symbol, $symbol, or company name) and flagged macro.
+  Every feed is optional: a failing feed shows as ✗ in the source list instead of breaking the panel.
+- **News flags on the chart**: each headline is pinned to the candle it hit (or the next candle after the close). Click a flag for
+  headline, source, time and sentiment. Filter: ticker + macro / ticker / macro / off.
+- **Sentiment** is keyword-based and labeled "rough"; the AI headline scorer in Milestone 10 replaces it.
+- **Calendars tab** (C): Fed countdown (2:00 PM ET statement, SEP meetings marked; 2026 confirmed, 2027 tentative) with rate odds from
+  Kalshi's public prediction-market data (not CME FedWatch, which has no free API); economic releases with impact and "what usually
+  happens" (SPY's average move on the last N release days vs. a typical day, from daily bars); earnings for your tickers or the next
+  7 days; IPOs. Lockup expiries: no free source.
+- **Fear strip** (F): VIX, SPY expected daily move (SPY × VIX / √252), SPY put/call, 2s10s and 3m10y curve, 10Y, oil (USO) and dollar
+  (UUP) as live ETF proxies. Fear & Greed: CNN has no official free API, so it shows n/a.
+- **Alpha Vantage budget (25/day):** movers hourly in session (~7), put/call every 2h (~4), earnings + IPO calendars twice a day,
+  leaving room for the daily-candle fallback.
+
 ## Supabase (optional sync)
 
 1. Create a free project, run `supabase/schema.sql` in the SQL editor.
@@ -124,6 +146,8 @@ Premarket high/low are marked unavailable: Twelve Data includes extended-hours c
 | `P` | Playbook editor |
 | `Q` | Trade ticket (quick journal) |
 | `Shift J` | Full journal |
+| `C` | Calendars tab |
+| `F` | Hide/show fear strip |
 | `N S Q R` | Right rail: News, Scanner, Quick Journal, Risk |
 | `[ ]` | Hide/show left or right rail |
 | `B` | Hide/show news ticker |
@@ -153,6 +177,7 @@ src/
   data/live.ts         /api client, shared series store, polling, quote patching, demo fallback
   data/scan.ts         scan polling, demo scan, movers, universe
   data/cloud.ts        Supabase auth + sync (optional)
+  data/news.ts         news + calendar polling and demo fallback
   lib/playbook.ts      playbooks, grading, filters
   lib/journal.ts       trades/fills math, stats, equity, guardrails, violations, tilt, time-of-day
   lib/csv.ts           broker CSV parsing, column detection, round trips, transfers
@@ -162,8 +187,8 @@ src/
   lib/demo.ts          DEMO DATA generator (removed as adapters land)
   lib/layout.ts        per-mode layout defaults
   lib/store.ts         local persistence (moves to Supabase in M3/M4)
-shared/                types, ET clock and provider parsers used by both browser and /api
-api/                   Vercel functions: candles, quotes, macro, scan, movers, health (+ _lib adapters, cache, limits)
+shared/                types, ET clock, provider parsers, scan engine, news + calendar logic (browser and /api)
+api/                   Vercel functions: candles, quotes, macro, scan, movers, news, calendar, health (+ _lib adapters, cache, limits)
 supabase/schema.sql    table + row-level security
 tests/                 vitest: parsers (incl. a real Alpha Vantage response), indicators, levels, clock, API
 ```
@@ -174,7 +199,7 @@ tests/                 vitest: parsers (incl. a real Alpha Vantage response), in
 2. ✅ Data layer and charts: adapters, caching, candles, indicators, levels on SPY/QQQ
 3. ✅ Scanner, RS rank, watchlist boards, playbook editor and grades
 4. ✅ Journal, pre-trade checklist, CSV import, account strip and drawer, risk guardrails
-5. News ticker, chart news flags, calendars, fear strip
+5. ✅ News ticker, chart news flags, calendars, fear strip
 6. Trade replay with ghost exit, end-of-day recap
 7. Market-clock mode (holiday / early-close feed)
 8. World map, money flow globe
