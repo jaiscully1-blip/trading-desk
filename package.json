@@ -1,0 +1,26 @@
+{
+  "name": "trading-desk",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "typecheck": "tsc --noEmit",
+    "build": "tsc --noEmit && vite build",
+    "build:single": "vite build --mode single --outDir dist-single",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "lightweight-charts": "5.2.1",
+    "react": "18.3.1",
+    "react-dom": "18.3.1"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.31",
+    "@types/react-dom": "^18.3.7",
+    "@vitejs/plugin-react": "^6.2.1",
+    "typescript": "^7.0.2",
+    "vite": "8.3.5",
+    "vite-plugin-singlefile": "^2.3.4"
+  }
+}
