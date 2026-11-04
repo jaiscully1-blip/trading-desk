@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { SupabaseClient, User } from '@supabase/supabase-js';
 import { load, save } from '../lib/store';
 
-export type CloudKey = 'boards' | 'playbooks' | 'filters' | 'scanList' | 'scanPrefs' | 'account';
+export type CloudKey = 'boards' | 'playbooks' | 'filters' | 'scanList' | 'scanPrefs' | 'account' | 'exitRules';
 
 const URL_ = import.meta.env.VITE_SUPABASE_URL as string | undefined;
 const ANON = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
@@ -90,7 +90,7 @@ export function useCloudSync<T>(key: CloudKey, value: T, setValue: (v: T) => voi
 }
 
 /* ---------------- per-row collections (journal) ---------------- */
-export type ItemKind = 'trade' | 'transfer' | 'checkin';
+export type ItemKind = 'trade' | 'transfer' | 'checkin' | 'recap';
 type Item = { updated: number; deleted?: boolean };
 
 /** Merge two versions of a collection by id: the newer `updated` wins (deletions are tombstones). */

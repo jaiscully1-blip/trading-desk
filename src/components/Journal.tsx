@@ -26,6 +26,7 @@ export interface JournalProps {
   settings: AccountSettings;
   onClose: () => void;
   onSelect: (s: string) => void;
+  onReplay: (id: string) => void;
   canSample: boolean;
 }
 
@@ -103,7 +104,7 @@ function Trades(p: JournalProps) {
                       {vcount.get(t.id) ? <span className="tag t-SQZ" title="Rule violations">{vcount.get(t.id)}!</span> : null}
                     </td>
                   </tr>
-                  {isOpen && <tr className="sc-detail"><td colSpan={12}><TradeDetail v={v} update={(f) => update(t.id, f)} remove={() => update(t.id, (x) => ({ ...x, deleted: true }))} violations={p.violations.filter((x) => x.tradeId === t.id)} onSelect={p.onSelect} /></td></tr>}
+                  {isOpen && <tr className="sc-detail"><td colSpan={12}><TradeDetail v={v} update={(f) => update(t.id, f)} remove={() => update(t.id, (x) => ({ ...x, deleted: true }))} violations={p.violations.filter((x) => x.tradeId === t.id)} onSelect={p.onSelect} onReplay={p.onReplay} /></td></tr>}
                 </Fragment>
               );
             })}
@@ -114,7 +115,7 @@ function Trades(p: JournalProps) {
   );
 }
 
-function TradeDetail({ v, update, remove, violations, onSelect }: { v: TradeView; update: (f: (t: Trade) => Trade) => void; remove: () => void; violations: Violation[]; onSelect: (s: string) => void }) {
+function TradeDetail({ v, update, remove, violations, onSelect, onReplay }: { v: TradeView; update: (f: (t: Trade) => Trade) => void; remove: () => void; violations: Violation[]; onSelect: (s: string) => void; onReplay: (id: string) => void }) {
   const t = v.t;
   const [fill, setFill] = useState({ action: t.side === 'long' ? 'sell' : 'buy', qty: '', price: '', time: '' });
   const [confirmDel, setConfirmDel] = useState(false);
@@ -160,6 +161,7 @@ function TradeDetail({ v, update, remove, violations, onSelect }: { v: TradeView
         </div>
         <ScreenshotInput value={t.screenshot} onChange={(s) => update((x) => ({ ...x, screenshot: s }))} />
         <div className="fb-row">
+          {v.openedAt != null && <button className="btn primary" onClick={() => onReplay(t.id)}>Replay with ghost exit</button>}
           <button className="btn" onClick={() => onSelect(t.sym)}>Show {t.sym} chart</button>
           <button className={`btn ${confirmDel ? 'danger' : ''}`} onClick={() => (confirmDel ? remove() : setConfirmDel(true))}>{confirmDel ? 'Click again to delete' : 'Delete trade'}</button>
         </div>

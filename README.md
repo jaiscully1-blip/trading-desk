@@ -3,7 +3,7 @@
 Personal trading desk for swing momentum names and intraday SPY/QQQ. Dense, keyboard-first, Bloomberg-style.
 It never places trades: it shows information and enforces your own rules.
 
-**Status: Milestone 5 (news, chart news flags, calendars, fear strip).** With API keys set, quotes, candles, VIX/10Y,
+**Status: Milestone 6 (trade replay with ghost exit, end-of-day recap).** With API keys set, quotes, candles, VIX/10Y,
 SPY/QQQ levels, the scanner, RS rank, news, calendars and the fear strip are real. The journal and account are always your own
 data. Without keys (or in the static preview) market data falls back to generated sample data behind a `DEMO DATA` badge.
 
@@ -120,6 +120,20 @@ for charts) and then refreshes daily bars hourly. Each ticker costs about 8 cred
 - **Alpha Vantage budget (25/day):** movers hourly in session (~7), put/call every 2h (~4), earnings + IPO calendars twice a day,
   leaving room for the daily-candle fallback.
 
+## Replay and daily recap (M6)
+
+- **Replay** (journal → a trade → "Replay with ghost exit", or `/replay` for the last trade): plays the trade bar by bar on the finest
+  candles that cover it (5m covers about the last 10 sessions on Twelve Data free; older trades use 1H, then daily), with your real
+  fills, entry/stop/target lines, and a **ghost exit** where your exit rules would have taken you out: initial stop, target at N R,
+  trailing stop (after +N R, trail by N R), time stop (N minutes), flat by the close. Shows the ghost result and the difference vs.
+  your actual exit in R and dollars. Simulation starts the bar after entry; stop wins when stop and target share a candle; gaps fill
+  at the open. Space plays, ←/→ step. Rules sync with your settings.
+- **End-of-day recap**: generated automatically after the 4:00 PM ET close on days you traded: P&L, R, win rate, best and worst trade
+  (click to replay), rules broken with their dollar cost, a process-first day grade (A–F: broken rules cost points even on green days),
+  and one lesson tied to the costliest mistake. "Download image" exports a 1200×630 PNG. `/recap` shows today so far and past days.
+- **Daily CSV backup**: the full journal (one row per trade, fills flattened) downloads automatically at the close (turn off with
+  `/auto-backup`); the recap also offers the day's CSV or the full journal on demand.
+
 ## Supabase (optional sync)
 
 1. Create a free project, run `supabase/schema.sql` in the SQL editor.
@@ -181,6 +195,8 @@ src/
   lib/playbook.ts      playbooks, grading, filters
   lib/journal.ts       trades/fills math, stats, equity, guardrails, violations, tilt, time-of-day
   lib/csv.ts           broker CSV parsing, column detection, round trips, transfers
+  lib/replay.ts        ghost-exit simulation (stop, target R, trail, time stop, EOD)
+  lib/recap.ts         daily recap, day grade, lesson, journal CSV
   lib/idb.ts           IndexedDB store for the journal
   lib/indicators.ts    SMA, EMA, RSI, MACD, ATR, session VWAP
   lib/levels.ts        PDH/PDL/PDC, VWAP, opening range, touch/break detection
@@ -200,7 +216,7 @@ tests/                 vitest: parsers (incl. a real Alpha Vantage response), in
 3. ✅ Scanner, RS rank, watchlist boards, playbook editor and grades
 4. ✅ Journal, pre-trade checklist, CSV import, account strip and drawer, risk guardrails
 5. ✅ News ticker, chart news flags, calendars, fear strip
-6. Trade replay with ghost exit, end-of-day recap
+6. ✅ Trade replay with ghost exit, end-of-day recap
 7. Market-clock mode (holiday / early-close feed)
 8. World map, money flow globe
 9. Research panels

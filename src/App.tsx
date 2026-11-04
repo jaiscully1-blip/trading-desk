@@ -16,6 +16,10 @@ import { LevelsPanel, type LevelCol } from './components/Levels';
 import { RightRail, type NewsFilter } from './components/RightRail';
 import { CheckInDialog, OpenPositions, RiskPanel, TradeTicket, uid } from './components/Trading';
 import { AccountDrawer, JournalOverlay } from './components/Journal';
+import { ReplayOverlay } from './components/Replay';
+import { RecapOverlay, download } from './components/Recap';
+import { DEFAULT_RULES, type ExitRules } from './lib/replay';
+import { buildRecap, journalCsv, type Recap } from './lib/recap';
 import { useIdbState } from './lib/idb';
 import { DEFAULT_SETTINGS, etDay, guard, viewTrade, violations as findViolations, type AccountSettings, type CheckIn, type Trade, type Transfer } from './lib/journal';
 import { Scanner } from './components/Scanner';
@@ -125,6 +129,11 @@ export default function App() {
   const [transfers, setTransfers, trLoaded] = useIdbState<Transfer[]>('transfers', []);
   const [checkins, setCheckins, ciLoaded] = useIdbState<CheckIn[]>('checkins', []);
   const [settings, setSettings] = usePersisted<AccountSettings>('account', DEFAULT_SETTINGS);
+  const [exitRules, setExitRules] = usePersisted<ExitRules>('exitRules', DEFAULT_RULES);
+  const [recaps, setRecaps, rcLoaded] = useIdbState<Recap[]>('recaps', []);
+  const [autoBackup, setAutoBackup] = usePersisted('autoBackup', true);
+  const [replayId, setReplayId] = useState<string | null>(null);
+  const [recapOpen, setRecapOpen] = useState<string | false>(false);
   const [syncOpen, setSyncOpen] = useState(false);
   const [watchOnly, setWatchOnly] = usePersisted('tickerWatchOnly', false);
   const [orMin, setOrMin] = usePersisted<OrMinutes>('orMinutes', 15);
@@ -155,6 +164,8 @@ export default function App() {
   useCloudSync('scanList', scanList, setScanList);
   useCloudSync('scanPrefs', scanPrefs, setScanPrefs);
   useCloudSync('account', settings, setSettings);
+  useCloudSync('exitRules', exitRules, setExitRules);
+  useCloudItems('recap', recaps, setRecaps, (r) => r.day, rcLoaded);
   useCloudItems('trade', trades, setTrades, (t) => t.id, jLoaded);
   useCloudItems('transfer', transfers, setTransfers, (t) => t.id, trLoaded);
   useCloudItems('checkin', checkins, setCheckins, (c) => c.day, ciLoaded);
@@ -279,6 +290,30 @@ export default function App() {
     setCiOpen(true);
   }, [ciLoaded, checkin, mode, today]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  /* ---------------- end-of-day recap + daily CSV backup ---------------- */
+  const csvFor = useCallback((day: string | null) => {
+    const vs = day ? views.filter((v) => etDay(v.openedAt ?? v.t.created) === day || (v.closedAt != null && etDay(v.closedAt) === day)) : views;
+    return journalCsv(vs, viols);
+  }, [views, viols]);
+  useEffect(() => {
+    if (!rcLoaded || !jLoaded || POPOUT) return;
+    const e = et(now);
+    if (e.wd === 0 || e.wd === 6 || e.sod < 16 * 3600) return;
+    if (recaps.some((r) => r.day === today && !r.partial)) return;
+    const r = buildRecap(today, views, viols, checkin);
+    if (!r) return;
+    setRecaps((x) => [...x.filter((y) => y.day !== today), r]);
+    if (autoBackup) download(`desk-journal-${today}.csv`, journalCsv(views, viols)); // full journal, once a day at the close
+    setRecapOpen(today);
+    flash(`Daily recap ready: grade ${r.grade}`, 6000);
+  }, [Math.floor(now / 60_000), rcLoaded, jLoaded]); // eslint-disable-line react-hooks/exhaustive-deps
+  const openRecap = () => {
+    const r = buildRecap(today, views, viols, checkin);
+    if (r && et(now).sod < 16 * 3600) setRecaps((x) => [...x.filter((y) => y.day !== today), { ...r, partial: true, lesson: `(Day in progress) ${r.lesson}` }]);
+    setRecapOpen(today);
+  };
+  const replayView = replayId ? views.find((v) => v.t.id === replayId) : undefined;
+
   /* ---------------- level alerts (touch / break) ---------------- */
   const prevPx = useRef<Record<string, number>>({});
   const cool = useRef<Record<string, number>>({});
@@ -354,6 +389,10 @@ export default function App() {
     { id: 'ticket', label: 'Quick journal / trade ticket', hint: 'Q', run: () => setTab('journal') },
     { id: 'import', label: 'Import broker CSV', run: () => setJnOpen(true) },
     { id: 'checkin', label: 'Pre-session check-in', run: () => setCiOpen(true) },
+    { id: 'recap', label: 'Daily recap (today so far, and past days)', run: openRecap },
+    { id: 'replay', label: 'Replay my last trade with ghost exit', run: () => { const last = [...views].filter((v) => v.openedAt != null).sort((a, b) => b.openedAt! - a.openedAt!)[0]; if (last) setReplayId(last.t.id); else flash('No trades to replay yet'); } },
+    { id: 'backup', label: 'Download full journal CSV backup', run: () => download(`desk-journal-all-${today}.csv`, csvFor(null)) },
+    { id: 'auto-backup', label: `Auto CSV backup at the close: ${autoBackup ? 'on (turn off)' : 'off (turn on)'}`, run: () => setAutoBackup(!autoBackup) },
     { id: 'risk', label: 'Open risk / position size', hint: 'R', run: () => setTab('risk') },
     { id: 'account', label: 'Open account drawer', hint: 'A', run: () => setDrawer(true) },
     { id: 'map', label: 'World map overlay', hint: 'M', run: () => setOverlay('map') },
@@ -377,8 +416,8 @@ export default function App() {
   useEffect(() => {
     const h = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); setCmdOpen((o) => !o); return; }
-      if (e.key === 'Escape') { setCmdOpen(false); setOverlay(null); setDrawer(false); setPbOpen(false); setSyncOpen(false); setJnOpen(false); setCiOpen(false); return; }
-      if (cmdOpen || pbOpen || syncOpen || jnOpen || ciOpen || typing(e.target) || e.ctrlKey || e.metaKey || e.altKey) return;
+      if (e.key === 'Escape') { if (replayId) { setReplayId(null); return; } setCmdOpen(false); setOverlay(null); setDrawer(false); setPbOpen(false); setSyncOpen(false); setJnOpen(false); setCiOpen(false); setRecapOpen(false); return; }
+      if (cmdOpen || pbOpen || syncOpen || jnOpen || ciOpen || replayId || recapOpen || typing(e.target) || e.ctrlKey || e.metaKey || e.altKey) return;
       const map: Record<string, () => void> = {
         m: () => setOverlay((o) => (o === 'map' ? null : 'map')),
         g: () => setOverlay((o) => (o === 'globe' ? null : 'globe')),
@@ -519,7 +558,9 @@ export default function App() {
         allowAny={live ? (s) => SYMBOL_RE.test(s) : undefined}
       />
       <AccountDrawer open={drawer} onClose={() => setDrawer(false)} theme={theme} views={views} transfers={liveTransfers} settings={settings} setSettings={setSettings} guard={g} onImport={() => { setDrawer(false); setJnOpen(true); }} />
-      {jnOpen && <JournalOverlay views={views} setTrades={setTrades} transfers={transfers} setTransfers={setTransfers} violations={viols} lastPx={lastPx} settings={settings} onClose={() => setJnOpen(false)} onSelect={(s) => { setSel(s); setJnOpen(false); }} canSample={!live} />}
+      {jnOpen && <JournalOverlay views={views} setTrades={setTrades} transfers={transfers} setTransfers={setTransfers} violations={viols} lastPx={lastPx} settings={settings} onClose={() => setJnOpen(false)} onSelect={(s) => { setSel(s); setJnOpen(false); }} onReplay={setReplayId} canSample={!live} />}
+      {recapOpen !== false && <RecapOverlay recaps={recaps} initialDay={recapOpen || undefined} onClose={() => setRecapOpen(false)} onReplay={setReplayId} csvFor={csvFor} />}
+      {replayView && <ReplayOverlay v={replayView} live={live} theme={theme} rules={exitRules} setRules={setExitRules} onClose={() => setReplayId(null)} />}
       {ciOpen && <CheckInDialog day={today} existing={checkin} onClose={() => setCiOpen(false)} onSave={(c) => { setCheckins((x) => [...x.filter((y) => y.day !== c.day), c]); setCiOpen(false); }} />}
       {pbOpen && <PlaybookEditor playbooks={playbooks} setPlaybooks={setPlaybooks} activeId={activePb?.id ?? ''} setActiveId={(id) => setScanPrefs((x) => ({ ...x, playbookId: id }))} rows={rows} vwap={vwapBy} onClose={() => setPbOpen(false)} />}
       {syncOpen && <SyncDialog user={cloudUser?.email ?? null} onClose={() => setSyncOpen(false)} />}
