@@ -72,10 +72,11 @@ button:disabled { cursor: default; }
   white-space: nowrap; border: 1px solid transparent;
 }
 .fresh-at { font-weight: 400; }
+.fresh-short { display: none; }
 .fresh-demo { color: var(--demo); background: var(--demo-bg); border-color: color-mix(in srgb, var(--demo) 30%, transparent); }
 .fresh-live { color: var(--up); background: color-mix(in srgb, var(--up) 12%, transparent); }
 .fresh-delayed, .fresh-eod { color: var(--warn); background: var(--warn-bg); }
-.fresh-unavailable, .fresh-pending { color: var(--muted); background: var(--panel-2); border-color: var(--line-2); }
+.fresh-unavailable, .fresh-pending, .fresh-nodata { color: var(--muted); background: var(--panel-2); border-color: var(--line-2); }
 .pill { font-size: 11px; font-weight: 600; padding: 1px 7px; border-radius: 10px; white-space: nowrap; }
 .pill.ok { color: var(--up); background: color-mix(in srgb, var(--up) 12%, transparent); }
 .pill.bad { color: var(--down); background: color-mix(in srgb, var(--down) 12%, transparent); }
@@ -118,7 +119,15 @@ button:disabled { cursor: default; }
   border-bottom: 1px solid var(--line); overflow-x: auto; overflow-y: hidden; scrollbar-width: none;
 }
 .top-group { display: flex; align-items: center; gap: 8px; flex: none; }
-@media (max-width: 1859px) { .wide-only { display: none; } .cmd-txt { display: none; } .top { gap: 8px; } .tick { padding: 3px 4px; } .clock { padding: 0 8px; } }
+@media (max-width: 1859px) {
+  .wide-only { display: none; } .cmd-txt { display: none; }
+  .top { gap: 6px; } .top-group { gap: 5px; } .tick { padding: 3px 3px; gap: 4px; } .clock { padding: 0 6px; }
+  .top .fresh-at, .top .fresh-long { display: none; }
+  .top .fresh-short { display: inline; }
+  .mode-sel { width: 96px; }
+  .acct { gap: 6px; padding: 4px 6px; }
+  .cmd-btn { padding: 4px; border-color: transparent; }
+}
 .top-group.right { margin-left: auto; }
 .brand { font: 700 12px 'IBM Plex Mono', monospace; letter-spacing: 0.14em; padding: 3px 6px; background: var(--text); color: var(--panel); border-radius: 3px; }
 .tick { display: flex; gap: 6px; align-items: baseline; padding: 3px 6px; border-radius: 4px; }
@@ -160,7 +169,32 @@ button:disabled { cursor: default; }
 .wl-empty { color: var(--faint); font-size: 11px; padding: 4px 10px; }
 
 /* ---------- chart ---------- */
-.chart-panel { margin: 0; }
+.center { display: flex; flex-direction: column; gap: 6px; min-width: 0; min-height: 0; }
+.chart-panel { margin: 0; flex: 1; min-height: 240px; }
+.chart-empty { position: absolute; inset: 0; display: grid; place-content: center; text-align: center; gap: 4px; color: var(--muted); z-index: 2; padding: 20px; }
+.chart-note { position: absolute; top: 8px; left: 10px; z-index: 2; font-size: 11px; color: var(--warn); background: var(--warn-bg); padding: 2px 8px; border-radius: 4px; }
+.chip.sm { font-size: 11px; padding: 1px 7px; white-space: nowrap; }
+.chip.sm.on { background: var(--accent-bg); color: var(--accent); border-color: var(--accent); }
+.demo-txt { color: var(--demo); }
+
+/* ---------- levels ---------- */
+.levels { flex: none; }
+.lv-grid { display: grid; font-size: 12px; overflow-x: auto; }
+.lv-grid > div { padding: 2px 10px; border-bottom: 1px solid var(--line); min-width: 0; line-height: 18px; }
+.lv-h { display: flex; align-items: center; gap: 8px; background: var(--panel-2); flex-wrap: nowrap; overflow: hidden; padding: 4px 10px !important; }
+.lv-h .fresh { margin-left: auto; }
+.lv-h.sel { box-shadow: inset 0 -2px 0 var(--accent); }
+.lv-sym { font: 600 13px 'IBM Plex Mono', monospace; }
+.lv-sym:hover { color: var(--accent); }
+.bell { font-size: 10.5px; font-weight: 600; padding: 1px 6px; border-radius: 10px; border: 1px solid var(--line-2); color: var(--muted); white-space: nowrap; }
+.bell.on { color: var(--accent); border-color: var(--accent); background: var(--accent-bg); }
+.lv-l { font: 600 11.5px 'IBM Plex Mono', monospace; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lv-l .small { font-family: 'IBM Plex Sans', sans-serif; font-weight: 400; }
+.lv-c { display: grid; grid-template-columns: minmax(64px, auto) minmax(52px, auto) minmax(56px, auto); gap: 8px; align-items: baseline; }
+.lv-c.near { background: var(--sel); }
+.lv-c.muted { display: block; }
+.lv-note { margin: 4px 10px 6px; }
+.levels .phead { height: 30px; }
 .chart-title { display: flex; gap: 10px; align-items: baseline; white-space: nowrap; overflow: hidden; }
 .chart-title b { font: 600 14px 'IBM Plex Mono', monospace; }
 .chart-wrap { flex: 1; min-height: 0; position: relative; }

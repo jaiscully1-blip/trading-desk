@@ -1,4 +1,4 @@
-import type { Mode, Quote } from '../types';
+import type { Freshness, MacroResult, Mode, Quote } from '../types';
 import { MODES, hms, etTime, type ClockState } from '../lib/clock';
 import { DEMO_ACCOUNT, DEMO_MACRO, DEMO_AT } from '../lib/demo';
 import { pct, px, sUsd, tone, usd } from '../lib/format';
@@ -28,7 +28,17 @@ export function TopStrip({
   theme,
   onTheme,
   onCmd,
+  quoteFresh,
+  quoteAsOf,
+  quoteSource,
+  macro,
+  live,
 }: {
+  quoteFresh: Freshness;
+  quoteAsOf?: number;
+  quoteSource?: string;
+  macro: MacroResult | null;
+  live: boolean;
   quotes: Record<string, Quote>;
   clk: ClockState;
   mode: Mode;
@@ -42,6 +52,8 @@ export function TopStrip({
   onCmd: () => void;
 }) {
   const a = DEMO_ACCOUNT;
+  const vixChg = macro?.vix?.prev ? ((macro.vix.value - macro.vix.prev) / macro.vix.prev) * 100 : NaN;
+  const tnxChg = macro?.tnx?.prev != null ? macro.tnx.value - macro.tnx.prev : NaN;
   const spy = quotes.SPY, qqq = quotes.QQQ;
   const nextOrClose = clk.toClose != null ? `Close in ${hms(clk.toClose)}` : `Open in ${hms(clk.toOpen ?? 0)}`;
   return (
@@ -50,9 +62,21 @@ export function TopStrip({
         <span className="brand wide-only">DESK</span>
         <Tick label="SPY" value={px(spy.last)} chg={spy.chgPct} chgFmt={pct(spy.chgPct)} onClick={() => onSelect('SPY')} />
         <Tick label="QQQ" value={px(qqq.last)} chg={qqq.chgPct} chgFmt={pct(qqq.chgPct)} onClick={() => onSelect('QQQ')} />
-        <Tick label="VIX" value={DEMO_MACRO.vix.toFixed(2)} chg={DEMO_MACRO.vixChg} chgFmt={pct(DEMO_MACRO.vixChg, 1)} minor />
-        <Tick label="10Y" value={`${DEMO_MACRO.tnx.toFixed(3)}%`} chg={DEMO_MACRO.tnxChg} chgFmt={`${DEMO_MACRO.tnxChg >= 0 ? '+' : ''}${(DEMO_MACRO.tnxChg * 100).toFixed(1)}bp`} minor />
-        <Fresh kind="demo" src={`Sample quotes and account, generated ${etTime(DEMO_AT)} ET. Real data from Milestones 2 and 4.`} />
+        <Fresh kind={quoteFresh} at={quoteAsOf} src={quoteSource} />
+        {live ? (
+          <>
+            <Tick label="VIX" value={macro?.vix ? macro.vix.value.toFixed(2) : '—'} chg={vixChg} chgFmt={pct(vixChg, 1)} minor />
+            <Tick label="10Y" value={macro?.tnx ? `${macro.tnx.value.toFixed(2)}%` : '—'} chg={tnxChg} chgFmt={Number.isFinite(tnxChg) ? `${tnxChg >= 0 ? '+' : ''}${(tnxChg * 100).toFixed(0)}bp` : '—'} minor />
+            <span title={macro ? `FRED close for ${macro.vix?.date ?? macro.tnx?.date}` : 'Set FRED_API_KEY for VIX and 10Y'}>
+              <Fresh kind={macro ? 'eod' : 'unavailable'} src={macro?.source} />
+            </span>
+          </>
+        ) : (
+          <>
+            <Tick label="VIX" value={DEMO_MACRO.vix.toFixed(2)} chg={DEMO_MACRO.vixChg} chgFmt={pct(DEMO_MACRO.vixChg, 1)} minor />
+            <Tick label="10Y" value={`${DEMO_MACRO.tnx.toFixed(3)}%`} chg={DEMO_MACRO.tnxChg} chgFmt={`${DEMO_MACRO.tnxChg >= 0 ? '+' : ''}${(DEMO_MACRO.tnxChg * 100).toFixed(1)}bp`} minor />
+          </>
+        )}
       </div>
 
       <div className="top-group clock" title="Holidays and early closes are applied when the market-status feed lands (Milestone 7).">
@@ -85,6 +109,7 @@ export function TopStrip({
           <span><span className="tick-l">R</span> <span className={`num ${tone(a.rToday)}`}>{a.rToday >= 0 ? '+' : ''}{a.rToday.toFixed(1)}R</span></span>
           <span><span className="tick-l">RISK</span> <span className="num">{a.riskUsedPct.toFixed(1)}/{a.maxDailyLossPct.toFixed(1)}%</span></span>
           <span className={`pill ${a.lockout === 'Clear' ? 'ok' : 'bad'}`}>{a.lockout}</span>
+          <span title={`Sample account generated ${etTime(DEMO_AT)} ET; the journal drives it from Milestone 4`}><Fresh kind="demo" /></span>
         </button>
         <button className="icon-btn" onClick={onTheme} title="Toggle theme (T)" aria-label="Toggle theme">
           {theme === 'dark' ? '☀' : '☾'}

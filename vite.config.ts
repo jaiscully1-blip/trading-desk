@@ -1,8 +1,38 @@
-import { defineConfig } from 'vite';
+import { defineConfig, loadEnv, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 import { viteSingleFile } from 'vite-plugin-singlefile';
 
-// `npm run build:single` inlines everything into one HTML file (used for the hosted preview).
-export default defineConfig(({ mode }) => ({
-  plugins: [react(), ...(mode === 'single' ? [viteSingleFile()] : [])],
-}));
+/** Runs the /api serverless functions inside `npm run dev`, so local dev matches Vercel. */
+function devApi(): Plugin {
+  return {
+    name: 'dev-api',
+    configureServer(server) {
+      server.middlewares.use('/api', async (req, res, next) => {
+        const name = (req.url ?? '').split('?')[0].replace(/^\/+/, '').replace(/[^a-z-]/g, '');
+        if (!name) return next();
+        try {
+          const mod = await server.ssrLoadModule(`/api/${name}.ts`);
+          if (typeof mod.GET !== 'function') return next();
+          const r: Response = await mod.GET(new Request(`http://localhost${req.originalUrl}`));
+          res.statusCode = r.status;
+          r.headers.forEach((v, k) => res.setHeader(k, v));
+          res.end(await r.text());
+        } catch (e) {
+          res.statusCode = 500;
+          res.end(JSON.stringify({ error: (e as Error).message }));
+        }
+      });
+    },
+  };
+}
+
+// `npm run build:single` inlines everything into one HTML file (used for the hosted preview, which has no /api).
+export default defineConfig(({ mode }) => {
+  // Server-side keys for the dev API (never exposed: only VITE_* vars reach the browser bundle).
+  const env = loadEnv(mode, process.cwd(), '');
+  for (const [k, v] of Object.entries(env)) if (!k.startsWith('VITE_') && process.env[k] == null) process.env[k] = v;
+  return {
+    plugins: [react(), devApi(), ...(mode === 'single' ? [viteSingleFile()] : [])],
+    test: { include: ['tests/**/*.test.ts'] },
+  };
+});

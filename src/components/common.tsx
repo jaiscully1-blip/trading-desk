@@ -9,13 +9,17 @@ const LABEL: Record<Freshness, string> = {
   eod: 'END OF DAY',
   unavailable: 'UNAVAILABLE ON FREE TIER',
   pending: 'NOT BUILT YET',
+  nodata: 'NO DATA',
 };
+
+const SHORT: Record<Freshness, string> = { demo: 'DEMO', live: 'LIVE', delayed: 'DELAYED', eod: 'EOD', unavailable: 'N/A FREE', pending: 'TODO', nodata: 'NO DATA' };
 
 /** Source + freshness badge. Required on every panel. */
 export function Fresh({ kind, at, src }: { kind: Freshness; at?: number; src?: string }) {
   return (
-    <span className={`fresh fresh-${kind}`} title={src ? `Source: ${src}` : undefined}>
-      {LABEL[kind]}
+    <span className={`fresh fresh-${kind}`} title={[src && `Source: ${src}`, at != null && `As of ${etTime(at, true)} ET`].filter(Boolean).join(' · ') || undefined}>
+      <span className="fresh-long">{LABEL[kind]}</span>
+      <span className="fresh-short">{SHORT[kind]}</span>
       {at != null && <span className="fresh-at"> · {etTime(at)} ET</span>}
     </span>
   );

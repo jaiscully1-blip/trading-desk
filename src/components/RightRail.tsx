@@ -28,6 +28,8 @@ export function RightRail(props: {
   tab: RightTab;
   onTab: (t: RightTab) => void;
   quotes: Record<string, Quote>;
+  /** scanner universe: DEMO until Milestone 3 */
+  scanQuotes: Record<string, Quote>;
   boards: Record<string, Board>;
   headlines: Headline[];
   sel: string;
@@ -108,7 +110,7 @@ function NewsTab({ headlines, boards, newsFilter, setNewsFilter, onSelect }: Par
 
 type SortKey = 'sym' | 'gapPct' | 'rvol' | 'pmVol' | 'rsRank';
 
-function ScannerTab({ quotes, boards, scanFilter, setScanFilter, addSym, onSelect, sel }: Parameters<typeof RightRail>[0]) {
+function ScannerTab({ scanQuotes: quotes, boards, scanFilter, setScanFilter, addSym, onSelect, sel }: Parameters<typeof RightRail>[0]) {
   const [sort, setSort] = useState<{ k: SortKey; dir: 1 | -1 }>({ k: 'gapPct', dir: -1 });
   const f = SCAN_FILTERS.find((x) => x.id === scanFilter)!;
   const rows = useMemo(

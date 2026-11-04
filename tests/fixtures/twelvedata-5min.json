@@ -1,0 +1,6 @@
+{"meta":{"symbol":"SPY","interval":"5min","currency":"USD","exchange_timezone":"America/New_York","exchange":"NYSE","mic_code":"ARCX","type":"ETF"},"values":[
+{"datetime":"2026-11-03 09:40:00","open":"753.10","high":"753.50","low":"752.80","close":"753.30","volume":"810000"},
+{"datetime":"2026-11-03 09:35:00","open":"753.60","high":"754.20","low":"752.90","close":"753.10","volume":"950000"},
+{"datetime":"2026-11-03 09:30:00","open":"752.73","high":"754.00","low":"752.39","close":"753.60","volume":"1400000"},
+{"datetime":"2026-11-02 15:55:00","open":"752.50","high":"752.90","low":"751.90","close":"752.10","volume":"2100000"}
+],"status":"ok"}

@@ -8,7 +8,8 @@
     "typecheck": "tsc --noEmit",
     "build": "tsc --noEmit && vite build",
     "build:single": "vite build --mode single --outDir dist-single",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "vitest run"
   },
   "dependencies": {
     "lightweight-charts": "5.2.1",
@@ -16,11 +17,13 @@
     "react-dom": "18.3.1"
   },
   "devDependencies": {
+    "@types/node": "^26.6.6",
     "@types/react": "^18.3.31",
     "@types/react-dom": "^18.3.7",
     "@vitejs/plugin-react": "^6.2.1",
     "typescript": "^7.0.2",
     "vite": "8.3.5",
-    "vite-plugin-singlefile": "^2.3.4"
+    "vite-plugin-singlefile": "^2.3.4",
+    "vitest": "^5.1.0"
   }
 }

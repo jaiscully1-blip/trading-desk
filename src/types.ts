@@ -1,20 +1,10 @@
-export type TF = 'D' | '1H' | '5m';
+export type { TF, Mode, Freshness, Bar, SeriesResult, QuoteResult, MacroResult, MacroPoint } from '../shared/types';
+import type { TF } from '../shared/types';
+
 export type Board = 'setups' | 'watching' | 'avoid';
-export type Mode = 'pre' | 'open' | 'midday' | 'power' | 'after';
 export type RightTab = 'news' | 'scanner' | 'journal' | 'risk';
 export type Overlay = 'map' | 'globe' | 'help' | null;
-
-/** Every panel shows one of these, with a timestamp. */
-export type Freshness = 'demo' | 'live' | 'delayed' | 'eod' | 'unavailable' | 'pending';
-
-export interface Bar {
-  time: number; // seconds; intraday bars are ET wall-clock encoded as UTC so the chart reads in ET
-  open: number;
-  high: number;
-  low: number;
-  close: number;
-  volume: number;
-}
+export type OrMinutes = 5 | 15 | 30;
 
 export interface Quote {
   sym: string;
@@ -48,6 +38,7 @@ export interface Layout {
   tab: RightTab;
   tf: TF;
   tickerOpen: boolean;
+  levelsOpen?: boolean;
 }
 
 export interface JournalDraft {

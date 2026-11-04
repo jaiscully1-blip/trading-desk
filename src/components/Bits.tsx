@@ -58,7 +58,7 @@ export interface Cmd {
   run: () => void;
 }
 
-export function CommandBar({ open, onClose, commands, tickers, onTicker }: { open: boolean; onClose: () => void; commands: Cmd[]; tickers: { sym: string; name: string }[]; onTicker: (s: string) => void }) {
+export function CommandBar({ open, onClose, commands, tickers, onTicker, allowAny }: { open: boolean; onClose: () => void; commands: Cmd[]; tickers: { sym: string; name: string }[]; onTicker: (s: string) => void; allowAny?: (s: string) => boolean }) {
   const [q, setQ] = useState('');
   const [i, setI] = useState(0);
   const [msg, setMsg] = useState('');
@@ -87,8 +87,15 @@ export function CommandBar({ open, onClose, commands, tickers, onTicker }: { ope
   if (!open) return null;
   const run = (k: number) => {
     const r = results[k];
+    const typed = q.trim().toUpperCase();
+    // live mode: any valid symbol jumps, even if it's not in the list
+    if (allowAny && typed && !typed.startsWith('/') && allowAny(typed) && (!r || r.kind !== 'sym' || r.x.sym !== typed) && k === 0) {
+      onTicker(typed);
+      onClose();
+      return;
+    }
     if (!r) {
-      if (q.trim()) setMsg(`"${q.trim().toUpperCase()}" isn't in the demo universe yet. Any ticker works once Milestone 2 connects data.`);
+      if (q.trim()) setMsg(allowAny ? `"${typed}" isn't a valid ticker symbol.` : `"${typed}" isn't in the demo universe. Any ticker works once /api has data keys.`);
       return;
     }
     if (r.kind === 'sym') onTicker(r.x.sym);
@@ -206,6 +213,7 @@ export function OverlayView({ kind, onClose }: { kind: 'map' | 'globe' | 'help';
       ['Ctrl K', 'Command bar: jump to ticker or run /command'],
       ['↑ ↓  or  J K', 'Move through watchlist'],
       ['1  2  3', 'Chart timeframe: Daily, 1-hour, 5-minute'],
+      ['L', 'Show/hide levels panel'],
       ['N  S  Q  R', 'Right rail: News, Scanner, Quick Journal, Risk'],
       ['[   ]', 'Hide/show left or right rail'],
       ['B', 'Hide/show news ticker'],

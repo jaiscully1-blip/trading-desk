@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { Board, Quote } from '../types';
+import type { Board, Freshness, Quote } from '../types';
 import { DEMO_AT, INDEXES } from '../lib/demo';
 import { pct, px, tone } from '../lib/format';
 import { Fresh, PanelHead } from './common';
@@ -15,9 +15,13 @@ export function orderedWatchlist(quotes: Record<string, Quote>, boards: Record<s
   return BOARDS.flatMap((b) =>
     Object.keys(boards)
       .filter((s) => boards[s] === b.id && quotes[s])
-      .sort((x, y) => quotes[y].rsRank - quotes[x].rsRank),
+      .sort(byRs(quotes)),
   );
 }
+
+/** RS rank descending; ties (and "not computed yet") alphabetical. */
+export const byRs = (q: Record<string, Quote>) => (x: string, y: string) =>
+  (q[y].rsRank || -1) - (q[x].rsRank || -1) || x.localeCompare(y);
 
 function Row({ q, sel, onSelect, draggable = true, onRemove }: { q: Quote; sel: boolean; onSelect: () => void; draggable?: boolean; onRemove?: () => void }) {
   return (
@@ -36,7 +40,7 @@ function Row({ q, sel, onSelect, draggable = true, onRemove }: { q: Quote; sel: 
       <span className="num wl-px">{px(q.last)}</span>
       <span className={`num wl-chg ${tone(q.chgPct)}`}>{pct(q.chgPct, 1)}</span>
       <span className="num wl-rs" title="Relative strength rank vs SPY (5/20/60d)">
-        {INDEXES.includes(q.sym) ? '—' : q.rsRank}
+        {INDEXES.includes(q.sym) || !Number.isFinite(q.rsRank) ? '—' : q.rsRank}
       </span>
       {onRemove && (
         <button className="wl-x" onClick={(e) => { e.stopPropagation(); onRemove(); }} title="Remove from watchlist" aria-label={`Remove ${q.sym}`}>
@@ -56,7 +60,15 @@ export function Watchlist({
   onSelect,
   onPopout,
   compact,
+  fresh = 'demo',
+  asOf = DEMO_AT,
+  source,
+  rsPending,
 }: {
+  fresh?: Freshness;
+  asOf?: number;
+  source?: string;
+  rsPending?: boolean;
   quotes: Record<string, Quote>;
   boards: Record<string, Board>;
   setBoard: (sym: string, b: Board) => void;
@@ -69,10 +81,10 @@ export function Watchlist({
   const [over, setOver] = useState<Board | null>(null);
   return (
     <section className="panel wl">
-      <PanelHead title="Watchlist" badge={<Fresh kind="demo" at={DEMO_AT} />} onPopout={onPopout}>
+      <PanelHead title="Watchlist" badge={<Fresh kind={fresh} at={asOf} src={source} />} onPopout={onPopout}>
       </PanelHead>
       <div className="wl-head">
-        <span>Sym</span><span>Last</span><span>Chg</span><span title="Relative strength rank vs SPY (5/20/60d). Boards sort by this.">RS</span>
+        <span>Sym</span><span>Last</span><span>Chg</span><span title={rsPending ? 'RS rank vs SPY is computed in Milestone 3; until then boards sort A-Z' : 'Relative strength rank vs SPY (5/20/60d). Boards sort by this.'}>RS</span>
       </div>
       <div className="wl-body">
         <div className="wl-board idx">
@@ -83,7 +95,7 @@ export function Watchlist({
         {BOARDS.map((b) => {
           const syms = Object.keys(boards)
             .filter((s) => boards[s] === b.id && quotes[s])
-            .sort((x, y) => quotes[y].rsRank - quotes[x].rsRank);
+            .sort(byRs(quotes));
           return (
             <div
               key={b.id}
