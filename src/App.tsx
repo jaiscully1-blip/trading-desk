@@ -26,6 +26,7 @@ import { Scanner } from './components/Scanner';
 import { PlaybookEditor } from './components/Playbooks';
 import { useMovers, useScan, useUniverse } from './data/scan';
 import { useCalendar, useNews } from './data/news';
+import { useMarketStatus } from './data/market';
 import { Calendars } from './components/Calendars';
 import { FearStrip } from './components/FearStrip';
 import { cloudConfigured, signIn, signOut, useCloudItems, useCloudSync, useCloudUser } from './data/cloud';
@@ -181,6 +182,13 @@ export default function App() {
   const qs = useQuotes(quoteSyms, dataMode);
   const scan = useScan(universe, dataMode, (s) => DEMO_QUOTES[s]?.last ?? 100);
   const macro = useMacro(dataMode);
+  const market = useMarketStatus(dataMode);
+  // Market-clock mode: tell me when the layout switched itself
+  const prevMode = useRef<Mode | null>(null);
+  useEffect(() => {
+    if (prevMode.current && prevMode.current !== mode && !override) flash(`Market clock: ${modeLabel(mode)} layout`, 3000);
+    prevMode.current = mode;
+  }, [mode]); // eslint-disable-line react-hooks/exhaustive-deps
   const newsSyms = useMemo(() => [...new Set([sel, ...INDEXES, ...wlSyms])], [sel, wlSyms]);
   const news = useNews(newsSyms, dataMode, HEADLINES);
   const cal = useCalendar(useMemo(() => [...new Set([...wlSyms, ...universe])], [wlSyms, universe]), dataMode);
@@ -298,7 +306,7 @@ export default function App() {
   useEffect(() => {
     if (!rcLoaded || !jLoaded || POPOUT) return;
     const e = et(now);
-    if (e.wd === 0 || e.wd === 6 || e.sod < 16 * 3600) return;
+    if (clk.holiday || e.wd === 0 || e.wd === 6 || e.sod < clk.closeSod) return; // early-close days recap at 1:00 PM
     if (recaps.some((r) => r.day === today && !r.partial)) return;
     const r = buildRecap(today, views, viols, checkin);
     if (!r) return;
@@ -309,7 +317,7 @@ export default function App() {
   }, [Math.floor(now / 60_000), rcLoaded, jLoaded]); // eslint-disable-line react-hooks/exhaustive-deps
   const openRecap = () => {
     const r = buildRecap(today, views, viols, checkin);
-    if (r && et(now).sod < 16 * 3600) setRecaps((x) => [...x.filter((y) => y.day !== today), { ...r, partial: true, lesson: `(Day in progress) ${r.lesson}` }]);
+    if (r && et(now).sod < clk.closeSod) setRecaps((x) => [...x.filter((y) => y.day !== today), { ...r, partial: true, lesson: `(Day in progress) ${r.lesson}` }]);
     setRecapOpen(today);
   };
   const replayView = replayId ? views.find((v) => v.t.id === replayId) : undefined;
@@ -529,6 +537,7 @@ export default function App() {
         quotes={quotes} clk={clk} mode={mode} override={override} onOverride={setOverride} onSelect={setSel}
         onAccount={() => setDrawer((d) => !d)} accountOpen={drawer} theme={theme} onTheme={toggleTheme} onCmd={() => setCmdOpen(true)}
         account={{ guard: g, settings, demo: views.some((v) => v.t.demo), demoPrices }}
+        marketSource={market?.status?.source}
         quoteFresh={quoteFresh} quoteAsOf={live ? qs?.asOf : DEMO_AT} quoteSource={live ? qs?.source : 'Generated sample quotes'} macro={macro} live={live}
       />
       {layout.fearOpen !== false && <FearStrip macro={macro} quotes={quotes} live={live} />}

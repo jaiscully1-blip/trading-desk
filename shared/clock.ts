@@ -1,4 +1,5 @@
 import type { Mode } from './types';
+import { closeSodFor, getMarketCalendar, holidayName, isTradingDay, ymdKey } from './marketCalendar';
 
 const TZ = 'America/New_York';
 const fmt = new Intl.DateTimeFormat('en-US', {
@@ -64,13 +65,24 @@ function addDays(y: number, mo: number, d: number, n: number) {
   return { y: t.getUTCFullYear(), mo: t.getUTCMonth() + 1, d: t.getUTCDate(), wd: t.getUTCDay() };
 }
 
-/** Next weekday ET date (today included if `includeToday`). Holidays are not known until the M7 market-status feed. */
-function nextWeekday(e: ET, includeToday: boolean) {
-  for (let n = includeToday ? 0 : 1; n < 8; n++) {
-    const x = addDays(e.y, e.mo, e.d, n);
-    if (isWeekday(x.wd)) return x;
+/** Next NYSE trading day (skips weekends, published holidays and feed-reported closures). */
+export function nextTradingDay(y: number, mo: number, d: number, includeToday: boolean) {
+  for (let n = includeToday ? 0 : 1; n < 15; n++) {
+    const x = addDays(y, mo, d, n);
+    if (isTradingDay(x.y, x.mo, x.d)) return x;
   }
-  throw new Error('unreachable');
+  throw new Error('no trading day within two weeks');
+}
+
+/** Phase start times for a day: power hour is the last hour before the close (12:00 on a 1:00 PM early close). */
+export function phasesFor(closeSod: number): { id: Mode; label: string; start: number }[] {
+  return [
+    { id: 'pre', label: 'Pre-market', start: 4 * 3600 },
+    { id: 'open', label: 'Open', start: OPEN },
+    { id: 'midday', label: 'Midday', start: Math.min(11 * 3600, closeSod - 3600) },
+    { id: 'power', label: 'Power hour', start: closeSod - 3600 },
+    { id: 'after', label: 'After-hours & review', start: closeSod },
+  ];
 }
 
 export interface ClockState {
@@ -82,50 +94,64 @@ export interface ClockState {
   toNext: number; // seconds
   toOpen: number | null;
   toClose: number | null;
+  /** today's close in seconds of day (13:00 on early-close days) */
+  closeSod: number;
+  holiday: string | null;
+  earlyClose: string | null;
 }
 
 export function clock(now: number = Date.now()): ClockState {
   const e = et(now);
-  const trading = isWeekday(e.wd);
+  const key = ymdKey(e.y, e.mo, e.d);
+  const holiday = isWeekday(e.wd) ? holidayName(key) : null;
+  const trading = isWeekday(e.wd) && !holiday;
+  const closeSod = trading ? closeSodFor(key) : CLOSE;
+  const early = trading ? getMarketCalendar().early[key] : undefined;
+  const phases = phasesFor(closeSod);
   let mode: Mode = 'after';
-  if (trading) for (const m of MODES) if (e.sod >= m.start) mode = m.id;
-  if (!trading || e.sod < MODES[0].start) mode = 'after'; // overnight & weekends = review layout
+  if (trading) for (const m of phases) if (e.sod >= m.start) mode = m.id;
+  if (!trading || e.sod < phases[0].start) mode = 'after'; // overnight, weekends and holidays = review layout
 
+  const ahEnd = early ? 17 * 3600 : 20 * 3600;
   const session: ClockState['session'] = !trading
     ? 'Closed'
     : e.sod >= 4 * 3600 && e.sod < OPEN
       ? 'Pre-market'
-      : e.sod >= OPEN && e.sod < CLOSE
+      : e.sod >= OPEN && e.sod < closeSod
         ? 'Regular session'
-        : e.sod >= CLOSE && e.sod < 20 * 3600
+        : e.sod >= closeSod && e.sod < ahEnd
           ? 'After-hours'
           : 'Closed';
 
   // Next phase boundary
   let nextAt: number;
   let nextLabel: string;
-  const later = trading ? MODES.find((m) => m.start > e.sod) : undefined;
+  const later = trading ? phases.find((m) => m.start > e.sod) : undefined;
   if (later) {
     nextAt = etToUtc(e.y, e.mo, e.d, Math.floor(later.start / 3600), (later.start % 3600) / 60);
     nextLabel = later.label;
   } else {
-    // weekday before 4:00 is caught by `later`; otherwise pre-market starts on the next weekday
-    const day = nextWeekday(e, false);
+    const day = nextTradingDay(e.y, e.mo, e.d, false);
     nextAt = etToUtc(day.y, day.mo, day.d, 4, 0);
     nextLabel = 'Pre-market';
   }
 
   let toOpen: number | null = null;
   let toClose: number | null = null;
-  if (trading && e.sod >= OPEN && e.sod < CLOSE) {
-    toClose = Math.round((etToUtc(e.y, e.mo, e.d, 16, 0) - now) / 1000);
+  if (trading && e.sod >= OPEN && e.sod < closeSod) {
+    toClose = Math.round((etToUtc(e.y, e.mo, e.d, Math.floor(closeSod / 3600), (closeSod % 3600) / 60) - now) / 1000);
   } else {
-    const day = trading && e.sod < OPEN ? { y: e.y, mo: e.mo, d: e.d } : nextWeekday(e, false);
+    const day = trading && e.sod < OPEN ? { y: e.y, mo: e.mo, d: e.d } : nextTradingDay(e.y, e.mo, e.d, false);
     toOpen = Math.round((etToUtc(day.y, day.mo, day.d, 9, 30) - now) / 1000);
   }
 
-  return { now, et: e, mode, session, nextLabel, toNext: Math.round((nextAt - now) / 1000), toOpen, toClose };
+  return {
+    now, et: e, mode, session, nextLabel, toNext: Math.round((nextAt - now) / 1000), toOpen, toClose, closeSod,
+    holiday, earlyClose: early ? `${early.name}: closes ${early.close === 13 * 3600 ? '1:00' : etHm(early.close)} PM ET` : null,
+  };
 }
+
+const etHm = (sod: number) => `${Math.floor(sod / 3600) % 12 || 12}:${String((sod % 3600) / 60).padStart(2, '0')}`;
 
 export function hms(sec: number) {
   const s = Math.max(0, sec);
@@ -150,18 +176,18 @@ export function etTime(at: number, withSec = false) {
 /** Most recent ET trading date whose session has started (or today if pre-market has begun). */
 export function lastSessionDates(n: number, now = Date.now()) {
   const e = et(now);
-  let start = isWeekday(e.wd) && e.sod >= OPEN ? { y: e.y, mo: e.mo, d: e.d } : null;
+  let start = isTradingDay(e.y, e.mo, e.d) && e.sod >= OPEN ? { y: e.y, mo: e.mo, d: e.d } : null;
   if (!start) {
-    for (let k = 1; k < 8; k++) {
+    for (let k = 1; k < 15; k++) {
       const x = addDays(e.y, e.mo, e.d, -k);
-      if (isWeekday(x.wd)) { start = x; break; }
+      if (isTradingDay(x.y, x.mo, x.d)) { start = x; break; }
     }
   }
   const out: { y: number; mo: number; d: number }[] = [];
   let k = 0;
   while (out.length < n) {
     const x = addDays(start!.y, start!.mo, start!.d, -k++);
-    if (isWeekday(x.wd)) out.push({ y: x.y, mo: x.mo, d: x.d });
+    if (isTradingDay(x.y, x.mo, x.d)) out.push({ y: x.y, mo: x.mo, d: x.d });
   }
   return out.reverse();
 }

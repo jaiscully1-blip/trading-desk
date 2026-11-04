@@ -235,3 +235,26 @@ describe('/api/macro fear inputs', () => {
     expect(j.putCall.ratio).toBe(1.12);
   });
 });
+
+import { GET as marketStatus } from '../api/market-status';
+import { resetMarketCalendar } from '../shared/marketCalendar';
+
+describe('/api/market-status', () => {
+  afterEach(() => resetMarketCalendar());
+  it('merges Finnhub holidays/early closes with the published calendar and reports live status', async () => {
+    routes.push((u) => (u.pathname.endsWith('/market-holiday') ? { body: { exchange: 'US', data: [{ eventName: 'Christmas', atDate: '2028-12-25', tradingHour: '' }, { eventName: 'Day before Independence Day', atDate: '2028-07-03', tradingHour: '09:30-13:00' }, { eventName: 'New one', atDate: '2029-01-01', tradingHour: '' }] } } : undefined));
+    routes.push((u) => (u.pathname.endsWith('/market-status') ? { body: { exchange: 'US', holiday: null, isOpen: true, session: 'regular', timezone: 'America/New_York', t: 1793797200 } } : undefined));
+    const j = await (await marketStatus()).json();
+    expect(j.calendar.holidays['2029-01-01']).toBe('New one');
+    expect(j.calendar.holidays['2026-11-26']).toBe('Thanksgiving Day'); // published calendar always kept
+    expect(j.calendar.early['2028-07-03'].close).toBe(13 * 3600);
+    expect(j.status).toMatchObject({ isOpen: true, session: 'regular', source: 'Finnhub' });
+  });
+  it('falls back to Alpha Vantage status (real response shape) when Finnhub fails', async () => {
+    routes.push((u) => (u.host === 'finnhub.io' ? { status: 500, body: {} } : undefined));
+    routes.push((u) => (u.host === 'www.alphavantage.co' ? { body: { endpoint: 'Global Market Open & Close Status', markets: [{ market_type: 'Equity', region: 'United States', primary_exchanges: 'NASDAQ, NYSE, AMEX, BATS', local_open: '09:30', local_close: '16:15', current_status: 'closed', notes: '' }] } } : undefined));
+    const j = await (await marketStatus()).json();
+    expect(j.status).toMatchObject({ isOpen: false, source: 'Alpha Vantage' });
+    expect(j.sources.find((s: { name: string }) => s.name === 'Finnhub status').ok).toBe(false);
+  });
+});

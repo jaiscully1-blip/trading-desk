@@ -30,6 +30,7 @@ export function TopStrip({
   onTheme,
   onCmd,
   account,
+  marketSource,
   quoteFresh,
   quoteAsOf,
   quoteSource,
@@ -37,6 +38,7 @@ export function TopStrip({
   live,
 }: {
   account: { guard: Guard; settings: AccountSettings; demo: boolean; demoPrices: boolean };
+  marketSource?: string;
   quoteFresh: Freshness;
   quoteAsOf?: number;
   quoteSource?: string;
@@ -82,8 +84,10 @@ export function TopStrip({
         )}
       </div>
 
-      <div className="top-group clock" title="Holidays and early closes are applied when the market-status feed lands (Milestone 7).">
+      <div className="top-group clock" title={`NYSE holidays and early closes: published 2026-2028 calendar${marketSource ? ` + live status from ${marketSource}` : ''}`}>
         <span className="num clock-time">{etTime(clk.now, true)} ET</span>
+        {clk.holiday && <span className="pill bad" title="Market closed">Closed · {clk.holiday}</span>}
+        {clk.earlyClose && <span className="pill warn" title={clk.earlyClose}>Early close {clk.closeSod === 13 * 3600 ? '1 PM' : ''}</span>}
         <span className={`sess wide-only sess-${clk.session === 'Regular session' ? 'on' : 'off'}`}>{clk.session}</span>
         <select
           className="mode-sel"

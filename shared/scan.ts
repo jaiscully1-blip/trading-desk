@@ -1,5 +1,6 @@
 // Scan engine. Pure functions over daily bars, shared by /api/scan and the demo fallback.
 import type { Bar } from './types';
+import { closeSodFor } from './marketCalendar';
 
 export interface PatternHit {
   ok: boolean;
@@ -88,8 +89,11 @@ export function computeBase(sym: string, bars: Bar[], nowEnc: number, asOf: numb
 
   const vols = done.map((b) => b.volume);
   const avgVol20 = avg(vols.slice(-20));
+  // early-close days compress the volume curve into the shorter session
+  const nd = new Date(nowEnc * 1000).toISOString().slice(0, 10);
+  const sessionMin = (closeSodFor(nd) - 9.5 * 3600) / 60;
   const minSinceOpen = Math.floor((nowEnc % 86400) / 60) - 570;
-  const frac = formingIsToday ? volumeFraction(minSinceOpen) : 0;
+  const frac = formingIsToday ? volumeFraction((minSinceOpen * 390) / sessionMin) : 0;
   const todayVol = formingIsToday ? lastBar.volume : null;
   const rvol = todayVol != null && frac > 0.02 && avgVol20 > 0 ? todayVol / (avgVol20 * frac) : null;
 

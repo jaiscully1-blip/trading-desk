@@ -3,7 +3,7 @@
 Personal trading desk for swing momentum names and intraday SPY/QQQ. Dense, keyboard-first, Bloomberg-style.
 It never places trades: it shows information and enforces your own rules.
 
-**Status: Milestone 6 (trade replay with ghost exit, end-of-day recap).** With API keys set, quotes, candles, VIX/10Y,
+**Status: Milestone 7 (market-clock mode with holidays and early closes).** With API keys set, quotes, candles, VIX/10Y,
 SPY/QQQ levels, the scanner, RS rank, news, calendars and the fear strip are real. The journal and account are always your own
 data. Without keys (or in the static preview) market data falls back to generated sample data behind a `DEMO DATA` badge.
 
@@ -134,6 +134,19 @@ for charts) and then refreshes daily bars hourly. Each ticker costs about 8 cred
 - **Daily CSV backup**: the full journal (one row per trade, fills flattened) downloads automatically at the close (turn off with
   `/auto-backup`); the recap also offers the day's CSV or the full journal on demand.
 
+## Market-clock mode (M7)
+
+The layout switches itself by Eastern time (Pre-market 4:00, Open 9:30, Midday 11:00, Power hour last hour before the close,
+After-hours & review from the close) with countdowns to the next phase and to the open or close. Each mode has its own saved
+layout; a notice appears when it switches. The mode selector in the top strip (or `/mode-*`) overrides it.
+
+- **Holidays and early closes:** the official NYSE 2026–2028 calendar is built in (`shared/marketCalendar.ts`). On early-close days
+  (1:00 PM) power hour starts at noon, after-hours starts at 1:00 and ends at 5:00, countdowns, RVOL's volume curve and the daily
+  recap all use the 1:00 close. Holidays show "Closed · <holiday>" and count down to the next trading day.
+- **Status feed** (`/api/market-status`, polled every 10 min): Finnhub market status + holiday list, Alpha Vantage market status as
+  the backup. Feed holidays/early closes are merged on top of the published calendar (never removing one), and a closure the feed
+  reports outside the calendar (e.g. a national day of mourning) closes the day. Without `/api` the published calendar still applies.
+
 ## Supabase (optional sync)
 
 1. Create a free project, run `supabase/schema.sql` in the SQL editor.
@@ -197,6 +210,7 @@ src/
   lib/csv.ts           broker CSV parsing, column detection, round trips, transfers
   lib/replay.ts        ghost-exit simulation (stop, target R, trail, time stop, EOD)
   lib/recap.ts         daily recap, day grade, lesson, journal CSV
+  data/market.ts       market-status feed polling
   lib/idb.ts           IndexedDB store for the journal
   lib/indicators.ts    SMA, EMA, RSI, MACD, ATR, session VWAP
   lib/levels.ts        PDH/PDL/PDC, VWAP, opening range, touch/break detection
@@ -204,7 +218,7 @@ src/
   lib/layout.ts        per-mode layout defaults
   lib/store.ts         local persistence (moves to Supabase in M3/M4)
 shared/                types, ET clock, provider parsers, scan engine, news + calendar logic (browser and /api)
-api/                   Vercel functions: candles, quotes, macro, scan, movers, news, calendar, health (+ _lib adapters, cache, limits)
+api/                   Vercel functions: candles, quotes, macro, scan, movers, news, calendar, market-status, health (+ _lib)
 supabase/schema.sql    table + row-level security
 tests/                 vitest: parsers (incl. a real Alpha Vantage response), indicators, levels, clock, API
 ```
@@ -217,7 +231,7 @@ tests/                 vitest: parsers (incl. a real Alpha Vantage response), in
 4. ✅ Journal, pre-trade checklist, CSV import, account strip and drawer, risk guardrails
 5. ✅ News ticker, chart news flags, calendars, fear strip
 6. ✅ Trade replay with ghost exit, end-of-day recap
-7. Market-clock mode (holiday / early-close feed)
+7. ✅ Market-clock mode (holiday / early-close feed)
 8. World map, money flow globe
 9. Research panels
 10. AI layer

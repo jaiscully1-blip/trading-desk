@@ -213,3 +213,39 @@ export async function fredReleaseDates(id: number, start: string, end: string): 
   const j = await getJson(`https://api.stlouisfed.org/fred/release/dates?release_id=${id}&api_key=${key('fred')}&file_type=json&realtime_start=${start}&realtime_end=${end}&include_release_dates_with_no_data=true&sort_order=asc&limit=1000`, 'fred');
   return (j?.release_dates ?? []).map((d: any) => String(d.date));
 }
+
+/* ---------------- market status (M7) ---------------- */
+export interface LiveStatus { isOpen: boolean; session: string | null; holiday: string | null; source: string; t: number }
+
+/** Finnhub /stock/market-status -> { exchange, holiday, isOpen, session, timezone, t } */
+export async function finnhubMarketStatus(): Promise<LiveStatus> {
+  need('finnhub');
+  const j = await getJson(`https://finnhub.io/api/v1/stock/market-status?exchange=US&token=${key('finnhub')}`, 'finnhub');
+  if (typeof j?.isOpen !== 'boolean') throw new ProviderError('finnhub', String(j?.error ?? 'unexpected market-status response'));
+  return { isOpen: j.isOpen, session: j.session ?? null, holiday: j.holiday ?? null, source: 'Finnhub', t: (Number(j.t) || Date.now() / 1000) * 1000 };
+}
+
+/** Finnhub /stock/market-holiday -> { data: [{ eventName, atDate, tradingHour: "" | "09:30-13:00" }] } */
+export async function finnhubHolidays(): Promise<{ holidays: Record<string, string>; early: Record<string, { close: number; name: string }> }> {
+  need('finnhub');
+  const j = await getJson(`https://finnhub.io/api/v1/stock/market-holiday?exchange=US&token=${key('finnhub')}`, 'finnhub');
+  if (!Array.isArray(j?.data)) throw new ProviderError('finnhub', String(j?.error ?? 'unexpected market-holiday response'));
+  const holidays: Record<string, string> = {}, early: Record<string, { close: number; name: string }> = {};
+  for (const h of j.data) {
+    const d = String(h.atDate ?? ''), name = String(h.eventName ?? 'Market holiday');
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) continue;
+    const m = /-(\d{2}):(\d{2})$/.exec(String(h.tradingHour ?? ''));
+    if (m) early[d] = { close: +m[1] * 3600 + +m[2] * 60, name };
+    else if (!h.tradingHour) holidays[d] = name;
+  }
+  return { holidays, early };
+}
+
+/** Alpha Vantage MARKET_STATUS (free): open/closed per region. Used as the backup status feed. */
+export async function alphaMarketStatus(): Promise<LiveStatus> {
+  need('alphavantage');
+  const j = await getJson(`https://www.alphavantage.co/query?function=MARKET_STATUS&apikey=${key('alphavantage')}`, 'alphavantage');
+  const us = (j?.markets ?? []).find((m: any) => m.market_type === 'Equity' && m.region === 'United States');
+  if (!us) throw new ProviderError('alphavantage', String(j?.Information ?? j?.Note ?? 'no US market status'));
+  return { isOpen: String(us.current_status).toLowerCase() === 'open', session: null, holiday: us.notes || null, source: 'Alpha Vantage', t: Date.now() };
+}
