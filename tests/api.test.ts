@@ -258,3 +258,33 @@ describe('/api/market-status', () => {
     expect(j.sources.find((s: { name: string }) => s.name === 'Finnhub status').ok).toBe(false);
   });
 });
+
+import { GET as worldApi } from '../api/world';
+import { GET as flowsApi } from '../api/flows';
+
+describe('/api/world and /api/flows', () => {
+  it('world: GDELT tone-split hotspots + country ETF weather', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout'] });
+    const feat = (n: string, lon: number, lat: number, c: number) => ({ type: 'Feature', geometry: { type: 'Point', coordinates: [lon, lat] }, properties: { name: n, count: c, html: `<a href="https://x/${n}">${n} markets</a>` } });
+    routes.push((u) => (u.host === 'api.gdeltproject.org' ? { body: { type: 'FeatureCollection', features: decodeURIComponent(u.search).includes('tone<-2') ? [feat('Tokyo, Japan', 139.7, 35.7, 30)] : [feat('London, United Kingdom', -0.1, 51.5, 20)] } } : undefined));
+    routes.push((u) => (u.host === 'finnhub.io' ? { body: { c: 70, d: -1.5, dp: u.searchParams.get('symbol') === 'EWJ' ? -2.4 : 0.8, h: 71, l: 69, o: 70, pc: 71, t: 1793797200 } } : undefined));
+    const p = worldApi();
+    await vi.advanceTimersByTimeAsync(12_000); // GDELT spacing: 5.2s between requests
+    const j = await (await p).json();
+    vi.useRealTimers();
+    expect(j.hotspots.map((h: { country: string; tone: number }) => [h.country, h.tone])).toEqual([['Japan', -1], ['United Kingdom', 1]]);
+    const jp = j.regions.find((r: { id: string }) => r.id === 'jp');
+    expect(jp).toMatchObject({ etf: 'EWJ', chgPct: -2.4, weather: 'storm' });
+    expect(calls.filter((c) => c.startsWith('api.gdeltproject.org')).length).toBe(2);
+  });
+  it('flows: ETF daily bars (Twelve Data) + crypto via Binance mirror, CoinGecko if it fails', async () => {
+    routes.push((u) => (u.host === 'api.twelvedata.com' ? { body: tdDaily(ramp(50, 60, 60)) } : undefined));
+    routes.push((u) => (u.host === 'data-api.binance.vision' ? { status: 451, body: { code: 0, msg: 'restricted location' } } : undefined));
+    routes.push((u) => (u.host === 'api.coingecko.com' ? { body: { prices: Array.from({ length: 60 }, (_, i) => [1790000000000 + i * 864e5, 60000 + i * 100]), total_volumes: Array.from({ length: 60 }, (_, i) => [1790000000000 + i * 864e5, 3e10]) } } : undefined));
+    const j = await (await flowsApi()).json();
+    expect(j.windows['5D'].rows.some((r: { sym: string }) => r.sym === 'BTC')).toBe(true);
+    expect(j.sources).toContain('CoinGecko');
+    expect(j.pending.length).toBeGreaterThan(0); // 15 ETF series can't all load inside one minute's free credits
+    expect(j.proxy).toMatch(/Not actual fund-flow data/);
+  });
+});

@@ -4,6 +4,8 @@ import { isPlainTicker, parseAlphaMovers, parseFinnhubNews, parseFinnhubProfile,
 import { ProviderError, parseAlphaDaily, parseFinnhubQuote, parseFredLatest, parseTwelveQuote, parseTwelveSeries } from '../../shared/parse';
 import { getJson, key, take, type Provider } from './core';
 import { parseFeed } from '../../shared/news';
+import { MARKET_QUERY, parseGeo } from '../../shared/world';
+import { parseBinanceKlines, parseGeckoChart } from '../../shared/flows';
 import { avCsvError, parseEarningsCsv, parseIpoCsv, parseKalshiFed, type Earning, type Ipo, type Odds } from '../../shared/calendar';
 
 export interface SeriesAdapter {
@@ -248,4 +250,37 @@ export async function alphaMarketStatus(): Promise<LiveStatus> {
   const us = (j?.markets ?? []).find((m: any) => m.market_type === 'Equity' && m.region === 'United States');
   if (!us) throw new ProviderError('alphavantage', String(j?.Information ?? j?.Note ?? 'no US market status'));
   return { isOpen: String(us.current_status).toLowerCase() === 'open', session: null, holiday: us.notes || null, source: 'Alpha Vantage', t: Date.now() };
+}
+
+/* ---------------- world map + money flow (M8) ---------------- */
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+let lastGdelt = 0;
+/** GDELT asks for at most one request per 5 seconds. */
+async function gdelt(url: string) {
+  const wait = lastGdelt + 5200 - Date.now();
+  if (wait > 0) await sleep(wait);
+  lastGdelt = Date.now();
+  return getJson(url, 'gdelt', 15_000);
+}
+
+/** GDELT GEO 2.0 PointData for market news, split by tone. */
+export async function gdeltHotspots(timespan = '24h') {
+  const base = 'https://api.gdeltproject.org/api/v2/geo/geo?format=GeoJSON&mode=PointData&maxpoints=250';
+  const q = (tone: string) => `${base}&timespan=${timespan}&query=${encodeURIComponent(`${MARKET_QUERY} ${tone}`)}`;
+  const neg = parseGeo(await gdelt(q('tone<-2')));
+  const pos = parseGeo(await gdelt(q('tone>2')));
+  return { neg, pos };
+}
+
+/** Daily crypto bars: Binance's public market-data mirror (the main host returns 451 to US servers), else CoinGecko. */
+export async function cryptoDaily(sym: 'BTC' | 'ETH'): Promise<{ bars: Bar[]; source: string }> {
+  try {
+    const j = await getJson(`https://data-api.binance.vision/api/v3/klines?symbol=${sym}USDT&interval=1d&limit=60`, 'binance');
+    return { bars: parseBinanceKlines(j), source: 'Binance' };
+  } catch {
+    const id = sym === 'BTC' ? 'bitcoin' : 'ethereum';
+    const j = await getJson(`https://api.coingecko.com/api/v3/coins/${id}/market_chart?vs_currency=usd&days=60&interval=daily`, 'coingecko');
+    return { bars: parseGeckoChart(j), source: 'CoinGecko' };
+  }
 }

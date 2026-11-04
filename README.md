@@ -147,6 +147,21 @@ layout; a notice appears when it switches. The mode selector in the top strip (o
   the backup. Feed holidays/early closes are merged on top of the published calendar (never removing one), and a closure the feed
   reports outside the calendar (e.g. a national day of mourning) closes the day. Without `/api` the published calendar still applies.
 
+## World map and money flow globe (M8)
+
+- **World map (`M`)**, two layers on one map (D3 Natural Earth projection, Natural Earth 110m borders via `world-atlas`):
+  - **News:** GDELT GEO 2.0 hotspots for the last 24h of market news (keyless, 1 request / 5 s, cached 30 min). Two queries split
+    by tone (tone < −2 and tone > 2) are merged per location: size = article count, green/red = net tone. Click a hotspot for its
+    headlines and the tickers they affect (your watchlist names matched in the headlines, plus that country's ETF).
+  - **Sentiment weather:** 12 regions, each scored 60% country ETF move today (±2% = ±1; Finnhub quotes) + 40% regional GDELT tone.
+    Storm ≤ −0.5, rain ≤ −0.15, cloud, partly sunny, sun ≥ +0.5. Click a region for the numbers; "Chart" opens its ETF.
+- **Money flow globe (`G`)** — a labeled **PROXY**, not fund-flow data. 11 sector SPDRs + TLT, GLD, UUP (Twelve Data daily, falls
+  back to Alpha Vantage) and BTC/ETH (Binance public data mirror, CoinGecko fallback). flow = return vs SPY × dollar volume vs its
+  20-day average (floored at 0.5×), for 1D / 5D / 20D. Arcs run from the 3 biggest outflows to the 3 biggest inflows with moving
+  particles. Node positions carry no meaning. Drawn on canvas with d3-geo's orthographic projection (no WebGL library) so the
+  overlay stays small and lazy-loaded; drag to rotate, click to chart.
+- Both overlays load only when opened and only poll while open. The globe fills progressively when Twelve Data credits run out.
+
 ## Supabase (optional sync)
 
 1. Create a free project, run `supabase/schema.sql` in the SQL editor.
@@ -179,7 +194,7 @@ Premarket high/low are marked unavailable: Twelve Data includes extended-hours c
 | `[ ]` | Hide/show left or right rail |
 | `B` | Hide/show news ticker |
 | `A` | Account drawer |
-| `M` / `G` | World map / money flow globe overlay (Milestone 8) |
+| `M` / `G` | World map / money flow globe |
 | `T` | Light/dark |
 | `?` | Shortcuts |
 | `Esc` | Close |
@@ -200,7 +215,7 @@ Premarket high/low are marked unavailable: Twelve Data includes extended-hours c
 ```
 src/
   App.tsx              shell, keyboard, layouts per mode, popout + mobile routing
-  components/          TopStrip, Watchlist, Chart, RightRail, Bits (ticker, command bar, drawer, overlays)
+  components/          TopStrip, Watchlist, Chart, RightRail, Bits (ticker, command bar, drawer, overlays), WorldMap, MoneyGlobe
   data/live.ts         /api client, shared series store, polling, quote patching, demo fallback
   data/scan.ts         scan polling, demo scan, movers, universe
   data/cloud.ts        Supabase auth + sync (optional)
@@ -211,14 +226,15 @@ src/
   lib/replay.ts        ghost-exit simulation (stop, target R, trail, time stop, EOD)
   lib/recap.ts         daily recap, day grade, lesson, journal CSV
   data/market.ts       market-status feed polling
+  data/world.ts        world map + flows polling and demo fallback
   lib/idb.ts           IndexedDB store for the journal
   lib/indicators.ts    SMA, EMA, RSI, MACD, ATR, session VWAP
   lib/levels.ts        PDH/PDL/PDC, VWAP, opening range, touch/break detection
   lib/demo.ts          DEMO DATA generator (removed as adapters land)
   lib/layout.ts        per-mode layout defaults
   lib/store.ts         local persistence (moves to Supabase in M3/M4)
-shared/                types, ET clock, provider parsers, scan engine, news + calendar logic (browser and /api)
-api/                   Vercel functions: candles, quotes, macro, scan, movers, news, calendar, market-status, health (+ _lib)
+shared/                types, ET clock, provider parsers, scan engine, news + calendar logic, world hotspots/weather, flows (browser and /api)
+api/                   Vercel functions: candles, quotes, macro, scan, movers, news, calendar, market-status, world, flows, health (+ _lib)
 supabase/schema.sql    table + row-level security
 tests/                 vitest: parsers (incl. a real Alpha Vantage response), indicators, levels, clock, API
 ```
@@ -232,6 +248,6 @@ tests/                 vitest: parsers (incl. a real Alpha Vantage response), in
 5. ✅ News ticker, chart news flags, calendars, fear strip
 6. ✅ Trade replay with ghost exit, end-of-day recap
 7. ✅ Market-clock mode (holiday / early-close feed)
-8. World map, money flow globe
+8. ✅ World map (news + sentiment weather), money flow globe
 9. Research panels
 10. AI layer

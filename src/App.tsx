@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { Suspense, lazy, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { Board, Freshness, Layout, Mode, OrMinutes, Overlay, Quote, RightTab, TF } from './types';
 import { clock, et, etTime, hms, modeLabel } from './lib/clock';
 import { DEMO_ALERTS, DEMO_AT, INDEXES, defaultBoards, makeHeadlines, makeQuotes } from './lib/demo';
@@ -27,6 +27,10 @@ import { PlaybookEditor } from './components/Playbooks';
 import { useMovers, useScan, useUniverse } from './data/scan';
 import { useCalendar, useNews } from './data/news';
 import { useMarketStatus } from './data/market';
+import { useFlows, useWorld } from './data/world';
+// Map and globe load on first use so they don't slow the desk's first load
+const WorldMap = lazy(() => import('./components/WorldMap'));
+const MoneyGlobe = lazy(() => import('./components/MoneyGlobe'));
 import { Calendars } from './components/Calendars';
 import { FearStrip } from './components/FearStrip';
 import { cloudConfigured, signIn, signOut, useCloudItems, useCloudSync, useCloudUser } from './data/cloud';
@@ -183,6 +187,8 @@ export default function App() {
   const scan = useScan(universe, dataMode, (s) => DEMO_QUOTES[s]?.last ?? 100);
   const macro = useMacro(dataMode);
   const market = useMarketStatus(dataMode);
+  const worldData = useWorld(dataMode, overlay === 'map');
+  const flowsData = useFlows(dataMode, overlay === 'globe');
   // Market-clock mode: tell me when the layout switched itself
   const prevMode = useRef<Mode | null>(null);
   useEffect(() => {
@@ -573,7 +579,11 @@ export default function App() {
       {ciOpen && <CheckInDialog day={today} existing={checkin} onClose={() => setCiOpen(false)} onSave={(c) => { setCheckins((x) => [...x.filter((y) => y.day !== c.day), c]); setCiOpen(false); }} />}
       {pbOpen && <PlaybookEditor playbooks={playbooks} setPlaybooks={setPlaybooks} activeId={activePb?.id ?? ''} setActiveId={(id) => setScanPrefs((x) => ({ ...x, playbookId: id }))} rows={rows} vwap={vwapBy} onClose={() => setPbOpen(false)} />}
       {syncOpen && <SyncDialog user={cloudUser?.email ?? null} onClose={() => setSyncOpen(false)} />}
-      {overlay && <OverlayView kind={overlay} onClose={() => setOverlay(null)} />}
+      {overlay === 'help' && <OverlayView kind="help" onClose={() => setOverlay(null)} />}
+      <Suspense fallback={overlay === 'map' || overlay === 'globe' ? <div className="overlay"><div className="overlay-in"><div className="ph-body">Loading…</div></div></div> : null}>
+        {overlay === 'map' && <WorldMap data={worldData} symbols={[...new Set([...INDEXES, ...wlSyms, ...universe])]} names={Object.fromEntries(Object.values(quotes).map((x) => [x.sym, x.name]))} onSelect={(s) => { setSel(s); setOverlay(null); }} onClose={() => setOverlay(null)} />}
+        {overlay === 'globe' && <MoneyGlobe data={flowsData} theme={theme} onSelect={(s) => { setSel(s); setOverlay(null); }} onClose={() => setOverlay(null)} />}
+      </Suspense>
       {toast && <div className="toast" role="status">{toast}</div>}
     </div>
   );
