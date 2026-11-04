@@ -153,7 +153,9 @@ export interface QuotesState {
   freshness: Freshness;
 }
 
-export function useQuotes(symbols: string[], mode: DataMode, intervalMs = 30_000): QuotesState | null {
+export function useQuotes(symbols: string[], mode: DataMode, baseMs = 30_000): QuotesState | null {
+  // Finnhub free is 60 calls/min and quotes are one call per symbol: stretch the interval for big lists
+  const intervalMs = Math.max(baseMs, symbols.length * 1200);
   const [st, setSt] = useState<QuotesState | null>(null);
   const key = symbols.join(',');
   useEffect(() => {

@@ -3,21 +3,23 @@
 import { ProviderError } from '../../shared/parse';
 import { clock } from '../../shared/clock';
 
-export type Provider = 'twelvedata' | 'finnhub' | 'alphavantage' | 'fred';
+export type Provider = 'twelvedata' | 'finnhub' | 'alphavantage' | 'fred' | 'finra';
 
 export const KEY_ENV: Record<Provider, string> = {
   twelvedata: 'TWELVEDATA_API_KEY',
   finnhub: 'FINNHUB_API_KEY',
   alphavantage: 'ALPHAVANTAGE_API_KEY',
   fred: 'FRED_API_KEY',
+  finra: '', // keyless public dataset
 };
 
 export function key(p: Provider): string {
+  if (!KEY_ENV[p]) return '';
   const k = process.env[KEY_ENV[p]];
   if (!k) throw new ProviderError(p, `missing ${KEY_ENV[p]}`, false);
   return k;
 }
-export const hasKey = (p: Provider) => !!process.env[KEY_ENV[p]];
+export const hasKey = (p: Provider) => !KEY_ENV[p] || !!process.env[KEY_ENV[p]];
 
 /* ---------- rate limits (free tiers, verified Nov 2026) ----------
  * Twelve Data Basic: 8 credits/min, 800/day
@@ -30,16 +32,18 @@ const LIMITS: Record<Provider, { perMin: number; perDay: number }> = {
   finnhub: { perMin: 55, perDay: Infinity },
   alphavantage: { perMin: 5, perDay: 24 },
   fred: { perMin: 60, perDay: Infinity },
+  finra: { perMin: 10, perDay: 200 },
 };
 const hits: Record<string, number[]> = {};
 const dayCount: Record<string, { day: string; n: number }> = {};
 
-export function take(p: Provider, cost = 1, now = Date.now()): boolean {
+/** @param reserve credits to leave free this minute for higher-priority callers (charts/levels) */
+export function take(p: Provider, cost = 1, now = Date.now(), reserve = 0): boolean {
   const lim = LIMITS[p];
   const w = (hits[p] = (hits[p] ?? []).filter((t) => now - t < 60_000));
   const day = new Date(now).toISOString().slice(0, 10);
   const d = (dayCount[p] = dayCount[p]?.day === day ? dayCount[p] : { day, n: 0 });
-  if (w.length + cost > lim.perMin || d.n + cost > lim.perDay) return false;
+  if (w.length + cost + reserve > lim.perMin || d.n + cost + reserve * 20 > lim.perDay) return false;
   for (let i = 0; i < cost; i++) w.push(now);
   d.n += cost;
   return true;
@@ -86,11 +90,11 @@ export function ttl(inSession: number, offHours: number) {
   return clock().session === 'Regular session' ? inSession : offHours;
 }
 
-export async function getJson(url: string, provider: Provider, timeoutMs = 8000): Promise<any> {
+export async function getJson(url: string, provider: Provider, timeoutMs = 8000, init?: { method?: string; body?: string }): Promise<any> {
   const ctl = new AbortController();
   const t = setTimeout(() => ctl.abort(), timeoutMs);
   try {
-    const r = await fetch(url, { signal: ctl.signal, headers: { accept: 'application/json' } });
+    const r = await fetch(url, { signal: ctl.signal, method: init?.method ?? 'GET', body: init?.body, headers: { accept: 'application/json', ...(init?.body ? { 'content-type': 'application/json' } : {}) } });
     if (r.status === 429) throw new ProviderError(provider, 'HTTP 429 rate limited', true);
     if (r.status === 401 || r.status === 403) {
       const body = await r.text();

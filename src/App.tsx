@@ -12,13 +12,20 @@ import { TopStrip } from './components/TopStrip';
 import { Watchlist, orderedWatchlist } from './components/Watchlist';
 import { ChartPanel } from './components/Chart';
 import { LevelsPanel, type LevelCol } from './components/Levels';
-import { QuickJournal, RightRail, type NewsFilter, type ScanFilter } from './components/RightRail';
+import { QuickJournal, RightRail, type NewsFilter } from './components/RightRail';
+import { Scanner } from './components/Scanner';
+import { PlaybookEditor } from './components/Playbooks';
+import { useMovers, useScan, useUniverse } from './data/scan';
+import { cloudConfigured, signIn, signOut, useCloudSync, useCloudUser } from './data/cloud';
+import { DEFAULT_THRESHOLDS, liveRow, rankRs, type ScanRow } from '../shared/scan';
+import { DEFAULT_PLAYBOOKS, gradeRow, type GradeResult, type Playbook, type SavedFilter } from './lib/playbook';
 import { AccountDrawer, CommandBar, NewsTicker, OverlayView, type Cmd } from './components/Bits';
 import { Fresh, Seg, popout } from './components/common';
 
 const DEMO_QUOTES = makeQuotes();
 const HEADLINES = makeHeadlines(Object.keys(DEMO_QUOTES).filter((s) => !INDEXES.includes(s)));
 const SYMBOL_RE = /^[A-Z][A-Z0-9.\-]{0,9}$/;
+const DEFAULT_SCAN_LIST = ['NVDA', 'AMD', 'TSLA', 'PLTR', 'META', 'AAPL', 'MSFT', 'AMZN', 'AVGO', 'COIN', 'MSTR', 'HOOD', 'SOFI', 'RKLB', 'IONQ', 'CRWD', 'SHOP', 'ANET', 'ARM', 'MU', 'NFLX', 'UBER', 'SMCI', 'CELH'];
 
 const params = new URLSearchParams(location.search);
 const POPOUT = params.get('panel'); // chart | watchlist | right | ticker
@@ -97,7 +104,13 @@ export default function App() {
   const [overlay, setOverlay] = useState<Overlay>(null);
   const [drawer, setDrawer] = useState(false);
   const [newsFilter, setNewsFilter] = usePersisted<NewsFilter>('newsFilter', 'all');
-  const [scanFilter, setScanFilter] = usePersisted<ScanFilter>('scanFilter', 'all');
+  const [filterId, setFilterId] = usePersisted<string>('scanFilterId', 'all');
+  const [filters, setFilters] = usePersisted<SavedFilter[]>('savedFilters', []);
+  const [playbooks, setPlaybooks] = usePersisted<Playbook[]>('playbooks', DEFAULT_PLAYBOOKS);
+  const [scanList, setScanList] = usePersisted<string[]>('scanList', DEFAULT_SCAN_LIST);
+  const [scanPrefs, setScanPrefs] = usePersisted<{ playbookId: string; includeMovers: boolean }>('scanPrefs', { playbookId: DEFAULT_PLAYBOOKS[0].id, includeMovers: false });
+  const [pbOpen, setPbOpen] = useState(false);
+  const [syncOpen, setSyncOpen] = useState(false);
   const [watchOnly, setWatchOnly] = usePersisted('tickerWatchOnly', false);
   const [orMin, setOrMin] = usePersisted<OrMinutes>('orMinutes', 15);
   const [alertsOn, setAlertsOn] = usePersisted<Record<string, boolean>>('alertsOn', { SPY: true, QQQ: true });
@@ -120,22 +133,52 @@ export default function App() {
     bc.current?.postMessage({ sym: s });
   }, []);
 
+  // Supabase sync (no-op unless configured and signed in)
+  useCloudSync('boards', boards, setBoards);
+  useCloudSync('playbooks', playbooks, setPlaybooks);
+  useCloudSync('filters', filters, setFilters);
+  useCloudSync('scanList', scanList, setScanList);
+  useCloudSync('scanPrefs', scanPrefs, setScanPrefs);
+  const cloudUser = useCloudUser();
+
   /* ---------------- data ---------------- */
   const wlSyms = useMemo(() => Object.keys(boards), [boards]);
-  const quoteSyms = useMemo(() => [...new Set([...INDEXES, sel, ...wlSyms])].slice(0, 40), [wlSyms, sel]);
+  const movers = useMovers(dataMode, scanPrefs.includeMovers);
+  const universe = useUniverse(wlSyms, live ? scanList : [...scanList, ...Object.keys(DEMO_QUOTES).filter((s) => !INDEXES.includes(s))], movers?.movers, scanPrefs.includeMovers);
+  const quoteSyms = useMemo(() => [...new Set([...INDEXES, sel, ...wlSyms, ...universe])].slice(0, 50), [wlSyms, sel, universe]);
   const qs = useQuotes(quoteSyms, dataMode);
+  const scan = useScan(universe, dataMode, (s) => DEMO_QUOTES[s]?.last ?? 100);
   const macro = useMacro(dataMode);
 
-  // In live mode only real fields are shown; scanner/RS fields stay empty until Milestone 3.
+  // Scan rows: daily stats finished with the live quote, then RS-ranked across the universe
+  const todayDay = Math.floor(encodeInstant(now) / 86400);
+  const sessionStarted = et(now).sod >= 9.5 * 3600;
+  const rows: ScanRow[] = useMemo(() => {
+    const b = scan.bases;
+    const lq = (s: string) => (live ? qs?.quotes[s] : undefined);
+    const isToday = (s: string) => { const q = lq(s); return !!q && sessionStarted && Math.floor(encodeInstant(q.t) / 86400) === todayDay; };
+    const spy = b.SPY ? { base: b.SPY, q: lq('SPY') } : undefined;
+    const r = [...new Set(['SPY', ...universe])].filter((s) => b[s]).map((s) => liveRow(b[s], lq(s), spy, DEFAULT_THRESHOLDS, isToday(s)));
+    return rankRs(r);
+  }, [scan.bases, qs, live, universe, todayDay, sessionStarted]);
+  const rowBy = useMemo(() => Object.fromEntries(rows.map((r) => [r.sym, r])), [rows]);
+
+  // Watchlist/top strip quotes. Live: real price fields + RS from the scan. Demo: everything from the demo engine.
   const quotes: Record<string, Quote> = useMemo(() => {
-    if (!live) return DEMO_QUOTES[sel] ? DEMO_QUOTES : { ...DEMO_QUOTES, [sel]: blankQuote(sel) };
     const out: Record<string, Quote> = {};
     for (const s of new Set([...Object.keys(DEMO_QUOTES), ...quoteSyms])) {
+      const r = rowBy[s];
+      if (!live) {
+        const d = DEMO_QUOTES[s] ?? blankQuote(s);
+        out[s] = r ? { ...d, last: r.last, chgPct: r.chgPct, rsRank: r.rsRank ?? NaN } : d;
+        continue;
+      }
       const lq = qs?.quotes[s];
-      out[s] = { ...blankQuote(s, DEMO_QUOTES[s]?.name), last: lq?.last ?? NaN, chgPct: lq?.chgPct ?? NaN };
+      out[s] = { ...blankQuote(s, DEMO_QUOTES[s]?.name), last: lq?.last ?? NaN, chgPct: lq?.chgPct ?? NaN, rsRank: r?.rsRank ?? NaN };
     }
+    if (!out[sel]) out[sel] = blankQuote(sel);
     return out;
-  }, [live, qs, quoteSyms, sel]);
+  }, [live, qs, quoteSyms, sel, rowBy]);
   const tickers = useMemo(() => Object.values(quotes).map((q) => ({ sym: q.sym, name: q.name })), [quotes]);
 
   const demoLast = (s: string) => DEMO_QUOTES[s]?.last ?? 100;
@@ -181,6 +224,13 @@ export default function App() {
     return c;
   }, [levelCol, spyD, spy5, qqqD, qqq5, selD, sel5, sel]);
   const selLevels = cols.find((c) => c.sym === sel)?.levels ?? [];
+  const vwapBy = useMemo(() => Object.fromEntries(cols.flatMap((c) => { const v = c.levels.find((l) => l.id === 'vwap')?.value; return v != null ? [[c.sym, v]] : []; })), [cols]);
+  const activePb = playbooks.find((p) => p.id === scanPrefs.playbookId) ?? playbooks[0];
+  const grades = useMemo(() => {
+    const g: Record<string, GradeResult> = {};
+    if (activePb) for (const r of rows) if (r.sym !== 'SPY') g[r.sym] = gradeRow(activePb, r, { vwap: vwapBy[r.sym] });
+    return g;
+  }, [rows, activePb, vwapBy]);
   const chartSeries = useMemo(() => patch(selTf, sel, layout.tf), [patch, selTf, sel, layout.tf]);
 
   /* ---------------- level alerts (touch / break) ---------------- */
@@ -232,10 +282,18 @@ export default function App() {
   const setTf = (tf: TF) => setLayout({ tf });
 
   const commands: Cmd[] = [
-    { id: 'gappers', label: 'Scanner: gappers ≥3%', run: () => { setScanFilter('gappers'); setTab('scanner'); } },
+    { id: 'gappers', label: 'Scanner: gappers ≥3%', run: () => { setFilterId('gappers'); setTab('scanner'); } },
     { id: 'scanner', label: 'Open scanner', hint: 'S', run: () => setTab('scanner') },
-    { id: 'rvol', label: 'Scanner: relative volume ≥2', run: () => { setScanFilter('rvol'); setTab('scanner'); } },
-    { id: 'highs', label: 'Scanner: 52-week highs', run: () => { setScanFilter('hi52'); setTab('scanner'); } },
+    { id: 'rvol', label: 'Scanner: relative volume ≥2', run: () => { setFilterId('rvol'); setTab('scanner'); } },
+    { id: 'breakouts', label: 'Scanner: 20/50-day breakouts', run: () => { setFilterId('brk'); setTab('scanner'); } },
+    { id: 'highs', label: 'Scanner: 52-week highs', run: () => { setFilterId('hi52'); setTab('scanner'); } },
+    { id: 'gapgo', label: 'Scanner: gap-and-go', run: () => { setFilterId('gapgo'); setTab('scanner'); } },
+    { id: 'squeeze', label: 'Scanner: squeeze', run: () => { setFilterId('squeeze'); setTab('scanner'); } },
+    { id: 'patterns', label: 'Scanner: bull flags / cup and handle', run: () => { setFilterId('patterns'); setTab('scanner'); } },
+    { id: 'aplus', label: 'Scanner: grade A+', run: () => { setFilterId('aplus'); setTab('scanner'); } },
+    { id: 'playbook', label: 'Edit playbooks', hint: 'P', run: () => setPbOpen(true) },
+    ...playbooks.map((pb) => ({ id: `pb-${pb.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`, label: `Grade with playbook: ${pb.name}`, run: () => setScanPrefs((x) => ({ ...x, playbookId: pb.id })) })),
+    ...(cloudConfigured ? [{ id: 'sync', label: cloudUser ? `Sync: signed in as ${cloudUser.email}` : 'Sync: sign in to Supabase', run: () => setSyncOpen(true) }] : []),
     { id: 'levels', label: 'Show/hide levels panel', hint: 'L', run: () => setLayout({ levelsOpen: !layout.levelsOpen }) },
     { id: 'or5', label: 'Opening range: 5 minutes', run: () => setOrMin(5) },
     { id: 'or15', label: 'Opening range: 15 minutes', run: () => setOrMin(15) },
@@ -266,8 +324,8 @@ export default function App() {
   useEffect(() => {
     const h = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); setCmdOpen((o) => !o); return; }
-      if (e.key === 'Escape') { setCmdOpen(false); setOverlay(null); setDrawer(false); return; }
-      if (cmdOpen || typing(e.target) || e.ctrlKey || e.metaKey || e.altKey) return;
+      if (e.key === 'Escape') { setCmdOpen(false); setOverlay(null); setDrawer(false); setPbOpen(false); setSyncOpen(false); return; }
+      if (cmdOpen || pbOpen || syncOpen || typing(e.target) || e.ctrlKey || e.metaKey || e.altKey) return;
       const map: Record<string, () => void> = {
         m: () => setOverlay((o) => (o === 'map' ? null : 'map')),
         g: () => setOverlay((o) => (o === 'globe' ? null : 'globe')),
@@ -275,6 +333,7 @@ export default function App() {
         t: toggleTheme,
         a: () => setDrawer((d) => !d),
         l: () => setLayout({ levelsOpen: !layout.levelsOpen }),
+        p: () => setPbOpen(true),
         '1': () => setTf('D'), '2': () => setTf('1H'), '3': () => setTf('5m'),
         n: () => setTab('news'), s: () => setTab('scanner'), q: () => setTab('journal'), r: () => setTab('risk'),
         '[': () => setLayout({ leftOpen: !layout.leftOpen }),
@@ -310,9 +369,18 @@ export default function App() {
     quotes, boards, setBoard, removeSym, sel, onSelect: setSel,
     fresh: quoteFresh, asOf: live ? qs?.asOf : DEMO_AT, source: live ? qs?.source : 'Generated sample quotes', rsPending: live,
   };
+  const scanner = (
+    <Scanner
+      rows={rows} grades={grades} scan={scan} universe={universe} boards={boards} sel={sel} onSelect={setSel} addSym={addSym}
+      filterId={filterId} setFilterId={setFilterId} filters={filters} setFilters={setFilters}
+      playbooks={playbooks} playbookId={activePb?.id ?? ''} setPlaybookId={(id) => setScanPrefs((x) => ({ ...x, playbookId: id }))} onEditPlaybooks={() => setPbOpen(true)}
+      scanList={scanList} setScanList={setScanList} includeMovers={scanPrefs.includeMovers} setIncludeMovers={(v) => setScanPrefs((x) => ({ ...x, includeMovers: v }))}
+      movers={movers} live={live}
+    />
+  );
   const rightProps = {
-    tab: layout.tab, onTab: setTab, quotes, scanQuotes: DEMO_QUOTES, boards, headlines: HEADLINES, sel, onSelect: setSel, addSym,
-    newsFilter, setNewsFilter, scanFilter, setScanFilter,
+    tab: layout.tab, onTab: setTab, quotes, boards, headlines: HEADLINES, sel, onSelect: setSel, addSym,
+    newsFilter, setNewsFilter, scanner,
   };
   const chart = (onPopout?: () => void) => (
     <ChartPanel
@@ -368,6 +436,9 @@ export default function App() {
       <div className="statusbar">
         <span>Layout: <b>{modeLabel(mode)}</b>{override ? ' (manual)' : ' (auto)'}, changes save to this mode</span>
         <span className={live ? '' : 'demo-txt'}>{dataLine}</span>
+        <button className="sync-btn" onClick={() => setSyncOpen(true)} title={cloudConfigured ? 'Supabase sync' : 'Sync not configured'}>
+          {cloudConfigured ? (cloudUser ? `Synced · ${cloudUser.email}` : 'Sync: sign in') : 'Saved in this browser'}
+        </button>
         <span className="muted">Press <kbd className="kbd">?</kbd> for shortcuts</span>
       </div>
 
@@ -376,6 +447,8 @@ export default function App() {
         allowAny={live ? (s) => SYMBOL_RE.test(s) : undefined}
       />
       <AccountDrawer open={drawer} onClose={() => setDrawer(false)} theme={theme} />
+      {pbOpen && <PlaybookEditor playbooks={playbooks} setPlaybooks={setPlaybooks} activeId={activePb?.id ?? ''} setActiveId={(id) => setScanPrefs((x) => ({ ...x, playbookId: id }))} rows={rows} vwap={vwapBy} onClose={() => setPbOpen(false)} />}
+      {syncOpen && <SyncDialog user={cloudUser?.email ?? null} onClose={() => setSyncOpen(false)} />}
       {overlay && <OverlayView kind={overlay} onClose={() => setOverlay(null)} />}
       {toast && <div className="toast" role="status">{toast}</div>}
     </div>
@@ -412,6 +485,34 @@ function Mobile({ clk, quotes, wlProps, live, alertLog, sel }: {
           </section>
         )}
         {tab === 'journal' && <section className="panel"><QuickJournal sym={sel} quotes={quotes} /></section>}
+      </div>
+    </div>
+  );
+}
+
+function SyncDialog({ user, onClose }: { user: string | null; onClose: () => void }) {
+  const [email, setEmail] = useState('');
+  const [msg, setMsg] = useState('');
+  return (
+    <div className="scrim" onMouseDown={onClose}>
+      <div className="cmd sync" onMouseDown={(e) => e.stopPropagation()} role="dialog" aria-label="Sync">
+        <div className="phead"><div className="phead-title">Sync</div><div className="phead-ctl" /><button className="icon-btn" onClick={onClose} aria-label="Close">×</button></div>
+        <div className="sync-body">
+          {!cloudConfigured ? (
+            <p>Watchlists, playbooks and filters are saved in this browser only. Set <code>VITE_SUPABASE_URL</code> and <code>VITE_SUPABASE_ANON_KEY</code> and run <code>supabase/schema.sql</code> to sync across devices.</p>
+          ) : user ? (
+            <>
+              <p>Signed in as <b>{user}</b>. Watchlist boards, playbooks, saved filters and the scan list sync to Supabase.</p>
+              <button className="btn" onClick={() => signOut().then(onClose)}>Sign out</button>
+            </>
+          ) : (
+            <form onSubmit={(e) => { e.preventDefault(); signIn(email).then(() => setMsg('Check your email for the sign-in link.')).catch((err) => setMsg(err.message)); }}>
+              <p>Sign in with a magic link to sync across devices.</p>
+              <div className="fb-row"><input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" /><button className="btn primary">Send link</button></div>
+              {msg && <p className="small muted">{msg}</p>}
+            </form>
+          )}
+        </div>
       </div>
     </div>
   );

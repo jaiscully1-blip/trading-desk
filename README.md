@@ -3,9 +3,9 @@
 Personal trading desk for swing momentum names and intraday SPY/QQQ. Dense, keyboard-first, Bloomberg-style.
 It never places trades: it shows information and enforces your own rules.
 
-**Status: Milestone 2 (data layer, charts, levels).** With API keys set, quotes, candles, VIX/10Y and SPY/QQQ levels are real.
-Without keys (or in the static preview) everything falls back to generated sample data behind a `DEMO DATA` badge.
-The scanner, RS rank, news, account and journal stay DEMO until their milestones.
+**Status: Milestone 3 (scanner, RS rank, watchlist boards, playbooks).** With API keys set, quotes, candles, VIX/10Y,
+SPY/QQQ levels, the scanner and RS rank are real. Without keys (or in the static preview) everything falls back to
+generated sample data behind a `DEMO DATA` badge. News, account and journal stay DEMO until their milestones.
 
 ## Run
 
@@ -33,8 +33,7 @@ Never prefix a secret with `VITE_` (Vite ships those to the client).
 | `FINNHUB_API_KEY` | M2 | server |
 | `ALPHAVANTAGE_API_KEY` | M2 | server |
 | `FRED_API_KEY` | M2 | server |
-| `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` | M3 | server |
-| `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` | M3 | browser (public, RLS required) |
+| `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` | M3 | browser (public; row-level security in `supabase/schema.sql`) |
 | `ANTHROPIC_API_KEY` | M10 | server |
 
 ## Data layer
@@ -52,6 +51,36 @@ browser ──> /api/candles  ─> Twelve Data ─> Alpha Vantage (daily only)
 - **Credit budget:** 5-minute candles refresh 20 seconds after each bar closes, not continuously. Between refreshes the forming bar is updated from the 30-second Finnhub quote. Three symbols on 5m costs about 234 Twelve Data credits a day.
 - **Freshness badges:** `LIVE` (real-time provider), `END OF DAY` (Alpha Vantage daily fallback, FRED), `NO DATA` (missing key or outage), `UNAVAILABLE ON FREE TIER`, `DEMO DATA`.
 
+## Scanner and playbooks (M3)
+
+**Universe:** watchlist + your scan list (+ optional Alpha Vantage top movers), capped at 40. A full-market scan isn't possible on
+free tiers: Twelve Data allows 8 credits a minute, so the scan fills in progressively (about 5 tickers a minute, leaving 2 credits
+for charts) and then refreshes daily bars hourly. Each ticker costs about 8 credits a day.
+
+```
+/api/scan?symbols=...  ─> Twelve Data daily bars (never the Alpha Vantage fallback)
+                       ─> FINRA consolidated short interest (keyless, twice monthly)
+                       ─> Finnhub company news (catalyst = headline in last 24h) + profile (shares outstanding)
+/api/movers            ─> Alpha Vantage TOP_GAINERS_LOSERS, hourly, plain tickers ≥ $2 and ≥ 500k volume
+```
+
+- **Metrics** (`shared/scan.ts`): gap %, time-of-day adjusted RVOL, above 20/50-day average, breakouts above 20/50-day and 52-week
+  highs, gap-and-go (gap ≥ 3%, above open, RVOL ≥ 1.5), squeeze (days to cover ≥ 5 or SI ≥ 15% of shares out, + 5/20-day volume ≥ 1.3x,
+  + catalyst), bull flag, cup and handle.
+- **RS rank:** stock return minus SPY return over 5, 20 and 60 days, averaged, then ranked 1-99 across the universe. Live prices update it.
+- **Playbooks** (P): weighted criteria with thresholds. Grade = passed weight / weight that had data: A+ ≥ 90%, A ≥ 80%, B ≥ 65%, else C.
+  A `*` means under half the weight could be checked. Two starter playbooks: Momentum A+, Swing breakout.
+- **Filters:** presets plus saved custom filters (AND of conditions). `+` adds a result to Watching.
+- **Not on free tiers:** premarket volume.
+
+## Supabase (optional sync)
+
+1. Create a free project, run `supabase/schema.sql` in the SQL editor.
+2. Set `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` in Vercel.
+3. Click "Sync: sign in" in the status bar, use the magic link, then turn off new sign-ups in Supabase Auth settings.
+
+Watchlist boards, playbooks, saved filters, the scan list and scan settings sync (newest write wins). Without Supabase they stay in the browser.
+
 ## Levels (SPY, QQQ and the selected ticker)
 
 Prior-day high/low/close, session VWAP, opening range (5/15/30 min, default 15), each with distance in points and percent, drawn on the chart.
@@ -66,6 +95,7 @@ Premarket high/low are marked unavailable: Twelve Data includes extended-hours c
 | `↑ ↓` / `J K` | Move through watchlist |
 | `1 2 3` | Chart: daily, 1-hour, 5-minute |
 | `L` | Hide/show levels panel |
+| `P` | Playbook editor |
 | `N S Q R` | Right rail: News, Scanner, Quick Journal, Risk |
 | `[ ]` | Hide/show left or right rail |
 | `B` | Hide/show news ticker |
@@ -93,13 +123,17 @@ src/
   App.tsx              shell, keyboard, layouts per mode, popout + mobile routing
   components/          TopStrip, Watchlist, Chart, RightRail, Bits (ticker, command bar, drawer, overlays)
   data/live.ts         /api client, shared series store, polling, quote patching, demo fallback
+  data/scan.ts         scan polling, demo scan, movers, universe
+  data/cloud.ts        Supabase auth + sync (optional)
+  lib/playbook.ts      playbooks, grading, filters
   lib/indicators.ts    SMA, EMA, RSI, MACD, ATR, session VWAP
   lib/levels.ts        PDH/PDL/PDC, VWAP, opening range, touch/break detection
   lib/demo.ts          DEMO DATA generator (removed as adapters land)
   lib/layout.ts        per-mode layout defaults
   lib/store.ts         local persistence (moves to Supabase in M3/M4)
 shared/                types, ET clock and provider parsers used by both browser and /api
-api/                   Vercel functions: candles, quotes, macro, health (+ _lib adapters, cache, limits)
+api/                   Vercel functions: candles, quotes, macro, scan, movers, health (+ _lib adapters, cache, limits)
+supabase/schema.sql    table + row-level security
 tests/                 vitest: parsers (incl. a real Alpha Vantage response), indicators, levels, clock, API
 ```
 
@@ -107,7 +141,7 @@ tests/                 vitest: parsers (incl. a real Alpha Vantage response), in
 
 1. ✅ Shell: layout, themes, top strip, rails, command bar, saved layouts, demo data
 2. ✅ Data layer and charts: adapters, caching, candles, indicators, levels on SPY/QQQ
-3. Scanner, RS rank, watchlist boards, playbook editor and grades
+3. ✅ Scanner, RS rank, watchlist boards, playbook editor and grades
 4. Journal, pre-trade checklist, CSV import, account strip and drawer, risk guardrails
 5. News ticker, chart news flags, calendars, fear strip
 6. Trade replay with ghost exit, end-of-day recap

@@ -1,22 +1,12 @@
-import { useMemo, useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import type { Board, Headline, JournalDraft, Quote, RightTab } from '../types';
-import { DEMO_ACCOUNT, DEMO_AT, INDEXES } from '../lib/demo';
+import { DEMO_ACCOUNT, DEMO_AT } from '../lib/demo';
 import { etTime } from '../lib/clock';
-import { big, pct, px, tone, usd } from '../lib/format';
+import { px, usd } from '../lib/format';
 import { usePersisted } from '../lib/store';
 import { Fresh, PanelHead } from './common';
 
 export type NewsFilter = 'all' | 'watchlist' | 'macro';
-export type ScanFilter = 'all' | 'gappers' | 'rvol' | 'hi52' | 'above20';
-
-export const SCAN_FILTERS: { id: ScanFilter; label: string; test: (q: Quote) => boolean }[] = [
-  { id: 'all', label: 'All', test: () => true },
-  { id: 'gappers', label: 'Gappers ≥3%', test: (q) => Math.abs(q.gapPct) >= 3 },
-  { id: 'rvol', label: 'RVOL ≥2', test: (q) => q.rvol >= 2 },
-  { id: 'hi52', label: '52W high', test: (q) => q.flags.includes('52W hi') },
-  { id: 'above20', label: 'Above 20D', test: (q) => q.flags.includes('>20D') },
-];
-
 const TABS: { id: RightTab; label: string; key: string }[] = [
   { id: 'news', label: 'News', key: 'N' },
   { id: 'scanner', label: 'Scanner', key: 'S' },
@@ -28,8 +18,6 @@ export function RightRail(props: {
   tab: RightTab;
   onTab: (t: RightTab) => void;
   quotes: Record<string, Quote>;
-  /** scanner universe: DEMO until Milestone 3 */
-  scanQuotes: Record<string, Quote>;
   boards: Record<string, Board>;
   headlines: Headline[];
   sel: string;
@@ -37,8 +25,7 @@ export function RightRail(props: {
   addSym: (s: string) => void;
   newsFilter: NewsFilter;
   setNewsFilter: (f: NewsFilter) => void;
-  scanFilter: ScanFilter;
-  setScanFilter: (f: ScanFilter) => void;
+  scanner: ReactNode;
   onPopout?: () => void;
 }) {
   const { tab, onTab } = props;
@@ -58,7 +45,7 @@ export function RightRail(props: {
       />
       <div className="rr-body">
         {tab === 'news' && <NewsTab {...props} />}
-        {tab === 'scanner' && <ScannerTab {...props} />}
+        {tab === 'scanner' && props.scanner}
         {tab === 'journal' && <QuickJournal sym={props.sel} quotes={props.quotes} />}
         {tab === 'risk' && <RiskTab q={props.quotes[props.sel]} />}
       </div>
@@ -104,70 +91,6 @@ function NewsTab({ headlines, boards, newsFilter, setNewsFilter, onSelect }: Par
         ))}
         {!list.length && <li className="muted">No headlines for this filter.</li>}
       </ul>
-    </>
-  );
-}
-
-type SortKey = 'sym' | 'gapPct' | 'rvol' | 'pmVol' | 'rsRank';
-
-function ScannerTab({ scanQuotes: quotes, boards, scanFilter, setScanFilter, addSym, onSelect, sel }: Parameters<typeof RightRail>[0]) {
-  const [sort, setSort] = useState<{ k: SortKey; dir: 1 | -1 }>({ k: 'gapPct', dir: -1 });
-  const f = SCAN_FILTERS.find((x) => x.id === scanFilter)!;
-  const rows = useMemo(
-    () =>
-      Object.values(quotes)
-        .filter((q) => !INDEXES.includes(q.sym) && f.test(q))
-        .sort((a, b) => {
-          const va = a[sort.k], vb = b[sort.k];
-          return (typeof va === 'string' ? va.localeCompare(vb as string) : (va as number) - (vb as number)) * sort.dir;
-        }),
-    [quotes, f, sort],
-  );
-  const H = ({ k, children }: { k: SortKey; children: string }) => (
-    <th onClick={() => setSort((s) => ({ k, dir: s.k === k ? (s.dir === 1 ? -1 : 1) : -1 }))} className={sort.k === k ? 'sorted' : ''}>
-      {children}
-      {sort.k === k ? (sort.dir === -1 ? ' ↓' : ' ↑') : ''}
-    </th>
-  );
-  return (
-    <>
-      <div className="rr-tools">
-        <Chips<ScanFilter> value={scanFilter} onChange={setScanFilter} options={SCAN_FILTERS} />
-        <Fresh kind="demo" at={DEMO_AT} />
-      </div>
-      <table className="grid">
-        <thead>
-          <tr>
-            <H k="sym">Sym</H>
-            <H k="gapPct">Gap</H>
-            <H k="rvol">RVOL</H>
-            <H k="pmVol">PM vol</H>
-            <H k="rsRank">RS</H>
-            <th>Flags</th>
-            <th aria-label="Add" />
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((q) => (
-            <tr key={q.sym} className={sel === q.sym ? 'sel' : ''} onClick={() => onSelect(q.sym)}>
-              <td className="wl-sym">{q.sym}</td>
-              <td className={`num ${tone(q.gapPct)}`}>{pct(q.gapPct, 1)}</td>
-              <td className="num">{q.rvol.toFixed(1)}</td>
-              <td className="num">{big(q.pmVol)}</td>
-              <td className="num">{q.rsRank}</td>
-              <td className="flags"><div className="flagwrap">{q.flags.map((x) => <span key={x} className="tag">{x}</span>)}</div></td>
-              <td>
-                {boards[q.sym] ? (
-                  <span className="muted small" title="Already on watchlist">✓</span>
-                ) : (
-                  <button className="add-btn" onClick={(e) => { e.stopPropagation(); addSym(q.sym); }} title="Add to watchlist (Watching)">+</button>
-                )}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      <p className="note">Pattern detector, squeeze filter, saved filters and playbook grades arrive in Milestone 3.</p>
     </>
   );
 }

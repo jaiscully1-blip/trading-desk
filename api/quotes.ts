@@ -21,7 +21,10 @@ export async function GET(req: Request): Promise<Response> {
   }
   const tried: string[] = [];
   let missing = need;
-  for (const a of QUOTE_CHAIN) {
+  for (const [i, a] of QUOTE_CHAIN.entries()) {
+    if (!missing.length) break;
+    // Fallbacks after Finnhub cost Twelve Data credits: only spend them on the index quotes
+    if (i > 0) missing = missing.filter((s) => s === 'SPY' || s === 'QQQ');
     if (!missing.length) break;
     try {
       for (const q of await a.fetch(missing)) {
@@ -33,6 +36,7 @@ export async function GET(req: Request): Promise<Response> {
     }
     missing = missing.filter((s) => !out.has(s));
   }
+  missing = need.filter((s) => !out.has(s));
   // stale fallback for anything still missing
   let stale = false;
   for (const s of missing) {

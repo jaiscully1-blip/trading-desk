@@ -121,3 +121,49 @@ describe('/api/macro and /api/health', () => {
     expect(JSON.stringify(j)).not.toMatch(/key/);
   });
 });
+
+import { GET as scan } from '../api/scan';
+import { GET as moversApi } from '../api/movers';
+import moversFx from './fixtures/alphavantage-movers.json';
+import { barsFrom, ramp } from './helpers';
+
+const tdDaily = (closes: number[]) => ({
+  meta: { symbol: 'X', interval: '1day' },
+  status: 'ok',
+  values: barsFrom(closes).reverse().map((b) => ({ datetime: new Date(b.time * 1000).toISOString().slice(0, 10), open: String(b.open), high: String(b.high), low: String(b.low), close: String(b.close), volume: String(b.volume) })),
+});
+
+describe('/api/scan', () => {
+  it('fills progressively within the per-minute budget (leaving 2 credits for charts) and never uses Alpha Vantage', async () => {
+    routes.push((u) => (u.host === 'api.twelvedata.com' ? { body: tdDaily(ramp(50, 100, 120)) } : undefined));
+    routes.push((u) => (u.host === 'api.finra.org' ? { body: [{ symbolCode: 'AAA', currentShortPositionQuantity: 5e6, daysToCoverQuantity: 6, changePercent: 10, settlementDate: '2026-10-31' }] } : undefined));
+    routes.push((u) => (u.pathname.endsWith('/company-news') ? { body: [{ datetime: Math.floor(Date.now() / 1000) - 3600, headline: 'AAA wins contract', id: 1 }] } : undefined));
+    routes.push((u) => (u.pathname.endsWith('/profile2') ? { body: { name: 'Acme', shareOutstanding: 25 } } : undefined));
+    const r = await scan(req('/api/scan?symbols=AAA,BBB,CCC,DDD,EEE,FFF,GGG'));
+    const j = await r.json();
+    expect(j.rows.map((x: { sym: string }) => x.sym)).toEqual(['SPY', 'AAA', 'BBB', 'CCC', 'DDD']); // 5 of 7/min
+    expect(j.pending).toEqual(['EEE', 'FFF', 'GGG']);
+    expect(calls.some((c) => c.includes('alphavantage'))).toBe(false);
+    const aaa = j.rows.find((x: { sym: string }) => x.sym === 'AAA');
+    expect(aaa.si).toMatchObject({ daysToCover: 6, pctOut: 20 });
+    expect(aaa.catalyst).toMatchObject({ count: 1, latest: 'AAA wins contract' });
+    expect(j.rows.find((x: { sym: string }) => x.sym === 'BBB').si).toBeNull(); // looked up, not reported
+    expect(r.headers.get('cache-control')).toBe('no-store'); // incomplete scans aren't cached at the CDN
+  });
+
+  it('marks short interest unavailable (undefined) when FINRA is down', async () => {
+    routes.push((u) => (u.host === 'api.twelvedata.com' ? { body: tdDaily(ramp(50, 100, 120)) } : undefined));
+    routes.push((u) => (u.host === 'api.finra.org' ? { status: 500, body: {} } : undefined));
+    const j = await (await scan(req('/api/scan?symbols=AAA'))).json();
+    expect(j.siSource).toBeNull();
+    expect('si' in j.rows[1]).toBe(false);
+  });
+});
+
+describe('/api/movers', () => {
+  it('filters to plain tickers ≥ $2 with ≥ 500k volume', async () => {
+    routes.push((u) => (u.host === 'www.alphavantage.co' ? { body: moversFx } : undefined));
+    const j = await (await moversApi(req('/api/movers'))).json();
+    expect(j.movers.map((m: { sym: string }) => m.sym)).toEqual(['CHSN', 'RDAC', 'PARA', 'INTC', 'NVDA', 'SOXL']);
+  });
+});

@@ -214,6 +214,7 @@ export function OverlayView({ kind, onClose }: { kind: 'map' | 'globe' | 'help';
       ['↑ ↓  or  J K', 'Move through watchlist'],
       ['1  2  3', 'Chart timeframe: Daily, 1-hour, 5-minute'],
       ['L', 'Show/hide levels panel'],
+      ['P', 'Playbook editor'],
       ['N  S  Q  R', 'Right rail: News, Scanner, Quick Journal, Risk'],
       ['[   ]', 'Hide/show left or right rail'],
       ['B', 'Hide/show news ticker'],

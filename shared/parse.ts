@@ -141,3 +141,66 @@ export function parseFredLatest(j: any): MacroPoint {
   if (!valid.length) throw new ProviderError('fred', String(j?.error_message ?? 'no observations'));
   return { value: parseFloat(valid[0].value), prev: valid[1] ? parseFloat(valid[1].value) : null, date: valid[0].date };
 }
+
+/* ---------------- FINRA consolidated short interest (keyless) ---------------- */
+// POST api.finra.org/data/group/otcMarket/name/consolidatedShortInterest -> [{ symbolCode, currentShortPositionQuantity,
+//   averageDailyVolumeQuantity, daysToCoverQuantity, changePercent, settlementDate, ... }]
+export interface FinraSI { symbol: string; shares: number; daysToCover: number; changePct: number; settlementDate: string }
+export function parseFinraShortInterest(j: any): Map<string, FinraSI> {
+  if (!Array.isArray(j)) throw new ProviderError('finra', String(j?.message ?? j?.error ?? 'unexpected response'));
+  const out = new Map<string, FinraSI>();
+  for (const r of j) {
+    const symbol = String(r?.symbolCode ?? '').toUpperCase();
+    const date = String(r?.settlementDate ?? '');
+    if (!symbol || !date) continue;
+    const prev = out.get(symbol);
+    if (prev && prev.settlementDate >= date) continue; // keep the latest settlement per symbol
+    out.set(symbol, {
+      symbol,
+      shares: num(r.currentShortPositionQuantity) || 0,
+      daysToCover: num(r.daysToCoverQuantity) || 0,
+      changePct: num(r.changePercent) || 0,
+      settlementDate: date,
+    });
+  }
+  return out;
+}
+
+/* ---------------- Finnhub company news / profile ---------------- */
+// /company-news -> [{ category, datetime (s), headline, id, related, source, summary, url }]
+export interface NewsItem { id: string; t: number; headline: string; source: string; url: string; symbol: string }
+export function parseFinnhubNews(j: any, symbol: string): NewsItem[] {
+  if (!Array.isArray(j)) throw new ProviderError('finnhub', String(j?.error ?? 'unexpected response'), false, /access/i.test(String(j?.error)));
+  return j
+    .filter((x) => x && x.headline && Number.isFinite(num(x.datetime)))
+    .map((x) => ({ id: String(x.id ?? `${symbol}-${x.datetime}`), t: num(x.datetime) * 1000, headline: String(x.headline), source: String(x.source ?? ''), url: String(x.url ?? ''), symbol }))
+    .sort((a, b) => b.t - a.t);
+}
+// /stock/profile2 -> { name, shareOutstanding (millions), ticker, ... }  ({} for unknown symbols)
+export function parseFinnhubProfile(j: any): { name: string | null; sharesOut: number | null } {
+  if (!j || typeof j !== 'object' || 'error' in j) throw new ProviderError('finnhub', String(j?.error ?? 'unexpected response'));
+  const so = num(j.shareOutstanding);
+  return { name: j.name ? String(j.name) : null, sharesOut: Number.isFinite(so) && so > 0 ? so * 1e6 : null };
+}
+
+/* ---------------- Alpha Vantage movers ---------------- */
+// TOP_GAINERS_LOSERS -> { last_updated: "2026-11-03 16:15:57 US/Eastern", top_gainers: [{ ticker, price, change_percentage, volume }], top_losers, most_actively_traded }
+export interface Mover { sym: string; price: number; chgPct: number; volume: number; list: 'gainers' | 'losers' | 'active' }
+export function parseAlphaMovers(j: any): { lastUpdated: string; movers: Mover[] } {
+  if (!j || !Array.isArray(j.top_gainers)) {
+    const msg = String(j?.Note ?? j?.Information ?? j?.['Error Message'] ?? 'unexpected response');
+    throw new ProviderError('alphavantage', msg, /frequency|rate limit|requests per/i.test(msg), /premium/i.test(msg));
+  }
+  const map = (arr: any[], list: Mover['list']): Mover[] =>
+    (arr ?? []).map((x) => ({ sym: String(x.ticker), price: num(x.price), chgPct: num(String(x.change_percentage).replace('%', '')), volume: num(x.volume), list }));
+  return {
+    lastUpdated: String(j.last_updated ?? ''),
+    movers: [...map(j.top_gainers, 'gainers'), ...map(j.most_actively_traded, 'active'), ...map(j.top_losers, 'losers')],
+  };
+}
+
+/** Plain common stock / ETF tickers only: drops warrants, units, rights and odd suffixes (e.g. ABCDW, ABCDU, SLND+). */
+export function isPlainTicker(sym: string): boolean {
+  if (!/^[A-Z]{1,5}$/.test(sym)) return false;
+  return !(sym.length === 5 && /[WUR]$/.test(sym));
+}

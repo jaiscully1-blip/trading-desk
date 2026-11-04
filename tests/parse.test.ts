@@ -62,3 +62,32 @@ describe('time encoding', () => {
     expect(encodeInstant(Date.UTC(2026, 6, 1, 13, 30))).toBe(encodeEtWall('2026-07-01 09:30:00'));
   });
 });
+
+import movers from './fixtures/alphavantage-movers.json';
+import { isPlainTicker, parseAlphaMovers, parseFinnhubNews, parseFinnhubProfile, parseFinraShortInterest } from '../shared/parse';
+
+describe('scanner sources', () => {
+  it('Alpha Vantage movers (real response, trimmed) + ticker filter drops warrants/units/odd symbols', () => {
+    const r = parseAlphaMovers(movers);
+    expect(r.lastUpdated).toBe('2026-11-03 16:15:57 US/Eastern');
+    expect(r.movers.find((m) => m.sym === 'CHSN')).toMatchObject({ price: 3.38, chgPct: 241.2418, volume: 79842607, list: 'gainers' });
+    expect(['RDACU', 'VEEAW', 'SLND+'].map(isPlainTicker)).toEqual([false, false, false]);
+    expect(['NVDA', 'SOXL', 'F', 'INTC'].map(isPlainTicker)).toEqual([true, true, true, true]);
+  });
+  it('FINRA short interest keeps the latest settlement per symbol', () => {
+    const m = parseFinraShortInterest([
+      { symbolCode: 'GME', currentShortPositionQuantity: 60e6, daysToCoverQuantity: 4.2, changePercent: -3.1, settlementDate: '2026-10-15' },
+      { symbolCode: 'GME', currentShortPositionQuantity: 62e6, daysToCoverQuantity: 5.1, changePercent: 3.3, settlementDate: '2026-10-31' },
+      { symbolCode: 'AMC', currentShortPositionQuantity: 1e8, daysToCoverQuantity: 2, changePercent: 0, settlementDate: '2026-10-31' },
+    ]);
+    expect(m.get('GME')).toMatchObject({ shares: 62e6, daysToCover: 5.1, settlementDate: '2026-10-31' });
+    expect(m.size).toBe(2);
+    expect(() => parseFinraShortInterest({ message: 'nope' })).toThrow();
+  });
+  it('Finnhub company news newest first; profile shares in millions', () => {
+    const n = parseFinnhubNews([{ datetime: 1793700000, headline: 'old', id: 1 }, { datetime: 1793739600, headline: 'new', id: 2, source: 'X' }], 'AAA');
+    expect(n.map((x) => x.headline)).toEqual(['new', 'old']);
+    expect(parseFinnhubProfile({ name: 'Acme', shareOutstanding: 123.4 })).toEqual({ name: 'Acme', sharesOut: 123.4e6 });
+    expect(parseFinnhubProfile({})).toEqual({ name: null, sharesOut: null });
+  });
+});
