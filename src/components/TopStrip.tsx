@@ -1,6 +1,7 @@
 import type { Freshness, MacroResult, Mode, Quote } from '../types';
 import { MODES, hms, etTime, type ClockState } from '../lib/clock';
-import { DEMO_ACCOUNT, DEMO_MACRO, DEMO_AT } from '../lib/demo';
+import { DEMO_MACRO } from '../lib/demo';
+import type { AccountSettings, Guard } from '../lib/journal';
 import { pct, px, sUsd, tone, usd } from '../lib/format';
 import { Fresh, Kbd } from './common';
 
@@ -28,12 +29,14 @@ export function TopStrip({
   theme,
   onTheme,
   onCmd,
+  account,
   quoteFresh,
   quoteAsOf,
   quoteSource,
   macro,
   live,
 }: {
+  account: { guard: Guard; settings: AccountSettings; demo: boolean; demoPrices: boolean };
   quoteFresh: Freshness;
   quoteAsOf?: number;
   quoteSource?: string;
@@ -51,7 +54,7 @@ export function TopStrip({
   onTheme: () => void;
   onCmd: () => void;
 }) {
-  const a = DEMO_ACCOUNT;
+  const dayPnl = account.guard.todayRealized + account.guard.todayUnrealized;
   const vixChg = macro?.vix?.prev ? ((macro.vix.value - macro.vix.prev) / macro.vix.prev) * 100 : NaN;
   const tnxChg = macro?.tnx?.prev != null ? macro.tnx.value - macro.tnx.prev : NaN;
   const spy = quotes.SPY, qqq = quotes.QQQ;
@@ -104,12 +107,18 @@ export function TopStrip({
 
       <div className="top-group right">
         <button className={`acct ${accountOpen ? 'on' : ''}`} onClick={onAccount} title="Account drawer (A)">
-          <span><span className="tick-l">EQ</span> <span className="num">{usd(a.equity)}</span></span>
-          <span><span className="tick-l">DAY</span> <span className={`num ${tone(a.todayPnl)}`}>{sUsd(a.todayPnl)}</span></span>
-          <span><span className="tick-l">R</span> <span className={`num ${tone(a.rToday)}`}>{a.rToday >= 0 ? '+' : ''}{a.rToday.toFixed(1)}R</span></span>
-          <span><span className="tick-l">RISK</span> <span className="num">{a.riskUsedPct.toFixed(1)}/{a.maxDailyLossPct.toFixed(1)}%</span></span>
-          <span className={`pill ${a.lockout === 'Clear' ? 'ok' : 'bad'}`}>{a.lockout}</span>
-          <span title={`Sample account generated ${etTime(DEMO_AT)} ET; the journal drives it from Milestone 4`}><Fresh kind="demo" /></span>
+          {account.settings.startBalance == null ? (
+            <span className="muted">Set starting balance →</span>
+          ) : (
+            <>
+              <span><span className="tick-l">EQ</span> <span className="num">{usd(account.guard.equity)}</span></span>
+              <span><span className="tick-l">DAY</span> <span className={`num ${tone(dayPnl)}`}>{sUsd(dayPnl)}</span></span>
+              <span><span className="tick-l">R</span> <span className={`num ${tone(account.guard.rToday)}`}>{account.guard.rToday >= 0 ? '+' : ''}{account.guard.rToday.toFixed(1)}R</span></span>
+              <span><span className="tick-l">RISK</span> <span className="num">{account.guard.riskUsedPct.toFixed(1)}/{account.settings.maxDailyLossPct.toFixed(1)}%</span></span>
+            </>
+          )}
+          <span className={`pill ${account.guard.lockout === 'Clear' ? 'ok' : 'bad'}`} title={account.guard.reason ?? undefined}>{account.guard.lockout}</span>
+          {(account.demo || account.demoPrices) && <span title={account.demo ? 'Includes sample trades' : 'Open positions priced with demo quotes'}><Fresh kind="demo" /></span>}
         </button>
         <button className="icon-btn" onClick={onTheme} title="Toggle theme (T)" aria-label="Toggle theme">
           {theme === 'dark' ? '☀' : '☾'}

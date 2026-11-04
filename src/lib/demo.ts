@@ -171,29 +171,6 @@ export const DEMO_MACRO = (() => {
   return { vix: 14 + r() * 8, vixChg: (r() - 0.5) * 8, tnx: 4 + r() * 0.6, tnxChg: (r() - 0.5) * 0.08 };
 })();
 
-export const DEMO_ACCOUNT = (() => {
-  const r = rng(DAY_SEED + 42);
-  const start = 25_000;
-  const days = lastSessionDates(60);
-  let eq = start;
-  const daily = days.map((d) => {
-    const pnl = Math.round((r() - 0.42) * 600);
-    eq += pnl;
-    return { time: Date.UTC(d.y, d.mo - 1, d.d) / 1000, date: d, pnl, equity: eq };
-  });
-  const today = daily[daily.length - 1];
-  return {
-    start,
-    equity: eq,
-    todayPnl: today.pnl,
-    rToday: +(today.pnl / 250).toFixed(2), // 1R = $250 in the demo
-    riskUsedPct: 0.6,
-    maxDailyLossPct: 2,
-    lockout: 'Clear' as 'Clear' | 'Cooldown' | 'Locked',
-    daily,
-  };
-})();
-
 export const DEMO_ALERTS = [
   { t: DEMO_AT - 6 * 60_000, text: 'SPY touched premarket high' },
   { t: DEMO_AT - 22 * 60_000, text: 'QQQ broke opening-range low' },

@@ -51,7 +51,7 @@ export function Scanner(p: ScannerProps) {
       return v == null || !Number.isFinite(v) ? -Infinity : v;
     };
     return p.rows
-      .filter((r) => r.sym !== 'SPY' && matches(r, f, p.grades[r.sym]))
+      .filter((r) => r.sym !== 'SPY' && r.sym !== 'QQQ' && matches(r, f, p.grades[r.sym]))
       .sort((a, b) => {
         const va = val(a), vb = val(b);
         return (typeof va === 'string' ? va.localeCompare(vb as string) : (va as number) - (vb as number)) * sort.dir;

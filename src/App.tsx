@@ -2,6 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import type { Board, Freshness, Layout, Mode, OrMinutes, Overlay, Quote, RightTab, TF } from './types';
 import { clock, et, etTime, hms, modeLabel } from './lib/clock';
 import { DEMO_ALERTS, DEMO_AT, INDEXES, defaultBoards, makeHeadlines, makeQuotes } from './lib/demo';
+import type { ReactNode } from 'react';
 import { DEFAULT_LAYOUTS } from './lib/layout';
 import { usePersisted } from './lib/store';
 import { pct, px, tone } from './lib/format';
@@ -12,14 +13,18 @@ import { TopStrip } from './components/TopStrip';
 import { Watchlist, orderedWatchlist } from './components/Watchlist';
 import { ChartPanel } from './components/Chart';
 import { LevelsPanel, type LevelCol } from './components/Levels';
-import { QuickJournal, RightRail, type NewsFilter } from './components/RightRail';
+import { RightRail, type NewsFilter } from './components/RightRail';
+import { CheckInDialog, OpenPositions, RiskPanel, TradeTicket, uid } from './components/Trading';
+import { AccountDrawer, JournalOverlay } from './components/Journal';
+import { useIdbState } from './lib/idb';
+import { DEFAULT_SETTINGS, etDay, guard, viewTrade, violations as findViolations, type AccountSettings, type CheckIn, type Trade, type Transfer } from './lib/journal';
 import { Scanner } from './components/Scanner';
 import { PlaybookEditor } from './components/Playbooks';
 import { useMovers, useScan, useUniverse } from './data/scan';
-import { cloudConfigured, signIn, signOut, useCloudSync, useCloudUser } from './data/cloud';
+import { cloudConfigured, signIn, signOut, useCloudItems, useCloudSync, useCloudUser } from './data/cloud';
 import { DEFAULT_THRESHOLDS, liveRow, rankRs, type ScanRow } from '../shared/scan';
 import { DEFAULT_PLAYBOOKS, gradeRow, type GradeResult, type Playbook, type SavedFilter } from './lib/playbook';
-import { AccountDrawer, CommandBar, NewsTicker, OverlayView, type Cmd } from './components/Bits';
+import { CommandBar, NewsTicker, OverlayView, type Cmd } from './components/Bits';
 import { Fresh, Seg, popout } from './components/common';
 
 const DEMO_QUOTES = makeQuotes();
@@ -110,6 +115,13 @@ export default function App() {
   const [scanList, setScanList] = usePersisted<string[]>('scanList', DEFAULT_SCAN_LIST);
   const [scanPrefs, setScanPrefs] = usePersisted<{ playbookId: string; includeMovers: boolean }>('scanPrefs', { playbookId: DEFAULT_PLAYBOOKS[0].id, includeMovers: false });
   const [pbOpen, setPbOpen] = useState(false);
+  const [jnOpen, setJnOpen] = useState(false);
+  const [ciOpen, setCiOpen] = useState(false);
+  // Journal lives in IndexedDB (screenshots); account rules are small and live with the other settings
+  const [trades, setTrades, jLoaded] = useIdbState<Trade[]>('journal', []);
+  const [transfers, setTransfers, trLoaded] = useIdbState<Transfer[]>('transfers', []);
+  const [checkins, setCheckins, ciLoaded] = useIdbState<CheckIn[]>('checkins', []);
+  const [settings, setSettings] = usePersisted<AccountSettings>('account', DEFAULT_SETTINGS);
   const [syncOpen, setSyncOpen] = useState(false);
   const [watchOnly, setWatchOnly] = usePersisted('tickerWatchOnly', false);
   const [orMin, setOrMin] = usePersisted<OrMinutes>('orMinutes', 15);
@@ -139,12 +151,17 @@ export default function App() {
   useCloudSync('filters', filters, setFilters);
   useCloudSync('scanList', scanList, setScanList);
   useCloudSync('scanPrefs', scanPrefs, setScanPrefs);
+  useCloudSync('account', settings, setSettings);
+  useCloudItems('trade', trades, setTrades, (t) => t.id, jLoaded);
+  useCloudItems('transfer', transfers, setTransfers, (t) => t.id, trLoaded);
+  useCloudItems('checkin', checkins, setCheckins, (c) => c.day, ciLoaded);
   const cloudUser = useCloudUser();
 
   /* ---------------- data ---------------- */
   const wlSyms = useMemo(() => Object.keys(boards), [boards]);
   const movers = useMovers(dataMode, scanPrefs.includeMovers);
-  const universe = useUniverse(wlSyms, live ? scanList : [...scanList, ...Object.keys(DEMO_QUOTES).filter((s) => !INDEXES.includes(s))], movers?.movers, scanPrefs.includeMovers);
+  // QQQ is always scanned (SPY is added server-side) so the index day trades get playbook grades too
+  const universe = useUniverse(['QQQ', ...wlSyms], live ? scanList : [...scanList, ...Object.keys(DEMO_QUOTES).filter((s) => !INDEXES.includes(s))], movers?.movers, scanPrefs.includeMovers);
   const quoteSyms = useMemo(() => [...new Set([...INDEXES, sel, ...wlSyms, ...universe])].slice(0, 50), [wlSyms, sel, universe]);
   const qs = useQuotes(quoteSyms, dataMode);
   const scan = useScan(universe, dataMode, (s) => DEMO_QUOTES[s]?.last ?? 100);
@@ -228,10 +245,32 @@ export default function App() {
   const activePb = playbooks.find((p) => p.id === scanPrefs.playbookId) ?? playbooks[0];
   const grades = useMemo(() => {
     const g: Record<string, GradeResult> = {};
-    if (activePb) for (const r of rows) if (r.sym !== 'SPY') g[r.sym] = gradeRow(activePb, r, { vwap: vwapBy[r.sym] });
+    if (activePb) for (const r of rows) g[r.sym] = gradeRow(activePb, r, { vwap: vwapBy[r.sym] });
     return g;
   }, [rows, activePb, vwapBy]);
   const chartSeries = useMemo(() => patch(selTf, sel, layout.tf), [patch, selTf, sel, layout.tf]);
+
+  /* ---------------- journal + account + guardrails ---------------- */
+  const views = useMemo(() => trades.filter((t) => !t.deleted).map(viewTrade), [trades]);
+  const liveTransfers = useMemo(() => transfers.filter((t) => !t.deleted), [transfers]);
+  const lastPx = useCallback((s: string) => { const x = quotes[s]?.last; return Number.isFinite(x) ? x : undefined; }, [quotes]);
+  const g = useMemo(() => guard(views, liveTransfers, settings, now, lastPx), [views, liveTransfers, settings, now, lastPx]);
+  const today = etDay(now);
+  const checkin = checkins.find((c) => c.day === today);
+  const viols = useMemo(() => findViolations(views, liveTransfers, settings, checkins), [views, liveTransfers, settings, checkins]);
+  const demoPrices = !live && views.some((v) => v.status === 'open');
+  const logTrade = (t: Trade) => { setTrades((ts) => [...ts, t]); flash(`Logged ${t.side} ${t.sym}`); };
+  const closeTrade = (id: string, qty: number, price: number) =>
+    setTrades((ts) => ts.map((t) => (t.id === id ? { ...t, updated: Date.now(), fills: [...t.fills, { id: uid(), t: Date.now(), action: t.side === 'long' ? 'sell' : 'buy', qty, price, src: 'manual' }] } : t)));
+  const moveStop = (id: string, stop: number) =>
+    setTrades((ts) => ts.map((t) => (t.id === id ? { ...t, updated: Date.now(), stop, stopHistory: [...t.stopHistory, { t: Date.now(), stop }] } : t)));
+  // Ask for the pre-session check-in once per trading day, before/at the open
+  useEffect(() => {
+    if (!ciLoaded || checkin || POPOUT) return;
+    if (!(mode === 'pre' || mode === 'open') || et(now).wd === 0 || et(now).wd === 6) return;
+    try { if (sessionStorage.getItem(`td.ciAsked.${today}`)) return; sessionStorage.setItem(`td.ciAsked.${today}`, '1'); } catch { /* ignore */ }
+    setCiOpen(true);
+  }, [ciLoaded, checkin, mode, today]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /* ---------------- level alerts (touch / break) ---------------- */
   const prevPx = useRef<Record<string, number>>({});
@@ -300,7 +339,10 @@ export default function App() {
     { id: 'or30', label: 'Opening range: 30 minutes', run: () => setOrMin(30) },
     { id: 'alerts', label: `Toggle level alerts for ${sel}`, run: () => toggleAlerts(sel) },
     { id: 'news', label: 'Open news', hint: 'N', run: () => setTab('news') },
-    { id: 'journal', label: 'Open quick journal', hint: 'Q', run: () => setTab('journal') },
+    { id: 'journal', label: 'Open full journal (trades, stats, violations, import)', hint: 'Shift J', run: () => setJnOpen(true) },
+    { id: 'ticket', label: 'Quick journal / trade ticket', hint: 'Q', run: () => setTab('journal') },
+    { id: 'import', label: 'Import broker CSV', run: () => setJnOpen(true) },
+    { id: 'checkin', label: 'Pre-session check-in', run: () => setCiOpen(true) },
     { id: 'risk', label: 'Open risk / position size', hint: 'R', run: () => setTab('risk') },
     { id: 'account', label: 'Open account drawer', hint: 'A', run: () => setDrawer(true) },
     { id: 'map', label: 'World map overlay', hint: 'M', run: () => setOverlay('map') },
@@ -324,8 +366,8 @@ export default function App() {
   useEffect(() => {
     const h = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); setCmdOpen((o) => !o); return; }
-      if (e.key === 'Escape') { setCmdOpen(false); setOverlay(null); setDrawer(false); setPbOpen(false); setSyncOpen(false); return; }
-      if (cmdOpen || pbOpen || syncOpen || typing(e.target) || e.ctrlKey || e.metaKey || e.altKey) return;
+      if (e.key === 'Escape') { setCmdOpen(false); setOverlay(null); setDrawer(false); setPbOpen(false); setSyncOpen(false); setJnOpen(false); setCiOpen(false); return; }
+      if (cmdOpen || pbOpen || syncOpen || jnOpen || ciOpen || typing(e.target) || e.ctrlKey || e.metaKey || e.altKey) return;
       const map: Record<string, () => void> = {
         m: () => setOverlay((o) => (o === 'map' ? null : 'map')),
         g: () => setOverlay((o) => (o === 'globe' ? null : 'globe')),
@@ -334,6 +376,7 @@ export default function App() {
         a: () => setDrawer((d) => !d),
         l: () => setLayout({ levelsOpen: !layout.levelsOpen }),
         p: () => setPbOpen(true),
+        J: () => setJnOpen(true),
         '1': () => setTf('D'), '2': () => setTf('1H'), '3': () => setTf('5m'),
         n: () => setTab('news'), s: () => setTab('scanner'), q: () => setTab('journal'), r: () => setTab('risk'),
         '[': () => setLayout({ leftOpen: !layout.leftOpen }),
@@ -378,9 +421,17 @@ export default function App() {
       movers={movers} live={live}
     />
   );
+  const journalSlot = (
+    <div className="qj2">
+      <TradeTicket sym={sel} last={q.last} playbook={activePb} grade={grades[sel]} guard={g} settings={settings} checkin={checkin} onCheckIn={() => setCiOpen(true)} onLog={logTrade} now={now} demoPrices={!live} />
+      <OpenPositions views={views} lastPx={lastPx} onClose={closeTrade} onStop={moveStop} onSelect={setSel} />
+      <div className="fb-row qj-foot"><button className="btn" onClick={() => setJnOpen(true)}>Open journal</button><span className="muted small">Shift+J · stats, violations, CSV import</span></div>
+    </div>
+  );
+  const riskSlot = <RiskPanel guard={g} settings={settings} setSettings={setSettings} checkin={checkin} onCheckIn={() => setCiOpen(true)} violations={viols} now={now} last={Number.isFinite(q.last) ? q.last : undefined} />;
   const rightProps = {
     tab: layout.tab, onTab: setTab, quotes, boards, headlines: HEADLINES, sel, onSelect: setSel, addSym,
-    newsFilter, setNewsFilter, scanner,
+    newsFilter, setNewsFilter, scanner, journal: journalSlot, risk: riskSlot,
   };
   const chart = (onPopout?: () => void) => (
     <ChartPanel
@@ -410,7 +461,12 @@ export default function App() {
   }
 
   /* ---------- Mobile companion ---------- */
-  if (isMobile) return <Mobile clk={clk} quotes={quotes} wlProps={wlProps} live={live} alertLog={alertLog} sel={sel} />;
+  if (isMobile) return (
+    <>
+      <Mobile clk={clk} quotes={quotes} wlProps={wlProps} live={live} alertLog={alertLog} journal={journalSlot} />
+      {ciOpen && <CheckInDialog day={today} existing={checkin} onClose={() => setCiOpen(false)} onSave={(c) => { setCheckins((x) => [...x.filter((y) => y.day !== c.day), c]); setCiOpen(false); }} />}
+    </>
+  );
 
   /* ---------- Desk ---------- */
   const cols3 = `${layout.leftOpen ? `${layout.left}px 5px` : '0 0'} minmax(0,1fr) ${layout.rightOpen ? `5px ${layout.right}px` : '0 0'}`;
@@ -419,6 +475,7 @@ export default function App() {
       <TopStrip
         quotes={quotes} clk={clk} mode={mode} override={override} onOverride={setOverride} onSelect={setSel}
         onAccount={() => setDrawer((d) => !d)} accountOpen={drawer} theme={theme} onTheme={toggleTheme} onCmd={() => setCmdOpen(true)}
+        account={{ guard: g, settings, demo: views.some((v) => v.t.demo), demoPrices }}
         quoteFresh={quoteFresh} quoteAsOf={live ? qs?.asOf : DEMO_AT} quoteSource={live ? qs?.source : 'Generated sample quotes'} macro={macro} live={live}
       />
       <main className="main" style={{ gridTemplateColumns: cols3 }}>
@@ -446,7 +503,9 @@ export default function App() {
         open={cmdOpen} onClose={() => setCmdOpen(false)} commands={commands} tickers={tickers} onTicker={setSel}
         allowAny={live ? (s) => SYMBOL_RE.test(s) : undefined}
       />
-      <AccountDrawer open={drawer} onClose={() => setDrawer(false)} theme={theme} />
+      <AccountDrawer open={drawer} onClose={() => setDrawer(false)} theme={theme} views={views} transfers={liveTransfers} settings={settings} setSettings={setSettings} guard={g} onImport={() => { setDrawer(false); setJnOpen(true); }} />
+      {jnOpen && <JournalOverlay views={views} setTrades={setTrades} transfers={transfers} setTransfers={setTransfers} violations={viols} lastPx={lastPx} settings={settings} onClose={() => setJnOpen(false)} onSelect={(s) => { setSel(s); setJnOpen(false); }} canSample={!live} />}
+      {ciOpen && <CheckInDialog day={today} existing={checkin} onClose={() => setCiOpen(false)} onSave={(c) => { setCheckins((x) => [...x.filter((y) => y.day !== c.day), c]); setCiOpen(false); }} />}
       {pbOpen && <PlaybookEditor playbooks={playbooks} setPlaybooks={setPlaybooks} activeId={activePb?.id ?? ''} setActiveId={(id) => setScanPrefs((x) => ({ ...x, playbookId: id }))} rows={rows} vwap={vwapBy} onClose={() => setPbOpen(false)} />}
       {syncOpen && <SyncDialog user={cloudUser?.email ?? null} onClose={() => setSyncOpen(false)} />}
       {overlay && <OverlayView kind={overlay} onClose={() => setOverlay(null)} />}
@@ -455,9 +514,9 @@ export default function App() {
   );
 }
 
-function Mobile({ clk, quotes, wlProps, live, alertLog, sel }: {
+function Mobile({ clk, quotes, wlProps, live, alertLog, journal }: {
   clk: ReturnType<typeof clock>; quotes: Record<string, Quote>; wlProps: Parameters<typeof Watchlist>[0];
-  live: boolean; alertLog: AlertItem[]; sel: string;
+  live: boolean; alertLog: AlertItem[]; journal: ReactNode;
 }) {
   const [tab, setTab] = useState<'watch' | 'alerts' | 'journal'>('watch');
   const alerts = live ? alertLog : DEMO_ALERTS.map((a) => ({ ...a, sym: '' }));
@@ -484,7 +543,7 @@ function Mobile({ clk, quotes, wlProps, live, alertLog, sel }: {
             </ul>
           </section>
         )}
-        {tab === 'journal' && <section className="panel"><QuickJournal sym={sel} quotes={quotes} /></section>}
+        {tab === 'journal' && <section className="panel">{journal}</section>}
       </div>
     </div>
   );

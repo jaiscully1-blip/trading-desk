@@ -3,9 +3,9 @@
 Personal trading desk for swing momentum names and intraday SPY/QQQ. Dense, keyboard-first, Bloomberg-style.
 It never places trades: it shows information and enforces your own rules.
 
-**Status: Milestone 3 (scanner, RS rank, watchlist boards, playbooks).** With API keys set, quotes, candles, VIX/10Y,
-SPY/QQQ levels, the scanner and RS rank are real. Without keys (or in the static preview) everything falls back to
-generated sample data behind a `DEMO DATA` badge. News, account and journal stay DEMO until their milestones.
+**Status: Milestone 4 (journal, checklist, CSV import, account, guardrails).** With API keys set, quotes, candles, VIX/10Y,
+SPY/QQQ levels, the scanner and RS rank are real. The journal and account are always your own data. Without keys (or in the
+static preview) market data falls back to generated sample data behind a `DEMO DATA` badge. News stays DEMO until Milestone 5.
 
 ## Run
 
@@ -73,13 +73,39 @@ for charts) and then refreshes daily bars hourly. Each ticker costs about 8 cred
 - **Filters:** presets plus saved custom filters (AND of conditions). `+` adds a result to Watching.
 - **Not on free tiers:** premarket volume.
 
+## Journal, account and guardrails (M4)
+
+- **Trade ticket** (Q): ticker, side, entry, stop, target, size, setup, thesis, emotion, screenshot (paste/drop). Grade at entry is
+  stamped from the active playbook. **Log entry stays disabled until every checklist item (generated from the playbook) is ticked**,
+  the day's check-in is done, and you're not locked out or cooling down. The scanner's verdict is shown next to each item; ticking
+  one the data says failed is allowed but logged as a violation.
+- **Journal** (Shift+J): trades with fills, partial exits, stop moves, notes, screenshots; R-multiple, win rate, expectancy (R and $),
+  profit factor; breakdowns by setup, grade, emotion and time of day (ET, 30-minute buckets).
+- **Broker CSV import:** drop fills and cash-transfer CSVs together. Columns are auto-detected (Webull order history: Symbol, Side,
+  Status, Filled, Avg Price, Filled Time) and can be remapped. Fills are grouped into round trips and attached to the journal entry you
+  logged (same symbol/side, within 30 minutes before the first fill); broker fills replace hand-entered ones. Round trips with no plan
+  become "imported" trades, flagged as a violation. Re-importing the same file never double-counts. Deposits/withdrawals are detected
+  from the transfers file. Webull exports have no fees; times are read as US Eastern.
+- **Account:** starting balance is set once (changing it requires typing RESET). Equity = start + realized P&L + deposits − withdrawals
+  (+ unrealized on open positions). There is no manual deposit button. The drawer shows the equity curve and a P&L calendar.
+- **Guardrails:** position size from stop distance and risk % (default 0.5%); max daily loss lockout (default 2% of start-of-day
+  equity, realized) until the next session; 10-minute cooldown after 2 losses in a row; portfolio heat (open risk to stops, max 6%);
+  pre-session tilt check-in (sleep, mood, stress, chasing losses) that halves risk per trade on a high-tilt day; rules can't be loosened
+  while locked.
+- **Violation log priced in dollars:** oversized position (the share of the loss above plan), widened stop (loss beyond the planned
+  risk), traded during lockout/cooldown or before check-in, no plan, ticked a failing checklist item, over max heat (the trade's loss).
+  Winners that broke a rule are logged at $0.
+- **Storage:** journal, transfers and check-ins in IndexedDB (screenshots are compressed to ≤1280px JPEG); with Supabase each trade is
+  a row in `desk_items` and edits merge per trade.
+
 ## Supabase (optional sync)
 
 1. Create a free project, run `supabase/schema.sql` in the SQL editor.
 2. Set `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` in Vercel.
 3. Click "Sync: sign in" in the status bar, use the magic link, then turn off new sign-ups in Supabase Auth settings.
 
-Watchlist boards, playbooks, saved filters, the scan list and scan settings sync (newest write wins). Without Supabase they stay in the browser.
+Watchlist boards, playbooks, saved filters, the scan list, scan settings, account rules, and every journal trade, transfer and
+check-in sync (newest write wins, per trade). Without Supabase they stay in the browser.
 
 ## Levels (SPY, QQQ and the selected ticker)
 
@@ -96,6 +122,8 @@ Premarket high/low are marked unavailable: Twelve Data includes extended-hours c
 | `1 2 3` | Chart: daily, 1-hour, 5-minute |
 | `L` | Hide/show levels panel |
 | `P` | Playbook editor |
+| `Q` | Trade ticket (quick journal) |
+| `Shift J` | Full journal |
 | `N S Q R` | Right rail: News, Scanner, Quick Journal, Risk |
 | `[ ]` | Hide/show left or right rail |
 | `B` | Hide/show news ticker |
@@ -126,6 +154,9 @@ src/
   data/scan.ts         scan polling, demo scan, movers, universe
   data/cloud.ts        Supabase auth + sync (optional)
   lib/playbook.ts      playbooks, grading, filters
+  lib/journal.ts       trades/fills math, stats, equity, guardrails, violations, tilt, time-of-day
+  lib/csv.ts           broker CSV parsing, column detection, round trips, transfers
+  lib/idb.ts           IndexedDB store for the journal
   lib/indicators.ts    SMA, EMA, RSI, MACD, ATR, session VWAP
   lib/levels.ts        PDH/PDL/PDC, VWAP, opening range, touch/break detection
   lib/demo.ts          DEMO DATA generator (removed as adapters land)
@@ -142,7 +173,7 @@ tests/                 vitest: parsers (incl. a real Alpha Vantage response), in
 1. ✅ Shell: layout, themes, top strip, rails, command bar, saved layouts, demo data
 2. ✅ Data layer and charts: adapters, caching, candles, indicators, levels on SPY/QQQ
 3. ✅ Scanner, RS rank, watchlist boards, playbook editor and grades
-4. Journal, pre-trade checklist, CSV import, account strip and drawer, risk guardrails
+4. ✅ Journal, pre-trade checklist, CSV import, account strip and drawer, risk guardrails
 5. News ticker, chart news flags, calendars, fear strip
 6. Trade replay with ghost exit, end-of-day recap
 7. Market-clock mode (holiday / early-close feed)

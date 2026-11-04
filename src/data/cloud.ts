@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { SupabaseClient, User } from '@supabase/supabase-js';
 import { load, save } from '../lib/store';
 
-export type CloudKey = 'boards' | 'playbooks' | 'filters' | 'scanList' | 'scanPrefs';
+export type CloudKey = 'boards' | 'playbooks' | 'filters' | 'scanList' | 'scanPrefs' | 'account';
 
 const URL_ = import.meta.env.VITE_SUPABASE_URL as string | undefined;
 const ANON = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
@@ -87,4 +87,54 @@ export function useCloudSync<T>(key: CloudKey, value: T, setValue: (v: T) => voi
     }, 800);
     return () => clearTimeout(t);
   }, [value]); // eslint-disable-line react-hooks/exhaustive-deps
+}
+
+/* ---------------- per-row collections (journal) ---------------- */
+export type ItemKind = 'trade' | 'transfer' | 'checkin';
+type Item = { updated: number; deleted?: boolean };
+
+/** Merge two versions of a collection by id: the newer `updated` wins (deletions are tombstones). */
+export function mergeById<T extends Item>(a: T[], b: T[], id: (x: T) => string): T[] {
+  const m = new Map<string, T>();
+  for (const x of [...a, ...b]) { const k = id(x); const cur = m.get(k); if (!cur || x.updated > cur.updated) m.set(k, x); }
+  return [...m.values()];
+}
+
+/** Two-way sync of a local collection with desk_items rows. Pulls on sign-in and focus; pushes changed rows. */
+export function useCloudItems<T extends Item>(kind: ItemKind, items: T[], setItems: (f: (x: T[]) => T[]) => void, id: (x: T) => string, loaded: boolean) {
+  const user = useCloudUser();
+  const pushed = useRef(new Map<string, number>());
+  useEffect(() => {
+    if (!user || !loaded) return;
+    let stop = false;
+    const pull = async () => {
+      const c = await client();
+      if (!c) return;
+      const { data, error } = await c.from('desk_items').select('id, data').eq('kind', kind);
+      if (stop || error || !data) return;
+      const remote = data.map((r) => r.data as T);
+      for (const r of remote) pushed.current.set(id(r), r.updated);
+      setItems((local) => mergeById(local, remote, id));
+    };
+    pull();
+    const onFocus = () => pull();
+    window.addEventListener('focus', onFocus);
+    return () => { stop = true; window.removeEventListener('focus', onFocus); };
+  }, [user, kind, loaded]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!user || !loaded) return;
+    const changed = items.filter((x) => (pushed.current.get(id(x)) ?? -1) < x.updated);
+    if (!changed.length) return;
+    const t = setTimeout(async () => {
+      const c = await client();
+      if (!c) return;
+      for (let i = 0; i < changed.length; i += 50) {
+        const batch = changed.slice(i, i + 50);
+        const { error } = await c.from('desk_items').upsert(batch.map((x) => ({ kind, id: id(x), data: x, updated_at: new Date(x.updated).toISOString() })));
+        if (!error) for (const x of batch) pushed.current.set(id(x), x.updated);
+      }
+    }, 1000);
+    return () => clearTimeout(t);
+  }, [items, user, loaded]); // eslint-disable-line react-hooks/exhaustive-deps
 }

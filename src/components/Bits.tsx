@@ -1,9 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ColorType, LineSeries, createChart, type UTCTimestamp } from 'lightweight-charts';
 import type { Board, Headline } from '../types';
-import { DEMO_ACCOUNT, DEMO_AT } from '../lib/demo';
+import { DEMO_AT } from '../lib/demo';
 import { etTime } from '../lib/clock';
-import { sUsd, tone, usd } from '../lib/format';
 import { Fresh, Kbd } from './common';
 
 /* ---------------- 24/7 news ticker ---------------- */
@@ -135,77 +133,6 @@ export function CommandBar({ open, onClose, commands, tickers, onTicker, allowAn
   );
 }
 
-/* ---------------- Account drawer ---------------- */
-export function AccountDrawer({ open, onClose, theme }: { open: boolean; onClose: () => void; theme: string }) {
-  const el = useRef<HTMLDivElement>(null);
-  const a = DEMO_ACCOUNT;
-  useEffect(() => {
-    if (!open || !el.current) return;
-    const v = (n: string) => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
-    const c = createChart(el.current, {
-      autoSize: true,
-      layout: { background: { type: ColorType.Solid, color: v('--panel') }, textColor: v('--muted'), fontFamily: 'IBM Plex Mono, monospace', fontSize: 11, attributionLogo: false },
-      grid: { vertLines: { visible: false }, horzLines: { color: v('--line') } },
-      rightPriceScale: { borderColor: v('--line') },
-      timeScale: { borderColor: v('--line') },
-      handleScroll: false,
-      handleScale: false,
-    });
-    const s = c.addSeries(LineSeries, { color: v('--accent'), lineWidth: 2, priceLineVisible: false });
-    s.setData(a.daily.map((d) => ({ time: d.time as UTCTimestamp, value: d.equity })));
-    c.timeScale().fitContent();
-    return () => c.remove();
-  }, [open, theme, a.daily]);
-
-  if (!open) return null;
-  const max = Math.max(...a.daily.map((d) => Math.abs(d.pnl)));
-  // Calendar: weeks as columns, Mon-Fri rows
-  const weeks: (typeof a.daily[number] | null)[][] = [];
-  for (const d of a.daily) {
-    const wd = new Date(Date.UTC(d.date.y, d.date.mo - 1, d.date.d)).getUTCDay(); // 1..5
-    if (!weeks.length || wd === 1) weeks.push([null, null, null, null, null]);
-    weeks[weeks.length - 1][wd - 1] = d;
-  }
-  const wins = a.daily.filter((d) => d.pnl > 0).length;
-  return (
-    <div className="drawer-scrim" onMouseDown={onClose}>
-      <aside className="drawer" onMouseDown={(e) => e.stopPropagation()} role="dialog" aria-label="Account">
-        <div className="phead">
-          <div className="phead-title">Account</div>
-          <div className="phead-ctl" />
-          <Fresh kind="demo" at={DEMO_AT} src="Sample equity. Milestone 4 computes it from the journal + broker CSV" />
-          <button className="icon-btn" onClick={onClose} aria-label="Close">×</button>
-        </div>
-        <div className="kv wide">
-          <span>Starting balance</span><b className="num">{usd(a.start)}</b>
-          <span>Equity</span><b className="num">{usd(a.equity)}</b>
-          <span>Net</span><b className={`num ${tone(a.equity - a.start)}`}>{sUsd(a.equity - a.start)}</b>
-          <span>Green days</span><b className="num">{wins}/{a.daily.length}</b>
-        </div>
-        <h4>Equity curve</h4>
-        <div className="eq" ref={el} />
-        <h4>P&amp;L calendar <span className="muted small">last {a.daily.length} sessions</span></h4>
-        <div className="cal">
-          <div className="cal-days">{['M', 'T', 'W', 'T', 'F'].map((x, i) => <span key={i}>{x}</span>)}</div>
-          {weeks.map((w, i) => (
-            <div key={i} className="cal-wk">
-              {w.map((d, j) => (
-                <span
-                  key={j}
-                  className={`cal-c ${d ? (d.pnl >= 0 ? 'pos' : 'neg') : 'nil'}`}
-                  style={d ? { opacity: 0.25 + 0.75 * (Math.abs(d.pnl) / max) } : undefined}
-                  title={d ? `${d.date.mo}/${d.date.d}: ${sUsd(d.pnl)}` : ''}
-                />
-              ))}
-            </div>
-          ))}
-        </div>
-        <p className="note">No manual deposits. Set the starting balance once; deposits and withdrawals will be detected from your broker CSV (Milestone 4).</p>
-      </aside>
-    </div>
-  );
-}
-
 /* ---------------- Full-screen overlays ---------------- */
 export function OverlayView({ kind, onClose }: { kind: 'map' | 'globe' | 'help'; onClose: () => void }) {
   if (kind === 'help') {
@@ -215,10 +142,11 @@ export function OverlayView({ kind, onClose }: { kind: 'map' | 'globe' | 'help';
       ['1  2  3', 'Chart timeframe: Daily, 1-hour, 5-minute'],
       ['L', 'Show/hide levels panel'],
       ['P', 'Playbook editor'],
-      ['N  S  Q  R', 'Right rail: News, Scanner, Quick Journal, Risk'],
+      ['N  S  Q  R', 'Right rail: News, Scanner, Quick Journal (trade ticket), Risk'],
       ['[   ]', 'Hide/show left or right rail'],
       ['B', 'Hide/show news ticker'],
       ['A', 'Account drawer'],
+      ['Shift J', 'Full journal: trades, stats, violations, CSV import'],
       ['M', 'World map overlay'],
       ['G', 'Money flow globe overlay'],
       ['T', 'Light / dark theme'],
