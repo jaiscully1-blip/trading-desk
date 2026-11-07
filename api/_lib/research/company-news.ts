@@ -1,8 +1,8 @@
 // GET /api/company-news?symbol=NVDA&from=2025-11-01&to=2026-11-07 -> headlines with keyword sentiment, for the chart's news buttons.
 // Finnhub free company news (about a year of history). Range capped at 400 days.
-import { keywordSentiment } from '../shared/news.js';
-import { finnhubNewsRange } from './_lib/adapters.js';
-import { SYMBOL_RE, cached, hasKey, json } from './_lib/core.js';
+import { keywordSentiment } from '../../../shared/news.js';
+import { finnhubNewsRange } from '../adapters.js';
+import { SYMBOL_RE, cached, hasKey, json } from '../core.js';
 
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
 export async function GET(req: Request): Promise<Response> {

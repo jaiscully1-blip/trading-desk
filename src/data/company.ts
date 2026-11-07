@@ -20,7 +20,7 @@ export function useNames(symbols: string[], mode: DataMode, fallback: Record<str
     (async () => {
       for (let i = 0; i < missing.length && !stop; i += 30) {
         try {
-          const r = await fetch(`/api/names?symbols=${missing.slice(i, i + 30).join(',')}`);
+          const r = await fetch(`/api/research?fn=names&symbols=${missing.slice(i, i + 30).join(',')}`);
           const j = await r.json();
           if (r.ok) { Object.assign(nameCache, j.names); save('names', nameCache); bump((x) => x + 1); }
         } catch { /* keep fallbacks */ }
@@ -46,7 +46,7 @@ export function useEarnings(symbols: string[], mode: DataMode): EarnRow[] {
     if (mode.kind !== 'live') return;
     let stop = false, t: ReturnType<typeof setTimeout>;
     const go = async () => {
-      try { const r = await fetch(`/api/earnings?symbols=${key}`); const j = await r.json(); if (!stop && r.ok) setRows(j.rows); } catch { /* keep */ }
+      try { const r = await fetch(`/api/research?fn=earnings&symbols=${key}`); const j = await r.json(); if (!stop && r.ok) setRows(j.rows); } catch { /* keep */ }
       if (!stop) t = setTimeout(go, 15 * 60_000);
     };
     go();
@@ -77,7 +77,7 @@ export function useHistNews(sym: string, fromMs: number, toMs: number, mode: Dat
     if (mode.kind !== 'live') return;
     let stop = false;
     setSt((s) => ({ ...s, loading: true }));
-    fetch(`/api/company-news?symbol=${encodeURIComponent(sym)}&from=${from}&to=${to}`).then(async (r) => {
+    fetch(`/api/research?fn=company-news&symbol=${encodeURIComponent(sym)}&from=${from}&to=${to}`).then(async (r) => {
       const j = await r.json();
       if (stop) return;
       setSt(r.ok ? { items: j.items, loading: false, source: j.source, from: j.from } : { items: [], loading: false, error: j.error ?? `HTTP ${r.status}`, source: '' });
@@ -125,7 +125,7 @@ export function useCompany(sym: string, name: string, mode: DataMode): { data: C
     if (hit) { setSt({ data: hit, loading: false }); return; }
     let stop = false;
     setSt({ data: null, loading: true });
-    fetch(`/api/company?symbol=${encodeURIComponent(sym)}`).then(async (r) => {
+    fetch(`/api/research?fn=company&symbol=${encodeURIComponent(sym)}`).then(async (r) => {
       const j = await r.json();
       if (stop) return;
       if (r.ok) { companyCache.set(sym, j); setSt({ data: j, loading: false }); } else setSt({ data: null, loading: false, error: j.error ?? `HTTP ${r.status}` });

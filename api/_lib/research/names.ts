@@ -1,6 +1,6 @@
 // GET /api/names?symbols=NVDA,AMD -> { names: { NVDA: "NVIDIA Corp" } }. Finnhub profiles, cached a week (shared with /api/news).
-import { finnhubProfile } from './_lib/adapters.js';
-import { SYMBOL_RE, cached, hasKey, json } from './_lib/core.js';
+import { finnhubProfile } from '../adapters.js';
+import { SYMBOL_RE, cached, hasKey, json } from '../core.js';
 
 export async function GET(req: Request): Promise<Response> {
   const syms = [...new Set((new URL(req.url).searchParams.get('symbols') ?? '').toUpperCase().split(',').map((s) => s.trim()).filter((s) => SYMBOL_RE.test(s)))].slice(0, 30);

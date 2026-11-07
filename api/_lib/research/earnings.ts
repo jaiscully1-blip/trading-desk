@@ -1,7 +1,7 @@
 // GET /api/earnings?symbols=NVDA,AMD -> upcoming + just-reported earnings for those tickers (Finnhub free calendar).
 // Estimates show before the report; actual EPS / revenue appear once Finnhub records them (usually within hours: delayed).
-import { finnhubEarnings, type EarningRow } from './_lib/adapters.js';
-import { SYMBOL_RE, cached, hasKey, json, ttl } from './_lib/core.js';
+import { finnhubEarnings, type EarningRow } from '../adapters.js';
+import { SYMBOL_RE, cached, hasKey, json, ttl } from '../core.js';
 
 const ymd = (ms: number) => new Date(ms).toISOString().slice(0, 10);
 export async function GET(req: Request): Promise<Response> {

@@ -1,11 +1,10 @@
 // GET /api/company?symbol=NVDA -> company page: profile, peers, latest annual report, and (with a free Gemini key)
 // products / suppliers / customers / competitors read from that report. Each report is read once and cached ~30 days.
-import { GEMINI_SCHEMA, cleanFacts, geminiPrompt, htmlToText, latestAnnual, parseSecTickers, tenKExcerpt, type CompanyFacts, type SecTicker } from '../shared/company.js';
-import { finnhubPeers, finnhubProfile, geminiJson, secJson, secText, wikiSummary } from './_lib/adapters.js';
-import { SYMBOL_RE, cached, hasKey, json } from './_lib/core.js';
+import { GEMINI_SCHEMA, cleanFacts, geminiPrompt, htmlToText, latestAnnual, parseSecTickers, tenKExcerpt, type CompanyFacts, type SecTicker } from '../../../shared/company.js';
+import { finnhubPeers, finnhubProfile, geminiJson, secJson, secText, wikiSummary } from '../adapters.js';
+import { SYMBOL_RE, cached, hasKey, json } from '../core.js';
 
 // Reading a 10-K + one Gemini call can take ~20-40 s the first time (cached after that)
-export const maxDuration = 60;
 
 export async function GET(req: Request): Promise<Response> {
   const sym = (new URL(req.url).searchParams.get('symbol') ?? '').toUpperCase();
