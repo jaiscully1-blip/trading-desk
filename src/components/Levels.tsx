@@ -53,12 +53,14 @@ export function LevelsPanel({
           <Row key={id} id={id} cols={cols} />
         ))}
       </div>
-      <p className="note lv-note">Distances are last price minus level. Premarket high/low need extended-hours candles, which Twelve Data only includes on its paid Pro plan.</p>
+      <p className="note lv-note">Distances are last price minus level.</p>
     </section>
   );
 }
 
 function Row({ id, cols }: { id: LevelId; cols: LevelCol[] }) {
+  // a level the free data can't provide for any column (premarket high/low) is left out
+  if (cols.length && cols.every((c) => c.levels.find((x) => x.id === id)?.status === 'unavailable')) return null;
   return (
     <>
       <div className="lv-l" title={LEVEL_LABEL[id]}>{LEVEL_SHORT[id]}<span className="muted small"> {LEVEL_LABEL[id].replace(/^(Prior-day|Premarket|Opening-range) /, '')}</span></div>

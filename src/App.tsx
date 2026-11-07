@@ -622,10 +622,6 @@ export default function App() {
   const levelsPanel = (
     <LevelsPanel cols={cols} orMin={orMin} setOrMin={setOrMin} alertsOn={alertsOn} toggleAlerts={toggleAlerts} onSelect={setSel} sel={sel} onClose={() => setLayout({ levelsOpen: false })} />
   );
-  const dataLine =
-    dataMode.kind === 'checking' ? 'Data: checking…'
-      : dataMode.kind === 'demo' ? `Data: DEMO (${dataMode.reason})`
-        : `Data: live via ${Object.entries(dataMode.health.providers).filter(([, v]) => v).map(([k]) => k).join(', ')}`;
 
   /* ---------- Popped-out single panel ---------- */
   if (POPOUT) {
@@ -716,14 +712,6 @@ export default function App() {
         {body}
         {layout.tickerOpen && <NewsTicker headlines={news.items} fresh={news.freshness} asOf={news.asOf} boards={boards} watchOnly={watchOnly} setWatchOnly={setWatchOnly} onSelect={setSel} />}
 
-        <div className="statusbar">
-          <span>Layout: <b>{modeLabel(mode)}</b>{override ? ' (manual)' : ' (auto)'}, changes save to this mode</span>
-          <span className={live ? '' : 'demo-txt'}>{dataLine}</span>
-          <button className="sync-btn" onClick={() => setSyncOpen(true)} title={cloudConfigured ? 'Supabase sync' : 'Sync not configured'}>
-            {cloudConfigured ? (cloudUser ? `Synced · ${cloudUser.email}` : 'Sync: sign in') : 'Saved in this browser'}
-          </button>
-          <span className="muted">Press <kbd className="kbd">?</kbd> for shortcuts</span>
-        </div>
       </div>
 
       <CommandBar

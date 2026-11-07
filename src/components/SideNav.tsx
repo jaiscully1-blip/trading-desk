@@ -26,9 +26,8 @@ export function SideNav({ compact, page, onPage, onCmd, onHelp, onAccount }: { c
       <div className="nav-sep" />
       <button className="nav-item" onClick={onAccount} title="ACCOUNT (A)" aria-label="Account"><span className="nav-l">ACCOUNT</span><span className="kbd">A</span></button>
       <div className="nav-foot">
-        <button onClick={onCmd} title="Search / commands">{!compact && 'Search / commands '}<span className="kbd">⌘K</span></button>
-        <button onClick={onHelp} title="Shortcuts">{!compact && 'Shortcuts '}<span className="kbd">?</span></button>
-        {!compact && <span className="alt-hint">Hold Alt / ⌥ to see all keys</span>}
+        <button className="nav-mini" onClick={onCmd} title="Search tickers and commands (⌘K / Ctrl K)" aria-label="Search">⌕</button>
+        <button className="nav-mini" onClick={onHelp} title="Keyboard shortcuts (?) · hold Alt / ⌥ to see every key" aria-label="Keyboard shortcuts">?</button>
       </div>
     </nav>
   );
