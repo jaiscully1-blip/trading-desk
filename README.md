@@ -162,6 +162,19 @@ The desk opens on Home, which starts empty. Everything on it is saved in this br
 - **Side bar:** the right-hand column is a small scrollable second screen. Send a widget there with ⇥ (or "→ side" in the add
   menu), reorder with ↑ ↓, change its height from the corner, and bring it back with ⇤.
 
+## Messages (E)
+
+A chat-style stream for the trading day (also a Home widget):
+- **Earnings filed (live):** the SEC's latest-filings feed is checked every minute; any 8-K with Item 2.02 (Results of
+  Operations) from your watchlist, starred or scanner tickers, or ~120 built-in large caps (`BIG_CAPS` in `shared/feed.ts`),
+  shows up as "NVDA just filed its earnings results" with a link to the filing.
+- **Earnings today and beat/miss (delayed):** Finnhub's free earnings calendar: estimates in the morning, actual EPS and revenue
+  vs estimates once Finnhub records them.
+- **Fed and White House:** official RSS feeds (Fed speeches, testimony, press releases; White House briefings and statements).
+- **Economy:** today's scheduled releases (CPI, jobs, …) at their release time.
+- **Live video:** when the White House, Federal Reserve or C-SPAN YouTube channel is live, a LIVE chip appears and the stream
+  plays inside the page (official embeds; detection reads each channel's public /live page every 3 minutes).
+
 ## Stars, pings, company names (★)
 
 - **Star any ticker** (☆ next to it in the watchlist, scanner, chart header, company page); click again to unstar. Starred tickers
@@ -247,7 +260,7 @@ Premarket high/low are marked unavailable: Twelve Data includes extended-hours c
 | `Q` | Trade ticket (quick journal) |
 | `Shift J` | Journal page |
 | `F` | Hide/show fear strip |
-| `H D X O S M G C` | Pages: Home, Desk, Patterns, Company, Scanner, World map, Money flow, Calendars |
+| `H E D X O S M G C` | Pages: Home, Messages, Desk, Patterns, Company, Scanner, World map, Money flow, Calendars |
 | `1 2 3 4 5 6` | Chart: Daily, 1-hour, 5-min, Weekly, Monthly, Yearly news |
 | `N Q R` | Desk right rail: News, Quick Journal, Risk |
 | `[ ]` | Hide/show left or right rail |

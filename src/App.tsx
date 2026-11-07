@@ -48,6 +48,8 @@ import type { ChartTF } from './types';
 import type { Bar } from '../shared/types';
 const CompanyPage = lazy(() => import('./components/CompanyPage'));
 const Home = lazy(() => import('./components/Home'));
+import { Messages } from './components/Messages';
+import { useFeed } from './data/feed';
 import type { HomeLayout } from './components/Home';
 
 const DEMO_QUOTES = makeQuotes();
@@ -113,6 +115,7 @@ export default function App() {
   const [homeLayout, setHomeLayout] = usePersisted<HomeLayout>('homeLayout', { main: [], side: [] });
   const homeSyms = useMemo(() => [...homeLayout.main, ...homeLayout.side].filter((w) => w.cfg?.sym).map((w) => String(w.cfg.sym)), [homeLayout]);
   const homeHasMovers = useMemo(() => [...homeLayout.main, ...homeLayout.side].some((w) => w.type === 'movers'), [homeLayout]);
+  const homeHasMsgs = useMemo(() => [...homeLayout.main, ...homeLayout.side].some((w) => w.type === 'messages'), [homeLayout]);
   const [companySym, setCompanySym] = usePersisted<string>('companySym', 'NVDA');
   // Half-screen laptop windows: the watchlist folds away (press [ to show it) and the side menu shrinks to keys
   const narrow = useNarrow(1240);
@@ -204,6 +207,7 @@ export default function App() {
   // USO/UUP are the fear strip's live oil and dollar proxies
   const quoteSyms = useMemo(() => [...new Set([...INDEXES, 'USO', 'UUP', sel, ...stars, ...wlSyms, ...universe])].slice(0, 56), [wlSyms, sel, universe, stars]);
   const qs = useQuotes(quoteSyms, dataMode);
+  const feed = useFeed(useMemo(() => [...wlSyms, ...universe].slice(0, 80), [wlSyms, universe]), dataMode, page === 'messages' || (page === 'home' && homeHasMsgs));
   const scan = useScan(universe, dataMode, (s) => DEMO_QUOTES[s]?.last ?? 100);
   const macro = useMacro(dataMode);
   const market = useMarketStatus(dataMode);
@@ -516,7 +520,7 @@ export default function App() {
       if (e.key === 'Escape') { if (replayId) { setReplayId(null); return; } setCmdOpen(false); setOverlay(null); setDrawer(false); setPbOpen(false); setSyncOpen(false); setCiOpen(false); setRecapOpen(false); return; }
       if (cmdOpen || pbOpen || syncOpen || ciOpen || replayId || recapOpen || typing(e.target) || e.ctrlKey || e.metaKey || e.altKey) return;
       const map: Record<string, () => void> = {
-        h: () => setPage('home'), d: () => setPage('desk'), x: () => setPage('patterns'), s: () => setPage('scanner'), m: () => setPage('map'), g: () => setPage('flows'), c: () => setPage('calendar'),
+        h: () => setPage('home'), e: () => setPage('messages'), d: () => setPage('desk'), x: () => setPage('patterns'), s: () => setPage('scanner'), m: () => setPage('map'), g: () => setPage('flows'), c: () => setPage('calendar'),
         '?': () => setOverlay((o) => (o === 'help' ? null : 'help')),
         t: toggleTheme,
         a: () => setDrawer((d) => !d),
@@ -625,11 +629,13 @@ export default function App() {
     body = <div className="page page-split"><section className="panel cal-page"><Calendars cal={cal} now={now} onSelect={setSel} mySyms={new Set(wlSyms)} /></section><div className="center">{chart()}</div></div>;
   } else if (page === 'journal') {
     body = <div className="page"><JournalOverlay views={views} setTrades={setTrades} transfers={transfers} setTransfers={setTransfers} violations={viols} lastPx={lastPx} settings={settings} onClose={() => setPage('desk')} onSelect={toDesk} onReplay={setReplayId} canSample={!live} /></div>;
+  } else if (page === 'messages') {
+    body = <div className="page"><section className="panel msgs-page"><div className="phead"><div className="phead-title">Messages: earnings, Fed, White House, economy</div></div><Messages feed={feed} cal={cal} nowMs={now} onChart={toDesk} /></section></div>;
   } else if (page === 'home') {
     body = (
       <Suspense fallback={<div className="page"><section className="panel"><div className="ph-body">Loading…</div></section></div>}>
         <Home layout={homeLayout} setLayout={setHomeLayout} tickers={tickers.map((t) => ({ sym: t.sym, name: names[t.sym] ?? t.name }))}
-          d={{ mode: dataMode, theme, quotes, news, cal, movers, clk, macro, pingLog, sel, pingAt, setPingAt, onChart: toDesk, demoLast }} />
+          d={{ mode: dataMode, theme, quotes, news, cal, movers, clk, macro, pingLog, sel, pingAt, setPingAt, onChart: toDesk, demoLast, feed, now }} />
       </Suspense>
     );
   } else if (page === 'company') {

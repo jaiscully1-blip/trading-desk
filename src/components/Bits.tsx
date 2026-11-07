@@ -144,7 +144,7 @@ export function OverlayView({ kind, onClose }: { kind: 'map' | 'globe' | 'help';
   if (kind === 'help') {
     const rows: [string, string][] = [
       ['Ctrl K', 'Command bar: jump to ticker or run /command'],
-      ['H  D  X  O  S  M  G  C', 'Pages: Home, Desk, Patterns, Company, Scanner, World map, Money flow, Calendars'],
+      ['H  E  D  X  O  S  M  G  C', 'Pages: Home, Messages, Desk, Patterns, Company, Scanner, World map, Money flow, Calendars'],
       ['4  5  6', 'Chart: Weekly, Monthly, Yearly news buttons'],
       ['↑ ↓  or  J K', 'Move through watchlist'],
       ['1  2  3', 'Chart timeframe: Daily, 1-hour, 5-minute'],

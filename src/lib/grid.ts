@@ -1,6 +1,6 @@
 // Home page layout engine: a 12-column grid, rows of fixed height. Widgets never overlap: whatever a moved or
 // resized widget lands on gets pushed down, then everything floats up (like a dashboard grid). Pure + tested.
-export type WidgetType = 'stock' | 'news' | 'options' | 'clock' | 'notes' | 'starred' | 'movers' | 'calendar';
+export type WidgetType = 'stock' | 'messages' | 'news' | 'options' | 'clock' | 'notes' | 'starred' | 'movers' | 'calendar';
 export interface Widget { id: string; type: WidgetType; x: number; y: number; w: number; h: number; cfg: Record<string, any> }
 export const COLS = 12;
 
@@ -38,6 +38,6 @@ export function addTop(ws: Widget[], w: Widget): Widget[] {
 }
 
 export const DEFAULT_SIZE: Record<WidgetType, { w: number; h: number; side: number }> = {
-  stock: { w: 4, h: 8, side: 8 }, news: { w: 4, h: 9, side: 9 }, options: { w: 4, h: 11, side: 12 }, clock: { w: 3, h: 5, side: 5 },
+  stock: { w: 4, h: 8, side: 8 }, messages: { w: 4, h: 11, side: 11 }, news: { w: 4, h: 9, side: 9 }, options: { w: 4, h: 11, side: 12 }, clock: { w: 3, h: 5, side: 5 },
   notes: { w: 3, h: 6, side: 6 }, starred: { w: 3, h: 7, side: 7 }, movers: { w: 3, h: 8, side: 8 }, calendar: { w: 4, h: 8, side: 8 },
 };

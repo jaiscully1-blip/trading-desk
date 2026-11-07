@@ -14,11 +14,13 @@ import { pct, px, tone } from '../lib/format';
 import type { Ping } from '../lib/pings';
 import { CoName, Fresh, Seg, Star } from './common';
 import { StarredList } from './Pings';
+import { Messages } from './Messages';
+import type { FeedState } from '../data/feed';
 
 export interface HomeData {
   mode: DataMode; theme: string; quotes: Record<string, Quote>; news: NewsState; cal: CalendarState | null; movers: MoversState | null;
   clk: ClockState; macro: MacroResult | null; pingLog: Ping[]; sel: string; pingAt: number; setPingAt: (n: number) => void;
-  onChart: (s: string) => void; demoLast: (s: string) => number;
+  onChart: (s: string) => void; demoLast: (s: string) => number; feed: FeedState | null; now: number;
 }
 type Cfg = Record<string, any>;
 interface P { d: HomeData; cfg: Cfg; set: (c: Cfg) => void }
@@ -193,8 +195,13 @@ export function CalendarW({ d }: P) {
   );
 }
 
+export function MessagesW({ d }: P) {
+  return <Messages feed={d.feed} cal={d.cal} nowMs={d.now} onChart={d.onChart} compact />;
+}
+
 export const WIDGETS = {
   stock: { title: 'Stock', make: StockW },
+  messages: { title: 'Messages', make: MessagesW },
   news: { title: 'Live news', make: NewsW },
   options: { title: 'Options calculator', make: OptionsW },
   clock: { title: 'Clock', make: ClockW },
