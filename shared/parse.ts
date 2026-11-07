@@ -142,6 +142,13 @@ export function parseFredLatest(j: any): MacroPoint {
   return { value: parseFloat(valid[0].value), prev: valid[1] ? parseFloat(valid[1].value) : null, date: valid[0].date };
 }
 
+/** FRED observations -> values oldest to newest (missing days dropped). */
+export function parseFredSeries(j: any): { date: string; value: number }[] {
+  const obs: { date: string; value: string }[] = Array.isArray(j?.observations) ? j.observations : [];
+  if (!obs.length && j?.error_message) throw new ProviderError('fred', String(j.error_message));
+  return obs.filter((o) => o.value !== '.' && Number.isFinite(parseFloat(o.value))).map((o) => ({ date: o.date, value: parseFloat(o.value) })).sort((a, b) => (a.date < b.date ? -1 : 1));
+}
+
 /* ---------------- FINRA consolidated short interest (keyless) ---------------- */
 // POST api.finra.org/data/group/otcMarket/name/consolidatedShortInterest -> [{ symbolCode, currentShortPositionQuantity,
 //   averageDailyVolumeQuantity, daysToCoverQuantity, changePercent, settlementDate, ... }]
@@ -208,4 +215,14 @@ export function parseAlphaMovers(j: any): { lastUpdated: string; movers: Mover[]
 export function isPlainTicker(sym: string): boolean {
   if (!/^[A-Z]{1,5}$/.test(sym)) return false;
   return !(sym.length === 5 && /[WUR]$/.test(sym));
+}
+
+/** Alpha Vantage TIME_SERIES_INTRADAY (extended_hours=true, US/Eastern stamps) -> premarket 04:00-09:30 high/low for `day`. */
+export function premarketFromAlpha(j: any, day: string): { high: number; low: number; bars: number; first: string; last: string } | null {
+  const ts = j?.['Time Series (5min)'];
+  if (!ts) throw new ProviderError('alphavantage', String(j?.Note || j?.Information || j?.['Error Message'] || 'no intraday data').slice(0, 140));
+  const rows = Object.entries(ts as Record<string, any>).filter(([k]) => k.startsWith(day) && k.slice(11, 16) >= '04:00' && k.slice(11, 16) < '09:30').sort(([a], [b]) => (a < b ? -1 : 1));
+  if (!rows.length) return null;
+  const hi = rows.map(([, v]) => parseFloat(v['2. high'])), lo = rows.map(([, v]) => parseFloat(v['3. low']));
+  return { high: Math.max(...hi), low: Math.min(...lo), bars: rows.length, first: rows[0][0].slice(11, 16), last: rows.at(-1)![0].slice(11, 16) };
 }

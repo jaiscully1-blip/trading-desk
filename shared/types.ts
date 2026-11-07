@@ -57,6 +57,8 @@ export interface MacroResult {
   t10y3m?: MacroPoint | null;
   /** SPY full-chain put/call ratio (Alpha Vantage) */
   putCall?: { ratio: number; asOf: number } | null;
+  /** the desk's own fear & greed blend (shared/feargreed.ts) */
+  fearGreed?: import('./feargreed').FearGreed | null;
   source: string;
   freshness: Freshness;
   asOf: number;

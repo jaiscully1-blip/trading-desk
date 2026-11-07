@@ -23,10 +23,13 @@ export interface HomeData {
   mode: DataMode; theme: string; quotes: Record<string, Quote>; news: NewsState; cal: CalendarState | null; movers: MoversState | null;
   clk: ClockState; macro: MacroResult | null; pingLog: Ping[]; sel: string; pingAt: number; setPingAt: (n: number) => void;
   onChart: (s: string) => void; demoLast: (s: string) => number; feed: FeedState | null; now: number;
+  /** closed journal trades (R multiples) and account numbers for the simulator */
+  trades: { r: number | null; realized: number }[]; riskPct: number; equity: number | null;
 }
 type Cfg = Record<string, any>;
 interface P { d: HomeData; cfg: Cfg; set: (c: Cfg) => void }
 import { CongressW, DiscordW, WebullW } from './PrivateWidgets';
+import { InsiderW, PolymarketW, SimW } from './MoreWidgets';
 const cssVar = (n: string) => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
 
 /* ---------------- stock: quote + mini chart + its news ---------------- */
@@ -225,4 +228,7 @@ export const WIDGETS = {
   webull: { title: 'Webull account', make: WebullW },
   discord: { title: 'Discord bot', make: DiscordW },
   congress: { title: 'Congress trades', make: CongressW },
+  insider: { title: 'Insider trades', make: InsiderW },
+  polymarket: { title: 'Polymarket odds', make: PolymarketW },
+  sim: { title: 'Odds simulator', make: SimW },
 } as const;

@@ -294,6 +294,19 @@ export default function App() {
     return e.wd >= 1 && e.wd <= 5 ? Math.floor(nowEnc / 86400) : undefined; // weekends: last bars' session
   }, [Math.floor(nowEnc / 86400)]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // premarket high/low (free extended-hours bars from Alpha Vantage, SPY and QQQ only)
+  const [pmLv, setPmLv] = useState<Record<string, { high: number; low: number } | null>>({});
+  useEffect(() => {
+    if (!live) return;
+    let stop = false, t: ReturnType<typeof setTimeout>;
+    const go = async () => {
+      try { const r = await fetch('/api/research?fn=premarket'); const j = await r.json(); if (!stop && r.ok) setPmLv(j.levels ?? {}); } catch { /* keep */ }
+      if (!stop) t = setTimeout(go, 15 * 60_000);
+    };
+    go();
+    return () => { stop = true; clearTimeout(t); };
+  }, [live]);
+
   const levelCol = useCallback(
     (sym: string, d: SeriesState, i5: SeriesState): LevelCol => {
       const daily = patch(d, sym, 'D').bars, intra = patch(i5, sym, '5m').bars;
@@ -301,7 +314,10 @@ export default function App() {
       return {
         sym,
         last: live ? quotes[sym]?.last ?? (intra.at(-1)?.close ?? NaN) : intra.at(-1)?.close ?? NaN,
-        levels: computeLevels({ daily, intraday: intra, orMinutes: orMin, hasExtendedHours: false, sessionDay: day, nowEnc }),
+        levels: computeLevels({ daily, intraday: intra, orMinutes: orMin, hasExtendedHours: false, sessionDay: day, nowEnc }).map((l) => {
+          const pm = live ? pmLv[sym] : null;
+          return pm && (l.id === 'pmh' || l.id === 'pml') ? { ...l, value: l.id === 'pmh' ? pm.high : pm.low, status: undefined } : l;
+        }),
         freshness: worst(d.freshness, i5.freshness),
         asOf: i5.asOf || d.asOf || undefined,
         source: [...new Set([d.source, i5.source].filter(Boolean))].join(' + '),
@@ -310,7 +326,7 @@ export default function App() {
     },
     // recompute when bars, quotes or the OR setting change (not every clock tick)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [patch, orMin, live, sessionDay, quotes, Math.floor(nowEnc / 60)],
+    [patch, orMin, live, sessionDay, quotes, pmLv, Math.floor(nowEnc / 60)],
   );
   const cols = useMemo(() => {
     const c = [levelCol('SPY', spyD, spy5), levelCol('QQQ', qqqD, qqq5)];
@@ -641,6 +657,7 @@ export default function App() {
   const rightW = narrow ? Math.min(layout.right, 300) : layout.right;
   const cols3 = `${leftShown ? `${Math.min(layout.left, narrow ? 220 : 520)}px 5px` : '0 0'} minmax(0,1fr) ${layout.rightOpen ? `5px ${rightW}px` : '0 0'}`;
   const toDesk = (s: string) => { setSel(s); setPage('desk'); };
+  const closedR = views.filter((v) => v.status === 'closed' && !v.t.deleted).map((v) => ({ r: v.r, realized: v.realized }));
   const flowSwitch = <Seg<'flow' | 'companies'> value={flowView} onChange={setFlowView} options={[{ id: 'flow', label: 'Money flow' }, { id: 'companies', label: 'Companies map' }]} />;
   let body: ReactNode;
   if (page === 'scanner') {
@@ -655,7 +672,7 @@ export default function App() {
     body = (
       <Suspense fallback={<div className="page"><section className="panel"><div className="ph-body">Loading…</div></section></div>}>
         <Home spaces={spaces} setSpaces={setSpaces} tickers={tickers.map((t) => ({ sym: t.sym, name: names[t.sym] ?? t.name }))}
-          d={{ mode: dataMode, theme, quotes, news, cal, movers, clk, macro, pingLog, sel, pingAt, setPingAt, onChart: toDesk, demoLast, feed, now }} />
+          d={{ mode: dataMode, theme, quotes, news, cal, movers, clk, macro, pingLog, sel, pingAt, setPingAt, onChart: toDesk, demoLast, feed, now, trades: closedR, riskPct: settings.riskPct, equity: settings.startBalance == null ? null : g.equity }} />
       </Suspense>
     );
   } else if (page === 'company') {

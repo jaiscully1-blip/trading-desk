@@ -10,6 +10,9 @@ import { GET as discord } from './_lib/research/discord.js';
 import { GET as info } from './_lib/research/info.js';
 import { GET as congress } from './_lib/research/congress.js';
 import { POST as csvmap } from './_lib/research/csvmap.js';
+import { GET as premarket } from './_lib/research/premarket.js';
+import { GET as insider } from './_lib/research/insider.js';
+import { GET as polymarket } from './_lib/research/polymarket.js';
 import { cached, json } from './_lib/core.js';
 import { finnhubCryptoNews, finnhubMetrics, finnhubRecs, frameCheck, xOembed } from './_lib/adapters.js';
 import { SYMBOL_RE } from './_lib/core.js';
@@ -54,7 +57,7 @@ async function frame(req: Request): Promise<Response> {
 // Reading a 10-K + one Gemini call can take ~20-40 s the first time (cached after that)
 export const maxDuration = 60;
 
-const ROUTES: Record<string, (req: Request) => Promise<Response>> = { names, earnings, 'company-news': companyNews, company, feed, 'crypto-news': () => cryptoNews(), frame, fundamentals, x: xEmbed, webull, discord, info, congress };
+const ROUTES: Record<string, (req: Request) => Promise<Response>> = { names, earnings, 'company-news': companyNews, company, feed, 'crypto-news': () => cryptoNews(), frame, fundamentals, x: xEmbed, webull, discord, info, congress, premarket: () => premarket(), insider, polymarket };
 export async function GET(req: Request): Promise<Response> {
   const fn = new URL(req.url).searchParams.get('fn') ?? '';
   const h = ROUTES[fn];

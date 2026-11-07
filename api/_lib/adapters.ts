@@ -1,7 +1,7 @@
 // Provider adapters. Each one fetches + normalizes. Swap or reorder them in the chains below.
 import type { Bar, MacroPoint, QuoteResult, TF } from '../../shared/types.js';
 import { isPlainTicker, parseAlphaMovers, parseFinnhubNews, parseFinnhubProfile, parseFinraShortInterest, type FinraSI, type Mover, type NewsItem } from '../../shared/parse.js';
-import { ProviderError, parseAlphaDaily, parseFinnhubQuote, parseFredLatest, parseTwelveQuote, parseTwelveSeries } from '../../shared/parse.js';
+import { ProviderError, parseAlphaDaily, parseFinnhubQuote, parseFredLatest, parseFredSeries, parseTwelveQuote, parseTwelveSeries } from '../../shared/parse.js';
 import { getJson, key, take, type Provider } from './core.js';
 import { parseFeed } from '../../shared/news.js';
 import { MARKET_QUERY, collectVessels, parseGeo, type Vessel } from '../../shared/world.js';
@@ -98,6 +98,13 @@ export const twelveQuotes: QuoteAdapter = {
 };
 
 export const QUOTE_CHAIN: QuoteAdapter[] = [finnhubQuotes, twelveQuotes];
+
+/** A FRED daily series history (newest `limit` observations), oldest first. */
+export async function fredHistory(series: string, limit = 300): Promise<{ date: string; value: number }[]> {
+  need('fred');
+  const u = `https://api.stlouisfed.org/fred/series/observations?series_id=${series}&api_key=${key('fred')}&file_type=json&sort_order=desc&limit=${limit}`;
+  return parseFredSeries(await getJson(u, 'fred'));
+}
 
 /** FRED daily series: VIXCLS (VIX close) and DGS10 (10-year Treasury yield). End of day. */
 export async function fredLatest(series: 'VIXCLS' | 'DGS10' | 'T10Y2Y' | 'T10Y3M'): Promise<MacroPoint> {

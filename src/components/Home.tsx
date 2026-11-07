@@ -16,15 +16,15 @@ const SYM_RE = /^[A-Z][A-Z0-9.\-]{0,9}$/;
 const uid = () => Math.random().toString(36).slice(2, 9);
 
 const GROUPS: { name: string; items: { type: WidgetType; blurb: string }[] }[] = [
-  { name: 'Market', items: [{ type: 'stock', blurb: 'price, chart, its news' }, { type: 'crypto', blurb: 'BTC, ETH… 24/7 + crypto news' }, { type: 'commodities', blurb: 'oil, gas, gold, copper, grains' }, { type: 'movers', blurb: 'top gainers / losers' }, { type: 'calendar', blurb: 'economy + earnings' }, { type: 'congress', blurb: 'what members of Congress bought / sold' }] },
+  { name: 'Market', items: [{ type: 'stock', blurb: 'price, chart, its news' }, { type: 'crypto', blurb: 'BTC, ETH… 24/7 + crypto news' }, { type: 'commodities', blurb: 'oil, gas, gold, copper, grains' }, { type: 'movers', blurb: 'top gainers / losers' }, { type: 'calendar', blurb: 'economy + earnings' }, { type: 'congress', blurb: 'what members of Congress bought / sold' }, { type: 'insider', blurb: 'CEO / director buys and sells (SEC Form 4)' }, { type: 'polymarket', blurb: 'crowd odds: Fed, economy, geopolitics' }] },
   { name: 'News', items: [{ type: 'news', blurb: 'live headlines' }, { type: 'messages', blurb: 'earnings, Fed, White House, live' }, { type: 'browser', blurb: 'web, YouTube' }] },
   { name: 'Poker desk', items: [{ type: 'bets', blurb: 'every trade is a bet: equity vs pot odds' }, { type: 'claims', blurb: 'bull / bear: financials, technicals, news' }] },
-  { name: 'Trading tools', items: [{ type: 'risk', blurb: 'size, R:R, edge, drawdown, calc' }, { type: 'options', blurb: 'Black-Scholes + Greeks' }, { type: 'starred', blurb: 'your ★ list + pings' }] },
+  { name: 'Trading tools', items: [{ type: 'risk', blurb: 'size, R:R, edge, drawdown, calc' }, { type: 'options', blurb: 'Black-Scholes + Greeks' }, { type: 'starred', blurb: 'your ★ list + pings' }, { type: 'sim', blurb: 'odds of your next 50 trades (Monte Carlo)' }] },
   { name: 'My accounts', items: [{ type: 'webull', blurb: 'positions + P&L calendar (read-only)' }, { type: 'discord', blurb: 'bot watchlist + your 3 channels' }] },
   { name: 'Time & notes', items: [{ type: 'sessions', blurb: 'NY / London / Asia open-close' }, { type: 'clock', blurb: 'ET clock + countdown' }, { type: 'notes', blurb: 'sticky notes' }] },
   { name: 'Media', items: [{ type: 'spotify', blurb: 'playlists, podcasts' }, { type: 'x', blurb: 'embed a post' }] },
 ];
-const symFor = (t: WidgetType) => t === 'stock' || t === 'options' || t === 'claims' || t === 'congress';
+const symFor = (t: WidgetType) => t === 'stock' || t === 'options' || t === 'claims' || t === 'congress' || t === 'insider';
 
 type Drag = { id: string; kind: 'move' | 'size'; x0: number; y0: number; start: Widget; area: 'main' | 'side' };
 
