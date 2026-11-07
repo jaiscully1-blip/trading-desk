@@ -121,6 +121,8 @@ export default function CompanyPage({ sym, mode, onOpen, onChart, onPatterns }: 
               </p>
             </aside>
             <div className="co-main">
+              {(() => { const top = [...(f?.products ?? [])].map((p) => ({ p, v: pctOf(p.share) })).filter((x) => x.v != null).sort((a, b) => b.v! - a.v!)[0]; return top ? (
+                <p className="co-top">Biggest revenue line: <b>{top.p.name}</b> <span className="num">{top.p.share}</span>{f && f.products.length > 1 ? <span className="muted small"> · suppliers and customers below are for the whole company, as the 10-K lists them (10-Ks rarely split them by product)</span> : null}</p>) : null; })()}
               <Diagram sym={sym} name={name} sup={f?.suppliers ?? []} cus={f?.customers ?? []} comp={comp} onOpen={go} />
               <p className="small muted co-hint">Click any company with a ticker to re-center on it. Gray boxes are private, foreign-only or unmatched names. Arrows show which way products flow.</p>
               <div className="co-lists">

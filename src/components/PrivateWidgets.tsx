@@ -1,5 +1,5 @@
 // Private widgets: Webull account (read-only) and the Discord bot's channels. Both need the desk password.
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { HomeData } from './HomeWidgets';
 import type { WbBalance, WbClosed, WbDay, WbFill, WbPosition } from '../../shared/webull';
 import type { DcMessage } from '../../shared/discord';
@@ -7,7 +7,7 @@ import { getDeskKey, privateFetch, setDeskKey, usePrivate } from '../data/privat
 import { DEMO_AT, rng } from '../lib/demo';
 import { pct, px, sUsd, tone } from '../lib/format';
 import { etTime } from '../lib/clock';
-import { CoName, Fresh, Seg, Star } from './common';
+import { CoName, Fresh, Seg, Star, SymInfo } from './common';
 
 type Cfg = Record<string, any>;
 interface P { d: HomeData; cfg: Cfg; set: (c: Cfg) => void }
@@ -201,10 +201,10 @@ export function DiscordW({ d, cfg, set }: P) {
   const q = usePrivate<DcData>({ fn: 'discord' }, d.mode, 60_000);
   const demo = useMemo(() => (live ? null : demoDiscord()), [live]);
   const data = demo ?? q.data;
-  const msgs = (data?.messages ?? []).filter((m) => ch === 'all' || m.ch === ch);
+  const msgs = (data?.messages ?? []).filter((m) => ch === 'all' || m.ch === ch || (ch === 'tom' && m.tom));
   const head = (
     <div className="hw-bar">
-      <Seg value={ch} options={[{ id: 'all', label: 'All' }, { id: 'before', label: 'Before', hint: '#read-before-trading' }, { id: 'resp', label: 'Rules', hint: '#trade-responsibility' }, { id: 'review', label: 'Review', hint: '#after-close-review' }]} onChange={(v) => set({ ...cfg, ch: v })} />
+      <Seg value={ch} options={[{ id: 'all', label: 'All' }, { id: 'before', label: 'Before', hint: '#read-before-trading' }, { id: 'resp', label: 'Rules', hint: '#trade-responsibility' }, { id: 'review', label: 'Review', hint: '#after-close-review' }, { id: 'tom', label: 'Tom', hint: 'Tom’s messages' }]} onChange={(v) => set({ ...cfg, ch: v })} />
       {demo ? <Fresh kind="demo" /> : <Fresh kind={q.data ? 'live' : 'nodata'} at={q.at} src="Discord API via your bot (read-only)" />}
     </div>
   );
@@ -225,7 +225,7 @@ export function DiscordW({ d, cfg, set }: P) {
       <div className="dc-list">
         {msgs.map((m) => (
           <div key={m.id} className={`dc-m ch-${m.ch}`}>
-            <div className="dc-mh"><b>{m.author}</b>{m.bot && <span className="tag">bot</span>}<span className="muted small">#{(data?.channels.find((c) => c.key === m.ch)?.name) ?? m.ch} · {new Date(m.t).toLocaleString('en-US', { timeZone: 'America/New_York', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}</span>{m.url && <a className="small" href={m.url} target="_blank" rel="noreferrer noopener">open</a>}</div>
+            <div className="dc-mh"><b>{m.tom ? `Tom (${m.author})` : m.author}</b>{m.bot && <span className="tag">bot</span>}<span className="muted small">#{(data?.channels.find((c) => c.key === m.ch)?.name) ?? m.ch} · {new Date(m.t).toLocaleString('en-US', { timeZone: 'America/New_York', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}</span>{m.url && <a className="small" href={m.url} target="_blank" rel="noreferrer noopener">open</a>}</div>
             <div className="dc-t">{m.text}</div>
             {m.tickers.length > 0 && <div className="dc-tk">{m.tickers.map((s) => <button key={s} className="chip" onClick={() => d.onChart(s)}>{s}</button>)}</div>}
           </div>
@@ -233,6 +233,62 @@ export function DiscordW({ d, cfg, set }: P) {
         {data && !msgs.length && <p className="small muted hw-pad">No messages.</p>}
         {!data && !q.error && <p className="small muted hw-pad">{live ? 'Reading your channels…' : 'Discord loads on the live desk.'}</p>}
       </div>
+    </div>
+  );
+}
+
+/* ---------------- Congress trades ---------------- */
+interface CgTrade { who: string; party: string; state: string; chamber: string; type: string; traded: string; filed: string; min: number | null; max: number | null; owner: string }
+const range = (a: number | null, b: number | null) => { const k = (v: number) => (v >= 1e6 ? `$${(v / 1e6).toFixed(v % 1e6 ? 1 : 0)}M` : `$${Math.round(v / 1000)}K`); return a == null ? '—' : b == null ? `${k(a)}+` : `${k(a)}–${k(b)}`; };
+const congressCache = new Map<string, { trades: CgTrade[]; asOf: number }>();
+
+export function CongressW({ d, cfg, set }: P) {
+  const sym: string = (cfg.sym ?? d.sel ?? 'NVDA').toUpperCase();
+  const [draft, setDraft] = useState(sym);
+  const [st, setSt] = useState<{ trades: CgTrade[]; asOf?: number; error?: string; loading?: boolean }>({ trades: [] });
+  const live = d.mode.kind === 'live';
+  useEffect(() => setDraft(sym), [sym]);
+  useEffect(() => {
+    if (!live) {
+      const r = rng(sym.length * 13);
+      setSt({ trades: Array.from({ length: 6 }, (_, i) => ({ who: `Member ${String.fromCharCode(65 + i)} (sample)`, party: r() < 0.5 ? 'D' : 'R', state: 'XX', chamber: r() < 0.6 ? 'HOUSE' : 'SENATE', type: r() < 0.6 ? 'BUY' : 'SELL', traded: new Date(DEMO_AT - i * 9 * 86400_000).toISOString().slice(0, 10), filed: '', min: 1001, max: 15000, owner: 'SELF' })), asOf: DEMO_AT });
+      return;
+    }
+    const hit = congressCache.get(sym);
+    if (hit) { setSt(hit); return; }
+    let stop = false;
+    setSt({ trades: [], loading: true });
+    fetch(`/api/research?fn=congress&symbol=${encodeURIComponent(sym)}`).then(async (r) => {
+      const j = await r.json(); if (stop) return;
+      if (r.ok) { congressCache.set(sym, { trades: j.trades, asOf: j.asOf }); setSt({ trades: j.trades, asOf: j.asOf }); } else setSt({ trades: [], error: j.error });
+    }).catch((e) => !stop && setSt({ trades: [], error: String(e) }));
+    return () => { stop = true; };
+  }, [sym, live]);
+  const recent = st.trades.filter((t) => Date.parse(t.traded) > Date.now() - 90 * 86400_000);
+  const buys = recent.filter((t) => /BUY|PURCHASE/i.test(t.type)).length, sells = recent.filter((t) => /SELL|SALE/i.test(t.type)).length;
+  return (
+    <div className="hw-col">
+      <form className="hw-bar" onSubmit={(e) => { e.preventDefault(); set({ ...cfg, sym: draft.trim().toUpperCase() }); }}>
+        <input className="cg-in" value={draft} onChange={(e) => setDraft(e.target.value.toUpperCase())} aria-label="Ticker" />
+        <button className="btn" type="submit">Look up</button>
+        <SymInfo sym={sym} className="small">what is {sym}?</SymInfo>
+        {live ? <Fresh kind={st.trades.length ? 'delayed' : 'nodata'} at={st.asOf} src="Alpha Vantage CONGRESS_TRADES: STOCK Act filings (House Clerk + Senate eFD). Filed up to 45 days after the trade." /> : <Fresh kind="demo" />}
+      </form>
+      <div className="cg-sum small">Last 90 days: <b className="up">{buys} buys</b> · <b className="down">{sells} sells</b> <span className="muted">by members of Congress or their families</span></div>
+      {st.error && <p className="hw-pad small down">{st.error}</p>}
+      {st.loading && <p className="hw-pad small muted">Loading disclosures…</p>}
+      <div className="wb-tbl">
+        {st.trades.slice(0, 80).map((t, i) => (
+          <div key={i} className="cg-r">
+            <span className="num small muted">{t.traded}</span>
+            <span className="cg-who"><b>{t.who}</b> <span className={`tag p-${t.party}`}>{t.party}-{t.state}</span>{t.owner && t.owner !== 'SELF' && <span className="muted small"> · {t.owner.toLowerCase()}</span>}</span>
+            <span className={/BUY|PURCHASE/i.test(t.type) ? 'up' : 'down'}>{/BUY|PURCHASE/i.test(t.type) ? 'BUY' : 'SELL'}</span>
+            <span className="num small">{range(t.min, t.max)}</span>
+          </div>
+        ))}
+        {!st.loading && !st.error && !st.trades.length && <p className="hw-pad small muted">No disclosed congressional trades in {sym}.</p>}
+      </div>
+      <p className="note hw-pad">Amounts are the ranges members must report, not exact sizes. Trades show up when filed, often weeks later, so treat this as background, not a signal to chase. Each ticker uses one of the desk’s 25 free Alpha Vantage calls a day (cached 12 h).</p>
     </div>
   );
 }

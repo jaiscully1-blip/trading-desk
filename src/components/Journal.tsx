@@ -5,7 +5,7 @@ import {
   EMOTIONS, VIOLATION_LABEL, equityByDay, etDay, stats, timeOfDay, unrealized,
   type AccountSettings, type Fill, type Guard, type Trade, type TradeView, type Transfer, type Violation, type ViolationType,
 } from '../lib/journal';
-import { detect, mergeFills, parseCsv, toFills, toTransfers, type FillField, type Mapping, type TransferField } from '../lib/csv';
+import { detect, mergeFills, parseCsv, toFills, trimToHeader, toTransfers, type FillField, type Mapping, type TransferField } from '../lib/csv';
 import { etTime } from '../lib/clock';
 import { rng } from '../lib/demo';
 import { px, sUsd, tone, usd } from '../lib/format';
@@ -289,7 +289,7 @@ function ImportTab(p: JournalProps) {
   const [msg, setMsg] = useState('');
   const read = async (list: FileList | File[]) => {
     const out: Pending[] = [];
-    for (const f of [...list]) { const rows = parseCsv(await f.text()); if (rows.length > 1) out.push({ name: f.name, rows, map: detect(rows) }); }
+    for (const f of [...list]) { const rows = trimToHeader(parseCsv(await f.text())); if (rows.length > 1) out.push({ name: f.name, rows, map: detect(rows) }); }
     setFiles((x) => [...x, ...out]);
   };
   const doImport = (i: number) => {

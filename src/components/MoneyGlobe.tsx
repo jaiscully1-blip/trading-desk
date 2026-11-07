@@ -1,12 +1,13 @@
 // Money flow globe (G): sector and asset-class rotation. Nodes sit on an abstract sphere (positions carry no meaning);
 // arcs carry capital from the biggest outflows to the biggest inflows. PROXY from ETF relative performance x volume.
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useDesk } from '../lib/deskctx';
 import { geoDistance, geoGraticule10, geoInterpolate, geoOrthographic, geoPath } from 'd3-geo';
 import type { FlowsState } from '../data/world';
 import type { FlowRow, FlowWindow } from '../../shared/flows';
 import { usePersisted } from '../lib/store';
 import { pct } from '../lib/format';
-import { Fresh, Seg } from './common';
+import { CoName, Fresh, Seg } from './common';
 
 const css = (n: string) => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
 /** Groups get their own latitude band; sectors spread around the equator. */
@@ -19,7 +20,8 @@ function layout(rows: FlowRow[]): Record<string, [number, number]> {
   return pos;
 }
 
-export default function MoneyGlobe({ data, onSelect, onClose, theme }: { data: FlowsState | null; onSelect: (s: string) => void; onClose: () => void; theme: string }) {
+export default function MoneyGlobe({ data, onSelect, onClose, theme, extra }: { data: FlowsState | null; onSelect: (s: string) => void; onClose: () => void; theme: string; extra?: ReactNode }) {
+  const { names } = useDesk();
   const [win, setWin] = usePersisted<FlowWindow>('flowWindow', '5D');
   const [hover, setHover] = useState<FlowRow | null>(null);
   const cv = useRef<HTMLCanvasElement>(null);
@@ -102,8 +104,8 @@ export default function MoneyGlobe({ data, onSelect, onClose, theme }: { data: F
   const outs = [...(view?.rows ?? [])].filter((r) => r.flow < 0).sort((a, b) => a.flow - b.flow);
   const Row = ({ r }: { r: FlowRow }) => (
     <li onMouseEnter={() => setHover(r)} onMouseLeave={() => setHover(null)}>
-      <button className="wl-sym" onClick={() => r.group !== 'crypto' && onSelect(r.sym)}>{r.sym}</button>
-      <span className="small muted">{r.label}</span>
+      <button className="wl-sym" onClick={() => r.group !== 'crypto' && onSelect(r.sym)} title="Chart it">{r.sym}</button>
+      <span className="small muted flow-l">{r.label}<CoName sym={r.sym} className="flow-name" /></span>
       <span className={`num small ${r.rel >= 0 ? 'up' : 'down'}`}>{pct(r.rel, 1)}</span>
       <span className="num small muted" title="Dollar volume vs 20-day average">{r.volRatio.toFixed(2)}x</span>
     </li>
@@ -115,6 +117,7 @@ export default function MoneyGlobe({ data, onSelect, onClose, theme }: { data: F
         <div className="phead">
           <div className="phead-title">Money flow globe <span className="tag">PROXY</span></div>
           <div className="phead-ctl">
+            {extra}
             <Seg value={win} onChange={setWin} options={[{ id: '1D', label: '1D' }, { id: '5D', label: '5D' }, { id: '20D', label: '20D' }]} />
             {data && <Fresh kind={data.freshness} at={data.asOf} src={`Daily bars: ${data.sources.join(', ')}`} />}
           </div>
@@ -133,7 +136,7 @@ export default function MoneyGlobe({ data, onSelect, onClose, theme }: { data: F
             onMouseLeave={() => { drag.current = null; setHover(null); }}
           />
           <aside className="wm-side">
-            {hover && <div className="banner">{hover.sym} · {hover.label}: {pct(hover.ret, 2)} ({pct(hover.rel, 2)} vs SPY), volume {hover.volRatio.toFixed(2)}x average</div>}
+            {hover && <div className="banner">{hover.sym}{names[hover.sym] ? ` (${names[hover.sym]})` : ''} · {hover.label}: {pct(hover.ret, 2)} ({pct(hover.rel, 2)} vs SPY), volume {hover.volRatio.toFixed(2)}x average</div>}
             <h4>Money moving in ({win})</h4>
             <ul className="flows">{ins.map((r) => <Row key={r.sym} r={r} />)}</ul>
             <h4>Money moving out ({win})</h4>

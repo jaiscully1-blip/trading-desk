@@ -97,10 +97,16 @@ export function Star({ sym, size = 'sm' }: { sym: string; size?: 'sm' | 'md' }) 
 
 /** Company name next to a ticker; click opens the company page (what they do, products, supply chain). */
 export function CoName({ sym, className = '' }: { sym: string; className?: string }) {
-  const { names, openCompany } = useDesk();
+  const { names, openInfo } = useDesk();
   const n = names[sym];
   if (!n || n === sym) return null;
   return (
-    <button className={`coname ${className}`} onClick={(e) => { e.stopPropagation(); openCompany(sym); }} title={`${n}: open company page`}>{n}</button>
+    <button className={`coname ${className}`} onClick={(e) => { e.stopPropagation(); openInfo(sym, { x: e.clientX, y: e.clientY }); }} title={`${n}: what is it?`}>{n}</button>
   );
+}
+
+/** A ticker you can click to see what it is (name + description card). */
+export function SymInfo({ sym, className = '', children }: { sym: string; className?: string; children?: ReactNode }) {
+  const { openInfo, names } = useDesk();
+  return <button className={`syminfo ${className}`} title={names[sym] ? `${names[sym]}: what is it?` : 'What is this?'} onClick={(e) => { e.stopPropagation(); openInfo(sym, { x: e.clientX, y: e.clientY }); }}>{children ?? sym}</button>;
 }

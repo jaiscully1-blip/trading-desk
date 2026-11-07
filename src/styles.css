@@ -1013,3 +1013,45 @@ html, body { min-width: 900px; }
 .dc-mh a { margin-left: auto; }
 .dc-t { font-size: 12px; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.4; }
 .dc-tk { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+
+/* ---------- ticker info card ---------- */
+.tinfo { position: fixed; z-index: 90; background: var(--panel); border: 1px solid var(--line-2); border-radius: 8px; box-shadow: 0 12px 32px rgba(0,0,0,.35); padding: 10px 12px; display: grid; gap: 6px; }
+.tinfo-h { display: flex; align-items: center; gap: 6px; }
+.tinfo-sym { font: 600 14px 'IBM Plex Mono', monospace; }
+.tinfo-n { font-size: 12.5px; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tinfo-tags { display: flex; flex-wrap: wrap; gap: 4px; }
+.tinfo-what { font-size: 12.5px; line-height: 1.45; margin: 0; max-height: 190px; overflow: auto; }
+.tinfo-kv { font-size: 11.5px; }
+.tinfo-btns { display: flex; flex-wrap: wrap; gap: 6px; }
+.tinfo .note { margin: 0; }
+.coname { cursor: help; }
+.syminfo { color: var(--accent); text-decoration: underline dotted; text-underline-offset: 2px; }
+.flow-l { display: flex; flex-direction: column; min-width: 0; }
+.flow-name { font-size: 10.5px; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 210px; }
+
+/* ---------- companies map ---------- */
+.co-dot { stroke: var(--panel); stroke-width: .6; cursor: pointer; opacity: .9; transition: r .1s; }
+.co-dot.dim { opacity: .25; }
+.co-dot.hit { stroke: var(--text); stroke-width: 1.5; opacity: 1; }
+.sec-0 { fill: #4e9af1; background: #4e9af1; } .sec-1 { fill: #f5b83d; background: #f5b83d; } .sec-2 { fill: #e0645c; background: #e0645c; }
+.sec-3 { fill: #3dd68c; background: #3dd68c; } .sec-4 { fill: #c084fc; background: #c084fc; } .sec-5 { fill: #f472b6; background: #f472b6; }
+.sec-6 { fill: #22d3ee; background: #22d3ee; } .sec-7 { fill: #a3a3a3; background: #a3a3a3; } .sec-8 { fill: #fb923c; background: #fb923c; }
+.sec-9 { fill: #84cc16; background: #84cc16; } .sec-10 { fill: #eab308; background: #eab308; }
+.co-secs { display: flex; flex-wrap: wrap; gap: 4px; }
+.co-sec { display: inline-flex; align-items: center; gap: 4px; }
+.sec-sw { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+.co-hits { list-style: none; margin: 6px 0; padding: 0; display: grid; gap: 3px; font-size: 12px; }
+.overlay.co-modal { position: fixed; inset: 0; z-index: 80; background: rgba(0,0,0,.6); display: flex; align-items: center; justify-content: center; padding: 24px; }
+.co-modal-in { position: relative; width: min(1280px, 100%); max-height: 100%; overflow: auto; background: var(--bg); border: 1px solid var(--line-2); border-radius: 10px; padding-top: 34px; }
+.co-modal-in .page { height: auto; }
+.co-modal-x { position: absolute; top: 4px; right: 8px; z-index: 2; }
+.co-top { margin: 4px 0 8px; font-size: 12.5px; }
+
+/* ---------- congress ---------- */
+.cg-in { width: 80px; text-transform: uppercase; }
+.cg-sum { padding: 6px 10px; border-bottom: 1px solid var(--line); }
+.cg-r { display: grid; grid-template-columns: 78px minmax(0, 1fr) 38px 86px; gap: 6px; align-items: center; padding: 5px 10px; border-bottom: 1px solid var(--line); font-size: 12px; }
+.cg-r > span:last-child { text-align: right; }
+.cg-who { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tag.p-D { color: #4e9af1; border-color: color-mix(in srgb, #4e9af1 40%, transparent); }
+.tag.p-R { color: #e0645c; border-color: color-mix(in srgb, #e0645c 40%, transparent); }

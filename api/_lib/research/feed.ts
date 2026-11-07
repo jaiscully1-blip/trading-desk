@@ -16,6 +16,13 @@ export const STREAMS = [
   { name: 'White House', handle: 'WhiteHouse' },
   { name: 'Federal Reserve', handle: 'federalreserve' },
   { name: 'C-SPAN', handle: 'cspan' },
+  // financial news channels that stream on YouTube
+  { name: 'Bloomberg TV', handle: 'markets' },
+  { name: 'Yahoo Finance', handle: 'YahooFinance' },
+  { name: 'CNBC', handle: 'CNBCtelevision' },
+  { name: 'Schwab Network', handle: 'SchwabNetwork' },
+  { name: 'Fox Business', handle: 'FoxBusiness' },
+  { name: 'Reuters', handle: 'Reuters' },
 ];
 const ymd = (ms: number) => new Date(ms).toISOString().slice(0, 10);
 

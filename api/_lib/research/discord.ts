@@ -31,6 +31,8 @@ export async function GET(req: Request): Promise<Response> {
   const all: DcMessage[] = [];
   const res = await cached('dc:all', 45, async () => Promise.all(DISCORD_CHANNELS.map((c) => channel(c.id, token).then((v) => ({ c, v })).catch((e) => ({ c, e: (e as Error).message })))));
   for (const r of res.val) {
+    // the "tom" ID may be the bot's user ID rather than a channel: then it only labels Tom's messages
+    if ('e' in r && r.c.key === 'tom' && /Discord (404|400)/.test(r.e)) continue;
     if ('e' in r) { errors[r.c.name] = r.e; continue; }
     all.push(...toMessages(r.v.msgs, r.c.key, r.v.guild, r.c.id, known));
   }

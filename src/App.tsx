@@ -32,6 +32,7 @@ import { useFlows, useWorld } from './data/world';
 const WorldMap = lazy(() => import('./components/WorldMap'));
 const PatternLab = lazy(() => import('./components/PatternLab'));
 const MoneyGlobe = lazy(() => import('./components/MoneyGlobe'));
+const CompanyMap = lazy(() => import('./components/CompanyMap'));
 import { Calendars } from './components/Calendars';
 import { FearStrip } from './components/FearStrip';
 import { cloudConfigured, signIn, signOut, useCloudItems, useCloudSync, useCloudUser } from './data/cloud';
@@ -39,10 +40,12 @@ import { DEFAULT_THRESHOLDS, liveRow, rankRs, type ScanRow } from '../shared/sca
 import { DEFAULT_PLAYBOOKS, gradeRow, type GradeResult, type Playbook, type SavedFilter } from './lib/playbook';
 import { CommandBar, NewsTicker, OverlayView, type Cmd } from './components/Bits';
 import { SideNav, type Page } from './components/SideNav';
-import { popout } from './components/common';
+import { popout, Seg } from './components/common';
 import { PingStack, StarredList } from './components/Pings';
 import { Desk, type Article, type DeskCtx } from './lib/deskctx';
 import { ReaderOverlay } from './components/Poker';
+import TickerInfo from './components/TickerInfo';
+import { OFFLINE_NAMES } from './data/info';
 import { earningsPings, levelPings, movePing, watchLevels, type Ping } from './lib/pings';
 import { useEarnings, useNames } from './data/company';
 import type { ChartTF } from './types';
@@ -55,6 +58,8 @@ import type { HomeLayout, Workspaces } from './components/Home';
 import { COMMODITIES } from './components/HomeWidgets2';
 
 const DEMO_QUOTES = makeQuotes();
+/** Deep links like /$SPY or /nvda open that ticker on the desk (Vercel rewrites every page path to the app). */
+const PATH_SYM = (() => { try { const m = /^\/\$?([A-Za-z][A-Za-z0-9.\-]{0,9})\/?$/.exec(decodeURIComponent(location.pathname)); return m ? m[1].toUpperCase() : null; } catch { return null; } })();
 const HEADLINES = makeHeadlines(Object.keys(DEMO_QUOTES).filter((s) => !INDEXES.includes(s)));
 const SYMBOL_RE = /^[A-Z][A-Z0-9.\-]{0,9}$/;
 const DEFAULT_SCAN_LIST = ['NVDA', 'AMD', 'TSLA', 'PLTR', 'META', 'AAPL', 'MSFT', 'AMZN', 'AVGO', 'COIN', 'MSTR', 'HOOD', 'SOFI', 'RKLB', 'IONQ', 'CRWD', 'SHOP', 'ANET', 'ARM', 'MU', 'NFLX', 'UBER', 'SMCI', 'CELH'];
@@ -114,6 +119,7 @@ export default function App() {
   const [theme, setTheme] = usePersisted<'light' | 'dark'>('themeV2', 'dark');
   // Home is the landing page (new key so existing installs open on Home once)
   const [page, setPage] = usePersisted<Page>('page2', 'home');
+  const [flowView, setFlowView] = usePersisted<'flow' | 'companies'>('flowView', 'flow');
   // Home workspaces (the earlier single Home layout becomes "Main")
   const [spaces, setSpaces] = usePersisted<Workspaces>('workspaces', () => ({ active: 'main', list: [{ id: 'main', name: 'Main', layout: load<HomeLayout>('homeLayout', { main: [], side: [] }) }] }));
   const homeLayout = (spaces.list.find((w) => w.id === spaces.active) ?? spaces.list[0]).layout;
@@ -128,7 +134,8 @@ export default function App() {
   const toggleTheme = useCallback(() => setTheme((t) => (t === 'dark' ? 'light' : 'dark')), [setTheme]);
 
   const [boards, setBoards] = usePersisted<Record<string, Board>>('boards', () => defaultBoards(DEMO_QUOTES));
-  const [sel, setSelRaw] = useState<string>((params.get('sym') || 'SPY').toUpperCase());
+  const [sel, setSelRaw] = useState<string>((PATH_SYM || params.get('sym') || 'SPY').toUpperCase());
+  useEffect(() => { if (PATH_SYM) { setPage('desk'); history.replaceState(null, '', `/${location.search}`); } }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const [override, setOverride] = usePersisted<Mode | null>('modeOverride', null);
   const mode: Mode = override ?? clk.mode;
 
@@ -401,7 +408,7 @@ export default function App() {
 
   /* ---------------- starred: names, pings ---------------- */
   const names = useNames(useMemo(() => [...new Set([...quoteSyms, ...stars, companySym])], [quoteSyms, stars, companySym]), dataMode,
-    useMemo(() => Object.fromEntries(Object.values(DEMO_QUOTES).map((q) => [q.sym, q.name])), []));
+    useMemo(() => ({ ...OFFLINE_NAMES, ...Object.fromEntries(Object.values(DEMO_QUOTES).map((q) => [q.sym, q.name])) }), []));
   const toggleStar = useCallback((sym: string) => {
     setStars((xs) => (xs.includes(sym) ? xs.filter((x) => x !== sym) : [...xs, sym]));
     flash(stars.includes(sym) ? `${sym} unstarred` : `★ ${sym} starred: pings for news, earnings, moves, levels`, 2500);
@@ -409,7 +416,9 @@ export default function App() {
   }, [stars, setStars, flash]);
   const openCompany = useCallback((sym: string) => { setCompanySym(sym); setPage('company'); }, [setCompanySym, setPage]);
   const [article, setArticle] = useState<Article | null>(null);
-  const desk: DeskCtx = useMemo(() => ({ stars, toggleStar, names, openCompany, openArticle: setArticle }), [stars, toggleStar, names, openCompany]);
+  const [info, setInfo] = useState<{ sym: string; at: { x: number; y: number } } | null>(null);
+  const openInfo = useCallback((sym: string, at?: { x: number; y: number }) => setInfo({ sym, at: at ?? { x: window.innerWidth / 2 - 170, y: 120 } }), []);
+  const desk: DeskCtx = useMemo(() => ({ stars, toggleStar, names, openCompany, openArticle: setArticle, openInfo }), [stars, toggleStar, names, openCompany, openInfo]);
 
   const fired = useRef<Set<string>>(new Set(load<string[]>('pingFired', [])));
   const pushPings = useCallback((ps: Ping[]) => {
@@ -636,6 +645,7 @@ export default function App() {
   const rightW = narrow ? Math.min(layout.right, 300) : layout.right;
   const cols3 = `${leftShown ? `${Math.min(layout.left, narrow ? 220 : 520)}px 5px` : '0 0'} minmax(0,1fr) ${layout.rightOpen ? `5px ${rightW}px` : '0 0'}`;
   const toDesk = (s: string) => { setSel(s); setPage('desk'); };
+  const flowSwitch = <Seg<'flow' | 'companies'> value={flowView} onChange={setFlowView} options={[{ id: 'flow', label: 'Money flow' }, { id: 'companies', label: 'Companies map' }]} />;
   let body: ReactNode;
   if (page === 'scanner') {
     body = <div className="page page-split"><section className="panel rr"><div className="rr-body">{scanner}</div></section><div className="center">{chart()}</div></div>;
@@ -670,7 +680,9 @@ export default function App() {
         <Suspense fallback={<section className="panel"><div className="ph-body">Loading…</div></section>}>
           {page === 'map'
             ? <WorldMap mode={dataMode} data={worldData} symbols={[...new Set([...INDEXES, ...wlSyms, ...universe])]} names={Object.fromEntries(Object.values(quotes).map((x) => [x.sym, x.name]))} onSelect={toDesk} onClose={() => setPage('desk')} />
-            : <MoneyGlobe data={flowsData} theme={theme} onSelect={toDesk} onClose={() => setPage('desk')} />}
+            : flowView === 'companies'
+              ? <CompanyMap mode={dataMode} extra={flowSwitch} onChart={toDesk} onClose={() => setPage('desk')} />
+              : <MoneyGlobe data={flowsData} theme={theme} onSelect={toDesk} onClose={() => setPage('desk')} extra={flowSwitch} />}
         </Suspense>
       </div>
     );
@@ -727,6 +739,7 @@ export default function App() {
       {overlay === 'help' && <OverlayView kind="help" onClose={() => setOverlay(null)} />}
       {toast && <div className="toast" role="status">{toast}</div>}
       {article && <ReaderOverlay a={article} mode={dataMode} onClose={() => setArticle(null)} />}
+      {info && <TickerInfo key={info.sym} sym={info.sym} at={info.at} mode={dataMode} onClose={() => setInfo(null)} onChart={toDesk} onCompany={openCompany} />}
       <PingStack pings={pings} onOpen={toDesk} onDismiss={(id) => setPings((x) => x.filter((p) => p.id !== id))} />
     </div>
     </Desk.Provider>

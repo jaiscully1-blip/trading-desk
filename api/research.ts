@@ -7,6 +7,8 @@ import { GET as company } from './_lib/research/company.js';
 import { GET as feed } from './_lib/research/feed.js';
 import { GET as webull } from './_lib/research/webull.js';
 import { GET as discord } from './_lib/research/discord.js';
+import { GET as info } from './_lib/research/info.js';
+import { GET as congress } from './_lib/research/congress.js';
 import { cached, json } from './_lib/core.js';
 import { finnhubCryptoNews, finnhubMetrics, finnhubRecs, frameCheck, xOembed } from './_lib/adapters.js';
 import { SYMBOL_RE } from './_lib/core.js';
@@ -28,7 +30,8 @@ async function xEmbed(req: Request): Promise<Response> {
     const v = (await cached(`x:${url}`, 3600, () => xOembed(url))).val;
     // only X's own markup (a blockquote or timeline anchor); scripts are loaded separately from platform.twitter.com
     if (!/^\s*<(blockquote|a) class="twitter-/.test(v.html) || /<script/i.test(v.html)) return json({ error: 'unexpected embed markup from X' }, { status: 502 });
-    return json(v, { sMaxAge: 3600 });
+    // any site-relative link (cashtags, hashtags) must point at X, not at the desk
+    return json({ ...v, html: v.html.replace(/href="\//g, 'href="https://x.com/') }, { sMaxAge: 3600 });
   }
   catch (e) { return json({ error: (e as Error).message }, { status: 502 }); }
 }
@@ -50,7 +53,7 @@ async function frame(req: Request): Promise<Response> {
 // Reading a 10-K + one Gemini call can take ~20-40 s the first time (cached after that)
 export const maxDuration = 60;
 
-const ROUTES: Record<string, (req: Request) => Promise<Response>> = { names, earnings, 'company-news': companyNews, company, feed, 'crypto-news': () => cryptoNews(), frame, fundamentals, x: xEmbed, webull, discord };
+const ROUTES: Record<string, (req: Request) => Promise<Response>> = { names, earnings, 'company-news': companyNews, company, feed, 'crypto-news': () => cryptoNews(), frame, fundamentals, x: xEmbed, webull, discord, info, congress };
 export async function GET(req: Request): Promise<Response> {
   const fn = new URL(req.url).searchParams.get('fn') ?? '';
   const h = ROUTES[fn];

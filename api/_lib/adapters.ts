@@ -5,6 +5,7 @@ import { ProviderError, parseAlphaDaily, parseFinnhubQuote, parseFredLatest, par
 import { getJson, key, take, type Provider } from './core.js';
 import { parseFeed } from '../../shared/news.js';
 import { MARKET_QUERY, collectVessels, parseGeo, type Vessel } from '../../shared/world.js';
+import { pointsFromArticles } from '../../shared/places.js';
 import { parseBinanceKlines, parseGeckoChart } from '../../shared/flows.js';
 import { avCsvError, parseEarningsCsv, parseIpoCsv, parseKalshiFed, type Earning, type Ipo, type Odds } from '../../shared/calendar.js';
 
@@ -259,20 +260,39 @@ export async function alphaMarketStatus(): Promise<LiveStatus> {
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 let lastGdelt = 0;
 /** GDELT asks for at most one request per 5 seconds. */
+let geoDownUntil = 0;
+/** true while GDELT GEO is answering 404 and map points come from the DOC fallback */
+export const geoIsDown = () => Date.now() < geoDownUntil;
 async function gdelt(url: string) {
+  if (url.includes('/geo/geo') && Date.now() < geoDownUntil) throw new ProviderError('gdelt', 'HTTP 404 (GEO endpoint down, skipping)', true);
   const wait = lastGdelt + 5200 - Date.now();
   if (wait > 0) await sleep(wait);
   lastGdelt = Date.now();
-  return getJson(url, 'gdelt', 15_000);
+  try { return await getJson(url, 'gdelt', 15_000); }
+  catch (e) { if (url.includes('/geo/geo') && /HTTP 404/.test((e as Error).message)) geoDownUntil = Date.now() + 30 * 60_000; throw e; }
 }
 
 /** GDELT GEO 2.0 PointData for market news, split by tone. */
 export async function gdeltHotspots(timespan = '24h') {
   const base = 'https://api.gdeltproject.org/api/v2/geo/geo?format=GeoJSON&mode=PointData&maxpoints=250';
   const q = (tone: string) => `${base}&timespan=${timespan}&query=${encodeURIComponent(`${MARKET_QUERY} ${tone}`)}`;
-  const neg = parseGeo(await gdelt(q('tone<-2')));
-  const pos = parseGeo(await gdelt(q('tone>2')));
-  return { neg, pos };
+  try {
+    const neg = parseGeo(await gdelt(q('tone<-2')));
+    const pos = parseGeo(await gdelt(q('tone>2')));
+    return { neg, pos, via: 'geo' as const };
+  } catch (e) {
+    if (!/HTTP 404/.test((e as Error).message)) throw e;
+    // GDELT's GEO endpoint goes down on its own at times (HTTP 404); its DOC endpoint usually still works
+    const neg = await gdeltDocPoints(`${MARKET_QUERY} tone<-2`, timespan);
+    const pos = await gdeltDocPoints(`${MARKET_QUERY} tone>2`, timespan);
+    return { neg, pos, via: 'doc' as const };
+  }
+}
+
+/** GDELT DOC 2.0 article list, placed by the place each headline names (or the outlet's country). */
+export async function gdeltDocPoints(query: string, timespan = '24h') {
+  const j = await gdelt(`https://api.gdeltproject.org/api/v2/doc/doc?mode=ArtList&format=json&maxrecords=250&sort=DateDesc&timespan=${timespan}&query=${encodeURIComponent(query)}`);
+  return pointsFromArticles(Array.isArray(j?.articles) ? j.articles : []);
 }
 
 /** Daily crypto bars: Binance's public market-data mirror (the main host returns 451 to US servers), else CoinGecko. */
@@ -366,7 +386,8 @@ export async function geminiJson(prompt: string, schema: object): Promise<{ data
 
 /** GDELT GEO points for any query (last 24h), for the extra map layers. */
 export async function gdeltLayer(query: string, timespan = '24h') {
-  return parseGeo(await gdelt(`https://api.gdeltproject.org/api/v2/geo/geo?format=GeoJSON&mode=PointData&maxpoints=250&timespan=${timespan}&query=${encodeURIComponent(query)}`));
+  try { return parseGeo(await gdelt(`https://api.gdeltproject.org/api/v2/geo/geo?format=GeoJSON&mode=PointData&maxpoints=250&timespan=${timespan}&query=${encodeURIComponent(query)}`)); }
+  catch (e) { if (/HTTP 404/.test((e as Error).message)) return gdeltDocPoints(query, timespan); throw e; }
 }
 
 /** aisstream.io (free key): listen for a few seconds to ships inside the given boxes, then hang up. A snapshot, not a stream. */

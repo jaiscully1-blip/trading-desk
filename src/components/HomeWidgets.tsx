@@ -26,7 +26,7 @@ export interface HomeData {
 }
 type Cfg = Record<string, any>;
 interface P { d: HomeData; cfg: Cfg; set: (c: Cfg) => void }
-import { DiscordW, WebullW } from './PrivateWidgets';
+import { CongressW, DiscordW, WebullW } from './PrivateWidgets';
 const cssVar = (n: string) => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
 
 /* ---------------- stock: quote + mini chart + its news ---------------- */
@@ -224,4 +224,5 @@ export const WIDGETS = {
   calendar: { title: 'Calendar', make: CalendarW },
   webull: { title: 'Webull account', make: WebullW },
   discord: { title: 'Discord bot', make: DiscordW },
+  congress: { title: 'Congress trades', make: CongressW },
 } as const;

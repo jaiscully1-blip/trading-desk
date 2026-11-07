@@ -4,10 +4,13 @@ export const DISCORD_CHANNELS = [
   { id: '1567057446168690849', key: 'before', name: 'read-before-trading' },
   { id: '1567005527068639284', key: 'resp', name: 'trade-responsibility' },
   { id: '1567226864760782908', key: 'review', name: 'after-close-review' },
+  // Jai sent this as "tom". It is read as a channel; if Discord says it isn't one, it is treated as Tom the bot's user ID.
+  { id: '1567956786181308526', key: 'tom', name: 'tom' },
 ] as const;
+export const TOM_ID = '1567956786181308526';
 export type ChannelKey = (typeof DISCORD_CHANNELS)[number]['key'];
 
-export interface DcMessage { id: string; ch: ChannelKey; t: number; author: string; bot: boolean; text: string; tickers: string[]; url: string }
+export interface DcMessage { id: string; ch: ChannelKey; t: number; author: string; tom?: boolean; bot: boolean; text: string; tickers: string[]; url: string }
 
 /** Content plus any embed titles, descriptions and fields (bots usually post embeds). */
 export function messageText(m: any): string {
@@ -36,7 +39,7 @@ export function toMessages(raw: any[], ch: ChannelKey, guild: string | undefined
   return (Array.isArray(raw) ? raw : []).map((m) => {
     const text = messageText(m);
     return {
-      id: String(m.id), ch, t: Date.parse(m.timestamp), author: m.author?.global_name || m.author?.username || 'unknown', bot: !!m.author?.bot,
+      id: String(m.id), ch, t: Date.parse(m.timestamp), author: m.author?.global_name || m.author?.username || 'unknown', ...(m.author?.id === TOM_ID ? { tom: true } : {}), bot: !!m.author?.bot,
       text, tickers: tickersIn(text, known), url: guild ? `https://discord.com/channels/${guild}/${channelId}/${m.id}` : '',
     };
   }).filter((m) => m.text && Number.isFinite(m.t));

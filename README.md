@@ -380,3 +380,11 @@ tests/                 vitest: parsers (incl. a real Alpha Vantage response), in
 ## Private panels (Webull, Discord)
 
 The desk is a public URL, so anything showing your own account is locked behind `DESK_PASSWORD`. The Webull client (`api/_lib/webull.ts`) signs requests exactly like Webull's official Python SDK (HMAC-SHA256; the test checks against signatures the SDK produced) and only exposes read calls: accounts, balance, positions, order history. Realized P&L is FIFO-matched from filled orders (fees not included). The Discord reader pulls the last 50 messages of each channel; `$TICKER` cashtags and SEC-listed tickers in caps become clickable chips, and tickers posted in #read-before-trading today form the bot's watchlist.
+
+## Companies map, ticker info, Congress trades
+
+- **Money Flow → Companies map**: S&P 500 (+ Nasdaq-100 members outside it) plotted at their headquarters (`shared/data/companies.ts`, generated from github.com/datasets/s-and-p-500-companies and a US cities database). Click a dot for the company page (products, suppliers, customers) in a panel.
+- **Ticker info card**: click any company name next to a ticker. Funds use `shared/etfs.ts` (stated objectives); companies use Finnhub profile + Wikipedia summary (`/api/research?fn=info`).
+- **Congress trades widget**: Alpha Vantage `CONGRESS_TRADES` per ticker, cached 12 h.
+- **World map**: when GDELT's GEO endpoint 404s, layers fall back to the DOC endpoint and place each headline by the place it names (`shared/places.ts`).
+- **Deep links**: `/$SPY` or `/nvda` opens that ticker on the desk.

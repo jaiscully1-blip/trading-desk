@@ -32,13 +32,15 @@ export interface Mapping { kind: 'fills' | 'transfers'; cols: Partial<Record<Fil
 const norm = (h: string) => h.toLowerCase().replace(/[^a-z]/g, '');
 // Aliases checked in priority order (first match wins). Webull's order history export uses Filled / Avg Price / Filled Time.
 const FILL_ALIASES: Record<FillField, string[]> = {
-  symbol: ['symbol', 'ticker', 'instrument', 'security'],
-  side: ['side', 'action', 'buysell', 'transactiontype', 'type'],
+  // Webull, Robinhood (Instrument / Trans Code / Activity Date), Schwab (Action / Fees & Comm), Fidelity (Run Date / Price ($)),
+  // IBKR (Date/Time / T. Price / Comm/Fee, signed Quantity), E*TRADE (TransactionDate), thinkorswim (Exec Time / Side / Qty)
+  symbol: ['symbol', 'ticker', 'instrument', 'security', 'underlyingsymbol'],
+  side: ['side', 'action', 'buysell', 'transcode', 'transactiontype', 'type'],
   qty: ['filled', 'filledqty', 'filledquantity', 'qty', 'quantity', 'shares', 'totalqty'],
-  price: ['avgprice', 'averagefillprice', 'averageprice', 'fillprice', 'executionprice', 'price'],
-  time: ['filledtime', 'executiontime', 'filltime', 'time', 'datetime', 'date', 'tradedate', 'placedtime'],
+  price: ['avgprice', 'averagefillprice', 'averageprice', 'fillprice', 'executionprice', 'tprice', 'price', 'netprice'],
+  time: ['filledtime', 'executiontime', 'exectime', 'filltime', 'time', 'datetime', 'activitydate', 'rundate', 'transactiondate', 'tradedate', 'date', 'placedtime'],
   status: ['status', 'orderstatus'],
-  fee: ['fee', 'fees', 'commission', 'commissions'],
+  fee: ['fee', 'fees', 'commission', 'commissions', 'feescomm', 'commfee', 'commissionfees'],
 };
 const TRANSFER_ALIASES: Record<TransferField, string[]> = {
   time: ['date', 'time', 'datetime', 'transferdate', 'completedtime', 'createdtime'],
@@ -50,6 +52,16 @@ function pick(headers: string[], aliases: string[]): number | undefined {
   const n = headers.map(norm);
   for (const a of aliases) { const i = n.indexOf(a); if (i >= 0) return i; }
   return undefined;
+}
+
+/** Many brokers put account info or a title above the real header (Schwab, Fidelity). Start at the first row that looks like one. */
+export function trimToHeader(rows: string[][]): string[][] {
+  const known = new Set([...Object.values(FILL_ALIASES).flat(), ...Object.values(TRANSFER_ALIASES).flat()]);
+  for (let i = 0; i < Math.min(rows.length, 25); i++) {
+    const hits = rows[i].filter((c) => known.has(norm(c))).length;
+    if (hits >= 3) return rows.slice(i);
+  }
+  return rows;
 }
 
 /** Guess whether a file is fills or cash transfers, and which column is which. */
@@ -115,12 +127,15 @@ export function toFills(rows: string[][], m: Mapping): ParseResult<ParsedFill> {
     if (status && !/fill|executed|complete/i.test(status)) return skipped.push({ row: i + 2, why: `status ${status}` });
     const sym = get('symbol').toUpperCase().replace(/\s.*$/, '');
     const sideRaw = get('side').toLowerCase();
-    const action = /buy|bot|long|cover/.test(sideRaw) ? 'buy' : /sell|sld|short/.test(sideRaw) ? 'sell' : null;
-    const qty = Math.abs(money(get('qty')));
+    let action: 'buy' | 'sell' | null = /buy|bot|bought|long|cover/.test(sideRaw) ? 'buy' : /sell|sld|sold|short/.test(sideRaw) ? 'sell' : null;
+    const qtyRaw = money(get('qty'));
+    // IBKR has no side column: a negative quantity is a sell
+    if (!action && c.side == null && Number.isFinite(qtyRaw) && qtyRaw !== 0) action = qtyRaw < 0 ? 'sell' : 'buy';
+    const qty = Math.abs(qtyRaw);
     const price = Math.abs(money(get('price')));
     const t = parseTime(get('time'));
     if (!/^[A-Z][A-Z0-9.\-]{0,9}$/.test(sym)) return skipped.push({ row: i + 2, why: 'no symbol' });
-    if (!action) return skipped.push({ row: i + 2, why: `side "${get('side')}"` });
+    if (!action) return skipped.push({ row: i + 2, why: c.side == null ? 'no side column (map one)' : `side "${get('side')}"` });
     if (!(qty > 0) || !(price > 0)) return skipped.push({ row: i + 2, why: 'no qty/price (unfilled?)' });
     if (t == null) return skipped.push({ row: i + 2, why: `time "${get('time')}"` });
     const base = rowId([sym, action, qty, price, t]);

@@ -60,3 +60,27 @@ describe('discord', () => {
     expect(botWatchlist(msgs, '2026-11-06', day).map((w) => w.sym).sort()).toEqual(['AMD', 'MU', 'NVDA']);
   });
 });
+
+import { detect, parseCsv, toFills, trimToHeader } from '../src/lib/csv';
+describe('broker CSVs', () => {
+  it('Schwab: skips the title line, reads Action / Fees & Comm', () => {
+    const rows = trimToHeader(parseCsv('"Transactions for account ...123"\n"Date","Action","Symbol","Description","Quantity","Price","Fees & Comm","Amount"\n"11/03/2026","Buy","NVDA","NVIDIA CORP","10","$140.50","","-$1405.00"\n"11/04/2026","Sell","NVDA","NVIDIA CORP","10","$150.00","$0.05","$1499.95"\n'));
+    const f = toFills(rows, detect(rows));
+    expect(f.items.map((x) => [x.action, x.qty, x.price])).toEqual([['buy', 10, 140.5], ['sell', 10, 150]]);
+  });
+  it('Robinhood: Trans Code + Activity Date', () => {
+    const rows = trimToHeader(parseCsv('Activity Date,Process Date,Settle Date,Instrument,Description,Trans Code,Quantity,Price,Amount\n11/3/2026,11/3/2026,11/4/2026,AMD,AMD,Buy,5,$100.00,($500.00)\n11/3/2026,11/3/2026,11/4/2026,,ACH Deposit,ACH,,,$1000\n'));
+    const f = toFills(rows, detect(rows));
+    expect(f.items).toHaveLength(1);
+    expect(f.items[0]).toMatchObject({ sym: 'AMD', action: 'buy', qty: 5, price: 100 });
+  });
+  it('IBKR: signed quantity without a side column', () => {
+    const rows = trimToHeader(parseCsv('Symbol,Date/Time,Quantity,T. Price,Comm/Fee\nMU,"2026-11-03, 10:01:02",-20,120.5,-1.00\n'));
+    const f = toFills(rows, detect(rows));
+    expect(f.items[0]).toMatchObject({ sym: 'MU', action: 'sell', qty: 20, price: 120.5, fee: 1 });
+  });
+  it('Fidelity: YOU BOUGHT', () => {
+    const rows = trimToHeader(parseCsv('\n\nRun Date,Action,Symbol,Security Description,Quantity,Price ($),Commission ($),Amount ($)\n11/03/2026,YOU BOUGHT NVIDIA CORP (NVDA) (Cash),NVDA,NVIDIA CORP,3,141.2,,-423.6\n'));
+    expect(toFills(rows, detect(rows)).items[0]).toMatchObject({ action: 'buy', qty: 3 });
+  });
+});

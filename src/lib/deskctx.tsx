@@ -8,6 +8,8 @@ export interface DeskCtx {
   toggleStar: (sym: string) => void;
   names: Record<string, string>;
   openCompany: (sym: string) => void;
+  /** small "what is this?" card next to the click */
+  openInfo: (sym: string, at?: { x: number; y: number }) => void;
 }
-export const Desk = createContext<DeskCtx>({ stars: [], toggleStar: () => {}, names: {}, openCompany: () => {}, openArticle: () => {} });
+export const Desk = createContext<DeskCtx>({ stars: [], toggleStar: () => {}, names: {}, openCompany: () => {}, openArticle: () => {}, openInfo: () => {} });
 export const useDesk = () => useContext(Desk);
