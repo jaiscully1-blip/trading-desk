@@ -4,6 +4,9 @@ import { GEMINI_SCHEMA, cleanFacts, geminiPrompt, htmlToText, latestAnnual, pars
 import { finnhubPeers, finnhubProfile, geminiJson, secJson, secText, wikiSummary } from './_lib/adapters.js';
 import { SYMBOL_RE, cached, hasKey, json } from './_lib/core.js';
 
+// Reading a 10-K + one Gemini call can take ~20-40 s the first time (cached after that)
+export const maxDuration = 60;
+
 export async function GET(req: Request): Promise<Response> {
   const sym = (new URL(req.url).searchParams.get('symbol') ?? '').toUpperCase();
   if (!SYMBOL_RE.test(sym)) return json({ error: 'bad symbol' }, { status: 400 });
