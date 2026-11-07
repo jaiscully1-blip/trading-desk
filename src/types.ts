@@ -1,5 +1,5 @@
-export type { TF, Mode, Freshness, Bar, SeriesResult, QuoteResult, MacroResult, MacroPoint } from '../shared/types';
-import type { TF } from '../shared/types';
+export type { TF, ChartTF, Mode, Freshness, Bar, SeriesResult, QuoteResult, MacroResult, MacroPoint } from '../shared/types';
+import type { ChartTF } from '../shared/types';
 
 export type Board = 'setups' | 'watching' | 'avoid';
 export type RightTab = 'news' | 'scanner' | 'journal' | 'risk' | 'calendar';
@@ -36,7 +36,7 @@ export interface Layout {
   leftOpen: boolean;
   rightOpen: boolean;
   tab: RightTab;
-  tf: TF;
+  tf: ChartTF;
   tickerOpen: boolean;
   levelsOpen?: boolean;
   fearOpen?: boolean;

@@ -9,6 +9,8 @@ export async function GET(): Promise<Response> {
       finnhub: hasKey('finnhub'),
       alphavantage: hasKey('alphavantage'),
       fred: hasKey('fred'),
+      sec: hasKey('sec'),
+      gemini: hasKey('gemini'),
     },
     extendedHours: false, // Twelve Data pre/post-market data needs the Pro plan
   });

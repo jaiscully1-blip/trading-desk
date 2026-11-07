@@ -5,7 +5,7 @@ import { SERIES_CHAIN } from './adapters.js';
 import { cached, getCached, ttl } from './core.js';
 
 /** [in-session, off-hours] seconds. Daily bars only change once a day; the forming bar is patched from live quotes. */
-export const SERIES_TTL: Record<TF, [number, number]> = { '5m': [240, 1800], '1H': [900, 3600], D: [3600, 6 * 3600] };
+export const SERIES_TTL: Record<TF, [number, number]> = { '5m': [240, 1800], '1H': [900, 3600], D: [3600, 6 * 3600], W: [6 * 3600, 12 * 3600], M: [12 * 3600, 24 * 3600] };
 
 export interface LoadOpts {
   /** false = primary (Twelve Data) only. The scanner uses this so it never spends the 25/day Alpha Vantage budget. */

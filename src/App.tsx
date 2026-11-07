@@ -1,10 +1,10 @@
 import { Suspense, lazy, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { Board, Freshness, Layout, Mode, OrMinutes, Overlay, Quote, RightTab, TF } from './types';
 import { clock, et, modeLabel } from './lib/clock';
-import { DEMO_AT, INDEXES, defaultBoards, makeHeadlines, makeQuotes } from './lib/demo';
+import { DEMO_AT, INDEXES, defaultBoards, makeCandles, makeHeadlines, makeQuotes } from './lib/demo';
 import type { ReactNode } from 'react';
 import { DEFAULT_LAYOUTS } from './lib/layout';
-import { usePersisted } from './lib/store';
+import { load, save, usePersisted } from './lib/store';
 import { px } from './lib/format';
 import { computeLevels, detectLevelEvents, LEVEL_SHORT, type LevelEvent } from './lib/levels';
 import { encodeInstant } from '../shared/parse';
@@ -40,6 +40,13 @@ import { DEFAULT_PLAYBOOKS, gradeRow, type GradeResult, type Playbook, type Save
 import { CommandBar, NewsTicker, OverlayView, type Cmd } from './components/Bits';
 import { SideNav, type Page } from './components/SideNav';
 import { popout } from './components/common';
+import { PingStack, StarredList } from './components/Pings';
+import { Desk, type DeskCtx } from './lib/deskctx';
+import { earningsPings, levelPings, movePing, watchLevels, type Ping } from './lib/pings';
+import { useEarnings, useNames } from './data/company';
+import type { ChartTF } from './types';
+import type { Bar } from '../shared/types';
+const CompanyPage = lazy(() => import('./components/CompanyPage'));
 
 const DEMO_QUOTES = makeQuotes();
 const HEADLINES = makeHeadlines(Object.keys(DEMO_QUOTES).filter((s) => !INDEXES.includes(s)));
@@ -100,6 +107,7 @@ export default function App() {
   // Terminal (dark) is the default look; T switches to the light "paper" theme
   const [theme, setTheme] = usePersisted<'light' | 'dark'>('themeV2', 'dark');
   const [page, setPage] = usePersisted<Page>('page', 'desk');
+  const [companySym, setCompanySym] = usePersisted<string>('companySym', 'NVDA');
   // Half-screen laptop windows: the watchlist folds away (press [ to show it) and the side menu shrinks to keys
   const narrow = useNarrow(1240);
   const [narrowLeft, setNarrowLeft] = useState(false);
@@ -178,12 +186,17 @@ export default function App() {
   const cloudUser = useCloudUser();
 
   /* ---------------- data ---------------- */
-  const wlSyms = useMemo(() => Object.keys(boards), [boards]);
+  /* ---------------- starred stocks (pings) ---------------- */
+  const [stars, setStars] = usePersisted<string[]>('stars', []);
+  const [pingAt, setPingAt] = usePersisted<number>('pingAt', 3);
+  const [pings, setPings] = useState<Ping[]>([]);
+  const [pingLog, setPingLog] = usePersisted<Ping[]>('pingLog', []);
+  const wlSyms = useMemo(() => [...new Set([...Object.keys(boards), ...stars])], [boards, stars]);
   const movers = useMovers(dataMode, scanPrefs.includeMovers);
   // QQQ is always scanned (SPY is added server-side) so the index day trades get playbook grades too
   const universe = useUniverse(['QQQ', ...wlSyms], live ? scanList : [...scanList, ...Object.keys(DEMO_QUOTES).filter((s) => !INDEXES.includes(s))], movers?.movers, scanPrefs.includeMovers);
   // USO/UUP are the fear strip's live oil and dollar proxies
-  const quoteSyms = useMemo(() => [...new Set([...INDEXES, 'USO', 'UUP', sel, ...wlSyms, ...universe])].slice(0, 52), [wlSyms, sel, universe]);
+  const quoteSyms = useMemo(() => [...new Set([...INDEXES, 'USO', 'UUP', sel, ...stars, ...wlSyms, ...universe])].slice(0, 56), [wlSyms, sel, universe, stars]);
   const qs = useQuotes(quoteSyms, dataMode);
   const scan = useScan(universe, dataMode, (s) => DEMO_QUOTES[s]?.last ?? 100);
   const macro = useMacro(dataMode);
@@ -238,7 +251,8 @@ export default function App() {
   const qqq5 = useSeries('QQQ', '5m', dataMode, demoLast('QQQ'));
   const selD = useSeries(sel, 'D', dataMode, demoLast(sel));
   const sel5 = useSeries(sel, '5m', dataMode, demoLast(sel));
-  const selTf = useSeries(sel, layout.tf, dataMode, demoLast(sel));
+  const seriesTf: TF = layout.tf === 'Y' ? 'M' : layout.tf;
+  const selTf = useSeries(sel, seriesTf, dataMode, demoLast(sel));
 
   const patch = useCallback(
     (st: SeriesState, sym: string, tf: TF): SeriesState => (live ? { ...st, bars: patchWithQuote(st.bars, qs?.quotes[sym], tf) } : st),
@@ -281,7 +295,7 @@ export default function App() {
     if (activePb) for (const r of rows) g[r.sym] = gradeRow(activePb, r, { vwap: vwapBy[r.sym] });
     return g;
   }, [rows, activePb, vwapBy]);
-  const chartSeries = useMemo(() => patch(selTf, sel, layout.tf), [patch, selTf, sel, layout.tf]);
+  const chartSeries = useMemo(() => patch(selTf, sel, seriesTf), [patch, selTf, sel, seriesTf]);
 
   /* ---------------- journal + account + guardrails ---------------- */
   const views = useMemo(() => trades.filter((t) => !t.deleted).map(viewTrade), [trades]);
@@ -362,6 +376,68 @@ export default function App() {
     try { if (Notification.permission === 'default') Notification.requestPermission(); } catch { /* ignore */ }
   };
 
+  /* ---------------- starred: names, pings ---------------- */
+  const names = useNames(useMemo(() => [...new Set([...quoteSyms, ...stars, companySym])], [quoteSyms, stars, companySym]), dataMode,
+    useMemo(() => Object.fromEntries(Object.values(DEMO_QUOTES).map((q) => [q.sym, q.name])), []));
+  const toggleStar = useCallback((sym: string) => {
+    setStars((xs) => (xs.includes(sym) ? xs.filter((x) => x !== sym) : [...xs, sym]));
+    flash(stars.includes(sym) ? `${sym} unstarred` : `★ ${sym} starred: pings for news, earnings, moves, levels`, 2500);
+    try { if (Notification.permission === 'default') Notification.requestPermission(); } catch { /* ignore */ }
+  }, [stars, setStars, flash]);
+  const openCompany = useCallback((sym: string) => { setCompanySym(sym); setPage('company'); }, [setCompanySym, setPage]);
+  const desk: DeskCtx = useMemo(() => ({ stars, toggleStar, names, openCompany }), [stars, toggleStar, names, openCompany]);
+
+  const fired = useRef<Set<string>>(new Set(load<string[]>('pingFired', [])));
+  const pushPings = useCallback((ps: Ping[]) => {
+    if (!ps.length) return;
+    save('pingFired', [...fired.current].slice(-600));
+    setPings((x) => [...ps, ...x].slice(0, 20));
+    setPingLog((l) => [...ps, ...l].slice(0, 200));
+    beep();
+    try { if (Notification.permission === 'granted' && document.hidden) for (const p of ps) new Notification(`★ ${p.sym}: ${p.text}`, { tag: p.id }); } catch { /* not supported */ }
+  }, [setPingLog]);
+  // news: any new headline tagged with a starred ticker (the first load only marks what's already there)
+  const newsPrimed = useRef(false);
+  useEffect(() => {
+    if (!stars.length || !news.items.length) return;
+    const fresh: Ping[] = [];
+    for (const n of news.items) {
+      for (const s of n.syms.filter((x) => stars.includes(x))) {
+        const id = `news:${s}:${n.id}`;
+        if (fired.current.has(id)) continue;
+        fired.current.add(id);
+        if (newsPrimed.current && Date.now() - n.t < 6 * 3600_000) fresh.push({ id, t: Date.now(), sym: s, kind: 'news', text: n.title, url: n.url || undefined, tone: n.sentiment > 0 ? 'up' : n.sentiment < 0 ? 'down' : undefined });
+      }
+    }
+    newsPrimed.current = true;
+    pushPings(fresh.slice(0, 5));
+  }, [news.asOf, news.items.length, stars.join(',')]); // eslint-disable-line react-hooks/exhaustive-deps
+  // earnings: day before, day of, and when results post
+  const earnings = useEarnings(stars, dataMode);
+  useEffect(() => {
+    const d = et(now), today = `${d.y}-${String(d.mo).padStart(2, '0')}-${String(d.d).padStart(2, '0')}`;
+    const tm = new Date(Date.UTC(d.y, d.mo - 1, d.d + 1)).toISOString().slice(0, 10);
+    pushPings(earningsPings(earnings, today, tm, fired.current));
+  }, [earnings, Math.floor(now / 3600_000)]); // eslint-disable-line react-hooks/exhaustive-deps
+  // moves + levels: on each quote refresh
+  const starDaily = useStarDaily(stars, dataMode);
+  const starPrev = useRef<Record<string, number>>({});
+  useEffect(() => {
+    if (!stars.length) return;
+    const d = et(now), day = `${d.y}-${d.mo}-${d.d}`, todayStart = Date.UTC(d.y, d.mo - 1, d.d) / 1000;
+    const out: Ping[] = [];
+    for (const s of stars) {
+      const q = quotes[s];
+      if (!q || !Number.isFinite(q.last)) continue;
+      const mp = movePing(s, q.chgPct, pingAt, day, fired.current);
+      if (mp) out.push(mp);
+      const prev = starPrev.current[s];
+      starPrev.current[s] = q.last;
+      if (prev != null && starDaily[s]?.length) out.push(...levelPings(s, prev, q.last, watchLevels(starDaily[s], todayStart), fired.current));
+    }
+    pushPings(out);
+  }, [qs?.asOf, live ? 0 : quotes]); // eslint-disable-line react-hooks/exhaustive-deps
+
   /* ---------------- watchlist actions ---------------- */
   const setBoard = (s: string, b: Board) => setBoards((x) => ({ ...x, [s]: b }));
   const removeSym = (s: string) => setBoards((x) => { const y = { ...x }; delete y[s]; return y; });
@@ -375,7 +451,7 @@ export default function App() {
   };
 
   const setTab = (t: RightTab) => setLayout({ tab: t, rightOpen: true });
-  const setTf = (tf: TF) => setLayout({ tf });
+  const setTf = (tf: ChartTF) => setLayout({ tf });
 
   const commands: Cmd[] = [
     { id: 'gappers', label: 'Scanner: gappers ≥3%', run: () => { setFilterId('gappers'); setTab('scanner'); } },
@@ -441,7 +517,8 @@ export default function App() {
         l: () => setLayout({ levelsOpen: !layout.levelsOpen }),
         p: () => setPbOpen(true),
         J: () => setPage('journal'),
-        '1': () => setTf('D'), '2': () => setTf('1H'), '3': () => setTf('5m'),
+        '1': () => setTf('D'), '2': () => setTf('1H'), '3': () => setTf('5m'), '4': () => setTf('W'), '5': () => setTf('M'), '6': () => setTf('Y'),
+        o: () => openCompany(sel),
         n: () => { setPage('desk'); setTab('news'); }, q: () => { setPage('desk'); setTab('journal'); }, r: () => { setPage('desk'); setTab('risk'); },
         f: () => setLayout({ fearOpen: layout.fearOpen === false }),
         '[': () => (narrow ? setNarrowLeft((v) => !v) : setLayout({ leftOpen: !layout.leftOpen })),
@@ -478,6 +555,8 @@ export default function App() {
     fresh: quoteFresh, asOf: live ? qs?.asOf : DEMO_AT, source: live ? qs?.source : 'Generated sample quotes', rsPending: live,
   };
   const scanner = (
+    <>
+    <StarredList quotes={quotes} log={pingLog} sel={sel} onSelect={setSel} threshold={pingAt} setThreshold={setPingAt} />
     <Scanner
       rows={rows} grades={grades} scan={scan} universe={universe} boards={boards} sel={sel} onSelect={setSel} addSym={addSym}
       filterId={filterId} setFilterId={setFilterId} filters={filters} setFilters={setFilters}
@@ -485,6 +564,7 @@ export default function App() {
       scanList={scanList} setScanList={setScanList} includeMovers={scanPrefs.includeMovers} setIncludeMovers={(v) => setScanPrefs((x) => ({ ...x, includeMovers: v }))}
       movers={movers} live={live}
     />
+    </>
   );
   const journalSlot = (
     <div className="qj2">
@@ -500,7 +580,7 @@ export default function App() {
     calendar: <Calendars cal={cal} now={now} onSelect={setSel} mySyms={new Set(wlSyms)} />,
   };
   const chart = (onPopout?: () => void) => (
-    <ChartPanel
+    <ChartPanel mode={dataMode}
       sym={sel} name={q.name} last={live ? q.last : chartSeries.bars.at(-1)?.close ?? q.last} chgPct={q.chgPct}
       tf={layout.tf} onTf={setTf} theme={theme} series={chartSeries} levels={selLevels} onPopout={onPopout}
       news={news.items} onSelect={setSel}
@@ -539,6 +619,12 @@ export default function App() {
     body = <div className="page page-split"><section className="panel cal-page"><Calendars cal={cal} now={now} onSelect={setSel} mySyms={new Set(wlSyms)} /></section><div className="center">{chart()}</div></div>;
   } else if (page === 'journal') {
     body = <div className="page"><JournalOverlay views={views} setTrades={setTrades} transfers={transfers} setTransfers={setTransfers} violations={viols} lastPx={lastPx} settings={settings} onClose={() => setPage('desk')} onSelect={toDesk} onReplay={setReplayId} canSample={!live} /></div>;
+  } else if (page === 'company') {
+    body = (
+      <Suspense fallback={<div className="page"><section className="panel"><div className="ph-body">Loading…</div></section></div>}>
+        <CompanyPage sym={companySym} mode={dataMode} onOpen={setCompanySym} onChart={toDesk} onPatterns={(s) => { save('patSym', s); setPage('patterns'); }} />
+      </Suspense>
+    );
   } else if (page === 'patterns') {
     body = (
       <Suspense fallback={<div className="page"><section className="panel"><div className="ph-body">Loading…</div></section></div>}>
@@ -570,6 +656,7 @@ export default function App() {
     );
   }
   return (
+    <Desk.Provider value={desk}>
     <div className="shell">
       <SideNav compact={narrow} page={page} onPage={setPage} onCmd={() => setCmdOpen(true)} onHelp={() => setOverlay('help')} onAccount={() => setDrawer((d) => !d)} />
       <div className={`app ${layout.tickerOpen ? '' : 'no-ticker'} ${layout.fearOpen !== false ? 'has-fear' : ''}`}>
@@ -606,8 +693,30 @@ export default function App() {
       {syncOpen && <SyncDialog user={cloudUser?.email ?? null} onClose={() => setSyncOpen(false)} />}
       {overlay === 'help' && <OverlayView kind="help" onClose={() => setOverlay(null)} />}
       {toast && <div className="toast" role="status">{toast}</div>}
+      <PingStack pings={pings} onOpen={toDesk} onDismiss={(id) => setPings((x) => x.filter((p) => p.id !== id))} />
     </div>
+    </Desk.Provider>
   );
+}
+
+/** Daily bars for starred tickers (for yesterday's high/low and pattern triggers). One request each, spaced out, refreshed every 3 hours. */
+function useStarDaily(stars: string[], mode: ReturnType<typeof useDataMode>): Record<string, Bar[]> {
+  const [by, setBy] = useState<Record<string, Bar[]>>({});
+  const key = stars.join(',');
+  useEffect(() => {
+    if (!stars.length) return;
+    if (mode.kind === 'demo') { setBy(Object.fromEntries(stars.map((s) => [s, makeCandles(s, 'D', DEMO_QUOTES[s]?.last ?? 100)]))); return; }
+    if (mode.kind !== 'live') return;
+    let stop = false;
+    const timers: ReturnType<typeof setTimeout>[] = [];
+    const run = () => stars.forEach((s, i) => timers.push(setTimeout(async () => {
+      try { const r = await fetch(`/api/candles?symbol=${s}&tf=D`); const j = await r.json(); if (!stop && r.ok) setBy((x) => ({ ...x, [s]: j.bars })); } catch { /* skip */ }
+    }, i * 9000)));
+    run();
+    const iv = setInterval(run, 3 * 3600_000);
+    return () => { stop = true; timers.forEach(clearTimeout); clearInterval(iv); };
+  }, [key, mode.kind]); // eslint-disable-line react-hooks/exhaustive-deps
+  return by;
 }
 
 function SyncDialog({ user, onClose }: { user: string | null; onClose: () => void }) {

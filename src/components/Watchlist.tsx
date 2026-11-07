@@ -2,7 +2,7 @@ import { useState } from 'react';
 import type { Board, Freshness, Quote } from '../types';
 import { DEMO_AT, INDEXES } from '../lib/demo';
 import { pct, px, tone } from '../lib/format';
-import { Fresh, PanelHead } from './common';
+import { CoName, Fresh, PanelHead, Star } from './common';
 
 export const BOARDS: { id: Board; label: string }[] = [
   { id: 'setups', label: 'Setups' },
@@ -36,12 +36,13 @@ function Row({ q, sel, onSelect, draggable = true, onRemove }: { q: Quote; sel: 
       role="button"
       tabIndex={-1}
     >
-      <span className="wl-sym">{q.sym}</span>
+      <span className="wl-id"><Star sym={q.sym} /><span className="wl-sym">{q.sym}</span></span>
       <span className="num wl-px">{px(q.last)}</span>
       <span className={`num wl-chg ${tone(q.chgPct)}`}>{pct(q.chgPct, 1)}</span>
       <span className="num wl-rs" title="Relative strength rank vs SPY (5/20/60d)">
         {INDEXES.includes(q.sym) || !Number.isFinite(q.rsRank) ? '—' : q.rsRank}
       </span>
+      <CoName sym={q.sym} className="wl-name" />
       {onRemove && (
         <button className="wl-x" onClick={(e) => { e.stopPropagation(); onRemove(); }} title="Remove from watchlist" aria-label={`Remove ${q.sym}`}>
           ×

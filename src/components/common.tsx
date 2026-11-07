@@ -1,3 +1,4 @@
+import { useDesk } from '../lib/deskctx';
 import type { ReactNode } from 'react';
 import type { Freshness } from '../types';
 import { etTime } from '../lib/clock';
@@ -77,4 +78,29 @@ export function Seg<T extends string>({
 export function popout(panel: string, sym: string) {
   const url = `${location.pathname}?panel=${panel}&sym=${encodeURIComponent(sym)}`;
   window.open(url, `td-${panel}`, 'popup,width=1100,height=720');
+}
+
+/** Star toggle: click to favorite, click again to remove. Never selects the row it sits in. */
+export function Star({ sym, size = 'sm' }: { sym: string; size?: 'sm' | 'md' }) {
+  const { stars, toggleStar } = useDesk();
+  const on = stars.includes(sym);
+  return (
+    <button
+      className={`star ${on ? 'on' : ''} ${size}`}
+      onClick={(e) => { e.stopPropagation(); toggleStar(sym); }}
+      title={on ? `Unstar ${sym}` : `Star ${sym}: pings for news, earnings, big moves, levels`}
+      aria-label={on ? `Unstar ${sym}` : `Star ${sym}`}
+      aria-pressed={on}
+    >{on ? '★' : '☆'}</button>
+  );
+}
+
+/** Company name next to a ticker; click opens the company page (what they do, products, supply chain). */
+export function CoName({ sym, className = '' }: { sym: string; className?: string }) {
+  const { names, openCompany } = useDesk();
+  const n = names[sym];
+  if (!n || n === sym) return null;
+  return (
+    <button className={`coname ${className}`} onClick={(e) => { e.stopPropagation(); openCompany(sym); }} title={`${n}: open company page`}>{n}</button>
+  );
 }

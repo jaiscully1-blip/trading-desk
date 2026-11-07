@@ -33,6 +33,8 @@ Never prefix a secret with `VITE_` (Vite ships those to the client).
 | `FINNHUB_API_KEY` | M2 | server |
 | `ALPHAVANTAGE_API_KEY` | M2 | server |
 | `FRED_API_KEY` | M2 | server |
+| `SEC_USER_AGENT` | company page | server: `TradingDesk you@email.com` (SEC's required contact; not a key) |
+| `GEMINI_API_KEY` (+ optional `GEMINI_MODEL`) | company page | server: free key from aistudio.google.com |
 | `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` | M3 | browser (public; row-level security in `supabase/schema.sql`) |
 | `ANTHROPIC_API_KEY` | M10 | server |
 
@@ -147,6 +149,35 @@ layout; a notice appears when it switches. The mode selector in the top strip (o
   the backup. Feed holidays/early closes are merged on top of the published calendar (never removing one), and a closure the feed
   reports outside the calendar (e.g. a national day of mourning) closes the day. Without `/api` the published calendar still applies.
 
+## Stars, pings, company names (★)
+
+- **Star any ticker** (☆ next to it in the watchlist, scanner, chart header, company page); click again to unstar. Starred tickers
+  get their own **Starred** list at the top of the Scanner tab, with the last ping for each.
+- **Pings** pop up bottom-right (and as a desktop notification if the tab is in the background):
+  news headlines naming a starred ticker; earnings the day before, the day of, and when results post (Finnhub, delayed);
+  moves past ±3% / 6% / 9%… (set the % in the Starred header); crossing yesterday's high/low or a forming pattern's trigger
+  (same engine as the Patterns page, on daily bars fetched for starred tickers every 3 hours).
+- **Company names** show next to tickers everywhere (Finnhub profiles, cached a week server-side and in the browser).
+  Click a name, or press `O`, to open the company page.
+
+## Company page (O)
+
+What they do, main products (with revenue share when the report states it), and a **clickable supply chain**: suppliers →
+company → customers, competitors and same-industry peers below. Click any box with a ticker to re-center on it; Back returns.
+- Source: the company's latest 10-K (or 20-F/40-F) from SEC EDGAR (keyless; `SEC_USER_AGENT` carries your contact email as SEC
+  asks). The business section, the start of MD&A and every sentence mentioning customers/suppliers are sent to **Gemini's free
+  tier** (`GEMINI_API_KEY`, model `GEMINI_MODEL`, default `gemini-3.1-flash-lite`), which returns only what the report states.
+  Names are matched to tickers with SEC's own ticker list. Each report is read once and cached ~30 days (CDN + memory), so a
+  company costs one Gemini call per filing.
+- Without a Gemini key the page still shows the profile, peers (Finnhub), the filing link and a Wikipedia summary.
+- Limits: many companies don't name customers (e.g. "Customer A"); private and foreign-only suppliers show as gray boxes.
+
+## News buttons and long timeframes
+
+The chart has `5m 1H D W M Y` (keys 3 2 1 4 5 6). Each candle with news gets one clickable button: green = mostly good
+headlines, red = mostly bad, gray = mixed (keyword sentiment). On D / W / M the button covers that day / week / month; Y shows
+monthly candles with one button per year. Long timeframes pull the ticker's news history (Finnhub free, about the last year).
+
 ## Pattern lookup (X)
 
 Type any ticker (or click a quick-pick) and the desk finds, draws and explains its patterns on daily or hourly bars. $0: no AI.
@@ -203,7 +234,8 @@ Premarket high/low are marked unavailable: Twelve Data includes extended-hours c
 | `Q` | Trade ticket (quick journal) |
 | `Shift J` | Journal page |
 | `F` | Hide/show fear strip |
-| `D X S M G C` | Pages: Desk, Patterns, Scanner, World map, Money flow, Calendars |
+| `D X O S M G C` | Pages: Desk, Patterns, Company, Scanner, World map, Money flow, Calendars |
+| `1 2 3 4 5 6` | Chart: Daily, 1-hour, 5-min, Weekly, Monthly, Yearly news |
 | `N Q R` | Desk right rail: News, Quick Journal, Risk |
 | `[ ]` | Hide/show left or right rail |
 | `B` | Hide/show news ticker |

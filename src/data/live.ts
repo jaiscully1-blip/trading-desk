@@ -8,7 +8,7 @@ import { DEMO_AT, makeCandles } from '../lib/demo';
 
 export interface Health {
   ok: boolean;
-  providers: Record<'twelvedata' | 'finnhub' | 'alphavantage' | 'fred', boolean>;
+  providers: Record<'twelvedata' | 'finnhub' | 'alphavantage' | 'fred', boolean> & { sec?: boolean; gemini?: boolean };
   extendedHours: boolean;
 }
 export type DataMode = { kind: 'checking' } | { kind: 'demo'; reason: string } | { kind: 'live'; health: Health };
@@ -114,7 +114,7 @@ export function useSeries(sym: string, tf: TF, mode: DataMode, demoLast: number)
 }
 
 /* ---------------- patch the forming bar with the latest quote ---------------- */
-const PERIOD: Record<TF, number> = { '5m': 300, '1H': 3600, D: 86400 };
+const PERIOD: Record<TF, number> = { '5m': 300, '1H': 3600, D: 86400, W: 7 * 86400, M: 31 * 86400 };
 
 export function patchWithQuote(bars: Bar[], q: QuoteResult | undefined, tf: TF): Bar[] {
   if (!q || !bars.length || !Number.isFinite(q.last) || !q.t) return bars;
@@ -132,6 +132,11 @@ export function patchWithQuote(bars: Bar[], q: QuoteResult | undefined, tf: TF):
     return bars;
   }
   const p = PERIOD[tf];
+  if (tf === 'W' || tf === 'M') {
+    // the open weekly / monthly bar takes the live price; a new period's bar appears with the next refresh
+    if (enc >= last.time && enc < last.time + p) return [...bars.slice(0, -1), { ...last, close: q.last, high: Math.max(last.high, q.last), low: Math.min(last.low, q.last) }];
+    return bars;
+  }
   if (enc >= last.time && enc < last.time + p) {
     const b = { ...last, close: q.last, high: Math.max(last.high, q.last), low: Math.min(last.low, q.last) };
     return [...bars.slice(0, -1), b];

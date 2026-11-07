@@ -5,7 +5,7 @@ import type { ScanState, MoversState } from '../data/scan';
 import { CRIT_META, FIELD_META, PRESET_FILTERS, gradeRank, matches, type Cond, type Criterion, type FilterField, type GradeResult, type Playbook, type SavedFilter } from '../lib/playbook';
 import { etTime } from '../lib/clock';
 import { pct, px, tone } from '../lib/format';
-import { Fresh } from './common';
+import { CoName, Fresh, Star } from './common';
 
 type SortKey = 'sym' | 'chgPct' | 'gapPct' | 'rvol' | 'rsRank' | 'grade';
 
@@ -116,7 +116,7 @@ export function Scanner(p: ScannerProps) {
             return (
               <Fragment key={r.sym}>
                 <tr className={`${p.sel === r.sym ? 'sel' : ''} ${isOpen ? 'open' : ''}`} onClick={() => { p.onSelect(r.sym); setOpen(isOpen ? null : r.sym); }}>
-                  <td className="wl-sym">{r.sym}<Flags r={r} /></td>
+                  <td className="wl-sym"><span className="wl-id"><Star sym={r.sym} />{r.sym}<CoName sym={r.sym} className="wl-name" /></span><Flags r={r} /></td>
                   <td className={`num ${tone(r.chgPct)}`}>{pct(r.chgPct, 1)}</td>
                   <td className={`num ${tone(r.gapPct ?? 0)}`}>{r.gapPct == null ? '—' : pct(r.gapPct, 1)}</td>
                   <td className="num">{r.rvol == null ? '—' : r.rvol.toFixed(1)}</td>

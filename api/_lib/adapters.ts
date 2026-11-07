@@ -24,6 +24,8 @@ const TD_INTERVAL: Record<TF, { interval: string; size: number }> = {
   D: { interval: '1day', size: 300 },
   '1H': { interval: '1h', size: 500 },
   '5m': { interval: '5min', size: 800 }, // ~10 regular sessions
+  W: { interval: '1week', size: 260 }, // ~5 years
+  M: { interval: '1month', size: 240 }, // ~20 years
 };
 
 export const twelveSeries: SeriesAdapter = {
@@ -283,4 +285,81 @@ export async function cryptoDaily(sym: 'BTC' | 'ETH'): Promise<{ bars: Bar[]; so
     const j = await getJson(`https://api.coingecko.com/api/v3/coins/${id}/market_chart?vs_currency=usd&days=60&interval=daily`, 'coingecko');
     return { bars: parseGeckoChart(j), source: 'CoinGecko' };
   }
+}
+
+/* ---------------- company page: history news, peers, earnings, SEC, Wikipedia, Gemini ---------------- */
+
+/** Finnhub company news for a date range (free plan returns roughly the last year). */
+export async function finnhubNewsRange(symbol: string, from: string, to: string): Promise<NewsItem[]> {
+  need('finnhub');
+  return parseFinnhubNews(await getJson(`https://finnhub.io/api/v1/company-news?symbol=${encodeURIComponent(symbol)}&from=${from}&to=${to}&token=${key('finnhub')}`, 'finnhub', 12000), symbol);
+}
+
+/** Finnhub peers: same-industry companies (free). */
+export async function finnhubPeers(symbol: string): Promise<string[]> {
+  need('finnhub');
+  const j = await getJson(`https://finnhub.io/api/v1/stock/peers?symbol=${encodeURIComponent(symbol)}&token=${key('finnhub')}`, 'finnhub');
+  if (!Array.isArray(j)) throw new ProviderError('finnhub', String(j?.error ?? 'unexpected peers response'));
+  return j.map(String).filter((s) => s !== symbol && isPlainTicker(s)).slice(0, 12);
+}
+
+export interface EarningRow { sym: string; date: string; hour: string; epsEst: number | null; epsAct: number | null; revEst: number | null; revAct: number | null }
+/** Finnhub earnings calendar (free): estimates before, actuals once reported. */
+export async function finnhubEarnings(from: string, to: string, symbol = ''): Promise<EarningRow[]> {
+  need('finnhub');
+  const j = await getJson(`https://finnhub.io/api/v1/calendar/earnings?from=${from}&to=${to}${symbol ? `&symbol=${encodeURIComponent(symbol)}` : ''}&token=${key('finnhub')}`, 'finnhub', 12000);
+  if (!Array.isArray(j?.earningsCalendar)) throw new ProviderError('finnhub', String(j?.error ?? 'unexpected earnings response'));
+  const n = (v: unknown) => (v == null || v === '' || !Number.isFinite(Number(v)) ? null : Number(v));
+  return j.earningsCalendar.map((r: any) => ({ sym: String(r.symbol), date: String(r.date), hour: String(r.hour ?? ''), epsEst: n(r.epsEstimate), epsAct: n(r.epsActual), revEst: n(r.revenueEstimate), revAct: n(r.revenueActual) }));
+}
+
+const secHeaders = () => ({ 'user-agent': key('sec'), 'accept-encoding': 'gzip, deflate' });
+export async function secJson(url: string): Promise<any> {
+  need('sec');
+  return getJson(url, 'sec', 12000, { headers: secHeaders() });
+}
+export async function secText(url: string, timeoutMs = 20000): Promise<string> {
+  need('sec');
+  const ctl = new AbortController();
+  const t = setTimeout(() => ctl.abort(), timeoutMs);
+  try {
+    const r = await fetch(url, { signal: ctl.signal, headers: { ...secHeaders(), accept: 'text/html,*/*' } });
+    if (!r.ok) throw new ProviderError('sec', `HTTP ${r.status}`, r.status >= 500);
+    return await r.text();
+  } finally { clearTimeout(t); }
+}
+
+/** Wikipedia: best-matching article summary for a company name (keyless). */
+export async function wikiSummary(name: string): Promise<{ title: string; extract: string; url: string } | null> {
+  need('wikipedia');
+  const h = { 'user-agent': 'trading-desk/1.0 (personal dashboard)' };
+  const s = await getJson(`https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(`${name} company`)}&srlimit=1&format=json&origin=*`, 'wikipedia', 8000, { headers: h });
+  const title = s?.query?.search?.[0]?.title;
+  if (!title) return null;
+  const j = await getJson(`https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(title)}`, 'wikipedia', 8000, { headers: h });
+  return j?.extract ? { title, extract: String(j.extract), url: j?.content_urls?.desktop?.page ?? `https://en.wikipedia.org/wiki/${encodeURIComponent(title)}` } : null;
+}
+
+/** Gemini (free tier) structured extraction. Model is configurable; defaults to a stable Flash-Lite. */
+export async function geminiJson(prompt: string, schema: object): Promise<{ data: any; model: string }> {
+  need('gemini');
+  const models = [process.env.GEMINI_MODEL, 'gemini-3.1-flash-lite', 'gemini-3-flash-preview', 'gemini-2.5-flash'].filter(Boolean) as string[];
+  let last: unknown;
+  for (const model of [...new Set(models)]) {
+    try {
+      const j = await getJson(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, 'gemini', 55000, {
+        method: 'POST',
+        headers: { 'x-goog-api-key': key('gemini') },
+        body: JSON.stringify({ contents: [{ role: 'user', parts: [{ text: prompt }] }], generationConfig: { temperature: 0.1, responseMimeType: 'application/json', responseSchema: schema } }),
+      });
+      const text = j?.candidates?.[0]?.content?.parts?.map((p: any) => p.text ?? '').join('') ?? '';
+      if (!text) throw new ProviderError('gemini', `empty answer (${j?.candidates?.[0]?.finishReason ?? j?.promptFeedback?.blockReason ?? 'unknown'})`);
+      return { data: JSON.parse(text), model };
+    } catch (e) {
+      last = e;
+      // 404 = model id retired; try the next one. Anything else (quota, bad key) stops here.
+      if (!(e instanceof ProviderError && /HTTP 404/.test(e.message))) throw e;
+    }
+  }
+  throw last;
 }

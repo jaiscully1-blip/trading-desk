@@ -177,10 +177,15 @@ export function parseFinnhubNews(j: any, symbol: string): NewsItem[] {
     .sort((a, b) => b.t - a.t);
 }
 // /stock/profile2 -> { name, shareOutstanding (millions), ticker, ... }  ({} for unknown symbols)
-export function parseFinnhubProfile(j: any): { name: string | null; sharesOut: number | null } {
+export interface Profile { name: string | null; sharesOut: number | null; industry?: string; exchange?: string; marketCap?: number; web?: string; logo?: string; country?: string; ipo?: string }
+export function parseFinnhubProfile(j: any): Profile {
   if (!j || typeof j !== 'object' || 'error' in j) throw new ProviderError('finnhub', String(j?.error ?? 'unexpected response'));
-  const so = num(j.shareOutstanding);
-  return { name: j.name ? String(j.name) : null, sharesOut: Number.isFinite(so) && so > 0 ? so * 1e6 : null };
+  const so = num(j.shareOutstanding), mc = num(j.marketCapitalization);
+  return {
+    name: j.name ? String(j.name) : null, sharesOut: Number.isFinite(so) && so > 0 ? so * 1e6 : null,
+    industry: j.finnhubIndustry || undefined, exchange: j.exchange || undefined, marketCap: Number.isFinite(mc) && mc > 0 ? mc * 1e6 : undefined,
+    web: j.weburl || undefined, logo: j.logo || undefined, country: j.country || undefined, ipo: j.ipo || undefined,
+  };
 }
 
 /* ---------------- Alpha Vantage movers ---------------- */

@@ -87,6 +87,7 @@ const SLOTS_1H = [570, 630, 690, 750, 810, 870, 930];
 const SLOTS_5M = Array.from({ length: 78 }, (_, i) => 570 + i * 5);
 
 export function makeCandles(sym: string, tf: TF, last: number): Bar[] {
+  if (tf === 'W' || tf === 'M') return makeLongCandles(sym, tf, last);
   const r = rng(hash(sym + tf) + DAY_SEED);
   const idx = INDEXES.includes(sym);
   const days = lastSessionDates(tf === 'D' ? 260 : tf === '1H' ? 45 : 5);
@@ -124,6 +125,31 @@ export function makeCandles(sym: string, tf: TF, last: number): Bar[] {
     b.close = +(b.close * k).toFixed(2);
   }
   return bars;
+}
+
+/** Weekly (5 years) or monthly (15 years) sample candles, oldest first; week bars start Monday, month bars on the 1st. */
+function makeLongCandles(sym: string, tf: 'W' | 'M', last: number): Bar[] {
+  const r = rng(hash(sym + tf) + DAY_SEED);
+  const n = tf === 'W' ? 260 : 180;
+  const vol = (tf === 'W' ? 0.045 : 0.09) * (INDEXES.includes(sym) ? 0.45 : 1);
+  const now = new Date();
+  const times: number[] = [];
+  if (tf === 'W') {
+    const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+    d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7));
+    for (let i = 0; i < n; i++) times.unshift(d.getTime() / 1000 - i * 7 * 86400);
+  } else {
+    for (let i = 0; i < n; i++) times.unshift(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - i, 1) / 1000);
+  }
+  const bars: Bar[] = [];
+  let p = 100;
+  for (const time of times) {
+    const open = p, close = open * (1 + gauss(r) * vol + vol * 0.12);
+    bars.push({ time, open, high: Math.max(open, close) * (1 + r() * vol * 0.6), low: Math.min(open, close) * (1 - r() * vol * 0.6), close, volume: Math.round(2.5e7 * (tf === 'W' ? 5 : 21) * (0.5 + r())) });
+    p = close;
+  }
+  const k = last / bars[bars.length - 1].close;
+  return bars.map((b) => ({ ...b, open: +(b.open * k).toFixed(2), high: +(b.high * k).toFixed(2), low: +(b.low * k).toFixed(2), close: +(b.close * k).toFixed(2) }));
 }
 
 const SYM_T = [

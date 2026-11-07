@@ -3,7 +3,7 @@
 import { ProviderError } from '../../shared/parse.js';
 import { clock } from '../../shared/clock.js';
 
-export type Provider = 'twelvedata' | 'finnhub' | 'alphavantage' | 'fred' | 'finra' | 'kalshi' | 'gdelt' | 'binance' | 'coingecko';
+export type Provider = 'twelvedata' | 'finnhub' | 'alphavantage' | 'fred' | 'finra' | 'kalshi' | 'gdelt' | 'binance' | 'coingecko' | 'sec' | 'gemini' | 'wikipedia';
 
 export const KEY_ENV: Record<Provider, string> = {
   twelvedata: 'TWELVEDATA_API_KEY',
@@ -15,6 +15,9 @@ export const KEY_ENV: Record<Provider, string> = {
   gdelt: '',
   binance: '',
   coingecko: '',
+  sec: 'SEC_USER_AGENT', // not a key: SEC asks automated tools to send a contact email in the User-Agent
+  gemini: 'GEMINI_API_KEY',
+  wikipedia: '',
 };
 
 export function key(p: Provider): string {
@@ -41,6 +44,9 @@ const LIMITS: Record<Provider, { perMin: number; perDay: number }> = {
   gdelt: { perMin: 10, perDay: 1000 },
   binance: { perMin: 30, perDay: 5000 },
   coingecko: { perMin: 5, perDay: 500 },
+  sec: { perMin: 300, perDay: 20000 }, // SEC fair access: 10 requests/second
+  gemini: { perMin: 8, perDay: 200 }, // free tier; each company is read once and cached
+  wikipedia: { perMin: 60, perDay: 5000 },
 };
 const hits: Record<string, number[]> = {};
 const dayCount: Record<string, { day: string; n: number }> = {};
@@ -98,11 +104,11 @@ export function ttl(inSession: number, offHours: number) {
   return clock().session === 'Regular session' ? inSession : offHours;
 }
 
-export async function getJson(url: string, provider: Provider, timeoutMs = 8000, init?: { method?: string; body?: string }): Promise<any> {
+export async function getJson(url: string, provider: Provider, timeoutMs = 8000, init?: { method?: string; body?: string; headers?: Record<string, string> }): Promise<any> {
   const ctl = new AbortController();
   const t = setTimeout(() => ctl.abort(), timeoutMs);
   try {
-    const r = await fetch(url, { signal: ctl.signal, method: init?.method ?? 'GET', body: init?.body, headers: { accept: 'application/json', ...(init?.body ? { 'content-type': 'application/json' } : {}) } });
+    const r = await fetch(url, { signal: ctl.signal, method: init?.method ?? 'GET', body: init?.body, headers: { accept: 'application/json', ...(init?.body ? { 'content-type': 'application/json' } : {}), ...(init?.headers ?? {}) } });
     if (r.status === 429) throw new ProviderError(provider, 'HTTP 429 rate limited', true);
     if (r.status === 401 || r.status === 403) {
       const body = await r.text();

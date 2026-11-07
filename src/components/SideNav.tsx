@@ -1,9 +1,10 @@
 // Left side menu: one full-screen page per section, each with a single-key shortcut.
-export type Page = 'desk' | 'patterns' | 'scanner' | 'map' | 'flows' | 'journal' | 'calendar';
+export type Page = 'desk' | 'patterns' | 'company' | 'scanner' | 'map' | 'flows' | 'journal' | 'calendar';
 
 const PAGES: { id: Page; label: string; key: string }[] = [
   { id: 'desk', label: 'DESK', key: 'D' },
   { id: 'patterns', label: 'PATTERNS', key: 'X' },
+  { id: 'company', label: 'COMPANY', key: 'O' },
   { id: 'scanner', label: 'SCANNER', key: 'S' },
   { id: 'map', label: 'WORLD MAP', key: 'M' },
   { id: 'flows', label: 'MONEY FLOW', key: 'G' },
