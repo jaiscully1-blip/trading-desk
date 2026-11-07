@@ -147,6 +147,20 @@ layout; a notice appears when it switches. The mode selector in the top strip (o
   the backup. Feed holidays/early closes are merged on top of the published calendar (never removing one), and a closure the feed
   reports outside the calendar (e.g. a national day of mourning) closes the day. Without `/api` the published calendar still applies.
 
+## Pattern lookup (X)
+
+Type any ticker (or click a quick-pick) and the desk finds, draws and explains its patterns on daily or hourly bars. $0: no AI.
+- **Candlestick signals** in the last 25 bars, judged against the trend going into them: hammer / hanging man, inverted hammer /
+  shooting star, doji, bullish/bearish engulfing, morning/evening star, piercing line / dark cloud cover, three white soldiers /
+  three black crows, harami, marubozu. Each says whether later bars confirmed or failed it. Arrows mark them on the chart.
+- **Chart patterns** from swing points (3 bars each side) and least-squares trendlines: head and shoulders (and inverse), double
+  top/bottom, ascending/descending/symmetrical triangles, bull flag and cup-and-handle (same rules as the scanner). Each is drawn on
+  the chart with its neckline/trendlines, marked forming / confirmed / failed, with trigger, stop and textbook measured-move target.
+- **Description:** a template-written summary (price, 20-bar change, position vs 20/50 averages, what was found) plus a paragraph per
+  pattern. Click any item to frame it and show its trigger/stop/target lines.
+- **Save image** downloads a PNG of the chart with the descriptions underneath (works on the deployed site; the artifact preview
+  blocks downloads). Tested against real NVDA daily data (fixture in `tests/fixtures`).
+
 ## World map and money flow globe (M8)
 
 - **World map (`M`)**, two layers on one map (D3 Natural Earth projection, Natural Earth 110m borders via `world-atlas`):
@@ -189,7 +203,7 @@ Premarket high/low are marked unavailable: Twelve Data includes extended-hours c
 | `Q` | Trade ticket (quick journal) |
 | `Shift J` | Journal page |
 | `F` | Hide/show fear strip |
-| `D S M G C` | Pages: Desk, Scanner, World map, Money flow, Calendars |
+| `D X S M G C` | Pages: Desk, Patterns, Scanner, World map, Money flow, Calendars |
 | `N Q R` | Desk right rail: News, Quick Journal, Risk |
 | `[ ]` | Hide/show left or right rail |
 | `B` | Hide/show news ticker |
@@ -213,7 +227,7 @@ Open the deployed site, then **Chrome/Edge:** the install icon in the address ba
 - **Bottom:** 24/7 news ticker with "My watchlist only".
 - **Pop-out:** the ↗ on any panel opens it in its own window for a second monitor; the selected ticker stays in sync across windows.
 - **Layouts per market-clock mode:** rail widths, visibility, active tab and timeframe save to whichever mode you're in (Pre-market, Open, Midday, Power hour, After-hours & review). The mode follows the ET clock, or set it manually.
-- **Side menu (laptop-only, 1180px and up):** one full-screen page per section: Desk `D`, Scanner `S` (scanner + chart), World map `M`,
+- **Side menu (laptop, full or half screen):** one full-screen page per section: Desk `D`, Patterns `X`, Scanner `S` (scanner + chart), World map `M`,
   Money flow `G`, Calendars `C` (calendars + chart), Journal `Shift J`, plus the Account drawer `A`. The last page you used reopens.
 - **Look:** dark terminal theme (amber accent, mono numbers) by default; `T` switches to a light "paper" theme.
 

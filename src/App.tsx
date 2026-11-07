@@ -30,6 +30,7 @@ import { useMarketStatus } from './data/market';
 import { useFlows, useWorld } from './data/world';
 // Map and globe load on first use so they don't slow the desk's first load
 const WorldMap = lazy(() => import('./components/WorldMap'));
+const PatternLab = lazy(() => import('./components/PatternLab'));
 const MoneyGlobe = lazy(() => import('./components/MoneyGlobe'));
 import { Calendars } from './components/Calendars';
 import { FearStrip } from './components/FearStrip';
@@ -378,7 +379,7 @@ export default function App() {
 
   const commands: Cmd[] = [
     { id: 'gappers', label: 'Scanner: gappers ≥3%', run: () => { setFilterId('gappers'); setTab('scanner'); } },
-    { id: 'scanner', label: 'Scanner page', hint: 'S', run: () => setPage('scanner') }, { id: 'desk', label: 'Desk page', hint: 'D', run: () => setPage('desk') },
+    { id: 'scanner', label: 'Scanner page', hint: 'S', run: () => setPage('scanner') }, { id: 'desk', label: 'Desk page', hint: 'D', run: () => setPage('desk') }, { id: 'patterns', label: 'Pattern lookup: candlesticks + chart patterns for any ticker', hint: 'X', run: () => setPage('patterns') },
     { id: 'rvol', label: 'Scanner: relative volume ≥2', run: () => { setFilterId('rvol'); setTab('scanner'); } },
     { id: 'breakouts', label: 'Scanner: 20/50-day breakouts', run: () => { setFilterId('brk'); setTab('scanner'); } },
     { id: 'highs', label: 'Scanner: 52-week highs', run: () => { setFilterId('hi52'); setTab('scanner'); } },
@@ -433,7 +434,7 @@ export default function App() {
       if (e.key === 'Escape') { if (replayId) { setReplayId(null); return; } setCmdOpen(false); setOverlay(null); setDrawer(false); setPbOpen(false); setSyncOpen(false); setCiOpen(false); setRecapOpen(false); return; }
       if (cmdOpen || pbOpen || syncOpen || ciOpen || replayId || recapOpen || typing(e.target) || e.ctrlKey || e.metaKey || e.altKey) return;
       const map: Record<string, () => void> = {
-        d: () => setPage('desk'), s: () => setPage('scanner'), m: () => setPage('map'), g: () => setPage('flows'), c: () => setPage('calendar'),
+        d: () => setPage('desk'), x: () => setPage('patterns'), s: () => setPage('scanner'), m: () => setPage('map'), g: () => setPage('flows'), c: () => setPage('calendar'),
         '?': () => setOverlay((o) => (o === 'help' ? null : 'help')),
         t: toggleTheme,
         a: () => setDrawer((d) => !d),
@@ -538,6 +539,12 @@ export default function App() {
     body = <div className="page page-split"><section className="panel cal-page"><Calendars cal={cal} now={now} onSelect={setSel} mySyms={new Set(wlSyms)} /></section><div className="center">{chart()}</div></div>;
   } else if (page === 'journal') {
     body = <div className="page"><JournalOverlay views={views} setTrades={setTrades} transfers={transfers} setTransfers={setTransfers} violations={viols} lastPx={lastPx} settings={settings} onClose={() => setPage('desk')} onSelect={toDesk} onReplay={setReplayId} canSample={!live} /></div>;
+  } else if (page === 'patterns') {
+    body = (
+      <Suspense fallback={<div className="page"><section className="panel"><div className="ph-body">Loading…</div></section></div>}>
+        <PatternLab mode={dataMode} theme={theme} symbols={[...wlSyms, ...universe]} demoLast={demoLast} onChart={toDesk} />
+      </Suspense>
+    );
   } else if (page === 'map' || page === 'flows') {
     body = (
       <div className="page">

@@ -7,6 +7,8 @@ export interface PatternHit {
   /** breakout level */
   trigger?: number;
   detail?: string;
+  /** bar indexes of the key points (for drawing): flag = [pole start, pole top, end]; cup = [left rim, cup low, right rim, handle low] */
+  points?: number[];
 }
 
 export interface ShortInterest {
@@ -147,7 +149,9 @@ export function bullFlag(bars: Bar[], o: FlagOpts = FLAG): PatternHit {
     if (retrace > o.maxRetrace) continue;
     if (avg(flag.map((b) => b.volume)) >= avg(poleBars.map((b) => b.volume))) continue;
     const trigger = Math.max(...flag.map((b) => b.high));
-    return { ok: true, trigger, detail: `pole +${(gain * 100).toFixed(0)}%, ${flagLen}-bar flag, ${(retrace * 100).toFixed(0)}% retrace` };
+    let ps = p - o.maxPoleBars;
+    poleBars.forEach((b, i) => { if (b.low === poleLow) ps = p - o.maxPoleBars + i; });
+    return { ok: true, trigger, detail: `pole +${(gain * 100).toFixed(0)}%, ${flagLen}-bar flag, ${(retrace * 100).toFixed(0)}% retrace`, points: [ps, p, n - 1] };
   }
   return { ok: false };
 }
@@ -185,7 +189,9 @@ export function cupHandle(bars: Bar[], o: CupOpts = CUP): PatternHit {
       const pos = lowIdx / cup.length;
       if (pos < 0.2 || pos > 0.8) continue; // bottom roughly centered (rounded, not a V at one edge)
       if (handleLow < cupLow + (top - cupLow) / 2) continue; // handle in upper half
-      return { ok: true, trigger: rim, detail: `${c}-bar cup, ${(depth * 100).toFixed(0)}% deep, ${h}-bar handle` };
+      let hl = r + 1;
+      handle.forEach((b, i) => { if (b.low === handleLow) hl = r + 1 + i; });
+      return { ok: true, trigger: rim, detail: `${c}-bar cup, ${(depth * 100).toFixed(0)}% deep, ${h}-bar handle`, points: [l, l + 1 + lowIdx, r, hl] };
     }
   }
   return { ok: false };
