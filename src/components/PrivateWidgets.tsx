@@ -1,0 +1,238 @@
+// Private widgets: Webull account (read-only) and the Discord bot's channels. Both need the desk password.
+import { useMemo, useState } from 'react';
+import type { HomeData } from './HomeWidgets';
+import type { WbBalance, WbClosed, WbDay, WbFill, WbPosition } from '../../shared/webull';
+import type { DcMessage } from '../../shared/discord';
+import { getDeskKey, privateFetch, setDeskKey, usePrivate } from '../data/private';
+import { DEMO_AT, rng } from '../lib/demo';
+import { pct, px, sUsd, tone } from '../lib/format';
+import { etTime } from '../lib/clock';
+import { CoName, Fresh, Seg, Star } from './common';
+
+type Cfg = Record<string, any>;
+interface P { d: HomeData; cfg: Cfg; set: (c: Cfg) => void }
+
+/* ---------------- desk password ---------------- */
+export function DeskLock({ code, error }: { code?: string; error?: string }) {
+  const [v, setV] = useState('');
+  if (code === 'no-password-set') return (
+    <div className="hw-pad small">
+      <p><b>Locked.</b> This panel shows your own account, and the desk is a public link, so it needs a password first.</p>
+      <ol className="steps-ol"><li>Vercel → your project → Settings → Environment Variables</li><li>Add <code>DESK_PASSWORD</code> = any long phrase only you know</li><li>Redeploy, then type it here</li></ol>
+    </div>
+  );
+  return (
+    <form className="hw-pad lock" onSubmit={(e) => { e.preventDefault(); setDeskKey(v); setV(''); }}>
+      <p className="small">{code === 'bad-password' && getDeskKey() ? <span className="down">{error} </span> : null}Type your desk password to open this panel. It stays in this browser.</p>
+      <div className="hw-bar lock-bar"><input type="password" value={v} onChange={(e) => setV(e.target.value)} placeholder="Desk password" aria-label="Desk password" autoComplete="current-password" /><button className="btn primary" type="submit">Unlock</button></div>
+    </form>
+  );
+}
+const locked = (code?: string) => code === 'bad-password' || code === 'no-password-set';
+
+/* ---------------- Webull ---------------- */
+interface Acct { account: { id: string; count: number; type: string }; balance: WbBalance; positions: WbPosition[]; asOf: number; source: string; stale?: boolean }
+interface Pnl { from: string; range: number; fills: WbFill[]; closed: WbClosed[]; unmatched: { sym: string; qty: number }[]; asOf: number; source: string; dayRows: WbDay[] }
+interface Status { configured: boolean; host: string; tokenRequired: boolean | null; tokenSet: boolean; configError?: string }
+
+function demoWebull(): { acct: Acct; pnl: Pnl } {
+  const r = rng(42), syms = ['NVDA', 'AMD', 'MU', 'TSLA', 'META'];
+  const positions: WbPosition[] = syms.slice(0, 4).map((s) => { const c = 50 + r() * 300, l = c * (0.92 + r() * 0.18), q = Math.round(5 + r() * 40); return { sym: s, qty: q, avgCost: c, last: l, value: l * q, unreal: (l - c) * q, unrealPct: (l / c - 1) * 100, option: false }; });
+  const dayRows: WbDay[] = [];
+  for (let i = 29; i >= 0; i--) {
+    const t = DEMO_AT - i * 86400_000, dow = new Date(t).getDay();
+    if (dow === 0 || dow === 6 || r() < 0.35) continue;
+    const pnl = (r() - 0.42) * 900, trades = 1 + Math.floor(r() * 4);
+    dayRows.push({ day: new Date(t).toLocaleDateString('en-CA', { timeZone: 'America/New_York' }), pnl, trades, wins: pnl > 0 ? trades : 0, losses: pnl > 0 ? 0 : trades, syms: [syms[Math.floor(r() * 5)]] });
+  }
+  return {
+    acct: { account: { id: '…0000', count: 1, type: 'CASH' }, balance: { total: 25840, cash: 6120, buyingPower: 6120, dayPnl: 212, unreal: positions.reduce((a, p) => a + (p.unreal ?? 0), 0) }, positions, asOf: DEMO_AT, source: 'Sample data' },
+    pnl: { from: '', range: 30, fills: [], closed: [], unmatched: [], asOf: DEMO_AT, source: 'Sample data', dayRows },
+  };
+}
+
+function WebullSetup({ st, reload }: { st: Status; reload: () => void }) {
+  const [tok, setTok] = useState<{ token?: string; status?: string; error?: string } | null>(null);
+  const create = async () => { const { ok, j } = await privateFetch({ fn: 'webull', op: 'token-create' }); setTok(ok ? j : { error: j.error }); };
+  const check = async () => { const { ok, j } = await privateFetch({ fn: 'webull', op: 'token-check', token: tok?.token ?? '' }); setTok((t) => ({ ...t, status: ok ? j.status : undefined, error: ok ? undefined : j.error })); };
+  if (!st.configured) return (
+    <div className="hw-pad small">
+      <p><b>Connect Webull (read-only).</b> In Vercel → Settings → Environment Variables add:</p>
+      <ol className="steps-ol"><li><code>WEBULL_APP_KEY</code> = the App Key from Webull’s Developer Console</li><li><code>WEBULL_APP_SECRET</code> = its App Secret</li><li>Redeploy</li></ol>
+      <p className="muted">The desk only calls Webull’s read endpoints (accounts, balance, positions, order history). It has no code that places, changes or cancels orders.</p>
+    </div>
+  );
+  return (
+    <div className="hw-pad small">
+      {st.configError && <p className="down">Webull answered: {st.configError}</p>}
+      <p><b>Webull needs a one-time access token</b> because your account has 2-step security.</p>
+      <ol className="steps-ol">
+        <li><button className="btn" onClick={create}>Create token</button> — Webull then sends a code / prompt to your phone.</li>
+        <li>Approve it in the Webull app within 5 minutes, then <button className="btn" onClick={check} disabled={!tok?.token}>Check</button></li>
+        <li>When it says <b>NORMAL</b>, copy the token into Vercel as <code>WEBULL_ACCESS_TOKEN</code> and redeploy. It stays valid while used at least every 15 days.</li>
+      </ol>
+      {tok?.token && <p className="tok">Token: <code className="sel-all">{tok.token}</code> · status <b className={tok.status === 'NORMAL' ? 'up' : ''}>{tok.status ?? '?'}</b></p>}
+      {tok?.error && <p className="down">{tok.error}</p>}
+      <button className="btn" onClick={reload}>Recheck setup</button>
+    </div>
+  );
+}
+
+function PnlCalendar({ rows, days, onPick, pick }: { rows: WbDay[]; days: number; onPick: (d: string | null) => void; pick: string | null }) {
+  const by = new Map(rows.map((r) => [r.day, r]));
+  const end = new Date(), cells: { day: string; dow: number }[] = [];
+  for (let i = days - 1; i >= 0; i--) { const t = new Date(end.getTime() - i * 86400_000); const day = t.toLocaleDateString('en-CA', { timeZone: 'America/New_York' }); const dow = new Date(`${day}T12:00:00Z`).getUTCDay(); if (dow > 0 && dow < 6) cells.push({ day, dow }); }
+  const lead = cells.length ? cells[0].dow - 1 : 0;
+  const max = Math.max(1, ...rows.map((r) => Math.abs(r.pnl)));
+  const tot = rows.reduce((a, r) => a + r.pnl, 0), win = rows.filter((r) => r.pnl > 0), loss = rows.filter((r) => r.pnl < 0);
+  const gw = win.reduce((a, r) => a + r.pnl, 0), gl = -loss.reduce((a, r) => a + r.pnl, 0);
+  return (
+    <div className="pnl">
+      <div className="pnl-sum">
+        <span>Realized <b className={`num ${tone(tot)}`}>{sUsd(tot)}</b></span>
+        <span>Green days <b className="num">{win.length}/{rows.length}</b></span>
+        <span>Avg green <b className="num up">{win.length ? sUsd(gw / win.length) : '—'}</b></span>
+        <span>Avg red <b className="num down">{loss.length ? sUsd(-gl / loss.length) : '—'}</b></span>
+        <span title="gross profit ÷ gross loss">Profit factor <b className="num">{gl ? (gw / gl).toFixed(2) : '—'}</b></span>
+      </div>
+      <div className="pnl-grid">
+        {['M', 'T', 'W', 'T', 'F'].map((d, i) => <span key={i} className="pnl-dow">{d}</span>)}
+        {Array.from({ length: lead }, (_, i) => <span key={`l${i}`} />)}
+        {cells.map((c) => {
+          const r = by.get(c.day), a = r ? 0.18 + 0.6 * Math.min(1, Math.abs(r.pnl) / max) : 0;
+          return (
+            <button key={c.day} className={`pnl-cell ${r ? (r.pnl >= 0 ? 'g' : 'r') : ''} ${pick === c.day ? 'sel' : ''}`} style={r ? { ['--a' as string]: a } : undefined}
+              onClick={() => onPick(pick === c.day ? null : c.day)} title={r ? `${c.day}: ${sUsd(r.pnl)} · ${r.trades} closed · ${r.syms.join(', ')}` : `${c.day}: no closed trades`}>
+              <span className="pnl-d">{+c.day.slice(8)}</span>{r && <span className="pnl-v num">{Math.abs(r.pnl) >= 1000 ? `${(r.pnl / 1000).toFixed(1)}k` : Math.round(r.pnl)}</span>}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+export function WebullW({ d, cfg, set }: P) {
+  const tab: 'pos' | 'pnl' = cfg.tab ?? 'pos';
+  const days: number = cfg.days ?? 30;
+  const live = d.mode.kind === 'live';
+  const st = usePrivate<Status>({ fn: 'webull', op: 'status' }, d.mode, 0);
+  const ready = !!st.data?.configured && (st.data.tokenRequired === false || (st.data.tokenRequired === null && !st.data.configError) || st.data.tokenSet);
+  const acct = usePrivate<Acct>(ready && tab === 'pos' ? { fn: 'webull', op: 'account' } : null, d.mode, 60_000);
+  const pnlQ = usePrivate<Pnl>(ready && tab === 'pnl' ? { fn: 'webull', op: 'pnl', days: String(days) } : null, d.mode, 5 * 60_000);
+  const [pick, setPick] = useState<string | null>(null);
+  const demo = useMemo(() => (live ? null : demoWebull()), [live]);
+  const a = demo?.acct ?? acct.data;
+  const pnlRaw: Pnl | null = demo?.pnl ?? pnlQ.data;
+  const dayRows: WbDay[] = pnlRaw?.dayRows ?? [];
+  const closedPick: WbClosed[] = (pnlRaw?.closed ?? []).filter((c: WbClosed) => c.day === pick);
+
+  const head = (
+    <div className="hw-bar">
+      <Seg value={tab} options={[{ id: 'pos', label: 'Positions' }, { id: 'pnl', label: 'P&L calendar' }]} onChange={(v) => set({ ...cfg, tab: v })} />
+      {tab === 'pnl' && <Seg value={String(days) as '30'} options={[{ id: '30', label: '30d' }, { id: '60', label: '60d' }, { id: '90', label: '90d' }] as { id: '30'; label: string }[]} onChange={(v) => set({ ...cfg, days: +v })} />}
+      {demo ? <Fresh kind="demo" /> : <Fresh kind={(tab === 'pos' ? acct.data : pnlQ.data) ? 'live' : 'nodata'} at={(tab === 'pos' ? acct.at : pnlQ.at)} src="Webull OpenAPI, read-only" />}
+    </div>
+  );
+  if (!demo) {
+    if (locked(st.code)) return <div className="hw-col">{head}<DeskLock code={st.code} error={st.error} /></div>;
+    if (st.error && !st.data) return <div className="hw-col">{head}<p className="hw-pad small down">{st.error}</p></div>;
+    if (!st.data) return <div className="hw-col">{head}<p className="hw-pad small muted">{live ? 'Checking Webull…' : 'Webull loads on the live desk.'}</p></div>;
+    if (!ready) return <div className="hw-col">{head}<WebullSetup st={st.data} reload={st.reload} /></div>;
+  }
+  const err = tab === 'pos' ? acct.error : pnlQ.error;
+  return (
+    <div className="hw-col">
+      {head}
+      {err && <p className="hw-pad small down">Webull: {err}</p>}
+      {tab === 'pos' && a && (
+        <>
+          <div className="wb-bal">
+            <span>Account <b className="num">{a.balance.total != null ? `$${px(a.balance.total)}` : '—'}</b></span>
+            <span>Cash <b className="num">{a.balance.cash != null ? `$${px(a.balance.cash)}` : '—'}</b></span>
+            <span>Buying power <b className="num">{a.balance.buyingPower != null ? `$${px(a.balance.buyingPower)}` : '—'}</b></span>
+            <span>Today <b className={`num ${tone(a.balance.dayPnl ?? 0)}`}>{a.balance.dayPnl != null ? sUsd(a.balance.dayPnl) : '—'}</b></span>
+            <span>Open P&L <b className={`num ${tone(a.balance.unreal ?? 0)}`}>{a.balance.unreal != null ? sUsd(a.balance.unreal) : '—'}</b></span>
+          </div>
+          <div className="wb-tbl">
+            <div className="wb-r wb-h"><span>Symbol × qty</span><span>Avg</span><span>Last</span><span>Open P&L</span></div>
+            {a.positions.map((p) => (
+              <div key={p.sym} className="wb-r" onClick={() => d.onChart(p.sym)} role="button" tabIndex={-1}>
+                <span className="wb-sym"><Star sym={p.sym} /><b>{p.sym}</b><span className="num muted small">×{p.qty}</span>{p.option && <span className="tag">opt</span>}<CoName sym={p.sym} className="wb-name" /></span>
+                <span className="num">{p.avgCost != null ? px(p.avgCost) : '—'}</span><span className="num">{p.last != null ? px(p.last) : '—'}</span>
+                <span className={`num ${tone(p.unreal ?? 0)}`}>{p.unreal != null ? sUsd(p.unreal) : '—'}{p.unrealPct != null && <small> {pct(p.unrealPct, 1)}</small>}</span>
+              </div>
+            ))}
+            {!a.positions.length && <p className="small muted hw-pad">No open positions.</p>}
+          </div>
+        </>
+      )}
+      {tab === 'pnl' && pnlRaw && (
+        <>
+          <PnlCalendar rows={dayRows} days={days} pick={pick} onPick={setPick} />
+          {pick && <div className="wb-tbl">{closedPick.length ? closedPick.map((c, i) => (
+            <div key={i} className="wb-r wb-closed"><span className="wb-sym"><b>{c.sym}</b><span className="num muted small">×{c.qty}</span><span className="wb-name">{c.side} · {etTime(c.tOpen)}→{etTime(c.tClose)}</span></span><span className="num">{px(c.entry)}</span><span className="num">{px(c.exit)}</span><span className={`num ${tone(c.pnl)}`}>{sUsd(c.pnl)}</span></div>
+          )) : <p className="small muted hw-pad">{demo ? 'Sample days have no trade list.' : 'No closed trades that day.'}</p>}</div>}
+          {pnlRaw.unmatched.length > 0 && <p className="note hw-pad">Not counted: sells of shares bought before {pnlRaw.from} ({pnlRaw.unmatched.map((u) => `${u.sym} ×${u.qty}`).join(', ')}) — Webull’s history here doesn’t include their buy price. Pick a longer range to include them.</p>}
+        </>
+      )}
+      <p className="note hw-pad">Read-only: the desk can see your account but cannot trade. Realized P&L is matched first-in-first-out from Webull’s filled orders; fees aren’t included.</p>
+    </div>
+  );
+}
+
+/* ---------------- Discord ---------------- */
+interface DcData { messages: DcMessage[]; watchlist: { sym: string; n: number; first: number }[]; today: string; channels: { id: string; key: string; name: string }[]; errors: Record<string, string>; hint?: string; asOf: number }
+
+function demoDiscord(): DcData {
+  const t = DEMO_AT;
+  const m = (id: string, ch: DcMessage['ch'], dt: number, text: string, tickers: string[]): DcMessage => ({ id, ch, t: t - dt, author: 'desk-bot', bot: true, text, tickers, url: '' });
+  const messages = [
+    m('1', 'before', 3600_000, 'Morning watchlist (sample): $NVDA above 140 for continuation, $AMD gap fill, $MU earnings drift.', ['NVDA', 'AMD', 'MU']),
+    m('2', 'resp', 5400_000, 'Rule check (sample): max 1R per trade, stop goes in before entry.', []),
+    m('3', 'review', 86400_000, 'After close (sample): 2 trades, +1.4R. NVDA followed plan; AMD chased entry.', ['NVDA', 'AMD']),
+  ];
+  return { messages, watchlist: [{ sym: 'NVDA', n: 1, first: t }, { sym: 'AMD', n: 1, first: t }, { sym: 'MU', n: 1, first: t }], today: '', channels: [], errors: {}, asOf: t };
+}
+
+export function DiscordW({ d, cfg, set }: P) {
+  const ch: 'all' | DcMessage['ch'] = cfg.ch ?? 'all';
+  const live = d.mode.kind === 'live';
+  const q = usePrivate<DcData>({ fn: 'discord' }, d.mode, 60_000);
+  const demo = useMemo(() => (live ? null : demoDiscord()), [live]);
+  const data = demo ?? q.data;
+  const msgs = (data?.messages ?? []).filter((m) => ch === 'all' || m.ch === ch);
+  const head = (
+    <div className="hw-bar">
+      <Seg value={ch} options={[{ id: 'all', label: 'All' }, { id: 'before', label: 'Before', hint: '#read-before-trading' }, { id: 'resp', label: 'Rules', hint: '#trade-responsibility' }, { id: 'review', label: 'Review', hint: '#after-close-review' }]} onChange={(v) => set({ ...cfg, ch: v })} />
+      {demo ? <Fresh kind="demo" /> : <Fresh kind={q.data ? 'live' : 'nodata'} at={q.at} src="Discord API via your bot (read-only)" />}
+    </div>
+  );
+  if (!demo && locked(q.code)) return <div className="hw-col">{head}<DeskLock code={q.code} error={q.error} /></div>;
+  if (!demo && q.code === 'no-token') return <div className="hw-col">{head}<div className="hw-pad small"><p>Add <code>DISCORD_BOT_TOKEN</code> in Vercel (Discord Developer Portal → your bot → Bot → Reset Token), turn on <b>Message Content Intent</b> on that page, and make sure the bot can see the three channels. Then redeploy.</p></div></div>;
+  return (
+    <div className="hw-col">
+      {head}
+      {q.error && !demo && <p className="hw-pad small down">{q.error}</p>}
+      {data?.hint && <p className="hw-pad small down">{data.hint}</p>}
+      {data && Object.entries(data.errors).map(([k, v]) => <p key={k} className="hw-pad small down">#{k}: {v}</p>)}
+      {data && (
+        <div className="dc-wl">
+          <span className="muted small">Bot’s list today</span>
+          {data.watchlist.length ? data.watchlist.map((w) => <button key={w.sym} className="chip" onClick={() => d.onChart(w.sym)} title={`named ${w.n}× in #read-before-trading today`}>{w.sym}</button>) : <span className="small muted">no tickers posted in #read-before-trading today</span>}
+        </div>
+      )}
+      <div className="dc-list">
+        {msgs.map((m) => (
+          <div key={m.id} className={`dc-m ch-${m.ch}`}>
+            <div className="dc-mh"><b>{m.author}</b>{m.bot && <span className="tag">bot</span>}<span className="muted small">#{(data?.channels.find((c) => c.key === m.ch)?.name) ?? m.ch} · {new Date(m.t).toLocaleString('en-US', { timeZone: 'America/New_York', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}</span>{m.url && <a className="small" href={m.url} target="_blank" rel="noreferrer noopener">open</a>}</div>
+            <div className="dc-t">{m.text}</div>
+            {m.tickers.length > 0 && <div className="dc-tk">{m.tickers.map((s) => <button key={s} className="chip" onClick={() => d.onChart(s)}>{s}</button>)}</div>}
+          </div>
+        ))}
+        {data && !msgs.length && <p className="small muted hw-pad">No messages.</p>}
+        {!data && !q.error && <p className="small muted hw-pad">{live ? 'Reading your channels…' : 'Discord loads on the live desk.'}</p>}
+      </div>
+    </div>
+  );
+}

@@ -5,6 +5,8 @@ import { GET as earnings } from './_lib/research/earnings.js';
 import { GET as companyNews } from './_lib/research/company-news.js';
 import { GET as company } from './_lib/research/company.js';
 import { GET as feed } from './_lib/research/feed.js';
+import { GET as webull } from './_lib/research/webull.js';
+import { GET as discord } from './_lib/research/discord.js';
 import { cached, json } from './_lib/core.js';
 import { finnhubCryptoNews, finnhubMetrics, finnhubRecs, frameCheck, xOembed } from './_lib/adapters.js';
 import { SYMBOL_RE } from './_lib/core.js';
@@ -48,7 +50,7 @@ async function frame(req: Request): Promise<Response> {
 // Reading a 10-K + one Gemini call can take ~20-40 s the first time (cached after that)
 export const maxDuration = 60;
 
-const ROUTES: Record<string, (req: Request) => Promise<Response>> = { names, earnings, 'company-news': companyNews, company, feed, 'crypto-news': () => cryptoNews(), frame, fundamentals, x: xEmbed };
+const ROUTES: Record<string, (req: Request) => Promise<Response>> = { names, earnings, 'company-news': companyNews, company, feed, 'crypto-news': () => cryptoNews(), frame, fundamentals, x: xEmbed, webull, discord };
 export async function GET(req: Request): Promise<Response> {
   const fn = new URL(req.url).searchParams.get('fn') ?? '';
   const h = ROUTES[fn];

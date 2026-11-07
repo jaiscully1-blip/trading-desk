@@ -20,6 +20,7 @@ const GROUPS: { name: string; items: { type: WidgetType; blurb: string }[] }[] =
   { name: 'News', items: [{ type: 'news', blurb: 'live headlines' }, { type: 'messages', blurb: 'earnings, Fed, White House, live' }, { type: 'browser', blurb: 'web, YouTube' }] },
   { name: 'Poker desk', items: [{ type: 'bets', blurb: 'every trade is a bet: equity vs pot odds' }, { type: 'claims', blurb: 'bull / bear: financials, technicals, news' }] },
   { name: 'Trading tools', items: [{ type: 'risk', blurb: 'size, R:R, edge, drawdown, calc' }, { type: 'options', blurb: 'Black-Scholes + Greeks' }, { type: 'starred', blurb: 'your ★ list + pings' }] },
+  { name: 'My accounts', items: [{ type: 'webull', blurb: 'positions + P&L calendar (read-only)' }, { type: 'discord', blurb: 'bot watchlist + your 3 channels' }] },
   { name: 'Time & notes', items: [{ type: 'sessions', blurb: 'NY / London / Asia open-close' }, { type: 'clock', blurb: 'ET clock + countdown' }, { type: 'notes', blurb: 'sticky notes' }] },
   { name: 'Media', items: [{ type: 'spotify', blurb: 'playlists, podcasts' }, { type: 'x', blurb: 'embed a post' }] },
 ];

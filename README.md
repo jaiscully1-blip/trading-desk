@@ -38,6 +38,11 @@ Never prefix a secret with `VITE_` (Vite ships those to the client).
 | `AISSTREAM_API_KEY` | world map, shipping layer | server: free key from aisstream.io (optional) |
 | `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` | M3 | browser (public; row-level security in `supabase/schema.sql`) |
 | `ANTHROPIC_API_KEY` | M10 | server |
+| `DESK_PASSWORD` | private panels (Webull, Discord, Claude) — typed once on the desk, sent as a header | server |
+| `WEBULL_APP_KEY`, `WEBULL_APP_SECRET` | Webull account widget, read-only (GET endpoints only) | server |
+| `WEBULL_ACCESS_TOKEN` | only if Webull requires 2-step token; create it from the widget, approve in the Webull app | server |
+| `WEBULL_ACCOUNT_ID` | optional: pick one account when you have several | server |
+| `DISCORD_BOT_TOKEN` | Discord bot widget (reads #read-before-trading, #trade-responsibility, #after-close-review) | server |
 
 ## Data layer
 
@@ -370,3 +375,8 @@ tests/                 vitest: parsers (incl. a real Alpha Vantage response), in
 8. ✅ World map (news + sentiment weather), money flow globe
 9. Research panels
 10. AI layer
+
+
+## Private panels (Webull, Discord)
+
+The desk is a public URL, so anything showing your own account is locked behind `DESK_PASSWORD`. The Webull client (`api/_lib/webull.ts`) signs requests exactly like Webull's official Python SDK (HMAC-SHA256; the test checks against signatures the SDK produced) and only exposes read calls: accounts, balance, positions, order history. Realized P&L is FIFO-matched from filled orders (fees not included). The Discord reader pulls the last 50 messages of each channel; `$TICKER` cashtags and SEC-listed tickers in caps become clickable chips, and tickers posted in #read-before-trading today form the bot's watchlist.
