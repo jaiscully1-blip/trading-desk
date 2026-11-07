@@ -388,3 +388,31 @@ export async function aisSnapshot(boxes: [[number, number], [number, number]][],
   });
   return collectVessels(msgs);
 }
+
+/** Any crypto vs USDT from Binance's public data mirror, all timeframes (time = UTC open of the bar). */
+export async function cryptoBars(base: string, tf: TF): Promise<{ bars: Bar[]; source: string }> {
+  const iv: Record<TF, string> = { '5m': '5m', '1H': '1h', D: '1d', W: '1w', M: '1M' };
+  const j = await getJson(`https://data-api.binance.vision/api/v3/klines?symbol=${encodeURIComponent(base)}USDT&interval=${iv[tf]}&limit=500`, 'binance');
+  return { bars: parseBinanceKlines(j), source: 'Binance (USDT pair)' };
+}
+
+/** Finnhub crypto news (free). */
+export async function finnhubCryptoNews(): Promise<NewsItem[]> {
+  need('finnhub');
+  return parseFinnhubNews(await getJson(`https://finnhub.io/api/v1/news?category=crypto&token=${key('finnhub')}`, 'finnhub'), '');
+}
+
+/** Can this page be shown inside the desk? Reads X-Frame-Options and CSP frame-ancestors. */
+export async function frameCheck(url: string): Promise<{ embeddable: boolean; reason?: string; finalUrl: string }> {
+  const ctl = new AbortController();
+  const t = setTimeout(() => ctl.abort(), 6000);
+  try {
+    const r = await fetch(url, { signal: ctl.signal, redirect: 'follow', headers: { 'user-agent': 'Mozilla/5.0 (trading-desk embed check)' } });
+    const xfo = (r.headers.get('x-frame-options') ?? '').toLowerCase();
+    const csp = (r.headers.get('content-security-policy') ?? '').toLowerCase();
+    const fa = /frame-ancestors([^;]*)/.exec(csp)?.[1]?.trim() ?? '';
+    if (xfo.includes('deny') || xfo.includes('sameorigin')) return { embeddable: false, reason: `X-Frame-Options: ${xfo}`, finalUrl: r.url };
+    if (fa && !fa.includes('*')) return { embeddable: false, reason: `frame-ancestors ${fa}`, finalUrl: r.url };
+    return { embeddable: r.ok, reason: r.ok ? undefined : `HTTP ${r.status}`, finalUrl: r.url };
+  } finally { clearTimeout(t); }
+}

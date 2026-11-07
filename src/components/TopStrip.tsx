@@ -110,7 +110,7 @@ export function TopStrip({
       </div>
 
       <div className="top-group right">
-        <button className={`acct ${accountOpen ? 'on' : ''}`} onClick={onAccount} title="Account drawer (A)">
+        <button className={`acct ${accountOpen ? 'on' : ''}`} onClick={onAccount} title="Account drawer (A)" data-key="A">
           {account.settings.startBalance == null ? (
             <span className="muted">Set starting balance →</span>
           ) : (
@@ -124,7 +124,7 @@ export function TopStrip({
           <span className={`pill ${account.guard.lockout === 'Clear' ? 'ok' : 'bad'}`} title={account.guard.reason ?? undefined}>{account.guard.lockout}</span>
           {(account.demo || account.demoPrices) && <span title={account.demo ? 'Includes sample trades' : 'Open positions priced with demo quotes'}><Fresh kind="demo" /></span>}
         </button>
-        <button className="icon-btn" onClick={onTheme} title="Toggle theme (T)" aria-label="Toggle theme">
+        <button className="icon-btn" onClick={onTheme} title="Toggle theme (T)" aria-label="Toggle theme" data-key="T">
           {theme === 'dark' ? '☀' : '☾'}
         </button>
         <button className="cmd-btn" onClick={onCmd}>

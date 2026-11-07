@@ -50,7 +50,8 @@ const CompanyPage = lazy(() => import('./components/CompanyPage'));
 const Home = lazy(() => import('./components/Home'));
 import { Messages } from './components/Messages';
 import { useFeed } from './data/feed';
-import type { HomeLayout } from './components/Home';
+import type { HomeLayout, Workspaces } from './components/Home';
+import { COMMODITIES } from './components/HomeWidgets2';
 
 const DEMO_QUOTES = makeQuotes();
 const HEADLINES = makeHeadlines(Object.keys(DEMO_QUOTES).filter((s) => !INDEXES.includes(s)));
@@ -112,8 +113,10 @@ export default function App() {
   const [theme, setTheme] = usePersisted<'light' | 'dark'>('themeV2', 'dark');
   // Home is the landing page (new key so existing installs open on Home once)
   const [page, setPage] = usePersisted<Page>('page2', 'home');
-  const [homeLayout, setHomeLayout] = usePersisted<HomeLayout>('homeLayout', { main: [], side: [] });
-  const homeSyms = useMemo(() => [...homeLayout.main, ...homeLayout.side].filter((w) => w.cfg?.sym).map((w) => String(w.cfg.sym)), [homeLayout]);
+  // Home workspaces (the earlier single Home layout becomes "Main")
+  const [spaces, setSpaces] = usePersisted<Workspaces>('workspaces', () => ({ active: 'main', list: [{ id: 'main', name: 'Main', layout: load<HomeLayout>('homeLayout', { main: [], side: [] }) }] }));
+  const homeLayout = (spaces.list.find((w) => w.id === spaces.active) ?? spaces.list[0]).layout;
+  const homeSyms = useMemo(() => [...homeLayout.main, ...homeLayout.side].flatMap((w) => (w.type === 'commodities' ? COMMODITIES.map((c) => c[0]) : w.type !== 'crypto' && w.cfg?.sym ? [String(w.cfg.sym)] : [])), [homeLayout]);
   const homeHasMovers = useMemo(() => [...homeLayout.main, ...homeLayout.side].some((w) => w.type === 'movers'), [homeLayout]);
   const homeHasMsgs = useMemo(() => [...homeLayout.main, ...homeLayout.side].some((w) => w.type === 'messages'), [homeLayout]);
   const [companySym, setCompanySym] = usePersisted<string>('companySym', 'NVDA');
@@ -213,6 +216,15 @@ export default function App() {
   const market = useMarketStatus(dataMode);
   const worldData = useWorld(dataMode, page === 'map');
   const flowsData = useFlows(dataMode, page === 'flows');
+  // Hold Alt / Option to see every keyboard shortcut on screen
+  useEffect(() => {
+    const root = document.documentElement;
+    const on = (e: KeyboardEvent) => { if (e.key === 'Alt') root.classList.add('show-keys'); };
+    const off = (e?: KeyboardEvent) => { if (!e || e.key === 'Alt') root.classList.remove('show-keys'); };
+    const blur = () => off();
+    window.addEventListener('keydown', on); window.addEventListener('keyup', off); window.addEventListener('blur', blur);
+    return () => { window.removeEventListener('keydown', on); window.removeEventListener('keyup', off); window.removeEventListener('blur', blur); };
+  }, []);
   // Market-clock mode: tell me when the layout switched itself
   const prevMode = useRef<Mode | null>(null);
   useEffect(() => {
@@ -634,7 +646,7 @@ export default function App() {
   } else if (page === 'home') {
     body = (
       <Suspense fallback={<div className="page"><section className="panel"><div className="ph-body">Loading…</div></section></div>}>
-        <Home layout={homeLayout} setLayout={setHomeLayout} tickers={tickers.map((t) => ({ sym: t.sym, name: names[t.sym] ?? t.name }))}
+        <Home spaces={spaces} setSpaces={setSpaces} tickers={tickers.map((t) => ({ sym: t.sym, name: names[t.sym] ?? t.name }))}
           d={{ mode: dataMode, theme, quotes, news, cal, movers, clk, macro, pingLog, sel, pingAt, setPingAt, onChart: toDesk, demoLast, feed, now }} />
       </Suspense>
     );

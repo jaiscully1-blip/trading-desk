@@ -193,7 +193,7 @@ export function ChartPanel({
         <select className="flag-sel" value={flags} onChange={(e) => setFlags(e.target.value as FlagMode)} title="News flags on candles (click a flag for headlines)" aria-label="News flags">
           <option value="both">News: ticker + macro</option><option value="sym">News: ticker</option><option value="macro">News: macro</option><option value="off">News: off</option>
         </select>
-        <Seg<ChartTF> value={ctf} onChange={onTf} options={[{ id: '5m', label: '5m', hint: '5-minute (3)' }, { id: '1H', label: '1H', hint: '1-hour (2)' }, { id: 'D', label: 'D', hint: 'Daily (1): one news button per day' }, { id: 'W', label: 'W', hint: 'Weekly (4): one news button per week' }, { id: 'M', label: 'M', hint: 'Monthly (5): one news button per month' }, { id: 'Y', label: 'Y', hint: 'Monthly candles, one news button per year (6)' }]} />
+        <Seg<ChartTF> value={ctf} onChange={onTf} options={[{ id: '5m', label: '5m', hint: '5-minute (3)', keyHint: '3' }, { id: '1H', label: '1H', hint: '1-hour (2)', keyHint: '2' }, { id: 'D', label: 'D', hint: 'Daily (1): one news button per day', keyHint: '1' }, { id: 'W', label: 'W', hint: 'Weekly (4): one news button per week', keyHint: '4' }, { id: 'M', label: 'M', hint: 'Monthly (5): one news button per month', keyHint: '5' }, { id: 'Y', label: 'Y', hint: 'Monthly candles, one news button per year (6)', keyHint: '6' }]} />
       </PanelHead>
       <div className="chart-wrap" ref={el}>
         {!bars.length && (

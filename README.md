@@ -163,6 +163,21 @@ The desk opens on Home, which starts empty. Everything on it is saved in this br
 - **Side bar:** the right-hand column is a small scrollable second screen. Send a widget there with ⇥ (or "→ side" in the add
   menu), reorder with ↑ ↓, change its height from the corner, and bring it back with ⇤.
 
+## Workspaces, widget library, shortcuts
+
+- **Workspaces:** tabs along the bottom of Home. `+` adds a blank one, double-click a tab to rename, × closes it. Each has its own
+  widgets and side bar. **Undo / Redo** (Ctrl/⌘ Z, Ctrl/⌘ Shift Z) for this session; **Save point** marks a layout you can
+  **Restore** to later; **Clear** empties it (Undo brings it back). Everything saves automatically in this browser.
+- **Widget library** (left, `«` to hide): search, groups (Market, News, Trading tools, Time & notes) and ★ to pin favorites to the top.
+  Click a widget to add it, ⇥ to add it straight to the side bar.
+- **Pin a widget** with ⌖: it can't be dragged, and other widgets flow around it.
+- **New widgets:** Risk calculator (position size, R:R with 1–3R targets, expectancy + break-even win rate + half Kelly + losing-
+  streak odds, drawdown recovery, and a keypad calculator); Market sessions (New York, London, Tokyo, Hong Kong, Sydney: open /
+  lunch / closed with countdowns); Crypto (any of 10 coins, 5m/1H/D candles from Binance's public data, 24/7, plus Finnhub crypto
+  news); Commodities (ETF proxies for oil, gas, metals, grains, dollar); Browser (search or URL; YouTube plays inline; sites that
+  refuse embedding are detected and open in a new tab).
+- **Shortcuts:** hold **Alt / ⌥** to see every key on screen.
+
 ## Messages (E)
 
 A chat-style stream for the trading day (also a Home widget):

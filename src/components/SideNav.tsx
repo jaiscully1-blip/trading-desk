@@ -28,6 +28,7 @@ export function SideNav({ compact, page, onPage, onCmd, onHelp, onAccount }: { c
       <div className="nav-foot">
         <button onClick={onCmd} title="Search / commands">{!compact && 'Search / commands '}<span className="kbd">⌘K</span></button>
         <button onClick={onHelp} title="Shortcuts">{!compact && 'Shortcuts '}<span className="kbd">?</span></button>
+        {!compact && <span className="alt-hint">Hold Alt / ⌥ to see all keys</span>}
       </div>
     </nav>
   );

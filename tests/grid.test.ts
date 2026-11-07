@@ -31,4 +31,10 @@ describe('home grid', () => {
     for (let i = 4; i < 9; i++) ws = addTop(ws, w(`n${i}`, 0, 0, 3 + (i % 3), 3 + i));
     expect(noOverlap(ws)).toBe(true);
   });
+  it('pinned widgets never move; others flow around them', () => {
+    const r = settle([{ ...w('p', 0, 0), pinned: true }, w('a', 2, 1)], 'a');
+    expect(r.find((x) => x.id === 'p')).toMatchObject({ x: 0, y: 0 });
+    expect(r.find((x) => x.id === 'a')!.y).toBe(4);
+    expect(noOverlap(r)).toBe(true);
+  });
 });

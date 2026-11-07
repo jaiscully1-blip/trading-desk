@@ -37,7 +37,7 @@ export function RightRail(props: {
         title={
           <div className="tabs" role="tablist">
             {TABS.map((t) => (
-              <button key={t.id} role="tab" aria-selected={tab === t.id} className={tab === t.id ? 'on' : ''} onClick={() => onTab(t.id)} title={`${t.id === 'journal' ? 'Quick Journal' : t.label} (${t.key})`}>
+              <button key={t.id} role="tab" aria-selected={tab === t.id} className={tab === t.id ? 'on' : ''} onClick={() => onTab(t.id)} title={`${t.id === 'journal' ? 'Quick Journal' : t.label} (${t.key})`} data-key={t.key}>
                 {t.label}
               </button>
             ))}

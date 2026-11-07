@@ -61,13 +61,13 @@ export function Seg<T extends string>({
   onChange,
 }: {
   value: T;
-  options: { id: T; label: string; hint?: string }[];
+  options: { id: T; label: string; hint?: string; keyHint?: string }[];
   onChange: (v: T) => void;
 }) {
   return (
     <div className="seg" role="tablist">
       {options.map((o) => (
-        <button key={o.id} role="tab" aria-selected={value === o.id} className={value === o.id ? 'on' : ''} onClick={() => onChange(o.id)} title={o.hint}>
+        <button key={o.id} role="tab" aria-selected={value === o.id} className={value === o.id ? 'on' : ''} onClick={() => onChange(o.id)} title={o.hint} data-key={o.keyHint}>
           {o.label}
         </button>
       ))}

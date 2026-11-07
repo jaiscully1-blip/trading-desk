@@ -16,6 +16,7 @@ import { CoName, Fresh, Seg, Star } from './common';
 import { StarredList } from './Pings';
 import { Messages } from './Messages';
 import type { FeedState } from '../data/feed';
+import { BrowserW, CommoditiesW, CryptoW, RiskW, SessionsW } from './HomeWidgets2';
 
 export interface HomeData {
   mode: DataMode; theme: string; quotes: Record<string, Quote>; news: NewsState; cal: CalendarState | null; movers: MoversState | null;
@@ -202,6 +203,11 @@ export function MessagesW({ d }: P) {
 export const WIDGETS = {
   stock: { title: 'Stock', make: StockW },
   messages: { title: 'Messages', make: MessagesW },
+  crypto: { title: 'Crypto', make: CryptoW },
+  commodities: { title: 'Commodities', make: CommoditiesW },
+  risk: { title: 'Risk calculator', make: RiskW },
+  sessions: { title: 'Market sessions', make: SessionsW },
+  browser: { title: 'Browser', make: BrowserW },
   news: { title: 'Live news', make: NewsW },
   options: { title: 'Options calculator', make: OptionsW },
   clock: { title: 'Clock', make: ClockW },
