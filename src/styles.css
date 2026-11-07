@@ -187,6 +187,7 @@ button:disabled { cursor: default; }
 /* ---------- levels ---------- */
 .levels { flex: none; }
 .lv-grid { display: grid; font-size: 12px; overflow-x: auto; }
+.levels { container-type: inline-size; }
 .lv-grid > div { padding: 2px 10px; border-bottom: 1px solid var(--line); min-width: 0; line-height: 18px; }
 .lv-h { display: flex; align-items: center; gap: 8px; background: var(--panel-2); flex-wrap: nowrap; overflow: hidden; padding: 4px 10px !important; }
 .lv-h .fresh { margin-left: auto; }
@@ -559,10 +560,10 @@ label.ci-row { grid-template-columns: auto 1fr; }
 @media (max-width: 900px) { .wm-body { grid-template-columns: 1fr; grid-template-rows: 60% 40%; } .wm-side { border-left: 0; border-top: 1px solid var(--line); } }
 
 /* ---------- shell: side menu + pages (laptop) ---------- */
-html, body { min-width: 1180px; }
-.shell { display: grid; grid-template-columns: 172px minmax(0, 1fr); height: 100vh; overflow: hidden; }
+html, body { min-width: 900px; }
+.shell { display: grid; grid-template-columns: auto minmax(0, 1fr); height: 100vh; overflow: hidden; }
 .shell > .app { height: 100vh; min-width: 0; }
-.nav { display: flex; flex-direction: column; gap: 2px; padding: 12px 8px; background: var(--panel); border-right: 1px solid var(--line); overflow-y: auto; }
+.nav { width: 172px; box-sizing: border-box; display: flex; flex-direction: column; gap: 2px; padding: 12px 8px; background: var(--panel); border-right: 1px solid var(--line); overflow-y: auto; }
 .nav-brand { font: 600 13px 'IBM Plex Mono', monospace; color: var(--accent); letter-spacing: 0.08em; padding: 4px 8px 14px; }
 .nav-item { display: flex; align-items: center; gap: 8px; padding: 8px 8px; border-left: 2px solid transparent; border-radius: 0 4px 4px 0;
   font: 500 12.5px 'IBM Plex Mono', monospace; color: var(--muted); text-align: left; letter-spacing: 0.04em; }
@@ -590,3 +591,17 @@ html, body { min-width: 1180px; }
 .chart-panel > .phead .phead-title { flex: 1 1 200px; min-width: 0; overflow: hidden; }
 .chart-panel > .phead .chart-title { min-width: 0; }
 .chart-panel > .phead .phead-ctl { flex: 0 1 auto; flex-wrap: wrap; row-gap: 4px; }
+
+/* compact side menu (half-screen windows) */
+.nav.compact { width: 56px; padding: 10px 6px; align-items: stretch; }
+.nav.compact .nav-brand { padding: 4px 0 12px; text-align: center; }
+.nav.compact .nav-item { justify-content: center; padding: 9px 0; }
+.nav.compact .nav-item .nav-l { display: none; }
+.nav.compact .nav-item .kbd { font-size: 12px; padding: 1px 6px; }
+.nav.compact .nav-foot { align-items: center; padding: 8px 0; }
+/* levels: never let SPY and QQQ columns overlap; drop the % column when narrow */
+@container (max-width: 520px) {
+  .lv-c { grid-template-columns: minmax(56px, auto) minmax(46px, auto); gap: 6px; }
+  .lv-c > span:nth-child(3) { display: none; }
+  .lv-l .small { display: none; }
+}

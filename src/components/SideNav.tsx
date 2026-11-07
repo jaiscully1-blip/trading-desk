@@ -10,20 +10,20 @@ const PAGES: { id: Page; label: string; key: string }[] = [
   { id: 'journal', label: 'JOURNAL', key: '⇧J' },
 ];
 
-export function SideNav({ page, onPage, onCmd, onHelp, onAccount }: { page: Page; onPage: (p: Page) => void; onCmd: () => void; onHelp: () => void; onAccount: () => void }) {
+export function SideNav({ compact, page, onPage, onCmd, onHelp, onAccount }: { compact?: boolean; page: Page; onPage: (p: Page) => void; onCmd: () => void; onHelp: () => void; onAccount: () => void }) {
   return (
-    <nav className="nav" aria-label="Pages">
-      <div className="nav-brand">DESK&gt;_</div>
+    <nav className={`nav ${compact ? 'compact' : ''}`} aria-label="Pages">
+      <div className="nav-brand">{compact ? 'D>' : 'DESK>_'}</div>
       {PAGES.map((p) => (
-        <button key={p.id} className={`nav-item ${page === p.id ? 'on' : ''}`} aria-current={page === p.id ? 'page' : undefined} onClick={() => onPage(p.id)}>
+        <button key={p.id} className={`nav-item ${page === p.id ? 'on' : ''}`} aria-current={page === p.id ? 'page' : undefined} onClick={() => onPage(p.id)} title={`${p.label} (${p.key})`} aria-label={p.label}>
           <span className="nav-l">{p.label}</span><span className="kbd">{p.key}</span>
         </button>
       ))}
       <div className="nav-sep" />
-      <button className="nav-item" onClick={onAccount}><span className="nav-l">ACCOUNT</span><span className="kbd">A</span></button>
+      <button className="nav-item" onClick={onAccount} title="ACCOUNT (A)" aria-label="Account"><span className="nav-l">ACCOUNT</span><span className="kbd">A</span></button>
       <div className="nav-foot">
-        <button onClick={onCmd}>Search / commands <span className="kbd">Ctrl K</span></button>
-        <button onClick={onHelp}>Shortcuts <span className="kbd">?</span></button>
+        <button onClick={onCmd} title="Search / commands">{!compact && 'Search / commands '}<span className="kbd">⌘K</span></button>
+        <button onClick={onHelp} title="Shortcuts">{!compact && 'Shortcuts '}<span className="kbd">?</span></button>
       </div>
     </nav>
   );

@@ -32,7 +32,7 @@ export function LevelsPanel({
         </div>
         <button className="icon-btn" onClick={onClose} title="Hide levels (L)" aria-label="Hide levels">×</button>
       </div>
-      <div className="lv-grid" style={{ gridTemplateColumns: `112px repeat(${cols.length}, minmax(0, 1fr))` }}>
+      <div className="lv-grid" style={{ gridTemplateColumns: `minmax(64px, 112px) repeat(${cols.length}, minmax(max-content, 1fr))` }}>
         <div className="lv-h" />
         {cols.map((c) => (
           <div key={c.sym} className={`lv-h ${sel === c.sym ? 'sel' : ''}`}>

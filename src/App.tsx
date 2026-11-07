@@ -59,6 +59,13 @@ function useNow(ms = 1000) {
   return n;
 }
 
+function useNarrow(px: number) {
+  const q = `(max-width: ${px}px)`;
+  const [m, setM] = useState(() => window.matchMedia(q).matches);
+  useEffect(() => { const mq = window.matchMedia(q); const f = () => setM(mq.matches); mq.addEventListener('change', f); return () => mq.removeEventListener('change', f); }, [q]);
+  return m;
+}
+
 const typing = (t: EventTarget | null) =>
   t instanceof HTMLElement && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable);
 
@@ -92,6 +99,9 @@ export default function App() {
   // Terminal (dark) is the default look; T switches to the light "paper" theme
   const [theme, setTheme] = usePersisted<'light' | 'dark'>('themeV2', 'dark');
   const [page, setPage] = usePersisted<Page>('page', 'desk');
+  // Half-screen laptop windows: the watchlist folds away (press [ to show it) and the side menu shrinks to keys
+  const narrow = useNarrow(1240);
+  const [narrowLeft, setNarrowLeft] = useState(false);
   useLayoutEffect(() => { document.documentElement.dataset.theme = theme; }, [theme]);
   const toggleTheme = useCallback(() => setTheme((t) => (t === 'dark' ? 'light' : 'dark')), [setTheme]);
 
@@ -433,7 +443,7 @@ export default function App() {
         '1': () => setTf('D'), '2': () => setTf('1H'), '3': () => setTf('5m'),
         n: () => { setPage('desk'); setTab('news'); }, q: () => { setPage('desk'); setTab('journal'); }, r: () => { setPage('desk'); setTab('risk'); },
         f: () => setLayout({ fearOpen: layout.fearOpen === false }),
-        '[': () => setLayout({ leftOpen: !layout.leftOpen }),
+        '[': () => (narrow ? setNarrowLeft((v) => !v) : setLayout({ leftOpen: !layout.leftOpen })),
         ']': () => setLayout({ rightOpen: !layout.rightOpen }),
         b: () => setLayout({ tickerOpen: !layout.tickerOpen }),
         ArrowDown: () => move(1), j: () => move(1),
@@ -517,7 +527,9 @@ export default function App() {
   }
 
   /* ---------- Desk: side menu + pages (laptop) ---------- */
-  const cols3 = `${layout.leftOpen ? `${layout.left}px 5px` : '0 0'} minmax(0,1fr) ${layout.rightOpen ? `5px ${layout.right}px` : '0 0'}`;
+  const leftShown = narrow ? narrowLeft : layout.leftOpen;
+  const rightW = narrow ? Math.min(layout.right, 300) : layout.right;
+  const cols3 = `${leftShown ? `${Math.min(layout.left, narrow ? 220 : 520)}px 5px` : '0 0'} minmax(0,1fr) ${layout.rightOpen ? `5px ${rightW}px` : '0 0'}`;
   const toDesk = (s: string) => { setSel(s); setPage('desk'); };
   let body: ReactNode;
   if (page === 'scanner') {
@@ -539,8 +551,8 @@ export default function App() {
   } else {
     body = (
       <main className="main" style={{ gridTemplateColumns: cols3 }}>
-        <div className="rail-slot">{layout.leftOpen && <Watchlist {...wlProps} onPopout={() => popout('watchlist', sel)} />}</div>
-        <div className={`gutter ${layout.leftOpen ? '' : 'hidden'}`} onPointerDown={drag('left')} title="Drag to resize · [ to hide" />
+        <div className="rail-slot">{leftShown && <Watchlist {...wlProps} onPopout={() => popout('watchlist', sel)} />}</div>
+        <div className={`gutter ${leftShown ? '' : 'hidden'}`} onPointerDown={drag('left')} title="Drag to resize · [ to hide" />
         <div className="center">
           {chart(() => popout('chart', sel))}
           {layout.levelsOpen && levelsPanel}
@@ -552,7 +564,7 @@ export default function App() {
   }
   return (
     <div className="shell">
-      <SideNav page={page} onPage={setPage} onCmd={() => setCmdOpen(true)} onHelp={() => setOverlay('help')} onAccount={() => setDrawer((d) => !d)} />
+      <SideNav compact={narrow} page={page} onPage={setPage} onCmd={() => setCmdOpen(true)} onHelp={() => setOverlay('help')} onAccount={() => setDrawer((d) => !d)} />
       <div className={`app ${layout.tickerOpen ? '' : 'no-ticker'} ${layout.fearOpen !== false ? 'has-fear' : ''}`}>
         <TopStrip
           quotes={quotes} clk={clk} mode={mode} override={override} onOverride={setOverride} onSelect={setSel}
