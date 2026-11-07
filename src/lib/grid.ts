@@ -1,0 +1,43 @@
+// Home page layout engine: a 12-column grid, rows of fixed height. Widgets never overlap: whatever a moved or
+// resized widget lands on gets pushed down, then everything floats up (like a dashboard grid). Pure + tested.
+export type WidgetType = 'stock' | 'news' | 'options' | 'clock' | 'notes' | 'starred' | 'movers' | 'calendar';
+export interface Widget { id: string; type: WidgetType; x: number; y: number; w: number; h: number; cfg: Record<string, any> }
+export const COLS = 12;
+
+const hit = (a: Widget, b: Widget) => a.id !== b.id && a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
+
+/** Keep `fixedId` where it is; push anything overlapping it (and so on) down, then float everything up. */
+export function settle(ws: Widget[], fixedId?: string): Widget[] {
+  const out = ws.map((w) => ({ ...w, x: Math.max(0, Math.min(COLS - Math.min(w.w, COLS), w.x)), w: Math.min(w.w, COLS), y: Math.max(0, w.y) }));
+  const fixed = out.find((w) => w.id === fixedId);
+  // place in order: the fixed one first, then by y (top to bottom), x
+  const order = [...(fixed ? [fixed] : []), ...out.filter((w) => w !== fixed).sort((a, b) => a.y - b.y || a.x - b.x)];
+  const placed: Widget[] = [];
+  for (const w of order) {
+    if (w !== fixed) {
+      // float up as far as possible, then down past any collision
+      let y = w.y;
+      while (y > 0 && !placed.some((p) => hit({ ...w, y: y - 1 }, p))) y--;
+      while (placed.some((p) => hit({ ...w, y }, p))) y++;
+      w.y = y;
+    }
+    placed.push(w);
+  }
+  return placed.sort((a, b) => a.y - b.y || a.x - b.x);
+}
+
+/** New widgets take the first free spot, scanning rows top to bottom and left to right (fills across before down). */
+export function addTop(ws: Widget[], w: Widget): Widget[] {
+  const ww = Math.min(w.w, COLS);
+  for (let y = 0; ; y++) {
+    for (let x = 0; x + ww <= COLS; x++) {
+      const c = { ...w, w: ww, x, y };
+      if (!ws.some((o) => hit(c, o))) return settle([...ws, c], c.id);
+    }
+  }
+}
+
+export const DEFAULT_SIZE: Record<WidgetType, { w: number; h: number; side: number }> = {
+  stock: { w: 4, h: 8, side: 8 }, news: { w: 4, h: 9, side: 9 }, options: { w: 4, h: 11, side: 12 }, clock: { w: 3, h: 5, side: 5 },
+  notes: { w: 3, h: 6, side: 6 }, starred: { w: 3, h: 7, side: 7 }, movers: { w: 3, h: 8, side: 8 }, calendar: { w: 4, h: 8, side: 8 },
+};

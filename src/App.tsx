@@ -47,6 +47,8 @@ import { useEarnings, useNames } from './data/company';
 import type { ChartTF } from './types';
 import type { Bar } from '../shared/types';
 const CompanyPage = lazy(() => import('./components/CompanyPage'));
+const Home = lazy(() => import('./components/Home'));
+import type { HomeLayout } from './components/Home';
 
 const DEMO_QUOTES = makeQuotes();
 const HEADLINES = makeHeadlines(Object.keys(DEMO_QUOTES).filter((s) => !INDEXES.includes(s)));
@@ -106,7 +108,11 @@ export default function App() {
 
   // Terminal (dark) is the default look; T switches to the light "paper" theme
   const [theme, setTheme] = usePersisted<'light' | 'dark'>('themeV2', 'dark');
-  const [page, setPage] = usePersisted<Page>('page', 'desk');
+  // Home is the landing page (new key so existing installs open on Home once)
+  const [page, setPage] = usePersisted<Page>('page2', 'home');
+  const [homeLayout, setHomeLayout] = usePersisted<HomeLayout>('homeLayout', { main: [], side: [] });
+  const homeSyms = useMemo(() => [...homeLayout.main, ...homeLayout.side].filter((w) => w.cfg?.sym).map((w) => String(w.cfg.sym)), [homeLayout]);
+  const homeHasMovers = useMemo(() => [...homeLayout.main, ...homeLayout.side].some((w) => w.type === 'movers'), [homeLayout]);
   const [companySym, setCompanySym] = usePersisted<string>('companySym', 'NVDA');
   // Half-screen laptop windows: the watchlist folds away (press [ to show it) and the side menu shrinks to keys
   const narrow = useNarrow(1240);
@@ -191,8 +197,8 @@ export default function App() {
   const [pingAt, setPingAt] = usePersisted<number>('pingAt', 3);
   const [pings, setPings] = useState<Ping[]>([]);
   const [pingLog, setPingLog] = usePersisted<Ping[]>('pingLog', []);
-  const wlSyms = useMemo(() => [...new Set([...Object.keys(boards), ...stars])], [boards, stars]);
-  const movers = useMovers(dataMode, scanPrefs.includeMovers);
+  const wlSyms = useMemo(() => [...new Set([...Object.keys(boards), ...stars, ...homeSyms])], [boards, stars, homeSyms]);
+  const movers = useMovers(dataMode, scanPrefs.includeMovers || homeHasMovers);
   // QQQ is always scanned (SPY is added server-side) so the index day trades get playbook grades too
   const universe = useUniverse(['QQQ', ...wlSyms], live ? scanList : [...scanList, ...Object.keys(DEMO_QUOTES).filter((s) => !INDEXES.includes(s))], movers?.movers, scanPrefs.includeMovers);
   // USO/UUP are the fear strip's live oil and dollar proxies
@@ -510,7 +516,7 @@ export default function App() {
       if (e.key === 'Escape') { if (replayId) { setReplayId(null); return; } setCmdOpen(false); setOverlay(null); setDrawer(false); setPbOpen(false); setSyncOpen(false); setCiOpen(false); setRecapOpen(false); return; }
       if (cmdOpen || pbOpen || syncOpen || ciOpen || replayId || recapOpen || typing(e.target) || e.ctrlKey || e.metaKey || e.altKey) return;
       const map: Record<string, () => void> = {
-        d: () => setPage('desk'), x: () => setPage('patterns'), s: () => setPage('scanner'), m: () => setPage('map'), g: () => setPage('flows'), c: () => setPage('calendar'),
+        h: () => setPage('home'), d: () => setPage('desk'), x: () => setPage('patterns'), s: () => setPage('scanner'), m: () => setPage('map'), g: () => setPage('flows'), c: () => setPage('calendar'),
         '?': () => setOverlay((o) => (o === 'help' ? null : 'help')),
         t: toggleTheme,
         a: () => setDrawer((d) => !d),
@@ -619,6 +625,13 @@ export default function App() {
     body = <div className="page page-split"><section className="panel cal-page"><Calendars cal={cal} now={now} onSelect={setSel} mySyms={new Set(wlSyms)} /></section><div className="center">{chart()}</div></div>;
   } else if (page === 'journal') {
     body = <div className="page"><JournalOverlay views={views} setTrades={setTrades} transfers={transfers} setTransfers={setTransfers} violations={viols} lastPx={lastPx} settings={settings} onClose={() => setPage('desk')} onSelect={toDesk} onReplay={setReplayId} canSample={!live} /></div>;
+  } else if (page === 'home') {
+    body = (
+      <Suspense fallback={<div className="page"><section className="panel"><div className="ph-body">Loading…</div></section></div>}>
+        <Home layout={homeLayout} setLayout={setHomeLayout} tickers={tickers.map((t) => ({ sym: t.sym, name: names[t.sym] ?? t.name }))}
+          d={{ mode: dataMode, theme, quotes, news, cal, movers, clk, macro, pingLog, sel, pingAt, setPingAt, onChart: toDesk, demoLast }} />
+      </Suspense>
+    );
   } else if (page === 'company') {
     body = (
       <Suspense fallback={<div className="page"><section className="panel"><div className="ph-body">Loading…</div></section></div>}>

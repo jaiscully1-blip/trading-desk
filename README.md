@@ -149,6 +149,19 @@ layout; a notice appears when it switches. The mode selector in the top strip (o
   the backup. Feed holidays/early closes are merged on top of the published calendar (never removing one), and a closure the feed
   reports outside the calendar (e.g. a national day of mourning) closes the day. Without `/api` the published calendar still applies.
 
+## Home (H): blank and customizable
+
+The desk opens on Home, which starts empty. Everything on it is saved in this browser.
+- **Search bar** (ticker or company name, e.g. "tesla") drops in a **stock widget**: price, mini chart (5m or D) and its headlines.
+- **+ Add widget**: stock, live news (all / macro / ★ starred), **options calculator** (Black-Scholes price, delta, gamma,
+  theta/day, vega, breakeven, chance of finishing in the money, P/L-at-expiry graph; enter IV from your broker's chain since free
+  data has no live IV), clock (ET, session countdown, London/Tokyo/Hong Kong/your time), notes, ★ starred, market movers
+  (Alpha Vantage), calendar (economic events + earnings).
+- **Move and size:** drag a widget by its title bar; drag the bottom-right corner to resize. Widgets snap to a 12-column grid
+  and push each other out of the way, never overlapping.
+- **Side bar:** the right-hand column is a small scrollable second screen. Send a widget there with ⇥ (or "→ side" in the add
+  menu), reorder with ↑ ↓, change its height from the corner, and bring it back with ⇤.
+
 ## Stars, pings, company names (★)
 
 - **Star any ticker** (☆ next to it in the watchlist, scanner, chart header, company page); click again to unstar. Starred tickers
@@ -234,7 +247,7 @@ Premarket high/low are marked unavailable: Twelve Data includes extended-hours c
 | `Q` | Trade ticket (quick journal) |
 | `Shift J` | Journal page |
 | `F` | Hide/show fear strip |
-| `D X O S M G C` | Pages: Desk, Patterns, Company, Scanner, World map, Money flow, Calendars |
+| `H D X O S M G C` | Pages: Home, Desk, Patterns, Company, Scanner, World map, Money flow, Calendars |
 | `1 2 3 4 5 6` | Chart: Daily, 1-hour, 5-min, Weekly, Monthly, Yearly news |
 | `N Q R` | Desk right rail: News, Quick Journal, Risk |
 | `[ ]` | Hide/show left or right rail |
