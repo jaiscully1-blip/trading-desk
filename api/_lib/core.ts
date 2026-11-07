@@ -3,7 +3,7 @@
 import { ProviderError } from '../../shared/parse.js';
 import { clock } from '../../shared/clock.js';
 
-export type Provider = 'twelvedata' | 'finnhub' | 'alphavantage' | 'fred' | 'finra' | 'kalshi' | 'gdelt' | 'binance' | 'coingecko' | 'sec' | 'gemini' | 'wikipedia';
+export type Provider = 'twelvedata' | 'finnhub' | 'alphavantage' | 'fred' | 'finra' | 'kalshi' | 'gdelt' | 'binance' | 'coingecko' | 'sec' | 'gemini' | 'wikipedia' | 'aisstream';
 
 export const KEY_ENV: Record<Provider, string> = {
   twelvedata: 'TWELVEDATA_API_KEY',
@@ -18,6 +18,7 @@ export const KEY_ENV: Record<Provider, string> = {
   sec: 'SEC_USER_AGENT', // not a key: SEC asks automated tools to send a contact email in the User-Agent
   gemini: 'GEMINI_API_KEY',
   wikipedia: '',
+  aisstream: 'AISSTREAM_API_KEY',
 };
 
 export function key(p: Provider): string {
@@ -47,6 +48,7 @@ const LIMITS: Record<Provider, { perMin: number; perDay: number }> = {
   sec: { perMin: 300, perDay: 20000 }, // SEC fair access: 10 requests/second
   gemini: { perMin: 8, perDay: 200 }, // free tier; each company is read once and cached
   wikipedia: { perMin: 60, perDay: 5000 },
+  aisstream: { perMin: 4, perDay: 400 },
 };
 const hits: Record<string, number[]> = {};
 const dayCount: Record<string, { day: string; n: number }> = {};

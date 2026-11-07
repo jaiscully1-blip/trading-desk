@@ -66,3 +66,31 @@ export function useFlows(mode: DataMode, open: boolean): FlowsState | null {
   }, [mode.kind, open]);
   return st;
 }
+
+/* ---------------- extra layers: conflicts, shipping & oil, lawsuits, deals ---------------- */
+import { CHOKEPOINTS, type Chokepoint, type ExtraLayer, type Vessel } from '../../shared/world';
+export interface LayerState { layer: ExtraLayer; hotspots: Hotspot[]; chokepoints: Chokepoint[]; ships: Vessel[] | null; shipsKey: boolean; errors: Record<string, string>; asOf: number; freshness: Freshness }
+
+function demoLayer(layer: ExtraLayer): LayerState {
+  const r = rng(layer.length * 31);
+  const pick = CITIES.filter(() => r() < 0.5);
+  const hotspots: Hotspot[] = pick.map(([name, lat, lon], i) => ({ id: `${layer}${i}`, name, country: name.split(', ').at(-1)!, lat, lon, neg: 1 + Math.round(r() * 30), pos: 0, tone: 0,
+    articles: [{ title: `Sample ${layer} headline near ${name.split(',')[0]} (demo)`, url: '' }] }));
+  const ships: Vessel[] | null = layer === 'shipping' ? CHOKEPOINTS.flatMap((c, k) => Array.from({ length: 6 }, (_, j) => ({ mmsi: k * 100 + j, name: `SAMPLE ${k}-${j}`, lat: c.lat + (r() - 0.5) * 1.2, lon: c.lon + (r() - 0.5) * 1.6, tanker: r() < 0.4, sog: +(r() * 14).toFixed(1) }))) : null;
+  return { layer, hotspots, chokepoints: layer === 'shipping' ? CHOKEPOINTS : [], ships, shipsKey: true, errors: {}, asOf: DEMO_AT, freshness: 'demo' };
+}
+
+export function useWorldLayer(layer: ExtraLayer | null, mode: DataMode): LayerState | null {
+  const [st, setSt] = useState<LayerState | null>(null);
+  useEffect(() => {
+    if (!layer || mode.kind === 'checking') return;
+    if (mode.kind === 'demo') { setSt(demoLayer(layer)); return; }
+    let stop = false;
+    setSt(null);
+    const go = () => fetch(`/api/world?layer=${layer}`).then(async (r) => { const j = await r.json(); if (!stop && r.ok) setSt({ ...j, freshness: j.hotspots.length || j.ships?.length ? 'live' : 'nodata' }); }).catch(() => {});
+    go();
+    const id = setInterval(go, 10 * 60_000);
+    return () => { stop = true; clearInterval(id); };
+  }, [layer, mode.kind]);
+  return st;
+}

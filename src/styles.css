@@ -835,3 +835,11 @@ html, body { min-width: 900px; }
 .msg-b a:hover { color: var(--accent); }
 .msg-x { margin-top: 2px; line-height: 1.4; }
 .msgs-note { margin: 6px 12px 10px; }
+/* world map: extra layers */
+.hot.lay-conflict circle:not(.hot-pulse) { fill: #ff5c5c; } .hot.lay-legal circle:not(.hot-pulse) { fill: #b48cff; } .hot.lay-deals circle:not(.hot-pulse) { fill: #3dd68c; } .hot.lay-shipping circle:not(.hot-pulse) { fill: #5cc8f5; }
+.hot.lay-conflict .hot-pulse { stroke: #ff5c5c; } .hot.lay-legal .hot-pulse { stroke: #b48cff; } .hot.lay-deals .hot-pulse { stroke: #3dd68c; } .hot.lay-shipping .hot-pulse { stroke: #5cc8f5; }
+.choke rect { fill: var(--accent); stroke: var(--bg); stroke-width: 1; cursor: pointer; }
+.choke text { font: 600 9.5px 'IBM Plex Mono', monospace; fill: var(--accent); paint-order: stroke; stroke: var(--bg); stroke-width: 3px; cursor: pointer; }
+.choke.sel rect { stroke: var(--text); stroke-width: 2; }
+.ship { fill: #9aa3ae; fill-opacity: .8; pointer-events: auto; }
+.ship.tanker { fill: #f5b83d; }

@@ -80,3 +80,51 @@ export function regionWeather(r: Region, chgPct: number | null, hotspots: Hotspo
 }
 
 export const MARKET_QUERY = '(stocks OR markets OR economy OR inflation OR "central bank" OR tariffs OR "oil prices" OR recession OR earnings)';
+
+/* ---------------- extra layers: conflicts, shipping & oil, lawsuits, deals ---------------- */
+export type ExtraLayer = 'conflict' | 'shipping' | 'legal' | 'deals';
+/** GDELT GEO queries (last 24h). Each point is a place news articles mention, sized by article count. */
+export const LAYER_QUERY: Record<ExtraLayer, string> = {
+  conflict: '(airstrike OR "missile strike" OR shelling OR "armed clashes" OR "drone attack" OR insurgents OR "military offensive")',
+  shipping: '("oil tanker" OR tanker OR "shipping lane" OR "strait of hormuz" OR "red sea" OR "suez canal" OR "panama canal" OR "freight rates")',
+  legal: '(lawsuit OR "class action" OR antitrust OR indicted OR "sued" OR "settlement" OR "court ruling") (company OR corporation OR inc)',
+  deals: '(acquisition OR merger OR "new factory" OR "new plant" OR "breaks ground" OR "billion investment" OR "data center")',
+};
+export const LAYER_LABEL: Record<ExtraLayer, string> = { conflict: 'Conflicts', shipping: 'Shipping & oil', legal: 'Lawsuits', deals: 'Deals & developments' };
+
+/** One-sided GEO points -> hotspots (no tone split for these layers). */
+export function layerHotspots(pts: ReturnType<typeof parseGeo>, max = 150): Hotspot[] {
+  return mergeHotspots(pts, [], max).map((h) => ({ ...h, tone: 0 }));
+}
+
+/** World oil chokepoints (U.S. EIA "World Oil Transit Chokepoints"). Drawn on the Shipping & oil layer. */
+export interface Chokepoint { id: string; name: string; lat: number; lon: number; note: string; box: [[number, number], [number, number]] }
+export const CHOKEPOINTS: Chokepoint[] = [
+  { id: 'hormuz', name: 'Strait of Hormuz', lat: 26.6, lon: 56.3, note: 'The world’s most important oil chokepoint: about a fifth of global oil use passes through it (EIA).', box: [[24.5, 54.5], [27.5, 58.0]] },
+  { id: 'malacca', name: 'Strait of Malacca', lat: 2.5, lon: 101.3, note: 'Shortest sea route between the Persian Gulf and East Asia; among the largest oil flows (EIA).', box: [[1.0, 98.5], [5.5, 104.0]] },
+  { id: 'suez', name: 'Suez Canal / SUMED', lat: 30.6, lon: 32.3, note: 'Links the Red Sea and the Mediterranean; disruptions reroute tankers around Africa.', box: [[29.5, 32.0], [31.5, 33.0]] },
+  { id: 'bab', name: 'Bab el-Mandeb', lat: 12.6, lon: 43.4, note: 'Southern gate of the Red Sea; attacks on shipping here raise freight and insurance costs.', box: [[11.5, 42.5], [13.5, 44.5]] },
+  { id: 'panama', name: 'Panama Canal', lat: 9.1, lon: -79.7, note: 'Key for U.S. Gulf Coast exports to Asia; low water levels limit transits.', box: [[8.5, -80.2], [9.6, -79.3]] },
+  { id: 'bosporus', name: 'Turkish Straits', lat: 41.1, lon: 29.05, note: 'Carries Russian and Caspian oil from the Black Sea to world markets.', box: [[40.0, 26.0], [41.5, 29.5]] },
+  { id: 'danish', name: 'Danish Straits', lat: 55.6, lon: 11.0, note: 'Route for Russian Baltic oil exports to Europe and beyond.', box: [[54.5, 10.0], [57.8, 12.8]] },
+  { id: 'cape', name: 'Cape of Good Hope', lat: -34.4, lon: 18.5, note: 'The long way around Africa when the Red Sea is disrupted.', box: [[-35.5, 17.0], [-33.5, 21.0]] },
+];
+
+/** aisstream.io messages -> vessels (latest position per ship; tanker when its static data says AIS type 80-89). */
+export interface Vessel { mmsi: number; name: string; lat: number; lon: number; tanker: boolean; sog?: number }
+export function collectVessels(msgs: any[]): Vessel[] {
+  const by = new Map<number, Vessel>();
+  const types = new Map<number, number>();
+  for (const m of msgs) {
+    const md = m?.MetaData;
+    const mmsi = Number(md?.MMSI);
+    if (!mmsi) continue;
+    const st = m?.Message?.ShipStaticData;
+    if (st && Number.isFinite(Number(st.Type))) types.set(mmsi, Number(st.Type));
+    const lat = Number(md.latitude), lon = Number(md.longitude);
+    if (!Number.isFinite(lat) || !Number.isFinite(lon) || (lat === 0 && lon === 0)) continue;
+    const pr = m?.Message?.PositionReport;
+    by.set(mmsi, { mmsi, name: String(md.ShipName ?? '').trim() || `MMSI ${mmsi}`, lat, lon, tanker: false, sog: pr ? Number(pr.Sog) : by.get(mmsi)?.sog });
+  }
+  return [...by.values()].map((v) => ({ ...v, tanker: (types.get(v.mmsi) ?? 0) >= 80 && (types.get(v.mmsi) ?? 0) <= 89 }));
+}

@@ -4,7 +4,7 @@ import { isPlainTicker, parseAlphaMovers, parseFinnhubNews, parseFinnhubProfile,
 import { ProviderError, parseAlphaDaily, parseFinnhubQuote, parseFredLatest, parseTwelveQuote, parseTwelveSeries } from '../../shared/parse.js';
 import { getJson, key, take, type Provider } from './core.js';
 import { parseFeed } from '../../shared/news.js';
-import { MARKET_QUERY, parseGeo } from '../../shared/world.js';
+import { MARKET_QUERY, collectVessels, parseGeo, type Vessel } from '../../shared/world.js';
 import { parseBinanceKlines, parseGeckoChart } from '../../shared/flows.js';
 import { avCsvError, parseEarningsCsv, parseIpoCsv, parseKalshiFed, type Earning, type Ipo, type Odds } from '../../shared/calendar.js';
 
@@ -362,4 +362,29 @@ export async function geminiJson(prompt: string, schema: object): Promise<{ data
     }
   }
   throw last;
+}
+
+/** GDELT GEO points for any query (last 24h), for the extra map layers. */
+export async function gdeltLayer(query: string, timespan = '24h') {
+  return parseGeo(await gdelt(`https://api.gdeltproject.org/api/v2/geo/geo?format=GeoJSON&mode=PointData&maxpoints=250&timespan=${timespan}&query=${encodeURIComponent(query)}`));
+}
+
+/** aisstream.io (free key): listen for a few seconds to ships inside the given boxes, then hang up. A snapshot, not a stream. */
+export async function aisSnapshot(boxes: [[number, number], [number, number]][], ms = 8000): Promise<Vessel[]> {
+  need('aisstream');
+  const WS = (globalThis as any).WebSocket;
+  if (!WS) throw new ProviderError('aisstream', 'WebSocket not available in this runtime');
+  const msgs: any[] = [];
+  await new Promise<void>((resolve, reject) => {
+    const ws = new WS('wss://stream.aisstream.io/v0/stream');
+    const done = () => { try { ws.close(); } catch { /* closed */ } resolve(); };
+    const timer = setTimeout(done, ms);
+    ws.onopen = () => ws.send(JSON.stringify({ APIKey: key('aisstream'), BoundingBoxes: boxes, FilterMessageTypes: ['PositionReport', 'ShipStaticData'] }));
+    ws.onmessage = async (ev: any) => {
+      try { const raw = typeof ev.data === 'string' ? ev.data : await new Response(ev.data).text(); const j = JSON.parse(raw); if (j?.error) { clearTimeout(timer); reject(new ProviderError('aisstream', String(j.error))); return; } msgs.push(j); } catch { /* skip */ }
+      if (msgs.length > 4000) { clearTimeout(timer); done(); }
+    };
+    ws.onerror = () => { clearTimeout(timer); msgs.length ? done() : reject(new ProviderError('aisstream', 'connection failed', true)); };
+  });
+  return collectVessels(msgs);
 }

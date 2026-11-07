@@ -655,7 +655,7 @@ export default function App() {
       <div className="page">
         <Suspense fallback={<section className="panel"><div className="ph-body">Loading…</div></section>}>
           {page === 'map'
-            ? <WorldMap data={worldData} symbols={[...new Set([...INDEXES, ...wlSyms, ...universe])]} names={Object.fromEntries(Object.values(quotes).map((x) => [x.sym, x.name]))} onSelect={toDesk} onClose={() => setPage('desk')} />
+            ? <WorldMap mode={dataMode} data={worldData} symbols={[...new Set([...INDEXES, ...wlSyms, ...universe])]} names={Object.fromEntries(Object.values(quotes).map((x) => [x.sym, x.name]))} onSelect={toDesk} onClose={() => setPage('desk')} />
             : <MoneyGlobe data={flowsData} theme={theme} onSelect={toDesk} onClose={() => setPage('desk')} />}
         </Suspense>
       </div>

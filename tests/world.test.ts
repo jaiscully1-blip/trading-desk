@@ -61,3 +61,28 @@ describe('money flow proxy', () => {
     expect(() => parseBinanceKlines({ code: 0, msg: 'Service unavailable from a restricted location' })).toThrow(/restricted/);
   });
 });
+
+import { CHOKEPOINTS, collectVessels, layerHotspots } from '../shared/world';
+describe('extra map layers', () => {
+  it('one-sided GEO points become neutral hotspots', () => {
+    const h = layerHotspots([{ name: 'Kyiv, Ukraine', lat: 50.45, lon: 30.5, count: 12, articles: [{ title: 'a', url: 'u' }] }]);
+    expect(h[0]).toMatchObject({ neg: 12, pos: 0, tone: 0, country: 'Ukraine' });
+  });
+  it('vessels: latest position per ship, tankers from static data type 80-89', () => {
+    const v = collectVessels([
+      { MetaData: { MMSI: 1, ShipName: 'GULF STAR ', latitude: 26.5, longitude: 56.2 }, Message: { PositionReport: { Sog: 12.1 } } },
+      { MetaData: { MMSI: 1, ShipName: 'GULF STAR', latitude: 26.6, longitude: 56.3 }, Message: { ShipStaticData: { Type: 84 } } },
+      { MetaData: { MMSI: 2, ShipName: '', latitude: 2.5, longitude: 101 }, Message: { PositionReport: { Sog: 9 } } },
+      { MetaData: { MMSI: 3, latitude: 0, longitude: 0 } },
+    ]);
+    expect(v).toHaveLength(2);
+    expect(v[0]).toMatchObject({ mmsi: 1, name: 'GULF STAR', lat: 26.6, tanker: true, sog: 12.1 });
+    expect(v[1]).toMatchObject({ name: 'MMSI 2', tanker: false });
+  });
+  it('every chokepoint box contains its marker', () => {
+    for (const c of CHOKEPOINTS) {
+      const [[a, b], [cc, d]] = c.box;
+      expect(c.lat >= a && c.lat <= cc && c.lon >= b && c.lon <= d).toBe(true);
+    }
+  });
+});

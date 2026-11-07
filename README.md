@@ -35,6 +35,7 @@ Never prefix a secret with `VITE_` (Vite ships those to the client).
 | `FRED_API_KEY` | M2 | server |
 | `SEC_USER_AGENT` | company page | server: `TradingDesk you@email.com` (SEC's required contact; not a key) |
 | `GEMINI_API_KEY` (+ optional `GEMINI_MODEL`) | company page | server: free key from aistudio.google.com |
+| `AISSTREAM_API_KEY` | world map, shipping layer | server: free key from aisstream.io (optional) |
 | `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` | M3 | browser (public; row-level security in `supabase/schema.sql`) |
 | `ANTHROPIC_API_KEY` | M10 | server |
 
@@ -219,6 +220,12 @@ Type any ticker (or click a quick-pick) and the desk finds, draws and explains i
   blocks downloads). Tested against real NVDA daily data (fixture in `tests/fixtures`).
 
 ## World map and money flow globe (M8)
+
+**More map layers:** besides Market news and Weather, the map has **Conflicts**, **Shipping & oil**, **Lawsuits** and **Deals &
+developments**. Each is a GDELT GEO query over the last 24 hours (keyless), so a dot is where news places the story, sized by
+article count; click for headlines. Shipping & oil also draws the world's oil chokepoints (EIA) and, with a free
+`AISSTREAM_API_KEY` from aisstream.io, the ships near each chokepoint: an 8-second AIS snapshot refreshed every 5 minutes, tankers
+marked when their broadcast says so. Free data can't give a full live fleet map or exact court locations.
 
 - **World map (`M`)**, two layers on one map (D3 Natural Earth projection, Natural Earth 110m borders via `world-atlas`):
   - **News:** GDELT GEO 2.0 hotspots for the last 24h of market news (keyless, 1 request / 5 s, cached 30 min). Two queries split
