@@ -12,7 +12,7 @@ type Filter = 'all' | 'earn' | 'gov';
 const LABEL: Record<FeedItem['kind'], string> = { filing: 'FILED', earnings: 'EARNINGS', result: 'RESULT', fed: 'FED', whitehouse: 'WHITE HOUSE', econ: 'ECONOMY', live: 'LIVE' };
 
 export function Messages({ feed, cal, nowMs, onChart, compact = false }: { feed: FeedState | null; cal: CalendarState | null; nowMs: number; onChart: (s: string) => void; compact?: boolean }) {
-  const { stars } = useDesk();
+  const { stars, openArticle } = useDesk();
   const [f, setF] = useState<Filter>('all');
   const [watch, setWatch] = useState<string | null>(null);
   const box = useRef<HTMLDivElement>(null);
@@ -56,7 +56,7 @@ export function Messages({ feed, cal, nowMs, onChart, compact = false }: { feed:
                 {m.sym && <><Star sym={m.sym} /><button className="msg-sym" onClick={() => onChart(m.sym!)}>{m.sym}</button><CoName sym={m.sym} /></>}
                 <span className="msg-t num">{new Date(m.t).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'America/New_York' })}</span>
               </div>
-              <div className="msg-b">{m.url ? <a href={m.url} target="_blank" rel="noreferrer noopener">{m.title}</a> : m.title}</div>
+              <div className="msg-b">{m.url && m.kind !== 'live' ? <button className="link hw-headline" onClick={() => openArticle({ title: m.title, url: m.url, src: m.kind === 'filing' ? 'SEC EDGAR' : m.text ?? m.kind, t: m.t, summary: m.text, syms: m.sym ? [m.sym] : [] })}>{m.title}</button> : m.title}</div>
               {m.text && <div className="msg-x small muted">{m.text}</div>}
             </div>
           )];

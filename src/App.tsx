@@ -41,7 +41,8 @@ import { CommandBar, NewsTicker, OverlayView, type Cmd } from './components/Bits
 import { SideNav, type Page } from './components/SideNav';
 import { popout } from './components/common';
 import { PingStack, StarredList } from './components/Pings';
-import { Desk, type DeskCtx } from './lib/deskctx';
+import { Desk, type Article, type DeskCtx } from './lib/deskctx';
+import { ReaderOverlay } from './components/Poker';
 import { earningsPings, levelPings, movePing, watchLevels, type Ping } from './lib/pings';
 import { useEarnings, useNames } from './data/company';
 import type { ChartTF } from './types';
@@ -407,7 +408,8 @@ export default function App() {
     try { if (Notification.permission === 'default') Notification.requestPermission(); } catch { /* ignore */ }
   }, [stars, setStars, flash]);
   const openCompany = useCallback((sym: string) => { setCompanySym(sym); setPage('company'); }, [setCompanySym, setPage]);
-  const desk: DeskCtx = useMemo(() => ({ stars, toggleStar, names, openCompany }), [stars, toggleStar, names, openCompany]);
+  const [article, setArticle] = useState<Article | null>(null);
+  const desk: DeskCtx = useMemo(() => ({ stars, toggleStar, names, openCompany, openArticle: setArticle }), [stars, toggleStar, names, openCompany]);
 
   const fired = useRef<Set<string>>(new Set(load<string[]>('pingFired', [])));
   const pushPings = useCallback((ps: Ping[]) => {
@@ -724,6 +726,7 @@ export default function App() {
       {syncOpen && <SyncDialog user={cloudUser?.email ?? null} onClose={() => setSyncOpen(false)} />}
       {overlay === 'help' && <OverlayView kind="help" onClose={() => setOverlay(null)} />}
       {toast && <div className="toast" role="status">{toast}</div>}
+      {article && <ReaderOverlay a={article} mode={dataMode} onClose={() => setArticle(null)} />}
       <PingStack pings={pings} onOpen={toDesk} onDismiss={(id) => setPings((x) => x.filter((p) => p.id !== id))} />
     </div>
     </Desk.Provider>

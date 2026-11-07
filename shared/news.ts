@@ -10,6 +10,8 @@ export interface NewsItem {
   syms: string[];
   macro: boolean;
   sentiment: -1 | 0 | 1;
+  /** publisher's own summary when the feed provides one (Finnhub, RSS description) */
+  summary?: string;
 }
 
 const ENT: Record<string, string> = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ', '#39': "'", '#8217': '’', '#8216': '‘', '#8220': '“', '#8221': '”', '#8212': '—', '#8211': '–' };
@@ -26,8 +28,8 @@ const tag = (block: string, name: string) => {
 };
 
 /** Parse RSS 2.0 <item> or Atom <entry> blocks without a DOM (runs in serverless functions). */
-export function parseFeed(xml: string, src: string): { title: string; url: string; t: number; src: string }[] {
-  const out: { title: string; url: string; t: number; src: string }[] = [];
+export function parseFeed(xml: string, src: string): { title: string; url: string; t: number; src: string; summary?: string }[] {
+  const out: { title: string; url: string; t: number; src: string; summary?: string }[] = [];
   const blocks = xml.match(/<item[\s>][\s\S]*?<\/item>/gi) ?? xml.match(/<entry[\s>][\s\S]*?<\/entry>/gi) ?? [];
   for (const b of blocks) {
     const title = tag(b, 'title');
@@ -35,13 +37,19 @@ export function parseFeed(xml: string, src: string): { title: string; url: strin
     if (!url) url = /<link[^>]*href="([^"]+)"/i.exec(b)?.[1] ?? '';
     const when = tag(b, 'pubDate') || tag(b, 'published') || tag(b, 'updated') || tag(b, 'dc:date');
     const t = Date.parse(when);
-    if (title && Number.isFinite(t)) out.push({ title, url, t, src });
+    const summary = (tag(b, 'description') || tag(b, 'summary')).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 1200) || undefined;
+    if (title && Number.isFinite(t)) out.push({ title, url, t, src, summary });
   }
   return out;
 }
 
 const POS = /\b(beats?|tops|raises?d?|upgraded?|surges?|soars?|jumps?|record high|approv(al|ed|es)|wins?|awarded|buyback|repurchase|strong(er)?|rall(y|ies)|gains?|outperform|bullish|expands?|partnership|accelerat\w+|boosts?|lifts?|climbs?|beats estimates)\b/gi;
 const NEG = /\b(miss(es|ed)?|cuts? (guidance|outlook|forecast)|lowers?|downgraded?|plunges?|falls?|drops?|slumps?|sinks?|tumbles?|probe|investigation|lawsuit|sued|recall|warns?|weak(er|ness)?|layoffs?|halts?|delays?|bearish|offering|dilut\w+|shelf registration|bankrupt\w*|fraud|charges|slashes|default|downturn|recession|selloff|sell-off|crash\w*)\b/gi;
+
+/** The exact words in a headline that made it read bullish or bearish (shown as evidence, so nothing is invented). */
+export function sentimentWords(title: string): { bull: string[]; bear: string[] } {
+  return { bull: [...new Set((title.match(POS) ?? []).map((w) => w.toLowerCase()))], bear: [...new Set((title.match(NEG) ?? []).map((w) => w.toLowerCase()))] };
+}
 
 export function keywordSentiment(title: string): -1 | 0 | 1 {
   const p = title.match(POS)?.length ?? 0;

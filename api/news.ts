@@ -18,16 +18,17 @@ export async function GET(req: Request): Promise<Response> {
   for (const s of symbols) { const p = getCached<{ name: string | null }>(`prof:${s}`); if (!names[s] && p?.val.name) names[s] = p.val.name; }
   const sources: { name: string; ok: boolean; count: number; error?: string }[] = [];
   const all: NewsItem[] = [];
-  const add = (raw: { title: string; url: string; t: number; src: string; explicit?: string[] }) => {
+  const add = (raw: { title: string; url: string; t: number; src: string; explicit?: string[]; summary?: string }) => {
     all.push({
       id: `${raw.src}:${raw.t}:${raw.title.slice(0, 40)}`,
       t: raw.t, title: raw.title, src: raw.src, url: raw.url,
       syms: tagSymbols(raw.title, symbols, names, raw.explicit ?? []),
       macro: isMacro(raw.title, raw.src),
       sentiment: keywordSentiment(raw.title),
+      summary: raw.summary,
     });
   };
-  const run = async (name: string, f: () => Promise<{ title: string; url: string; t: number; src: string; explicit?: string[] }[]>) => {
+  const run = async (name: string, f: () => Promise<{ title: string; url: string; t: number; src: string; explicit?: string[]; summary?: string }[]>) => {
     try { const xs = await f(); xs.forEach(add); sources.push({ name, ok: true, count: xs.length }); }
     catch (e) { sources.push({ name, ok: false, count: 0, error: (e as Error).message.slice(0, 120) }); }
   };
@@ -35,11 +36,11 @@ export async function GET(req: Request): Promise<Response> {
   const life = ttl(180, 900);
   const jobs: Promise<void>[] = FEEDS.map((f) => run(f.name, async () => (await cached(`rss:${f.name}`, ttl(300, 1800), () => rssFeed(f.name, f.url))).val));
   if (hasKey('finnhub')) {
-    jobs.push(run('Finnhub market', async () => (await cached('fh:general', life, finnhubMarketNews)).val.map((n) => ({ title: n.headline, url: n.url, t: n.t, src: n.source || 'Finnhub' }))));
+    jobs.push(run('Finnhub market', async () => (await cached('fh:general', life, finnhubMarketNews)).val.map((n) => ({ title: n.headline, url: n.url, t: n.t, src: n.source || 'Finnhub', summary: n.summary }))));
     jobs.push(run('Finnhub company', async () => {
-      const out: { title: string; url: string; t: number; src: string; explicit: string[] }[] = [];
+      const out: { title: string; url: string; t: number; src: string; explicit: string[]; summary?: string }[] = [];
       await Promise.all(symbols.slice(0, MAX_COMPANY).map(async (s) => {
-        try { for (const n of (await cached(`news:${s}`, ttl(1800, 3 * 3600), () => finnhubNews(s))).val) out.push({ title: n.headline, url: n.url, t: n.t, src: n.source || 'Finnhub', explicit: [s] }); } catch { /* skip symbol */ }
+        try { for (const n of (await cached(`news:${s}`, ttl(1800, 3 * 3600), () => finnhubNews(s))).val) out.push({ title: n.headline, url: n.url, t: n.t, src: n.source || 'Finnhub', explicit: [s], summary: n.summary }); } catch { /* skip symbol */ }
       }));
       return out;
     }));

@@ -15,7 +15,7 @@ export async function GET(req: Request): Promise<Response> {
   if (!hasKey('finnhub')) return json({ items: [], error: 'missing FINNHUB_API_KEY' }, { status: 503 });
   try {
     const { val } = await cached(`cnews:${sym}:${from}:${to}`, 3600, () => finnhubNewsRange(sym, from, to));
-    const items = val.map((n) => ({ t: n.t, title: n.headline, src: n.source, url: n.url, sentiment: keywordSentiment(n.headline) }));
+    const items = val.map((n) => ({ t: n.t, title: n.headline, src: n.source, url: n.url, sentiment: keywordSentiment(n.headline), summary: n.summary }));
     return json({ sym, from, to, items, source: 'Finnhub company news', asOf: Date.now() }, { sMaxAge: 3600 });
   } catch (e) {
     return json({ items: [], error: (e as Error).message }, { status: 502 });

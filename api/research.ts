@@ -6,7 +6,30 @@ import { GET as companyNews } from './_lib/research/company-news.js';
 import { GET as company } from './_lib/research/company.js';
 import { GET as feed } from './_lib/research/feed.js';
 import { cached, json } from './_lib/core.js';
-import { finnhubCryptoNews, frameCheck } from './_lib/adapters.js';
+import { finnhubCryptoNews, finnhubMetrics, finnhubRecs, frameCheck, xOembed } from './_lib/adapters.js';
+import { SYMBOL_RE } from './_lib/core.js';
+
+async function fundamentals(req: Request): Promise<Response> {
+  const sym = (new URL(req.url).searchParams.get('symbol') ?? '').toUpperCase();
+  if (!SYMBOL_RE.test(sym)) return json({ error: 'bad symbol' }, { status: 400 });
+  const errors: Record<string, string> = {};
+  const [metric, recs] = await Promise.all([
+    cached(`metric:${sym}`, 12 * 3600, () => finnhubMetrics(sym)).then((r) => r.val).catch((e) => { errors.metrics = e.message; return null; }),
+    cached(`recs:${sym}`, 12 * 3600, () => finnhubRecs(sym)).then((r) => r.val).catch((e) => { errors.recs = e.message; return []; }),
+  ]);
+  return json({ sym, metric, recs, errors, source: 'Finnhub basic financials + recommendation trends', asOf: Date.now() }, { sMaxAge: metric ? 6 * 3600 : 60 });
+}
+async function xEmbed(req: Request): Promise<Response> {
+  const url = new URL(req.url).searchParams.get('url') ?? '';
+  if (!/^https:\/\/(x|twitter)\.com\/[\w/]+/i.test(url)) return json({ error: 'paste an x.com post or profile link' }, { status: 400 });
+  try {
+    const v = (await cached(`x:${url}`, 3600, () => xOembed(url))).val;
+    // only X's own markup (a blockquote or timeline anchor); scripts are loaded separately from platform.twitter.com
+    if (!/^\s*<(blockquote|a) class="twitter-/.test(v.html) || /<script/i.test(v.html)) return json({ error: 'unexpected embed markup from X' }, { status: 502 });
+    return json(v, { sMaxAge: 3600 });
+  }
+  catch (e) { return json({ error: (e as Error).message }, { status: 502 }); }
+}
 import { keywordSentiment } from '../shared/news.js';
 
 async function cryptoNews(): Promise<Response> {
@@ -25,7 +48,7 @@ async function frame(req: Request): Promise<Response> {
 // Reading a 10-K + one Gemini call can take ~20-40 s the first time (cached after that)
 export const maxDuration = 60;
 
-const ROUTES: Record<string, (req: Request) => Promise<Response>> = { names, earnings, 'company-news': companyNews, company, feed, 'crypto-news': () => cryptoNews(), frame };
+const ROUTES: Record<string, (req: Request) => Promise<Response>> = { names, earnings, 'company-news': companyNews, company, feed, 'crypto-news': () => cryptoNews(), frame, fundamentals, x: xEmbed };
 export async function GET(req: Request): Promise<Response> {
   const fn = new URL(req.url).searchParams.get('fn') ?? '';
   const h = ROUTES[fn];

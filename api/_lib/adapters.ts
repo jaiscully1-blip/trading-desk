@@ -416,3 +416,24 @@ export async function frameCheck(url: string): Promise<{ embeddable: boolean; re
     return { embeddable: r.ok, reason: r.ok ? undefined : `HTTP ${r.status}`, finalUrl: r.url };
   } finally { clearTimeout(t); }
 }
+
+/** Finnhub basic financials (free): ratios and growth rates. */
+export async function finnhubMetrics(symbol: string): Promise<Record<string, number | null>> {
+  need('finnhub');
+  const j = await getJson(`https://finnhub.io/api/v1/stock/metric?symbol=${encodeURIComponent(symbol)}&metric=all&token=${key('finnhub')}`, 'finnhub');
+  if (!j || typeof j !== 'object' || !j.metric) throw new ProviderError('finnhub', String(j?.error ?? 'no metrics for this symbol'));
+  return j.metric;
+}
+/** Finnhub analyst recommendation trends (free), newest month first. */
+export async function finnhubRecs(symbol: string) {
+  need('finnhub');
+  const j = await getJson(`https://finnhub.io/api/v1/stock/recommendation?symbol=${encodeURIComponent(symbol)}&token=${key('finnhub')}`, 'finnhub');
+  if (!Array.isArray(j)) throw new ProviderError('finnhub', String(j?.error ?? 'unexpected recommendation response'));
+  return j.slice(0, 4).map((r: any) => ({ period: String(r.period), strongBuy: +r.strongBuy || 0, buy: +r.buy || 0, hold: +r.hold || 0, sell: +r.sell || 0, strongSell: +r.strongSell || 0 }));
+}
+/** X (Twitter) official oEmbed for a post or profile URL (keyless). */
+export async function xOembed(url: string): Promise<{ html: string; author?: string }> {
+  const j = await getJson(`https://publish.twitter.com/oembed?omit_script=true&dnt=true&theme=dark&url=${encodeURIComponent(url)}`, 'wikipedia');
+  if (!j?.html) throw new ProviderError('wikipedia', 'X returned no embed for this link');
+  return { html: String(j.html), author: j.author_name };
+}

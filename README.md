@@ -178,6 +178,23 @@ The desk opens on Home, which starts empty. Everything on it is saved in this br
   refuse embedding are detected and open in a new tab).
 - **Shortcuts:** hold **Alt / ⌥** to see every key on screen.
 
+## Poker desk: every trade is a bet
+
+- **Bet board** (widget): for your ★ tickers and the top relative-strength names, replays every past day the stock was in today's
+  trend state (above/below its 20- and 50-day averages): enter at the close, stop 1.5× ATR, target 1.5R / 2R / 3R, 20 days max.
+  *Equity* = how often the target hit first; *pot odds* = the win rate that reward:risk needs; *EV* in R per bet; *size* = half
+  Kelly capped at 5%. **RAISE** only when the cautious (90% Wilson low) equity still beats the pot odds and EV > +0.25R; **FOLD**
+  when EV ≤ 0; **NO READ** under 25 past hands. These are odds from history, not predictions or advice.
+- **Bull / bear claims** (widget): green/red pills for **Financials** (Finnhub basic financials + analyst recommendation trends, free),
+  **Technicals** (moving averages, momentum, RSI, 52-week range, volume, patterns), **News** (a headline counts only if its own
+  words are bullish or bearish; the matched words are shown), and an overall **consensus** where each category votes once. Every
+  claim shows its number or quote and its source. No AI-written text.
+- **Article reader:** click any headline (stock, news, messages, claims widgets) to open it in a side panel with the publisher's
+  summary (when the feed has one), the bullish/bearish words, and buttons to read it at the source or try to show the page inside
+  the desk. Esc, ×, or a click outside closes it.
+- **Spotify** (official embed, no key; full songs when you're logged in to Spotify in the browser) and **X** (official post embed;
+  profile timelines are unreliable since X limited them) widgets.
+
 ## Messages (E)
 
 A chat-style stream for the trading day (also a Home widget):
