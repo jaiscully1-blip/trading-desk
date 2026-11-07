@@ -1,0 +1,3 @@
+# One ticker per line. TradingAgents analyzes each after the close on weekdays (free Gemini tier: keep this list short).
+NVDA
+SPY

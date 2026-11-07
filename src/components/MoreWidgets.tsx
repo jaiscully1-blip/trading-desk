@@ -168,3 +168,50 @@ export function SimW({ d, cfg, set }: P) {
     </div>
   );
 }
+
+/* ---------------- TradingAgents (AI analyst team on GitHub Actions) ---------------- */
+interface TaIdx { ticker: string; date: string; ranAt: string; decision?: string; error?: string }
+interface TaRec extends TaIdx { reports?: { id: string; who: string; text: string }[]; models?: { provider?: string; deep?: string; quick?: string } }
+const ratingOf = (d?: string) => /\b(strong\s+)?buy\b|overweight/i.test(d ?? '') ? 'up' : /\bsell\b|underweight/i.test(d ?? '') ? 'down' : '';
+const firstLine = (d?: string) => (d ?? '').split('\n').map((x) => x.replace(/[*#>`]/g, '').trim()).find((x) => x) ?? '';
+export function AgentsW({ d }: P) {
+  const live = d.mode.kind === 'live';
+  const [idx, setIdx] = useState<{ items: TaIdx[]; repo?: string; error?: string } | null>(null);
+  const [open, setOpen] = useState<TaRec | null>(null);
+  useEffect(() => {
+    if (!live) { setIdx({ items: [{ ticker: 'NVDA', date: '2026-11-06', ranAt: '', decision: 'OVERWEIGHT (sample): strong data-center demand, but extended after the run-up; add on pullbacks.' }] }); return; }
+    fetch('/api/research?fn=agents').then((r) => r.json()).then(setIdx).catch((e) => setIdx({ items: [], error: String(e) }));
+  }, [live]);
+  const load = (t: string) => { if (!live) return; fetch(`/api/research?fn=agents&ticker=${t}`).then((r) => r.json()).then(setOpen).catch(() => {}); };
+  return (
+    <div className="hw-col">
+      <div className="hw-bar">
+        {open && <button className="btn" onClick={() => setOpen(null)}>← All</button>}
+        <span className="small muted">TradingAgents · Gemini</span>
+        {live ? <Fresh kind={idx?.items.length ? 'eod' : 'nodata'} src="TradingAgents on GitHub Actions, after each close" /> : <Fresh kind="demo" />}
+      </div>
+      {idx?.error === 'not-run-yet' && <div className="hw-pad small"><p>No results yet. The analysts run after every weekday close, or now: GitHub → your repo → <b>Actions</b> → <b>TradingAgents</b> → <b>Run workflow</b> (type tickers, or leave empty for agents/tickers.txt). A run takes 5–15 minutes per ticker.</p></div>}
+      {idx?.error && idx.error !== 'not-run-yet' && <p className="hw-pad small down">{idx.error}</p>}
+      {!open && (
+        <div className="wb-tbl">
+          {idx?.items.map((r) => (
+            <button key={r.ticker} className="ta-r" onClick={() => load(r.ticker)}>
+              <b className="wl-sym">{r.ticker}</b>
+              <span className={`ta-d ${r.error ? 'down' : ratingOf(r.decision)}`}>{r.error ? `Run failed: ${r.error.slice(0, 80)}` : firstLine(r.decision).slice(0, 140)}</span>
+              <span className="num small muted">{r.date}</span>
+            </button>
+          ))}
+        </div>
+      )}
+      {open && (
+        <div className="wb-tbl hw-pad ta-open">
+          <h5>{open.ticker} · {open.date}</h5>
+          <p className={`ta-dec ${ratingOf(open.decision)}`}>{open.decision || open.error}</p>
+          {open.reports?.map((r) => <details key={r.id}><summary>{r.who}</summary><div className="ta-txt">{r.text}</div></details>)}
+          {open.models && <p className="small muted">Models: {open.models.deep} / {open.models.quick}</p>}
+        </div>
+      )}
+      <p className="note hw-pad">An open-source team of AI analysts debating a ticker (github.com/TauricResearch/TradingAgents). It’s research, not a signal: check its claims against the filings and the chart. Change the list in agents/tickers.txt.</p>
+    </div>
+  );
+}

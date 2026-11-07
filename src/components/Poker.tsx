@@ -88,7 +88,7 @@ export function ClaimsW({ d, cfg, set }: P) {
 
 /* ---------------- bet board ---------------- */
 const dailyCache = new Map<string, { at: number; bars: Bar[] }>();
-function useDailyMany(syms: string[], mode: DataMode): Record<string, Bar[]> {
+export function useDailyMany(syms: string[], mode: DataMode): Record<string, Bar[]> {
   const [by, setBy] = useState<Record<string, Bar[]>>({});
   const key = syms.join(',');
   useEffect(() => {

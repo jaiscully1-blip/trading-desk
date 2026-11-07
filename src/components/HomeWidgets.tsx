@@ -25,11 +25,13 @@ export interface HomeData {
   onChart: (s: string) => void; demoLast: (s: string) => number; feed: FeedState | null; now: number;
   /** closed journal trades (R multiples) and account numbers for the simulator */
   trades: { r: number | null; realized: number }[]; riskPct: number; equity: number | null;
+  playbooks: import('../lib/playbook').Playbook[];
 }
 type Cfg = Record<string, any>;
 interface P { d: HomeData; cfg: Cfg; set: (c: Cfg) => void }
 import { CongressW, DiscordW, WebullW } from './PrivateWidgets';
-import { InsiderW, PolymarketW, SimW } from './MoreWidgets';
+import { AgentsW, InsiderW, PolymarketW, SimW } from './MoreWidgets';
+import { BacktestW } from './BacktestW';
 const cssVar = (n: string) => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
 
 /* ---------------- stock: quote + mini chart + its news ---------------- */
@@ -231,4 +233,6 @@ export const WIDGETS = {
   insider: { title: 'Insider trades', make: InsiderW },
   polymarket: { title: 'Polymarket odds', make: PolymarketW },
   sim: { title: 'Odds simulator', make: SimW },
+  agents: { title: 'AI analysts', make: AgentsW },
+  backtest: { title: 'Playbook backtest', make: BacktestW },
 } as const;

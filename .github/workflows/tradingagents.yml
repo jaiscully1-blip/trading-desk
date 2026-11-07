@@ -1,0 +1,57 @@
+# TradingAgents: a team of AI analysts (technical, news, sentiment, fundamentals), a bull/bear debate, a trader and a
+# risk manager, run on free GitHub Actions with free Gemini. Results land in agents/out/ and show in the desk's
+# "AI analysts" widget. Read-only research: nothing here can trade.
+name: TradingAgents
+
+on:
+  schedule:
+    - cron: "30 21 * * 1-5"   # 21:30 UTC = 4:30 PM ET in winter (5:30 PM in summer), after the close
+  workflow_dispatch:
+    inputs:
+      tickers:
+        description: "Tickers (space or comma separated). Empty = agents/tickers.txt"
+        required: false
+        default: ""
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tradingagents
+  cancel-in-progress: false
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      GOOGLE_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
+      TRADINGAGENTS_LLM_PROVIDER: google
+      # free-tier models; override with repo Variables TA_DEEP_MODEL / TA_QUICK_MODEL
+      TRADINGAGENTS_DEEP_THINK_LLM: ${{ vars.TA_DEEP_MODEL || 'gemini-2.5-flash' }}
+      TRADINGAGENTS_QUICK_THINK_LLM: ${{ vars.TA_QUICK_MODEL || 'gemini-2.5-flash-lite' }}
+      TRADINGAGENTS_LLM_MAX_RETRIES: "6"
+      TICKERS: ${{ github.event.inputs.tickers }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check the Gemini key is set
+        run: |
+          if [ -z "$GOOGLE_API_KEY" ]; then echo "::error::Add GEMINI_API_KEY under Settings → Secrets and variables → Actions"; exit 1; fi
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install TradingAgents
+        run: |
+          git clone --depth 1 https://github.com/TauricResearch/TradingAgents.git /tmp/ta
+          pip install --quiet /tmp/ta
+      - name: Run the analysts
+        run: python agents/run.py
+      - name: Save results
+        if: always()
+        run: |
+          git config user.name "tradingagents-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add agents/out
+          git diff --cached --quiet || git commit -m "TradingAgents results $(date -u +%F)"
+          git pull --rebase --quiet && git push

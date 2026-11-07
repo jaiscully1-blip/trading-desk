@@ -22,7 +22,7 @@ const need = (p: Provider, cost = 1, reserve = 0) => {
 };
 
 const TD_INTERVAL: Record<TF, { interval: string; size: number }> = {
-  D: { interval: '1day', size: 300 },
+  D: { interval: '1day', size: 760 }, // ~3 years: enough history for backtests (same 1 credit)
   '1H': { interval: '1h', size: 500 },
   '5m': { interval: '5min', size: 800 }, // ~10 regular sessions
   W: { interval: '1week', size: 260 }, // ~5 years

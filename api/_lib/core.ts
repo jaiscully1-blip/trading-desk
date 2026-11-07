@@ -3,7 +3,7 @@
 import { ProviderError } from '../../shared/parse.js';
 import { clock } from '../../shared/clock.js';
 
-export type Provider = 'twelvedata' | 'finnhub' | 'alphavantage' | 'fred' | 'finra' | 'kalshi' | 'gdelt' | 'binance' | 'coingecko' | 'sec' | 'gemini' | 'wikipedia' | 'aisstream' | 'polymarket';
+export type Provider = 'twelvedata' | 'finnhub' | 'alphavantage' | 'fred' | 'finra' | 'kalshi' | 'gdelt' | 'binance' | 'coingecko' | 'sec' | 'gemini' | 'wikipedia' | 'aisstream' | 'polymarket' | 'github';
 
 export const KEY_ENV: Record<Provider, string> = {
   twelvedata: 'TWELVEDATA_API_KEY',
@@ -20,6 +20,7 @@ export const KEY_ENV: Record<Provider, string> = {
   wikipedia: '',
   aisstream: 'AISSTREAM_API_KEY',
   polymarket: '', // public read-only market data
+  github: '', // public repo files
 };
 
 export function key(p: Provider): string {
@@ -51,6 +52,7 @@ const LIMITS: Record<Provider, { perMin: number; perDay: number }> = {
   wikipedia: { perMin: 60, perDay: 5000 },
   aisstream: { perMin: 4, perDay: 400 },
   polymarket: { perMin: 30, perDay: 3000 },
+  github: { perMin: 30, perDay: 3000 },
 };
 const hits: Record<string, number[]> = {};
 const dayCount: Record<string, { day: string; n: number }> = {};

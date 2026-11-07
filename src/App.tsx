@@ -672,7 +672,7 @@ export default function App() {
     body = (
       <Suspense fallback={<div className="page"><section className="panel"><div className="ph-body">Loading…</div></section></div>}>
         <Home spaces={spaces} setSpaces={setSpaces} tickers={tickers.map((t) => ({ sym: t.sym, name: names[t.sym] ?? t.name }))}
-          d={{ mode: dataMode, theme, quotes, news, cal, movers, clk, macro, pingLog, sel, pingAt, setPingAt, onChart: toDesk, demoLast, feed, now, trades: closedR, riskPct: settings.riskPct, equity: settings.startBalance == null ? null : g.equity }} />
+          d={{ mode: dataMode, theme, quotes, news, cal, movers, clk, macro, pingLog, sel, pingAt, setPingAt, onChart: toDesk, demoLast, feed, now, trades: closedR, riskPct: settings.riskPct, equity: settings.startBalance == null ? null : g.equity, playbooks }} />
       </Suspense>
     );
   } else if (page === 'company') {
