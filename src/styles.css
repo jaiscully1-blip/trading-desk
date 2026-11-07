@@ -1150,3 +1150,4 @@ button.bt-r:hover { background: var(--panel-2); }
 .bt-h { color: var(--muted); font: 600 10px 'IBM Plex Mono', monospace; text-transform: uppercase; }
 .bt-trades summary { cursor: pointer; color: var(--muted); }
 .bt-t { padding: 2px 0; }
+.crash { margin: 15vh auto; max-width: 420px; text-align: center; display: grid; gap: 10px; }

@@ -190,7 +190,7 @@ export function AgentsW({ d }: P) {
         <span className="small muted">TradingAgents · Gemini</span>
         {live ? <Fresh kind={idx?.items.length ? 'eod' : 'nodata'} src="TradingAgents on GitHub Actions, after each close" /> : <Fresh kind="demo" />}
       </div>
-      {idx?.error === 'not-run-yet' && <div className="hw-pad small"><p>No results yet. The analysts run after every weekday close, or now: GitHub → your repo → <b>Actions</b> → <b>TradingAgents</b> → <b>Run workflow</b> (type tickers, or leave empty for agents/tickers.txt). A run takes 5–15 minutes per ticker.</p></div>}
+      {idx?.error === 'not-run-yet' && <div className="hw-pad small"><p>No results yet. The analysts run after every weekday close, or now: GitHub → your repo → <b>Actions</b> → <b>TradingAgents</b> → <b>Run workflow</b> (type tickers, or leave empty for agents/tickers.txt). A run takes 5–15 minutes per ticker. If your repo is private, the desk also needs a <code>GITHUB_TOKEN</code> in Vercel to read the results.</p></div>}
       {idx?.error && idx.error !== 'not-run-yet' && <p className="hw-pad small down">{idx.error}</p>}
       {!open && (
         <div className="wb-tbl">

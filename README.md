@@ -42,6 +42,8 @@ Never prefix a secret with `VITE_` (Vite ships those to the client).
 | `WEBULL_APP_KEY`, `WEBULL_APP_SECRET` | Webull account widget, read-only (GET endpoints only) | server |
 | `WEBULL_ACCESS_TOKEN` | only if Webull requires 2-step token; create it from the widget, approve in the Webull app | server |
 | `WEBULL_ACCOUNT_ID` | optional: pick one account when you have several | server |
+| `VITE_POSTHOG_KEY` | optional: your PostHog project key; sends only errors and failed /api calls to your PostHog (free tier) | browser (PostHog keys are public by design) |
+| `GITHUB_TOKEN` | only if the repo is private: fine-grained token, this repo only, Contents read-only, so the AI analysts widget can read results | server |
 | `DISCORD_BOT_TOKEN` | Discord bot widget (reads #read-before-trading, #trade-responsibility, #after-close-review) | server |
 
 ## Data layer
