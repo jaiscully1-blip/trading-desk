@@ -1,7 +1,7 @@
 // Server-side plumbing for /api functions: keys, rate limits, caching, JSON responses.
 // Keys are read from process.env here and never sent to the browser.
-import { ProviderError } from '../../shared/parse';
-import { clock } from '../../shared/clock';
+import { ProviderError } from '../../shared/parse.js';
+import { clock } from '../../shared/clock.js';
 
 export type Provider = 'twelvedata' | 'finnhub' | 'alphavantage' | 'fred' | 'finra' | 'kalshi' | 'gdelt' | 'binance' | 'coingecko';
 

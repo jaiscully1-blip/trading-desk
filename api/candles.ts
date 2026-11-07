@@ -1,7 +1,7 @@
 // GET /api/candles?symbol=SPY&tf=5m|1H|D
-import type { ApiError, TF } from '../shared/types';
-import { json, SYMBOL_RE } from './_lib/core';
-import { loadSeries } from './_lib/series';
+import type { ApiError, TF } from '../shared/types.js';
+import { json, SYMBOL_RE } from './_lib/core.js';
+import { loadSeries } from './_lib/series.js';
 
 export async function GET(req: Request): Promise<Response> {
   const u = new URL(req.url);

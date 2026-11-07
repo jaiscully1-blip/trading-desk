@@ -1,6 +1,6 @@
 // GET /api/movers -> Alpha Vantage top gainers / most active / losers (filtered), to discover names outside your list.
-import { alphaMovers } from './_lib/adapters';
-import { cached, json, ttl } from './_lib/core';
+import { alphaMovers } from './_lib/adapters.js';
+import { cached, json, ttl } from './_lib/core.js';
 
 export async function GET(req: Request): Promise<Response> {
   const u = new URL(req.url);

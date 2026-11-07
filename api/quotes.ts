@@ -1,7 +1,7 @@
 // GET /api/quotes?symbols=SPY,QQQ,NVDA
-import type { ApiError, QuoteResult } from '../shared/types';
-import { QUOTE_CHAIN } from './_lib/adapters';
-import { SYMBOL_RE, getCached, json, setCached, ttl } from './_lib/core';
+import type { ApiError, QuoteResult } from '../shared/types.js';
+import { QUOTE_CHAIN } from './_lib/adapters.js';
+import { SYMBOL_RE, getCached, json, setCached, ttl } from './_lib/core.js';
 
 const MAX = 40;
 

@@ -1,8 +1,8 @@
 // Shared candle loading (used by /api/candles and /api/scan) so both hit the same cache.
-import type { SeriesResult, TF } from '../../shared/types';
-import { ProviderError } from '../../shared/parse';
-import { SERIES_CHAIN } from './adapters';
-import { cached, getCached, ttl } from './core';
+import type { SeriesResult, TF } from '../../shared/types.js';
+import { ProviderError } from '../../shared/parse.js';
+import { SERIES_CHAIN } from './adapters.js';
+import { cached, getCached, ttl } from './core.js';
 
 /** [in-session, off-hours] seconds. Daily bars only change once a day; the forming bar is patched from live quotes. */
 export const SERIES_TTL: Record<TF, [number, number]> = { '5m': [240, 1800], '1H': [900, 3600], D: [3600, 6 * 3600] };

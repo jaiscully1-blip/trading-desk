@@ -1,7 +1,7 @@
 // GET /api/world -> GDELT hotspots (news layer) + regional sentiment weather (ETF move today + news tone)
-import { REGIONS, mergeHotspots, regionWeather, type Hotspot } from '../shared/world';
-import { gdeltHotspots, QUOTE_CHAIN } from './_lib/adapters';
-import { cached, hasKey, json } from './_lib/core';
+import { REGIONS, mergeHotspots, regionWeather, type Hotspot } from '../shared/world.js';
+import { gdeltHotspots, QUOTE_CHAIN } from './_lib/adapters.js';
+import { cached, hasKey, json } from './_lib/core.js';
 
 export async function GET(): Promise<Response> {
   const errors: Record<string, string> = {};

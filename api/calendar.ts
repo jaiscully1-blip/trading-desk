@@ -1,8 +1,8 @@
 // GET /api/calendar?symbols=NVDA,AMD -> economic releases (FRED) with "what usually happens", FOMC + Kalshi odds, earnings, IPOs
-import { ECON, FOMC, usualMove, type Earning, type Ipo, type Odds, type Usual } from '../shared/calendar';
-import { alphaEarnings, alphaIpos, fredReleaseDates, fredReleases, kalshiFedOdds } from './_lib/adapters';
-import { SYMBOL_RE, cached, hasKey, json } from './_lib/core';
-import { loadSeries } from './_lib/series';
+import { ECON, FOMC, usualMove, type Earning, type Ipo, type Odds, type Usual } from '../shared/calendar.js';
+import { alphaEarnings, alphaIpos, fredReleaseDates, fredReleases, kalshiFedOdds } from './_lib/adapters.js';
+import { SYMBOL_RE, cached, hasKey, json } from './_lib/core.js';
+import { loadSeries } from './_lib/series.js';
 
 const ymd = (ms: number) => new Date(ms).toISOString().slice(0, 10);
 

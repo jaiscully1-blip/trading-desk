@@ -1,6 +1,6 @@
 // Money flow globe: sector and asset-class rotation, approximated from ETF (and crypto) performance and volume.
 // This is a PROXY: relative performance x relative dollar volume, not actual fund-flow data.
-import type { Bar } from './types';
+import type { Bar } from './types.js';
 
 export interface Asset { sym: string; label: string; group: 'sector' | 'bonds' | 'gold' | 'dollar' | 'crypto' }
 export const ASSETS: Asset[] = [

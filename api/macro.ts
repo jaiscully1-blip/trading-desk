@@ -1,7 +1,7 @@
 // GET /api/macro -> fear strip inputs: VIX, 10Y, yield-curve spreads (FRED, end of day) and SPY put/call (Alpha Vantage)
-import type { MacroResult } from '../shared/types';
-import { alphaPutCall, fredLatest } from './_lib/adapters';
-import { cached, hasKey, json, ttl } from './_lib/core';
+import type { MacroResult } from '../shared/types.js';
+import { alphaPutCall, fredLatest } from './_lib/adapters.js';
+import { cached, hasKey, json, ttl } from './_lib/core.js';
 
 export async function GET(): Promise<Response> {
   try {

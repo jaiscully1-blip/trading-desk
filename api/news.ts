@@ -1,7 +1,7 @@
 // GET /api/news?symbols=NVDA,AMD   -> merged 24/7 headlines: Finnhub market + company news, plus RSS (CNBC, MarketWatch, Yahoo, Fed, BLS)
-import { isMacro, keywordSentiment, mergeNews, tagSymbols, type NewsItem } from '../shared/news';
-import { FEEDS, finnhubMarketNews, finnhubNews, finnhubProfile, rssFeed } from './_lib/adapters';
-import { SYMBOL_RE, cached, getCached, hasKey, json, ttl } from './_lib/core';
+import { isMacro, keywordSentiment, mergeNews, tagSymbols, type NewsItem } from '../shared/news.js';
+import { FEEDS, finnhubMarketNews, finnhubNews, finnhubProfile, rssFeed } from './_lib/adapters.js';
+import { SYMBOL_RE, cached, getCached, hasKey, json, ttl } from './_lib/core.js';
 
 const MAX_COMPANY = 15; // company-news calls per request (Finnhub free: 60/min, shared with quotes)
 

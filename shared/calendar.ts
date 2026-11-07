@@ -1,5 +1,5 @@
 // Calendars: economic releases (FRED schedule), FOMC dates, Fed odds (Kalshi), earnings and IPOs (Alpha Vantage).
-import type { Bar } from './types';
+import type { Bar } from './types.js';
 
 export interface EconDef { key: string; match: RegExp; label: string; impact: 1 | 2 | 3; time: string; note: string }
 

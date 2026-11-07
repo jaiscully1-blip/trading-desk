@@ -1,6 +1,6 @@
 // Scan engine. Pure functions over daily bars, shared by /api/scan and the demo fallback.
-import type { Bar } from './types';
-import { closeSodFor } from './marketCalendar';
+import type { Bar } from './types.js';
+import { closeSodFor } from './marketCalendar.js';
 
 export interface PatternHit {
   ok: boolean;

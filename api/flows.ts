@@ -1,9 +1,9 @@
 // GET /api/flows -> sector / bonds / gold / dollar / crypto rotation PROXY (ETF relative performance x relative dollar volume)
-import type { Bar } from '../shared/types';
-import { ASSETS, computeFlows, flowArcs, type FlowWindow } from '../shared/flows';
-import { cryptoDaily } from './_lib/adapters';
-import { cached, json } from './_lib/core';
-import { loadSeries } from './_lib/series';
+import type { Bar } from '../shared/types.js';
+import { ASSETS, computeFlows, flowArcs, type FlowWindow } from '../shared/flows.js';
+import { cryptoDaily } from './_lib/adapters.js';
+import { cached, json } from './_lib/core.js';
+import { loadSeries } from './_lib/series.js';
 
 export async function GET(): Promise<Response> {
   const series: Record<string, Bar[]> = {};

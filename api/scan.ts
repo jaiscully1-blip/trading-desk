@@ -1,12 +1,12 @@
 // GET /api/scan?symbols=NVDA,AMD,...   (up to 40; SPY is always added for relative strength)
 // Returns per-symbol daily stats + patterns + short interest + catalyst. Symbols the free-tier budget
 // can't cover yet come back in `pending`; the client polls again and the table fills in progressively.
-import type { ApiError } from '../shared/types';
-import { encodeInstant, type FinraSI } from '../shared/parse';
-import { computeBase, type ScanBase } from '../shared/scan';
-import { finnhubNews, finnhubProfile, finraShortInterest } from './_lib/adapters';
-import { SYMBOL_RE, cached, getCached, hasKey, json, setCached, ttl } from './_lib/core';
-import { loadSeries } from './_lib/series';
+import type { ApiError } from '../shared/types.js';
+import { encodeInstant, type FinraSI } from '../shared/parse.js';
+import { computeBase, type ScanBase } from '../shared/scan.js';
+import { finnhubNews, finnhubProfile, finraShortInterest } from './_lib/adapters.js';
+import { SYMBOL_RE, cached, getCached, hasKey, json, setCached, ttl } from './_lib/core.js';
+import { loadSeries } from './_lib/series.js';
 
 const MAX = 40;
 

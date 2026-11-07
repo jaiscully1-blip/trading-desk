@@ -1,12 +1,12 @@
 // Provider adapters. Each one fetches + normalizes. Swap or reorder them in the chains below.
-import type { Bar, MacroPoint, QuoteResult, TF } from '../../shared/types';
-import { isPlainTicker, parseAlphaMovers, parseFinnhubNews, parseFinnhubProfile, parseFinraShortInterest, type FinraSI, type Mover, type NewsItem } from '../../shared/parse';
-import { ProviderError, parseAlphaDaily, parseFinnhubQuote, parseFredLatest, parseTwelveQuote, parseTwelveSeries } from '../../shared/parse';
-import { getJson, key, take, type Provider } from './core';
-import { parseFeed } from '../../shared/news';
-import { MARKET_QUERY, parseGeo } from '../../shared/world';
-import { parseBinanceKlines, parseGeckoChart } from '../../shared/flows';
-import { avCsvError, parseEarningsCsv, parseIpoCsv, parseKalshiFed, type Earning, type Ipo, type Odds } from '../../shared/calendar';
+import type { Bar, MacroPoint, QuoteResult, TF } from '../../shared/types.js';
+import { isPlainTicker, parseAlphaMovers, parseFinnhubNews, parseFinnhubProfile, parseFinraShortInterest, type FinraSI, type Mover, type NewsItem } from '../../shared/parse.js';
+import { ProviderError, parseAlphaDaily, parseFinnhubQuote, parseFredLatest, parseTwelveQuote, parseTwelveSeries } from '../../shared/parse.js';
+import { getJson, key, take, type Provider } from './core.js';
+import { parseFeed } from '../../shared/news.js';
+import { MARKET_QUERY, parseGeo } from '../../shared/world.js';
+import { parseBinanceKlines, parseGeckoChart } from '../../shared/flows.js';
+import { avCsvError, parseEarningsCsv, parseIpoCsv, parseKalshiFed, type Earning, type Ipo, type Odds } from '../../shared/calendar.js';
 
 export interface SeriesAdapter {
   name: string;

@@ -1,5 +1,5 @@
 // Pure parsers that turn provider JSON into normalized shapes. No network here, so they're unit-tested.
-import type { Bar, MacroPoint, QuoteResult } from './types';
+import type { Bar, MacroPoint, QuoteResult } from './types.js';
 
 export class ProviderError extends Error {
   constructor(

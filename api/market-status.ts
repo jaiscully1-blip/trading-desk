@@ -1,9 +1,9 @@
 // GET /api/market-status -> published NYSE calendar + live status feed (Finnhub, else Alpha Vantage).
 // The feed adds holidays/early closes from Finnhub's list and flags unscheduled closures (e.g. a national day of mourning).
-import { NYSE_HOLIDAYS, NYSE_EARLY, setMarketCalendar, ymdKey } from '../shared/marketCalendar';
-import { clock, et } from '../shared/clock';
-import { alphaMarketStatus, finnhubHolidays, finnhubMarketStatus, type LiveStatus } from './_lib/adapters';
-import { cached, hasKey, json } from './_lib/core';
+import { NYSE_HOLIDAYS, NYSE_EARLY, setMarketCalendar, ymdKey } from '../shared/marketCalendar.js';
+import { clock, et } from '../shared/clock.js';
+import { alphaMarketStatus, finnhubHolidays, finnhubMarketStatus, type LiveStatus } from './_lib/adapters.js';
+import { cached, hasKey, json } from './_lib/core.js';
 
 export async function GET(): Promise<Response> {
   const sources: { name: string; ok: boolean; error?: string }[] = [];

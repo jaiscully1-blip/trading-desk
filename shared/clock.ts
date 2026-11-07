@@ -1,5 +1,5 @@
-import type { Mode } from './types';
-import { closeSodFor, getMarketCalendar, holidayName, isTradingDay, ymdKey } from './marketCalendar';
+import type { Mode } from './types.js';
+import { closeSodFor, getMarketCalendar, holidayName, isTradingDay, ymdKey } from './marketCalendar.js';
 
 const TZ = 'America/New_York';
 const fmt = new Intl.DateTimeFormat('en-US', {

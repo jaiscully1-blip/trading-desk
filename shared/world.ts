@@ -1,5 +1,5 @@
 // World map data: GDELT GEO hotspots (news layer) and regional "sentiment weather" (news tone + regional ETF move).
-import { decode } from './news';
+import { decode } from './news.js';
 
 export interface Article { title: string; url: string }
 export interface Hotspot { id: string; name: string; country: string; lat: number; lon: number; neg: number; pos: number; tone: number; articles: Article[] }
