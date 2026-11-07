@@ -9,6 +9,7 @@ import { GET as webull } from './_lib/research/webull.js';
 import { GET as discord } from './_lib/research/discord.js';
 import { GET as info } from './_lib/research/info.js';
 import { GET as congress } from './_lib/research/congress.js';
+import { POST as csvmap } from './_lib/research/csvmap.js';
 import { cached, json } from './_lib/core.js';
 import { finnhubCryptoNews, finnhubMetrics, finnhubRecs, frameCheck, xOembed } from './_lib/adapters.js';
 import { SYMBOL_RE } from './_lib/core.js';
@@ -58,4 +59,11 @@ export async function GET(req: Request): Promise<Response> {
   const fn = new URL(req.url).searchParams.get('fn') ?? '';
   const h = ROUTES[fn];
   return h ? h(req) : json({ error: `unknown fn; use one of ${Object.keys(ROUTES).join(', ')}` }, { status: 404 });
+}
+
+const POSTS: Record<string, (req: Request) => Promise<Response>> = { csvmap };
+export async function POST(req: Request): Promise<Response> {
+  const fn = new URL(req.url).searchParams.get('fn') ?? '';
+  const h = POSTS[fn];
+  return h ? h(req) : json({ error: `unknown POST fn; use one of ${Object.keys(POSTS).join(', ')}` }, { status: 404 });
 }

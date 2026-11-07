@@ -1,15 +1,17 @@
-// Home page layout engine: a 12-column grid, rows of fixed height. Widgets never overlap: whatever a moved or
-// resized widget lands on gets pushed down, then everything floats up (like a dashboard grid). Pure + tested.
+// Home page layout engine: a big canvas of columns (one screen = 12 columns, the canvas is 4 screens wide and grows down).
+// Widgets stay where you put them; whatever a moved or resized widget lands on gets pushed down. Pure + tested.
 export type WidgetType = 'stock' | 'messages' | 'bets' | 'claims' | 'spotify' | 'x' | 'crypto' | 'commodities' | 'risk' | 'sessions' | 'browser' | 'news' | 'options' | 'clock' | 'notes' | 'starred' | 'movers' | 'calendar' | 'webull' | 'discord' | 'congress';
 export interface Widget { id: string; type: WidgetType; x: number; y: number; w: number; h: number; cfg: Record<string, any>; pinned?: boolean }
 export const COLS = 12;
+/** canvas width in columns: 4 screens side by side */
+export const CANVAS_COLS = 48;
 
 const hit = (a: Widget, b: Widget) => a.id !== b.id && a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
 
 /** Pinned widgets never move. Keep `fixedId` where it is (unless it lands on a pinned one); push anything overlapping
  *  it (and so on) down, then float everything up. */
 export function settle(ws: Widget[], fixedId?: string): Widget[] {
-  const out = ws.map((w) => ({ ...w, x: Math.max(0, Math.min(COLS - Math.min(w.w, COLS), w.x)), w: Math.min(w.w, COLS), y: Math.max(0, w.y) }));
+  const out = ws.map((w) => ({ ...w, x: Math.max(0, Math.min(CANVAS_COLS - Math.min(w.w, COLS), w.x)), w: Math.min(w.w, COLS), y: Math.max(0, w.y) }));
   const pinned = out.filter((w) => w.pinned);
   const fixed = out.find((w) => w.id === fixedId && !w.pinned);
   // place in order: pinned, then the one being dragged, then by y (top to bottom), x
@@ -19,9 +21,8 @@ export function settle(ws: Widget[], fixedId?: string): Widget[] {
     if (w.pinned) { placed.push(w); continue; }
     if (w === fixed) { while (placed.some((p) => hit({ ...w }, p))) w.y++; }
     else {
-      // float up as far as possible, then down past any collision
+      // free canvas: stay put unless something now sits on top of you, then move down past it
       let y = w.y;
-      while (y > 0 && !placed.some((p) => hit({ ...w, y: y - 1 }, p))) y--;
       while (placed.some((p) => hit({ ...w, y }, p))) y++;
       w.y = y;
     }
@@ -30,11 +31,11 @@ export function settle(ws: Widget[], fixedId?: string): Widget[] {
   return placed.sort((a, b) => a.y - b.y || a.x - b.x);
 }
 
-/** New widgets take the first free spot, scanning rows top to bottom and left to right (fills across before down). */
-export function addTop(ws: Widget[], w: Widget): Widget[] {
+/** New widgets take the first free spot in the screen you're looking at (from column x0, row y0), filling across before down. */
+export function addTop(ws: Widget[], w: Widget, x0 = 0, y0 = 0): Widget[] {
   const ww = Math.min(w.w, COLS);
-  for (let y = 0; ; y++) {
-    for (let x = 0; x + ww <= COLS; x++) {
+  for (let y = y0; ; y++) {
+    for (let x = x0; x + ww <= x0 + COLS; x++) {
       const c = { ...w, w: ww, x, y };
       if (!ws.some((o) => hit(c, o))) return settle([...ws, c], c.id);
     }

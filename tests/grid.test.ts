@@ -5,9 +5,9 @@ const w = (id: string, x: number, y: number, ww = 4, h = 4): Widget => ({ id, ty
 const noOverlap = (ws: Widget[]) => ws.every((a) => ws.every((b) => a === b || a.x + a.w <= b.x || b.x + b.w <= a.x || a.y + a.h <= b.y || b.y + b.h <= a.y));
 
 describe('home grid', () => {
-  it('floats widgets up into empty space', () => {
-    const r = settle([w('a', 0, 10)]);
-    expect(r[0].y).toBe(0);
+  it('widgets stay where you put them on the canvas (no gravity)', () => {
+    const r = settle([w('a', 30, 10)]);
+    expect(r[0]).toMatchObject({ x: 30, y: 10 });
   });
   it('a dropped widget keeps its spot and pushes the other down', () => {
     const r = settle([w('a', 0, 0), w('b', 2, 1)], 'b');
@@ -18,11 +18,15 @@ describe('home grid', () => {
   });
   it('side-by-side widgets stay side by side', () => {
     const r = settle([w('a', 0, 0), w('b', 4, 0), w('c', 8, 3)]);
-    expect(r.map((x) => [x.id, x.y])).toEqual([['a', 0], ['b', 0], ['c', 0]]);
+    expect(r.map((x) => [x.id, x.y])).toEqual([['a', 0], ['b', 0], ['c', 3]]);
   });
-  it('clamps to the 12 columns', () => {
-    const r = settle([w('a', 10, 0, 6)]);
-    expect(r[0].x + r[0].w).toBe(12);
+  it('clamps to the canvas width', () => {
+    const r = settle([w('a', 46, 0, 6)]);
+    expect(r[0].x + r[0].w).toBe(48);
+  });
+  it('adds new widgets in the screen you are looking at', () => {
+    const r = addTop([], w('a', 0, 0), 24, 10);
+    expect(r[0]).toMatchObject({ x: 24, y: 10 });
   });
   it('new widgets fill across, then down, without overlaps', () => {
     let ws: Widget[] = [];

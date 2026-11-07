@@ -43,7 +43,7 @@ const FILL_ALIASES: Record<FillField, string[]> = {
   fee: ['fee', 'fees', 'commission', 'commissions', 'feescomm', 'commfee', 'commissionfees'],
 };
 const TRANSFER_ALIASES: Record<TransferField, string[]> = {
-  time: ['date', 'time', 'datetime', 'transferdate', 'completedtime', 'createdtime'],
+  time: ['date', 'time', 'datetime', 'transferdate', 'completedtime', 'createdtime', 'activitydate', 'rundate', 'transactiondate', 'tradedate', 'settledate'],
   amount: ['amount', 'netamount', 'value', 'cashamount'],
   type: ['type', 'transactiontype', 'description', 'activity', 'action', 'direction'],
 };
@@ -213,3 +213,15 @@ export function mergeFills(trades: Trade[], fills: ParsedFill[], now = Date.now(
   }
   return { trades: out, added: fresh.length, matched, created, duplicate };
 }
+
+/** Both readings of one file: brokers like Robinhood and Schwab put trades and deposits in the same export. */
+export function detectAll(rows: string[][]): { fills: Mapping; transfers: Mapping } {
+  const h = rows[0] ?? [];
+  const fills: Mapping = { kind: 'fills', cols: {} }, transfers: Mapping = { kind: 'transfers', cols: {} };
+  for (const k of Object.keys(FILL_ALIASES) as FillField[]) fills.cols[k] = pick(h, FILL_ALIASES[k]);
+  for (const k of Object.keys(TRANSFER_ALIASES) as TransferField[]) transfers.cols[k] = pick(h, TRANSFER_ALIASES[k]);
+  return { fills, transfers };
+}
+/** enough columns to read trades (side may come from a signed quantity) */
+export const fillsReady = (m: Mapping) => (['symbol', 'qty', 'price', 'time'] as const).every((k) => m.cols[k] != null);
+export const transfersReady = (m: Mapping) => m.cols.time != null && m.cols.amount != null;

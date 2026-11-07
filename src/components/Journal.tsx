@@ -5,12 +5,13 @@ import {
   EMOTIONS, VIOLATION_LABEL, equityByDay, etDay, stats, timeOfDay, unrealized,
   type AccountSettings, type Fill, type Guard, type Trade, type TradeView, type Transfer, type Violation, type ViolationType,
 } from '../lib/journal';
-import { detect, mergeFills, parseCsv, toFills, trimToHeader, toTransfers, type FillField, type Mapping, type TransferField } from '../lib/csv';
+import { detect, detectAll, fillsReady, mergeFills, parseCsv, toFills, transfersReady, trimToHeader, type ParsedFill, toTransfers, type FillField, type Mapping, type TransferField } from '../lib/csv';
 import { etTime } from '../lib/clock';
 import { rng } from '../lib/demo';
 import { px, sUsd, tone, usd } from '../lib/format';
 import { Fresh } from './common';
 import { ScreenshotInput, uid } from './Trading';
+import { realized } from '../../shared/webull';
 
 type Tab = 'trades' | 'stats' | 'violations' | 'import';
 const fmtDate = (ms: number) => { const d = etDay(ms); return `${d.slice(5, 7)}/${d.slice(8)} ${etTime(ms)}`; };
@@ -21,6 +22,8 @@ export interface JournalProps {
   setTrades: (f: (t: Trade[]) => Trade[]) => void;
   transfers: Transfer[];
   setTransfers: (f: (t: Transfer[]) => Transfer[]) => void;
+  /** set the account to start at $0 on this date (used when a CSV import arrives before any starting balance) */
+  onAutoStart?: (startDate: number) => void;
   violations: Violation[];
   lastPx: (s: string) => number | undefined;
   settings: AccountSettings;
@@ -283,14 +286,71 @@ function ViolationsTab({ v }: { v: Violation[] }) {
 
 /* ---------------- import ---------------- */
 interface Pending { name: string; rows: string[][]; map: Mapping }
+interface Batch { at: number; files: { name: string; fills: number; dup: number; deposits: number; withdrawals: number; skipped: number; via: string }[]; pnl: number; closed: number; wins: number; depositSum: number; withdrawSum: number; started?: boolean }
+
+/** Ask the server's free AI to name the columns. Only the header row leaves this browser. */
+async function aiColumns(headers: string[]): Promise<Partial<Record<FillField | TransferField, number>> | null> {
+  try {
+    const r = await fetch('/api/research?fn=csvmap', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ headers }) });
+    const j = await r.json();
+    return r.ok ? j.cols : null;
+  } catch { return null; }
+}
 
 function ImportTab(p: JournalProps) {
   const [files, setFiles] = useState<Pending[]>([]);
+  const [busy, setBusy] = useState('');
+  const [batches, setBatches] = useState<Batch[]>([]);
   const [msg, setMsg] = useState('');
+  // Read every file, sort each row into trades / deposits / withdrawals, and import straight away.
   const read = async (list: FileList | File[]) => {
-    const out: Pending[] = [];
-    for (const f of [...list]) { const rows = trimToHeader(parseCsv(await f.text())); if (rows.length > 1) out.push({ name: f.name, rows, map: detect(rows) }); }
-    setFiles((x) => [...x, ...out]);
+    const arr = [...list].filter((f) => /\.csv$|text\/csv|excel/i.test(f.name + f.type));
+    if (!arr.length) return;
+    const allFills: ParsedFill[] = [], allTr: Transfer[] = [], manual: Pending[] = [];
+    const b: Batch = { at: Date.now(), files: [], pnl: 0, closed: 0, wins: 0, depositSum: 0, withdrawSum: 0 };
+    for (let i = 0; i < arr.length; i++) {
+      const f = arr[i];
+      setBusy(`Reading ${i + 1}/${arr.length}: ${f.name}`);
+      const rows = trimToHeader(parseCsv(await f.text()));
+      if (rows.length < 2) { b.files.push({ name: f.name, fills: 0, dup: 0, deposits: 0, withdrawals: 0, skipped: 0, via: 'empty file' }); continue; }
+      let { fills, transfers } = detectAll(rows);
+      let via = 'built-in rules';
+      if (!fillsReady(fills) && !transfersReady(transfers)) {
+        setBusy(`Asking the AI which column is which in ${f.name} (column names only)…`);
+        const ai = await aiColumns(rows[0]);
+        if (ai) {
+          fills = { kind: 'fills', cols: { ...ai, ...Object.fromEntries(Object.entries(fills.cols).filter(([, v]) => v != null)) } };
+          transfers = { kind: 'transfers', cols: { time: ai.time, amount: (ai as any).amount, type: ai.type, ...Object.fromEntries(Object.entries(transfers.cols).filter(([, v]) => v != null)) } };
+          via = 'AI column match';
+        }
+      }
+      const fr = fillsReady(fills) ? toFills(rows, fills) : { items: [], skipped: [] };
+      const tr = transfersReady(transfers) ? toTransfers(rows, transfers) : { items: [], skipped: [] };
+      if (!fr.items.length && !tr.items.length) { manual.push({ name: f.name, rows, map: fillsReady(fills) || !transfersReady(transfers) ? fills : transfers }); continue; }
+      allFills.push(...fr.items); allTr.push(...tr.items);
+      const dep = tr.items.filter((t) => t.amount > 0), wd = tr.items.filter((t) => t.amount < 0);
+      b.depositSum += dep.reduce((a, t) => a + t.amount, 0); b.withdrawSum += wd.reduce((a, t) => a + t.amount, 0);
+      // a row is "skipped" only if neither reading used it
+      const used = fr.items.length + tr.items.length;
+      b.files.push({ name: f.name, fills: fr.items.length, dup: 0, deposits: dep.length, withdrawals: wd.length, skipped: Math.max(0, rows.length - 1 - used), via });
+    }
+    setBusy('');
+    if (allFills.length) {
+      let res = { added: 0, duplicate: 0 } as { added: number; duplicate: number };
+      p.setTrades((ts) => { const m = mergeFills(ts, allFills); res = m; return m.trades; });
+      const r = realized(allFills.map((f) => ({ id: f.id, sym: f.sym, side: f.action === 'buy' ? 'BUY' : 'SELL', qty: f.qty, price: f.price, t: f.t, mult: 1 })));
+      b.pnl = r.closed.reduce((a, c) => a + c.pnl, 0) - allFills.reduce((a, f) => a + (f.fee ?? 0), 0);
+      b.closed = r.closed.length; b.wins = r.closed.filter((c) => c.pnl > 0).length;
+      setTimeout(() => setMsg(res.duplicate ? `${res.duplicate} fills were already in your journal and were not added twice.` : ''), 0);
+    }
+    if (allTr.length) p.setTransfers((ts) => { const ids = new Set(ts.map((x) => x.id)); return [...ts, ...allTr.filter((x) => !ids.has(x.id))]; });
+    // no starting balance yet: start the account at $0 on the first date in the files, so deposits + P&L become the balance
+    if (p.settings.startBalance == null && (allTr.length || allFills.length) && p.onAutoStart) {
+      const first = Math.min(...allTr.map((t) => t.t), ...allFills.map((f) => f.t));
+      p.onAutoStart(first - 1000); b.started = true;
+    }
+    setBatches((x) => [b, ...x].slice(0, 5));
+    if (manual.length) setFiles((x) => [...x, ...manual]);
   };
   const doImport = (i: number) => {
     const f = files[i];
@@ -314,10 +374,26 @@ function ImportTab(p: JournalProps) {
         onDragOver={(e) => e.preventDefault()}
         onDrop={(e) => { e.preventDefault(); read(e.dataTransfer.files); }}
       >
-        <b>Drop broker CSVs here</b> or click to choose. Fills and cash transfers are detected automatically.
-        <input type="file" accept=".csv,text/csv" multiple hidden onChange={(e) => e.target.files && read(e.target.files)} />
+        <b>Drop any number of broker CSVs here</b> or click to choose several. Each row is sorted into a trade, a deposit or a withdrawal and imported right away; your balance updates from them. Webull, Robinhood, Schwab, Fidelity, IBKR, E*TRADE and thinkorswim are read automatically; for other brokers the AI names the columns (it only sees the column names).
+        <input type="file" accept=".csv,text/csv" multiple hidden onChange={(e) => { if (e.target.files) read(e.target.files); e.target.value = ''; }} />
       </label>
+      {busy && <div className="banner">{busy}</div>}
+      {batches.map((b) => (
+        <div key={b.at} className="imp-sum">
+          <div className="imp-sum-h"><b>Imported {b.files.length} file{b.files.length === 1 ? '' : 's'}</b>
+            {b.closed > 0 && <span>Realized P&L <b className={`num ${tone(b.pnl)}`}>{sUsd(b.pnl)}</b> on {b.closed} closed trades ({b.wins} wins)</span>}
+            {b.depositSum > 0 && <span>Deposits <b className="num up">{sUsd(b.depositSum)}</b></span>}
+            {b.withdrawSum < 0 && <span>Withdrawals <b className="num down">{sUsd(b.withdrawSum)}</b></span>}
+          </div>
+          <table className="grid small"><thead><tr><th>File</th><th>Trades (fills)</th><th>Deposits</th><th>Withdrawals</th><th>Other rows</th><th>Read by</th></tr></thead>
+            <tbody>{b.files.map((f, i) => <tr key={i}><td>{f.name}</td><td className="num">{f.fills}</td><td className="num">{f.deposits}</td><td className="num">{f.withdrawals}</td><td className="num muted">{f.skipped}</td><td className="muted">{f.via}</td></tr>)}</tbody>
+          </table>
+          {b.started && <p className="small">No starting balance was set, so your account now starts at $0 on the first date in these files: balance = deposits − withdrawals + trading P&L. You can change it in the account drawer.</p>}
+          <p className="small muted">P&L here is first-in-first-out within these files, after the fees the CSV lists. Sells of shares bought before the files start aren’t priced.</p>
+        </div>
+      ))}
       {msg && <div className="banner">{msg}</div>}
+      {files.length > 0 && <p className="small down">These files need a hand with their columns:</p>}
       {files.map((f, i) => <MapFile key={f.name + i} f={f} setMap={(map) => setFiles((x) => x.map((y, j) => (j === i ? { ...y, map } : y)))} onImport={() => doImport(i)} onDrop={() => setFiles((x) => x.filter((_, j) => j !== i))} />)}
       <h4>Deposits and withdrawals</h4>
       <table className="grid"><thead><tr><th>Date</th><th>Amount</th><th>Note</th><th /></tr></thead>
@@ -330,8 +406,7 @@ function ImportTab(p: JournalProps) {
       <details className="note">
         <summary>Webull export steps</summary>
         In the Webull app: Account → History (not Orders) → Filter: Fully Filled and a date range → download icon. Webull emails the CSV and allows one export a day.
-        It doesn’t include fees or cash transfers; export transfers separately and drop that file here too. Times are read as US Eastern.
-        Column names differ between Webull versions, so check the mapping before importing.
+        It doesn’t include fees or cash transfers; export transfers separately and drop both files here together. Times are read as US Eastern.
       </details>
     </div>
   );

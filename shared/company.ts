@@ -154,3 +154,42 @@ export function latestAnnual(j: any, cik: number): { form: string; date: string;
   }
   return null;
 }
+
+/** What SEC's submissions file says about a filer: free, no key, always there for US-listed companies. */
+export interface SecProfile { name: string; sic: string | null; exchange: string | null; hq: string | null; incorporated: string | null; website: string | null; fiscalYearEnd: string | null; formerNames: string[] }
+const EXCH: Record<string, string> = { Nasdaq: 'NASDAQ', NYSE: 'NYSE', 'NYSE MKT': 'NYSE American', CBOE: 'Cboe' };
+const cap = (s: string) => s.toLowerCase().replace(/\b([a-z])/g, (m) => m.toUpperCase());
+export function secProfile(j: any): SecProfile {
+  const a = j?.addresses?.business ?? {};
+  const city = a.city ? cap(String(a.city)) : '';
+  const where = a.stateOrCountryDescription || a.stateOrCountry || '';
+  const fy = String(j?.fiscalYearEnd ?? '');
+  return {
+    name: String(j?.name ?? ''),
+    sic: j?.sicDescription ? cap(String(j.sicDescription)) : null,
+    exchange: Array.isArray(j?.exchanges) && j.exchanges[0] ? EXCH[j.exchanges[0]] ?? String(j.exchanges[0]) : null,
+    hq: city ? `${city}${where ? `, ${where}` : ''}` : null,
+    incorporated: j?.stateOfIncorporationDescription || j?.stateOfIncorporation || null,
+    website: j?.website ? String(j.website) : null,
+    fiscalYearEnd: /^\d{4}$/.test(fy) ? new Date(Date.UTC(2000, +fy.slice(0, 2) - 1, +fy.slice(2))).toLocaleDateString('en-US', { month: 'long', day: 'numeric', timeZone: 'UTC' }) : null,
+    formerNames: (j?.formerNames ?? []).map((f: any) => String(f.name)).slice(0, 3),
+  };
+}
+
+/** "FORD MOTOR CO" -> "Ford Motor Co"; drops SEC's state suffixes like "/ DE" or "/DE/". Leaves mixed-case names alone. */
+export function cleanCoName(s: string): string {
+  const t = s.replace(/\s*\/\s*[A-Z]{2}\s*\/?\s*$/, '').replace(/\s+/g, ' ').trim();
+  return t === t.toUpperCase() ? cap(t).replace(/\b(Inc|Co|Corp|Ltd|Plc|Llc|Lp|Sa|Nv|Ag|Se)\b/g, (m) => (['Llc', 'Lp', 'Sa', 'Nv', 'Ag', 'Se', 'Plc'].includes(m) ? m.toUpperCase() : m)) : t;
+}
+
+/** Latest shares outstanding from the cover page (dei:EntityCommonStockSharesOutstanding), summed across share classes. */
+export function latestShares(j: any): { shares: number; asOf: string } | null {
+  const rows: any[] = j?.units?.shares ?? [];
+  if (!rows.length) return null;
+  const last = rows.reduce((m, r) => (r.end > m ? r.end : m), '');
+  const byFrame = rows.filter((r) => r.end === last);
+  const seen = new Set<string>();
+  let total = 0;
+  for (const r of byFrame) { const k = `${r.accn}|${r.val}`; if (seen.has(k)) continue; seen.add(k); total += Number(r.val) || 0; }
+  return total > 0 ? { shares: total, asOf: last } : null;
+}

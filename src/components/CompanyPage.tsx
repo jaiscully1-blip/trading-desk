@@ -1,11 +1,12 @@
 // Company page: what they do, main products, and a clickable supply chain (suppliers -> company -> customers, competitors below).
 // Click any company with a ticker to re-center the diagram on it. Facts come from the latest 10-K, read by free Gemini.
-import { useState } from 'react';
+import { Fragment, useState, type ReactNode } from 'react';
 import type { ChainLink } from '../../shared/company';
 import { useCompany } from '../data/company';
 import type { DataMode } from '../data/live';
 import { useDesk } from '../lib/deskctx';
 import { Star } from './common';
+import { offlineInfo } from '../data/info';
 
 const W = 960, H = 600, CX = W / 2, CY = 270, NW = 200, NH = 42, CW = 168;
 const cut = (s: string, n = 24) => (s.length > n ? `${s.slice(0, n - 1)}…` : s);
@@ -72,6 +73,28 @@ function Links({ title, xs, onOpen }: { title: string; xs: ChainLink[]; onOpen: 
   );
 }
 
+function Peers({ named, peers, onOpen }: { named: ChainLink[]; peers: ChainLink[]; onOpen: (s: string) => void }) {
+  const { openInfo } = useDesk();
+  const card = (c: ChainLink, kind: 'named' | 'peer') => {
+    const o = c.sym ? offlineInfo(c.sym) : null;
+    return (
+      <div key={`${kind}:${c.sym ?? c.name}`} className={`peer ${c.sym ? 'link' : 'nolink'}`} onClick={() => c.sym && onOpen(c.sym)} role={c.sym ? 'button' : undefined} tabIndex={c.sym ? 0 : undefined}
+        onKeyDown={(e) => { if (c.sym && (e.key === 'Enter' || e.key === ' ')) onOpen(c.sym); }} title={c.sym ? `Re-center on ${c.name}` : 'Not US-listed or not matched to a ticker'}>
+        <div className="peer-h"><b className="peer-sym">{c.sym ?? '—'}</b>{c.sym && <button className="peer-i" onClick={(e) => { e.stopPropagation(); openInfo(c.sym!, { x: e.clientX, y: e.clientY }); }} aria-label={`What is ${c.name}?`} title="What is it?">i</button>}</div>
+        <div className="peer-n">{c.name}</div>
+        <div className="peer-s">{o?.industry ?? (c.what && c.what !== 'same-industry peer' ? c.what : kind === 'named' ? 'named in the 10-K' : 'same industry')}</div>
+      </div>
+    );
+  };
+  if (!named.length && !peers.length) return null;
+  return (
+    <div className="peers">
+      {named.length > 0 && <><h4>Competitors <span className="muted small">· named in the company’s own 10-K</span></h4><div className="peer-grid">{named.map((c) => card(c, 'named'))}</div></>}
+      {peers.length > 0 && <><h4>Peers <span className="muted small">· same industry (Finnhub)</span></h4><div className="peer-grid">{peers.map((c) => card(c, 'peer'))}</div></>}
+    </div>
+  );
+}
+
 export default function CompanyPage({ sym, mode, onOpen, onChart, onPatterns }: { sym: string; mode: DataMode; onOpen: (s: string) => void; onChart: (s: string) => void; onPatterns: (s: string) => void }) {
   const { names } = useDesk();
   const [trail, setTrail] = useState<string[]>([]);
@@ -80,7 +103,10 @@ export default function CompanyPage({ sym, mode, onOpen, onChart, onPatterns }: 
   const back = () => { const p = trail.at(-1); if (p) { setTrail((t) => t.slice(0, -1)); onOpen(p); } };
   const f = data?.facts;
   const name = data?.name ?? names[sym] ?? sym;
-  const comp: ChainLink[] = [...(f?.competitors ?? []), ...(data?.peers ?? []).filter((p) => !f?.competitors.some((c) => c.sym === p.sym)).map((p) => ({ name: p.name, sym: p.sym, what: 'same-industry peer' }))];
+  const named: ChainLink[] = f?.competitors ?? [];
+  const peerOnly: ChainLink[] = (data?.peers ?? []).filter((p) => p.sym !== sym && !named.some((c) => c.sym === p.sym)).map((p) => ({ name: p.name, sym: p.sym, what: 'same-industry peer' }));
+  const comp: ChainLink[] = [...named, ...peerOnly];
+  const ab = data?.about;
   const pctOf = (s?: string) => { const m = s?.match(/(\d+(\.\d+)?)\s*%/); return m ? +m[1] : null; };
   return (
     <div className="page co-page">
@@ -95,17 +121,23 @@ export default function CompanyPage({ sym, mode, onOpen, onChart, onPatterns }: 
             <button className="btn primary" onClick={() => onChart(sym)}>Open on desk</button>
           </span>
         </div>
-        {loading && <p className="co-pad muted">Reading {sym}’s profile and latest annual report… (first time takes up to ~30 s, then it’s cached)</p>}
+        {loading && <p className="co-pad muted">Loading {sym}…</p>}
+        {data?.pending && <p className="co-pad co-pending small">Reading {sym}’s latest annual report for products, suppliers and customers… the first time takes 20–40 s, then it’s instant.</p>}
         {error && <p className="co-pad down">Couldn’t load {sym}: {error}</p>}
         {data && (
           <div className="co-grid">
             <aside className="co-side">
               <div className="kv co-kv">
-                <span>Industry</span><b>{data.profile?.industry ?? '—'}</b>
-                <span>Exchange</span><b>{data.profile?.exchange ?? '—'}</b>
-                <span>Market cap</span><b className="num">{money(data.profile?.marketCap)}</b>
-                <span>Country</span><b>{data.profile?.country ?? '—'}</b>
-                {data.profile?.web && <><span>Website</span><a href={data.profile.web} target="_blank" rel="noreferrer noopener">{data.profile.web.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '')}</a></>}
+                {(() => {
+                  const web = ab?.web ?? data.profile?.web;
+                  const rows: [string, ReactNode, string?][] = [
+                    ['Sector', ab?.sector], ['Industry', ab?.industry ?? data.profile?.industry], ['Exchange', ab?.exchange ?? data.profile?.exchange],
+                    ['Market cap', (ab?.marketCap ?? data.profile?.marketCap) != null ? money(ab?.marketCap ?? data.profile?.marketCap) : null, ab?.capNote ?? undefined],
+                    ['Headquarters', ab?.hq ?? data.profile?.country], ['Fiscal year ends', ab?.fiscalYearEnd],
+                    ['Website', web ? <a href={web} target="_blank" rel="noreferrer noopener">{web.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '')}</a> : null],
+                  ];
+                  return rows.filter(([, v]) => v != null && v !== '').map(([k, v, t]) => <Fragment key={k}><span>{k}</span><b title={t}>{v}</b></Fragment>);
+                })()}
               </div>
               <h4>What they do</h4>
               <p className="co-sum">{f?.summary || data.wiki?.extract || 'No description available.'}</p>
@@ -128,8 +160,8 @@ export default function CompanyPage({ sym, mode, onOpen, onChart, onPatterns }: 
               <div className="co-lists">
                 <Links title="Suppliers" xs={f?.suppliers ?? []} onOpen={go} />
                 <Links title="Customers" xs={f?.customers ?? []} onOpen={go} />
-                <Links title="Competitors & peers" xs={comp} onOpen={go} />
               </div>
+              <Peers named={named} peers={peerOnly} onOpen={go} />
             </div>
           </div>
         )}

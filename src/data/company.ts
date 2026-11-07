@@ -92,6 +92,9 @@ export interface CompanyData {
   sym: string; name: string; profile: Profile | null; peers: { sym: string; name: string }[];
   filing: { form: string; date: string; url: string } | null; facts: CompanyFacts | null; model: string | null;
   wiki: { title: string; extract: string; url: string } | null; gemini: boolean; errors: Record<string, string>; asOf: number; demo?: boolean;
+  about?: { sector: string | null; industry: string | null; exchange: string | null; hq: string | null; marketCap: number | null; capNote: string | null; web: string | null; fiscalYearEnd: string | null; incorporated: string | null; sic: string | null };
+  /** true while the 10-K is still being read (the quick answer came first) */
+  pending?: boolean;
 }
 const companyCache = new Map<string, CompanyData>();
 
@@ -125,11 +128,24 @@ export function useCompany(sym: string, name: string, mode: DataMode): { data: C
     if (hit) { setSt({ data: hit, loading: false }); return; }
     let stop = false;
     setSt({ data: null, loading: true });
-    fetch(`/api/research?fn=company&symbol=${encodeURIComponent(sym)}`).then(async (r) => {
+    const get = async (quick: boolean) => {
+      const r = await fetch(`/api/research?fn=company&symbol=${encodeURIComponent(sym)}${quick ? '&quick=1' : ''}`);
       const j = await r.json();
-      if (stop) return;
-      if (r.ok) { companyCache.set(sym, j); setSt({ data: j, loading: false }); } else setSt({ data: null, loading: false, error: j.error ?? `HTTP ${r.status}` });
-    }).catch((e) => !stop && setSt({ data: null, loading: false, error: String(e) }));
+      if (!r.ok) throw new Error(j.error ?? `HTTP ${r.status}`);
+      return j as CompanyData;
+    };
+    // quick answer first (profile, SEC facts, peers), then the 10-K read if it isn't cached yet
+    (async () => {
+      try {
+        const q = await get(true);
+        if (stop) return;
+        if (!q.pending) { companyCache.set(sym, q); setSt({ data: q, loading: false }); return; }
+        setSt({ data: q, loading: false });
+        const full = await get(false);
+        if (stop) return;
+        companyCache.set(sym, full); setSt({ data: full, loading: false });
+      } catch (e) { if (!stop) setSt((s) => ({ data: s.data, loading: false, error: (e as Error).message })); }
+    })();
     return () => { stop = true; };
   }, [sym, mode.kind]); // eslint-disable-line react-hooks/exhaustive-deps
   return st;

@@ -688,7 +688,7 @@ html, body { min-width: 900px; }
 .co-bar > div { height: 5px; background: var(--accent); border-radius: 3px; }
 .co-main { overflow-y: auto; padding: 8px 12px 14px; }
 .co-hint { margin: 2px 0 8px; }
-.co-lists { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+.co-lists { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
 .co-links ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; font-size: 12.5px; }
 .co-links .tag { margin-left: 4px; }
 .sc-svg { width: 100%; height: auto; display: block; max-height: 62vh; }
@@ -734,9 +734,17 @@ html, body { min-width: 900px; }
 .home-menu-row button { padding: 7px 10px; text-align: left; border-radius: 4px; }
 .home-menu-row button:first-child { flex: 1; }
 .home-menu-row button:hover { background: var(--sel); color: var(--accent); }
-.home-grid { position: relative; flex: none; overflow: visible; }
-.home-main { overflow-y: auto; }
-.home-empty { position: absolute; inset: 40px 15% auto; text-align: center; border: 1px dashed var(--line-2); border-radius: 8px; padding: 28px 24px; line-height: 1.55; }
+.home-grid { position: relative; flex: none; overflow: visible; cursor: grab; }
+.home-grid:active { cursor: grabbing; }
+.home-grid .hw { cursor: auto; }
+.home-main { overflow: hidden; position: relative; }
+.home-port { flex: 1; min-height: 0; overflow: auto; overscroll-behavior: contain; }
+.home-screen-edge { position: absolute; top: 0; bottom: 0; width: 0; border-left: 1px dashed color-mix(in srgb, var(--line-2) 60%, transparent); pointer-events: none; }
+.home-mm { position: absolute; right: 14px; bottom: 14px; z-index: 6; background: color-mix(in srgb, var(--panel) 92%, transparent); border: 1px solid var(--line-2); border-radius: 5px; overflow: hidden; cursor: pointer; box-shadow: var(--shadow); }
+.home-mm-w { position: absolute; background: color-mix(in srgb, var(--accent) 45%, transparent); border-radius: 1px; }
+.home-mm-v { position: absolute; border: 1.5px solid var(--text); border-radius: 2px; pointer-events: none; }
+.home-mm-home { position: absolute; right: 2px; top: 2px; font-size: 11px; line-height: 1; padding: 2px 4px; background: var(--panel); border: 1px solid var(--line-2); border-radius: 3px; }
+.home-empty { position: absolute; top: 40px; left: 40px; width: min(640px, 60vw); text-align: center; border: 1px dashed var(--line-2); border-radius: 8px; padding: 28px 24px; line-height: 1.55; }
 .home-empty p { margin: 4px 0; }
 .hw { position: absolute; display: flex; flex-direction: column; overflow: hidden; transition: left .12s, top .12s, width .12s, height .12s; }
 .hw.dragging { transition: none; z-index: 5; box-shadow: var(--shadow); border-color: var(--accent); opacity: .96; }
@@ -1055,3 +1063,19 @@ html, body { min-width: 900px; }
 .cg-who { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tag.p-D { color: #4e9af1; border-color: color-mix(in srgb, #4e9af1 40%, transparent); }
 .tag.p-R { color: #e0645c; border-color: color-mix(in srgb, #e0645c 40%, transparent); }
+
+/* ---------- company page: competitors & peers ---------- */
+.peers { margin-top: 14px; }
+.peers h4 { margin: 12px 0 6px; }
+.peer-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 6px; }
+.peer { border: 1px solid var(--line-2); border-radius: 6px; padding: 7px 9px; background: var(--panel); display: grid; gap: 2px; min-width: 0; }
+.peer.link { cursor: pointer; }
+.peer.link:hover { border-color: var(--accent); }
+.peer.nolink { opacity: .7; }
+.peer-h { display: flex; align-items: center; justify-content: space-between; }
+.peer-sym { font: 600 13px 'IBM Plex Mono', monospace; color: var(--accent); }
+.peer-i { width: 18px; height: 18px; border-radius: 50%; border: 1px solid var(--line-2); font: italic 600 11px Georgia, serif; color: var(--muted); }
+.peer-i:hover { color: var(--accent); border-color: var(--accent); }
+.peer-n { font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.peer-s { font-size: 11px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.co-pending { color: var(--accent); }

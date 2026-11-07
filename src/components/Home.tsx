@@ -2,7 +2,7 @@
 // favorites), workspace tabs along the bottom (add, rename, close), and Undo / Redo / Save point / Restore / Clear.
 // Drag a widget by its title bar, resize from its corner, pin it in place, or send it to the scrollable side bar (⇥).
 import { useCallback, useEffect, useRef, useState, type FormEvent, type PointerEvent as RPE } from 'react';
-import { COLS, DEFAULT_SIZE, addTop, settle, type Widget, type WidgetType } from '../lib/grid';
+import { CANVAS_COLS, COLS, DEFAULT_SIZE, addTop, settle, type Widget, type WidgetType } from '../lib/grid';
 import { WIDGETS, type HomeData } from './HomeWidgets';
 import { useDesk } from '../lib/deskctx';
 import { usePersisted } from '../lib/store';
@@ -39,14 +39,22 @@ export default function Home({ spaces, setSpaces, d, tickers }: { spaces: Worksp
   const [drag, setDrag] = useState<Drag | null>(null);
   const [renaming, setRenaming] = useState<string | null>(null);
   const area = useRef<HTMLDivElement>(null);
+  const port = useRef<HTMLDivElement>(null); // the scrolling window onto the canvas
   const [width, setWidth] = useState(900);
+  const [vh, setVh] = useState(600);
+  const [scroll, setScroll] = useState({ x: 0, y: 0 });
   useEffect(() => {
-    if (!area.current) return;
-    const ro = new ResizeObserver(([e]) => setWidth(e.contentRect.width));
-    ro.observe(area.current);
+    if (!port.current) return;
+    const ro = new ResizeObserver(([e]) => { setWidth(e.contentRect.width); setVh(e.contentRect.height); });
+    ro.observe(port.current);
     return () => ro.disconnect();
   }, []);
-  const colW = (width - GAP * (COLS - 1)) / COLS;
+  // one screen = 12 columns; the canvas is CANVAS_COLS wide and you scroll / drag around it
+  const colW = Math.max(40, (width - GAP * (COLS - 1)) / COLS);
+  const viewCol = () => Math.round((port.current?.scrollLeft ?? 0) / (colW + GAP));
+  const viewRow = () => Math.floor((port.current?.scrollTop ?? 0) / (ROW + GAP));
+  const pan = useRef<{ x: number; y: number; sl: number; st: number } | null>(null);
+  const panTo = (x: number, y: number, smooth = true) => port.current?.scrollTo({ left: x, top: y, behavior: smooth ? 'smooth' : 'auto' });
 
   /* ---------- layout state + undo / redo (per workspace, this session) ---------- */
   const hist = useRef<Record<string, { u: HomeLayout[]; r: HomeLayout[] }>>({});
@@ -58,7 +66,15 @@ export default function Home({ spaces, setSpaces, d, tickers }: { spaces: Worksp
   const redo = () => { const n = h().r.pop(); if (n) { h().u.push(layout); setLayout(() => n); bump((x) => x + 1); } };
   useEffect(() => {
     const k = (e: KeyboardEvent) => {
-      if (!(e.metaKey || e.ctrlKey) || (e.target as HTMLElement)?.closest?.('input, textarea, select')) return;
+      if ((e.target as HTMLElement)?.closest?.('input, textarea, select')) return;
+      // Shift + arrows: move the view one screen across the canvas
+      if (e.shiftKey && !e.metaKey && !e.ctrlKey && !e.altKey && e.key.startsWith('Arrow') && port.current) {
+        e.preventDefault();
+        const p = port.current, dx = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0, dy = e.key === 'ArrowDown' ? 1 : e.key === 'ArrowUp' ? -1 : 0;
+        panTo(p.scrollLeft + dx * p.clientWidth, p.scrollTop + dy * p.clientHeight * 0.8);
+        return;
+      }
+      if (!(e.metaKey || e.ctrlKey)) return;
       if (e.key.toLowerCase() === 'z' && !e.shiftKey) { e.preventDefault(); undo(); }
       else if ((e.key.toLowerCase() === 'z' && e.shiftKey) || e.key.toLowerCase() === 'y') { e.preventDefault(); redo(); }
     };
@@ -82,7 +98,7 @@ export default function Home({ spaces, setSpaces, d, tickers }: { spaces: Worksp
   const add = (type: WidgetType, cfg: Record<string, any> = {}, to: 'main' | 'side' = 'main') => {
     const s = DEFAULT_SIZE[type];
     const w: Widget = { id: uid(), type, x: 0, y: 0, w: s.w, h: to === 'side' ? s.side : s.h, cfg };
-    commit((l) => (to === 'side' ? { ...l, side: [w, ...l.side] } : { ...l, main: addTop(l.main, w) }));
+    commit((l) => (to === 'side' ? { ...l, side: [w, ...l.side] } : { ...l, main: addTop(l.main, w, viewCol(), viewRow()) }));
   };
   const search = (e: FormEvent) => {
     e.preventDefault();
@@ -95,7 +111,7 @@ export default function Home({ spaces, setSpaces, d, tickers }: { spaces: Worksp
   const setCfg = (id: string, cfg: Record<string, any>) => setLayout((l) => ({ main: l.main.map((w) => (w.id === id ? { ...w, cfg } : w)), side: l.side.map((w) => (w.id === id ? { ...w, cfg } : w)) }));
   const togglePin = (id: string) => commit((l) => ({ ...l, main: settle(l.main.map((w) => (w.id === id ? { ...w, pinned: !w.pinned } : w))) }));
   const toSide = (id: string) => commit((l) => { const w = l.main.find((x) => x.id === id)!; return { main: settle(l.main.filter((x) => x.id !== id)), side: [...l.side, { ...w, pinned: false, h: DEFAULT_SIZE[w.type].side }] }; });
-  const toMain = (id: string) => commit((l) => { const w = l.side.find((x) => x.id === id)!; return { main: addTop(l.main, { ...w, w: DEFAULT_SIZE[w.type].w, h: DEFAULT_SIZE[w.type].h }), side: l.side.filter((x) => x.id !== id) }; });
+  const toMain = (id: string) => commit((l) => { const w = l.side.find((x) => x.id === id)!; return { main: addTop(l.main, { ...w, w: DEFAULT_SIZE[w.type].w, h: DEFAULT_SIZE[w.type].h }, viewCol(), viewRow()), side: l.side.filter((x) => x.id !== id) }; });
   const moveSide = (id: string, dir: -1 | 1) => commit((l) => { const i = l.side.findIndex((x) => x.id === id), j = i + dir; if (j < 0 || j >= l.side.length) return l; const s = [...l.side]; [s[i], s[j]] = [s[j], s[i]]; return { ...l, side: s }; });
 
   // drag / resize with pointer capture; layout settles live so you see where it will land
@@ -114,7 +130,7 @@ export default function Home({ spaces, setSpaces, d, tickers }: { spaces: Worksp
       return;
     }
     const cx = Math.round(dx / (colW + GAP)), cy = Math.round(dy / (ROW + GAP));
-    const next = drag.kind === 'move' ? { ...s, x: s.x + cx, y: Math.max(0, s.y + cy) } : { ...s, w: Math.max(2, Math.min(COLS - s.x, s.w + cx)), h: Math.max(3, s.h + cy) };
+    const next = drag.kind === 'move' ? { ...s, x: s.x + cx, y: Math.max(0, s.y + cy) } : { ...s, w: Math.max(2, Math.min(COLS, CANVAS_COLS - s.x, s.w + cx)), h: Math.max(3, s.h + cy) };
     setLayout((l) => {
       const cur = l.main.find((w) => w.id === s.id);
       if (cur && cur.x === next.x && cur.y === next.y && cur.w === next.w && cur.h === next.h) return l;
@@ -140,7 +156,23 @@ export default function Home({ spaces, setSpaces, d, tickers }: { spaces: Worksp
       </>
     );
   };
-  const height = Math.max(0, ...layout.main.map((w) => w.y + w.h)) * (ROW + GAP) + 120;
+  // the canvas always reaches at least two screens below the lowest widget, so there is room to put things further down
+  const bottomRows = Math.max(0, ...layout.main.map((w) => w.y + w.h));
+  const height = Math.max(bottomRows * (ROW + GAP) + vh * 2, vh * 3);
+  const canvasW = CANVAS_COLS * (colW + GAP) - GAP;
+  const panDown = (e: RPE) => {
+    if (e.target !== e.currentTarget || !port.current) return; // only empty canvas pans
+    e.preventDefault();
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    pan.current = { x: e.clientX, y: e.clientY, sl: port.current.scrollLeft, st: port.current.scrollTop };
+  };
+  const panMove = (e: RPE) => {
+    if (pan.current && port.current) { port.current.scrollLeft = pan.current.sl - (e.clientX - pan.current.x); port.current.scrollTop = pan.current.st - (e.clientY - pan.current.y); return; }
+    move(e);
+  };
+  const panUp = () => { if (pan.current) { pan.current = null; return; } up(); };
+  // minimap: whole canvas scaled into a small box; click to jump there
+  const MM_W = 168, mmScale = MM_W / canvasW, MM_H = Math.min(110, Math.max(46, height * mmScale));
   const lq = libQ.trim().toLowerCase();
   const libItem = (t: WidgetType, blurb: string) => (
     <div key={t} className="lib-item">
@@ -174,7 +206,9 @@ export default function Home({ spaces, setSpaces, d, tickers }: { spaces: Worksp
             <button className="btn primary" type="submit">Add</button>
           </form>
         </div>
-        <div className="home-grid" ref={area} style={{ height }} onPointerMove={move} onPointerUp={up}>
+        <div className="home-port" ref={port} onScroll={(e) => setScroll({ x: e.currentTarget.scrollLeft, y: e.currentTarget.scrollTop })}>
+        <div className="home-grid" ref={area} style={{ height, width: canvasW }} onPointerDown={panDown} onPointerMove={panMove} onPointerUp={panUp}>
+          {Array.from({ length: CANVAS_COLS / COLS - 1 }, (_, i) => <div key={i} className="home-screen-edge" style={{ left: (i + 1) * COLS * (colW + GAP) - GAP / 2 }} />)}
           {!layout.main.length && (
             <div className="home-empty">
               <p><b>{ws.name} is blank.</b> Make it yours.</p>
@@ -187,6 +221,13 @@ export default function Home({ spaces, setSpaces, d, tickers }: { spaces: Worksp
               {!w.pinned && <div className="hw-size" onPointerDown={(e) => down(e, w, 'size', 'main')} onPointerMove={move} onPointerUp={up} title="Drag to resize" aria-hidden="true" />}
             </section>
           ))}
+        </div>
+        </div>
+        <div className="home-mm" title="Map of this workspace. Click to jump; drag empty space or use Shift + arrows to move around." style={{ width: MM_W, height: MM_H }}
+          onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); panTo((e.clientX - r.left) / mmScale - width / 2, (e.clientY - r.top) / mmScale - vh / 2); }}>
+          {layout.main.map((w) => <i key={w.id} className="home-mm-w" style={{ left: w.x * (colW + GAP) * mmScale, top: w.y * (ROW + GAP) * mmScale, width: Math.max(2, (w.w * colW + (w.w - 1) * GAP) * mmScale), height: Math.max(2, (w.h * ROW + (w.h - 1) * GAP) * mmScale) }} />)}
+          <b className="home-mm-v" style={{ left: scroll.x * mmScale, top: scroll.y * mmScale, width: width * mmScale, height: vh * mmScale }} />
+          {(scroll.x > 4 || scroll.y > 4) && <button className="home-mm-home" onClick={(e) => { e.stopPropagation(); panTo(0, 0); }} title="Back to the top-left">⌂</button>}
         </div>
       </div>
       <aside className="home-side" aria-label="Side bar">
