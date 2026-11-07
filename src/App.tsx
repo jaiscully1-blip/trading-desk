@@ -1,11 +1,11 @@
 import { Suspense, lazy, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { Board, Freshness, Layout, Mode, OrMinutes, Overlay, Quote, RightTab, TF } from './types';
-import { clock, et, etTime, hms, modeLabel } from './lib/clock';
-import { DEMO_ALERTS, DEMO_AT, INDEXES, defaultBoards, makeHeadlines, makeQuotes } from './lib/demo';
+import { clock, et, modeLabel } from './lib/clock';
+import { DEMO_AT, INDEXES, defaultBoards, makeHeadlines, makeQuotes } from './lib/demo';
 import type { ReactNode } from 'react';
 import { DEFAULT_LAYOUTS } from './lib/layout';
 import { usePersisted } from './lib/store';
-import { pct, px, tone } from './lib/format';
+import { px } from './lib/format';
 import { computeLevels, detectLevelEvents, LEVEL_SHORT, type LevelEvent } from './lib/levels';
 import { encodeInstant } from '../shared/parse';
 import { patchWithQuote, useDataMode, useMacro, useQuotes, useSeries, type SeriesState } from './data/live';
@@ -37,7 +37,8 @@ import { cloudConfigured, signIn, signOut, useCloudItems, useCloudSync, useCloud
 import { DEFAULT_THRESHOLDS, liveRow, rankRs, type ScanRow } from '../shared/scan';
 import { DEFAULT_PLAYBOOKS, gradeRow, type GradeResult, type Playbook, type SavedFilter } from './lib/playbook';
 import { CommandBar, NewsTicker, OverlayView, type Cmd } from './components/Bits';
-import { Fresh, Seg, popout } from './components/common';
+import { SideNav, type Page } from './components/SideNav';
+import { popout } from './components/common';
 
 const DEMO_QUOTES = makeQuotes();
 const HEADLINES = makeHeadlines(Object.keys(DEMO_QUOTES).filter((s) => !INDEXES.includes(s)));
@@ -56,17 +57,6 @@ function useNow(ms = 1000) {
     return () => clearInterval(id);
   }, [ms]);
   return n;
-}
-
-function useMedia(q: string) {
-  const [m, setM] = useState(() => matchMedia(q).matches);
-  useEffect(() => {
-    const mq = matchMedia(q);
-    const on = () => setM(mq.matches);
-    mq.addEventListener('change', on);
-    return () => mq.removeEventListener('change', on);
-  }, [q]);
-  return m;
 }
 
 const typing = (t: EventTarget | null) =>
@@ -96,11 +86,12 @@ function worst(...f: Freshness[]): Freshness {
 export default function App() {
   const now = useNow();
   const clk = useMemo(() => clock(now), [now]);
-  const isMobile = useMedia('(max-width: 760px)');
   const dataMode = useDataMode();
   const live = dataMode.kind === 'live';
 
-  const [theme, setTheme] = usePersisted<'light' | 'dark'>('theme', 'light');
+  // Terminal (dark) is the default look; T switches to the light "paper" theme
+  const [theme, setTheme] = usePersisted<'light' | 'dark'>('themeV2', 'dark');
+  const [page, setPage] = usePersisted<Page>('page', 'desk');
   useLayoutEffect(() => { document.documentElement.dataset.theme = theme; }, [theme]);
   const toggleTheme = useCallback(() => setTheme((t) => (t === 'dark' ? 'light' : 'dark')), [setTheme]);
 
@@ -127,7 +118,6 @@ export default function App() {
   const [scanList, setScanList] = usePersisted<string[]>('scanList', DEFAULT_SCAN_LIST);
   const [scanPrefs, setScanPrefs] = usePersisted<{ playbookId: string; includeMovers: boolean }>('scanPrefs', { playbookId: DEFAULT_PLAYBOOKS[0].id, includeMovers: false });
   const [pbOpen, setPbOpen] = useState(false);
-  const [jnOpen, setJnOpen] = useState(false);
   const [ciOpen, setCiOpen] = useState(false);
   // Journal lives in IndexedDB (screenshots); account rules are small and live with the other settings
   const [trades, setTrades, jLoaded] = useIdbState<Trade[]>('journal', []);
@@ -143,7 +133,7 @@ export default function App() {
   const [watchOnly, setWatchOnly] = usePersisted('tickerWatchOnly', false);
   const [orMin, setOrMin] = usePersisted<OrMinutes>('orMinutes', 15);
   const [alertsOn, setAlertsOn] = usePersisted<Record<string, boolean>>('alertsOn', { SPY: true, QQQ: true });
-  const [alertLog, setAlertLog] = usePersisted<AlertItem[]>('alertLog', []);
+  const [, setAlertLog] = usePersisted<AlertItem[]>('alertLog', []);
   const [toast, setToast] = useState('');
   const toastT = useRef<ReturnType<typeof setTimeout>>(undefined);
   const flash = useCallback((m: string, ms = 2200) => { setToast(m); clearTimeout(toastT.current); toastT.current = setTimeout(() => setToast(''), ms); }, []);
@@ -187,8 +177,8 @@ export default function App() {
   const scan = useScan(universe, dataMode, (s) => DEMO_QUOTES[s]?.last ?? 100);
   const macro = useMacro(dataMode);
   const market = useMarketStatus(dataMode);
-  const worldData = useWorld(dataMode, overlay === 'map');
-  const flowsData = useFlows(dataMode, overlay === 'globe');
+  const worldData = useWorld(dataMode, page === 'map');
+  const flowsData = useFlows(dataMode, page === 'flows');
   // Market-clock mode: tell me when the layout switched itself
   const prevMode = useRef<Mode | null>(null);
   useEffect(() => {
@@ -378,7 +368,7 @@ export default function App() {
 
   const commands: Cmd[] = [
     { id: 'gappers', label: 'Scanner: gappers ≥3%', run: () => { setFilterId('gappers'); setTab('scanner'); } },
-    { id: 'scanner', label: 'Open scanner', hint: 'S', run: () => setTab('scanner') },
+    { id: 'scanner', label: 'Scanner page', hint: 'S', run: () => setPage('scanner') }, { id: 'desk', label: 'Desk page', hint: 'D', run: () => setPage('desk') },
     { id: 'rvol', label: 'Scanner: relative volume ≥2', run: () => { setFilterId('rvol'); setTab('scanner'); } },
     { id: 'breakouts', label: 'Scanner: 20/50-day breakouts', run: () => { setFilterId('brk'); setTab('scanner'); } },
     { id: 'highs', label: 'Scanner: 52-week highs', run: () => { setFilterId('hi52'); setTab('scanner'); } },
@@ -395,13 +385,13 @@ export default function App() {
     { id: 'or30', label: 'Opening range: 30 minutes', run: () => setOrMin(30) },
     { id: 'alerts', label: `Toggle level alerts for ${sel}`, run: () => toggleAlerts(sel) },
     { id: 'news', label: 'Open news', hint: 'N', run: () => setTab('news') },
-    { id: 'calendar', label: 'Calendars: economic, Fed, earnings, IPOs', hint: 'C', run: () => setTab('calendar') },
-    { id: 'fed', label: 'Fed meeting countdown and rate odds', run: () => setTab('calendar') },
-    { id: 'earnings', label: 'Earnings calendar', run: () => setTab('calendar') },
+    { id: 'calendar', label: 'Calendars page: economic, Fed, earnings, IPOs', hint: 'C', run: () => setPage('calendar') },
+    { id: 'fed', label: 'Fed meeting countdown and rate odds', run: () => setPage('calendar') },
+    { id: 'earnings', label: 'Earnings calendar', run: () => setPage('calendar') },
     { id: 'fear', label: 'Show/hide fear strip', hint: 'F', run: () => setLayout({ fearOpen: layout.fearOpen === false }) },
-    { id: 'journal', label: 'Open full journal (trades, stats, violations, import)', hint: 'Shift J', run: () => setJnOpen(true) },
+    { id: 'journal', label: 'Journal page (trades, stats, violations, import)', hint: 'Shift J', run: () => setPage('journal') },
     { id: 'ticket', label: 'Quick journal / trade ticket', hint: 'Q', run: () => setTab('journal') },
-    { id: 'import', label: 'Import broker CSV', run: () => setJnOpen(true) },
+    { id: 'import', label: 'Import broker CSV', run: () => setPage('journal') },
     { id: 'checkin', label: 'Pre-session check-in', run: () => setCiOpen(true) },
     { id: 'recap', label: 'Daily recap (today so far, and past days)', run: openRecap },
     { id: 'replay', label: 'Replay my last trade with ghost exit', run: () => { const last = [...views].filter((v) => v.openedAt != null).sort((a, b) => b.openedAt! - a.openedAt!)[0]; if (last) setReplayId(last.t.id); else flash('No trades to replay yet'); } },
@@ -409,8 +399,8 @@ export default function App() {
     { id: 'auto-backup', label: `Auto CSV backup at the close: ${autoBackup ? 'on (turn off)' : 'off (turn on)'}`, run: () => setAutoBackup(!autoBackup) },
     { id: 'risk', label: 'Open risk / position size', hint: 'R', run: () => setTab('risk') },
     { id: 'account', label: 'Open account drawer', hint: 'A', run: () => setDrawer(true) },
-    { id: 'map', label: 'World map overlay', hint: 'M', run: () => setOverlay('map') },
-    { id: 'globe', label: 'Money flow globe overlay', hint: 'G', run: () => setOverlay('globe') },
+    { id: 'map', label: 'World map page', hint: 'M', run: () => setPage('map') },
+    { id: 'globe', label: 'Money flow globe page', hint: 'G', run: () => setPage('flows') },
     { id: 'd', label: 'Chart: daily', hint: '1', run: () => setTf('D') },
     { id: '1h', label: 'Chart: 1-hour', hint: '2', run: () => setTf('1H') },
     { id: '5m', label: 'Chart: 5-minute', hint: '3', run: () => setTf('5m') },
@@ -430,19 +420,18 @@ export default function App() {
   useEffect(() => {
     const h = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); setCmdOpen((o) => !o); return; }
-      if (e.key === 'Escape') { if (replayId) { setReplayId(null); return; } setCmdOpen(false); setOverlay(null); setDrawer(false); setPbOpen(false); setSyncOpen(false); setJnOpen(false); setCiOpen(false); setRecapOpen(false); return; }
-      if (cmdOpen || pbOpen || syncOpen || jnOpen || ciOpen || replayId || recapOpen || typing(e.target) || e.ctrlKey || e.metaKey || e.altKey) return;
+      if (e.key === 'Escape') { if (replayId) { setReplayId(null); return; } setCmdOpen(false); setOverlay(null); setDrawer(false); setPbOpen(false); setSyncOpen(false); setCiOpen(false); setRecapOpen(false); return; }
+      if (cmdOpen || pbOpen || syncOpen || ciOpen || replayId || recapOpen || typing(e.target) || e.ctrlKey || e.metaKey || e.altKey) return;
       const map: Record<string, () => void> = {
-        m: () => setOverlay((o) => (o === 'map' ? null : 'map')),
-        g: () => setOverlay((o) => (o === 'globe' ? null : 'globe')),
+        d: () => setPage('desk'), s: () => setPage('scanner'), m: () => setPage('map'), g: () => setPage('flows'), c: () => setPage('calendar'),
         '?': () => setOverlay((o) => (o === 'help' ? null : 'help')),
         t: toggleTheme,
         a: () => setDrawer((d) => !d),
         l: () => setLayout({ levelsOpen: !layout.levelsOpen }),
         p: () => setPbOpen(true),
-        J: () => setJnOpen(true),
+        J: () => setPage('journal'),
         '1': () => setTf('D'), '2': () => setTf('1H'), '3': () => setTf('5m'),
-        n: () => setTab('news'), s: () => setTab('scanner'), q: () => setTab('journal'), r: () => setTab('risk'), c: () => setTab('calendar'),
+        n: () => { setPage('desk'); setTab('news'); }, q: () => { setPage('desk'); setTab('journal'); }, r: () => { setPage('desk'); setTab('risk'); },
         f: () => setLayout({ fearOpen: layout.fearOpen === false }),
         '[': () => setLayout({ leftOpen: !layout.leftOpen }),
         ']': () => setLayout({ rightOpen: !layout.rightOpen }),
@@ -490,7 +479,7 @@ export default function App() {
     <div className="qj2">
       <TradeTicket sym={sel} last={q.last} playbook={activePb} grade={grades[sel]} guard={g} settings={settings} checkin={checkin} onCheckIn={() => setCiOpen(true)} onLog={logTrade} now={now} demoPrices={!live} />
       <OpenPositions views={views} lastPx={lastPx} onClose={closeTrade} onStop={moveStop} onSelect={setSel} />
-      <div className="fb-row qj-foot"><button className="btn" onClick={() => setJnOpen(true)}>Open journal</button><span className="muted small">Shift+J · stats, violations, CSV import</span></div>
+      <div className="fb-row qj-foot"><button className="btn" onClick={() => setPage('journal')}>Open journal</button><span className="muted small">Shift+J · stats, violations, CSV import</span></div>
     </div>
   );
   const riskSlot = <RiskPanel guard={g} settings={settings} setSettings={setSettings} checkin={checkin} onCheckIn={() => setCiOpen(true)} violations={viols} now={now} last={Number.isFinite(q.last) ? q.last : undefined} />;
@@ -527,26 +516,28 @@ export default function App() {
     );
   }
 
-  /* ---------- Mobile companion ---------- */
-  if (isMobile) return (
-    <>
-      <Mobile clk={clk} quotes={quotes} wlProps={wlProps} live={live} alertLog={alertLog} journal={journalSlot} />
-      {ciOpen && <CheckInDialog day={today} existing={checkin} onClose={() => setCiOpen(false)} onSave={(c) => { setCheckins((x) => [...x.filter((y) => y.day !== c.day), c]); setCiOpen(false); }} />}
-    </>
-  );
-
-  /* ---------- Desk ---------- */
+  /* ---------- Desk: side menu + pages (laptop) ---------- */
   const cols3 = `${layout.leftOpen ? `${layout.left}px 5px` : '0 0'} minmax(0,1fr) ${layout.rightOpen ? `5px ${layout.right}px` : '0 0'}`;
-  return (
-    <div className={`app ${layout.tickerOpen ? '' : 'no-ticker'} ${layout.fearOpen !== false ? 'has-fear' : ''}`}>
-      <TopStrip
-        quotes={quotes} clk={clk} mode={mode} override={override} onOverride={setOverride} onSelect={setSel}
-        onAccount={() => setDrawer((d) => !d)} accountOpen={drawer} theme={theme} onTheme={toggleTheme} onCmd={() => setCmdOpen(true)}
-        account={{ guard: g, settings, demo: views.some((v) => v.t.demo), demoPrices }}
-        marketSource={market?.status?.source}
-        quoteFresh={quoteFresh} quoteAsOf={live ? qs?.asOf : DEMO_AT} quoteSource={live ? qs?.source : 'Generated sample quotes'} macro={macro} live={live}
-      />
-      {layout.fearOpen !== false && <FearStrip macro={macro} quotes={quotes} live={live} />}
+  const toDesk = (s: string) => { setSel(s); setPage('desk'); };
+  let body: ReactNode;
+  if (page === 'scanner') {
+    body = <div className="page page-split"><section className="panel rr"><div className="rr-body">{scanner}</div></section><div className="center">{chart()}</div></div>;
+  } else if (page === 'calendar') {
+    body = <div className="page page-split"><section className="panel cal-page"><Calendars cal={cal} now={now} onSelect={setSel} mySyms={new Set(wlSyms)} /></section><div className="center">{chart()}</div></div>;
+  } else if (page === 'journal') {
+    body = <div className="page"><JournalOverlay views={views} setTrades={setTrades} transfers={transfers} setTransfers={setTransfers} violations={viols} lastPx={lastPx} settings={settings} onClose={() => setPage('desk')} onSelect={toDesk} onReplay={setReplayId} canSample={!live} /></div>;
+  } else if (page === 'map' || page === 'flows') {
+    body = (
+      <div className="page">
+        <Suspense fallback={<section className="panel"><div className="ph-body">Loading…</div></section>}>
+          {page === 'map'
+            ? <WorldMap data={worldData} symbols={[...new Set([...INDEXES, ...wlSyms, ...universe])]} names={Object.fromEntries(Object.values(quotes).map((x) => [x.sym, x.name]))} onSelect={toDesk} onClose={() => setPage('desk')} />
+            : <MoneyGlobe data={flowsData} theme={theme} onSelect={toDesk} onClose={() => setPage('desk')} />}
+        </Suspense>
+      </div>
+    );
+  } else {
+    body = (
       <main className="main" style={{ gridTemplateColumns: cols3 }}>
         <div className="rail-slot">{layout.leftOpen && <Watchlist {...wlProps} onPopout={() => popout('watchlist', sel)} />}</div>
         <div className={`gutter ${layout.leftOpen ? '' : 'hidden'}`} onPointerDown={drag('left')} title="Drag to resize · [ to hide" />
@@ -557,69 +548,45 @@ export default function App() {
         <div className={`gutter ${layout.rightOpen ? '' : 'hidden'}`} onPointerDown={drag('right')} title="Drag to resize · ] to hide" />
         <div className="rail-slot">{layout.rightOpen && <RightRail {...rightProps} onPopout={() => popout('right', sel)} />}</div>
       </main>
-      {layout.tickerOpen && <NewsTicker headlines={news.items} fresh={news.freshness} asOf={news.asOf} boards={boards} watchOnly={watchOnly} setWatchOnly={setWatchOnly} onSelect={setSel} />}
+    );
+  }
+  return (
+    <div className="shell">
+      <SideNav page={page} onPage={setPage} onCmd={() => setCmdOpen(true)} onHelp={() => setOverlay('help')} onAccount={() => setDrawer((d) => !d)} />
+      <div className={`app ${layout.tickerOpen ? '' : 'no-ticker'} ${layout.fearOpen !== false ? 'has-fear' : ''}`}>
+        <TopStrip
+          quotes={quotes} clk={clk} mode={mode} override={override} onOverride={setOverride} onSelect={setSel}
+          onAccount={() => setDrawer((d) => !d)} accountOpen={drawer} theme={theme} onTheme={toggleTheme} onCmd={() => setCmdOpen(true)}
+          account={{ guard: g, settings, demo: views.some((v) => v.t.demo), demoPrices }}
+          marketSource={market?.status?.source}
+          quoteFresh={quoteFresh} quoteAsOf={live ? qs?.asOf : DEMO_AT} quoteSource={live ? qs?.source : 'Generated sample quotes'} macro={macro} live={live}
+        />
+        {layout.fearOpen !== false && <FearStrip macro={macro} quotes={quotes} live={live} />}
+        {body}
+        {layout.tickerOpen && <NewsTicker headlines={news.items} fresh={news.freshness} asOf={news.asOf} boards={boards} watchOnly={watchOnly} setWatchOnly={setWatchOnly} onSelect={setSel} />}
 
-      <div className="statusbar">
-        <span>Layout: <b>{modeLabel(mode)}</b>{override ? ' (manual)' : ' (auto)'}, changes save to this mode</span>
-        <span className={live ? '' : 'demo-txt'}>{dataLine}</span>
-        <button className="sync-btn" onClick={() => setSyncOpen(true)} title={cloudConfigured ? 'Supabase sync' : 'Sync not configured'}>
-          {cloudConfigured ? (cloudUser ? `Synced · ${cloudUser.email}` : 'Sync: sign in') : 'Saved in this browser'}
-        </button>
-        <span className="muted">Press <kbd className="kbd">?</kbd> for shortcuts</span>
+        <div className="statusbar">
+          <span>Layout: <b>{modeLabel(mode)}</b>{override ? ' (manual)' : ' (auto)'}, changes save to this mode</span>
+          <span className={live ? '' : 'demo-txt'}>{dataLine}</span>
+          <button className="sync-btn" onClick={() => setSyncOpen(true)} title={cloudConfigured ? 'Supabase sync' : 'Sync not configured'}>
+            {cloudConfigured ? (cloudUser ? `Synced · ${cloudUser.email}` : 'Sync: sign in') : 'Saved in this browser'}
+          </button>
+          <span className="muted">Press <kbd className="kbd">?</kbd> for shortcuts</span>
+        </div>
       </div>
 
       <CommandBar
         open={cmdOpen} onClose={() => setCmdOpen(false)} commands={commands} tickers={tickers} onTicker={setSel}
         allowAny={live ? (s) => SYMBOL_RE.test(s) : undefined}
       />
-      <AccountDrawer open={drawer} onClose={() => setDrawer(false)} theme={theme} views={views} transfers={liveTransfers} settings={settings} setSettings={setSettings} guard={g} onImport={() => { setDrawer(false); setJnOpen(true); }} />
-      {jnOpen && <JournalOverlay views={views} setTrades={setTrades} transfers={transfers} setTransfers={setTransfers} violations={viols} lastPx={lastPx} settings={settings} onClose={() => setJnOpen(false)} onSelect={(s) => { setSel(s); setJnOpen(false); }} onReplay={setReplayId} canSample={!live} />}
+      <AccountDrawer open={drawer} onClose={() => setDrawer(false)} theme={theme} views={views} transfers={liveTransfers} settings={settings} setSettings={setSettings} guard={g} onImport={() => { setDrawer(false); setPage('journal'); }} />
       {recapOpen !== false && <RecapOverlay recaps={recaps} initialDay={recapOpen || undefined} onClose={() => setRecapOpen(false)} onReplay={setReplayId} csvFor={csvFor} />}
       {replayView && <ReplayOverlay v={replayView} live={live} theme={theme} rules={exitRules} setRules={setExitRules} onClose={() => setReplayId(null)} />}
       {ciOpen && <CheckInDialog day={today} existing={checkin} onClose={() => setCiOpen(false)} onSave={(c) => { setCheckins((x) => [...x.filter((y) => y.day !== c.day), c]); setCiOpen(false); }} />}
       {pbOpen && <PlaybookEditor playbooks={playbooks} setPlaybooks={setPlaybooks} activeId={activePb?.id ?? ''} setActiveId={(id) => setScanPrefs((x) => ({ ...x, playbookId: id }))} rows={rows} vwap={vwapBy} onClose={() => setPbOpen(false)} />}
       {syncOpen && <SyncDialog user={cloudUser?.email ?? null} onClose={() => setSyncOpen(false)} />}
       {overlay === 'help' && <OverlayView kind="help" onClose={() => setOverlay(null)} />}
-      <Suspense fallback={overlay === 'map' || overlay === 'globe' ? <div className="overlay"><div className="overlay-in"><div className="ph-body">Loading…</div></div></div> : null}>
-        {overlay === 'map' && <WorldMap data={worldData} symbols={[...new Set([...INDEXES, ...wlSyms, ...universe])]} names={Object.fromEntries(Object.values(quotes).map((x) => [x.sym, x.name]))} onSelect={(s) => { setSel(s); setOverlay(null); }} onClose={() => setOverlay(null)} />}
-        {overlay === 'globe' && <MoneyGlobe data={flowsData} theme={theme} onSelect={(s) => { setSel(s); setOverlay(null); }} onClose={() => setOverlay(null)} />}
-      </Suspense>
       {toast && <div className="toast" role="status">{toast}</div>}
-    </div>
-  );
-}
-
-function Mobile({ clk, quotes, wlProps, live, alertLog, journal }: {
-  clk: ReturnType<typeof clock>; quotes: Record<string, Quote>; wlProps: Parameters<typeof Watchlist>[0];
-  live: boolean; alertLog: AlertItem[]; journal: ReactNode;
-}) {
-  const [tab, setTab] = useState<'watch' | 'alerts' | 'journal'>('watch');
-  const alerts = live ? alertLog : DEMO_ALERTS.map((a) => ({ ...a, sym: '' }));
-  return (
-    <div className="mobile">
-      <header className="m-top">
-        <span className="brand">DESK</span>
-        {INDEXES.map((s) => (
-          <span key={s} className="m-idx"><b>{s}</b> <span className="num">{px(quotes[s].last)}</span> <span className={`num ${tone(quotes[s].chgPct)}`}>{pct(quotes[s].chgPct)}</span></span>
-        ))}
-        <span className="num muted m-clock">{etTime(clk.now)} ET · {clk.toClose != null ? `close ${hms(clk.toClose)}` : `open ${hms(clk.toOpen ?? 0)}`}</span>
-      </header>
-      <div className="m-tabs">
-        <Seg value={tab} onChange={setTab} options={[{ id: 'watch', label: 'Watchlist' }, { id: 'alerts', label: 'Alerts' }, { id: 'journal', label: 'Journal' }]} />
-      </div>
-      <div className="m-body">
-        {tab === 'watch' && <Watchlist {...wlProps} compact />}
-        {tab === 'alerts' && (
-          <section className="panel">
-            <div className="phead"><div className="phead-title">Alerts</div><div className="phead-ctl" /><Fresh kind={live ? 'live' : 'demo'} at={live ? undefined : DEMO_AT} /></div>
-            <ul className="news">
-              {alerts.map((a, i) => <li key={i}><span className="num muted">{etTime(a.t)}</span><span className="news-t">{a.text}</span></li>)}
-              {!alerts.length && <li className="muted">No level alerts yet. They fire on touch or break of SPY/QQQ levels (toggle per ticker on the desk).</li>}
-            </ul>
-          </section>
-        )}
-        {tab === 'journal' && <section className="panel">{journal}</section>}
-      </div>
     </div>
   );
 }

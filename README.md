@@ -174,7 +174,7 @@ check-in sync (newest write wins, per trade). Without Supabase they stay in the 
 ## Levels (SPY, QQQ and the selected ticker)
 
 Prior-day high/low/close, session VWAP, opening range (5/15/30 min, default 15), each with distance in points and percent, drawn on the chart.
-Alerts fire on a touch (within 0.02%) or a break of any level, checked on each quote poll, with a 5-minute cooldown per level. They show as a toast, a sound, a browser notification (if allowed) and in the mobile Alerts tab.
+Alerts fire on a touch (within 0.02%) or a break of any level, checked on each quote poll, with a 5-minute cooldown per level. They show as a toast, a sound, a browser notification (if allowed) and in the alert log.
 Premarket high/low are marked unavailable: Twelve Data includes extended-hours candles only on its paid Pro plan.
 
 ## Keyboard
@@ -187,17 +187,22 @@ Premarket high/low are marked unavailable: Twelve Data includes extended-hours c
 | `L` | Hide/show levels panel |
 | `P` | Playbook editor |
 | `Q` | Trade ticket (quick journal) |
-| `Shift J` | Full journal |
-| `C` | Calendars tab |
+| `Shift J` | Journal page |
 | `F` | Hide/show fear strip |
-| `N S Q R` | Right rail: News, Scanner, Quick Journal, Risk |
+| `D S M G C` | Pages: Desk, Scanner, World map, Money flow, Calendars |
+| `N Q R` | Desk right rail: News, Quick Journal, Risk |
 | `[ ]` | Hide/show left or right rail |
 | `B` | Hide/show news ticker |
 | `A` | Account drawer |
-| `M` / `G` | World map / money flow globe |
-| `T` | Light/dark |
+| `T` | Terminal (dark) / paper (light) |
 | `?` | Shortcuts |
 | `Esc` | Close |
+
+## Install it as an app (laptop)
+
+The desk is an installable web app (manifest + a small service worker that caches only the app shell, never market data).
+Open the deployed site, then **Chrome/Edge:** the install icon in the address bar (or ⋮ → Cast, save and share → Install page as app);
+**Safari (macOS 14+):** File → Add to Dock. It opens in its own window with a dock icon and updates itself on each deploy.
 
 ## Layout
 
@@ -208,14 +213,16 @@ Premarket high/low are marked unavailable: Twelve Data includes extended-hours c
 - **Bottom:** 24/7 news ticker with "My watchlist only".
 - **Pop-out:** the ↗ on any panel opens it in its own window for a second monitor; the selected ticker stays in sync across windows.
 - **Layouts per market-clock mode:** rail widths, visibility, active tab and timeframe save to whichever mode you're in (Pre-market, Open, Midday, Power hour, After-hours & review). The mode follows the ET clock, or set it manually.
-- **Mobile (≤760px):** watchlist, alerts and quick journal only.
+- **Side menu (laptop-only, 1180px and up):** one full-screen page per section: Desk `D`, Scanner `S` (scanner + chart), World map `M`,
+  Money flow `G`, Calendars `C` (calendars + chart), Journal `Shift J`, plus the Account drawer `A`. The last page you used reopens.
+- **Look:** dark terminal theme (amber accent, mono numbers) by default; `T` switches to a light "paper" theme.
 
 ## Structure
 
 ```
 src/
-  App.tsx              shell, keyboard, layouts per mode, popout + mobile routing
-  components/          TopStrip, Watchlist, Chart, RightRail, Bits (ticker, command bar, drawer, overlays), WorldMap, MoneyGlobe
+  App.tsx              shell, pages, keyboard, layouts per mode, popout routing
+  components/          TopStrip, Watchlist, Chart, RightRail, Bits (ticker, command bar, drawer, overlays), SideNav, WorldMap, MoneyGlobe
   data/live.ts         /api client, shared series store, polling, quote patching, demo fallback
   data/scan.ts         scan polling, demo scan, movers, universe
   data/cloud.ts        Supabase auth + sync (optional)
@@ -235,6 +242,7 @@ src/
   lib/store.ts         local persistence (moves to Supabase in M3/M4)
 shared/                types, ET clock, provider parsers, scan engine, news + calendar logic, world hotspots/weather, flows (browser and /api)
 api/                   Vercel functions: candles, quotes, macro, scan, movers, news, calendar, market-status, world, flows, health (+ _lib)
+public/                manifest, icons, service worker (installable app)
 supabase/schema.sql    table + row-level security
 tests/                 vitest: parsers (incl. a real Alpha Vantage response), indicators, levels, clock, API
 ```

@@ -54,7 +54,7 @@ export function ChartPanel({
     const v = c.addSeries(HistogramSeries, { priceFormat: { type: 'volume' }, priceScaleId: 'vol', lastValueVisible: false, priceLineVisible: false });
     v.priceScale().applyOptions({ scaleMargins: { top: 0.8, bottom: 0 } });
     const common = { lineWidth: 1 as const, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false };
-    const vw = c.addSeries(LineSeries, { ...common, color: cssVar('--accent'), lineWidth: 2 });
+    const vw = c.addSeries(LineSeries, { ...common, color: cssVar('--vwap') || cssVar('--accent'), lineWidth: 2 });
     const m20 = c.addSeries(LineSeries, { ...common, color: cssVar('--warn') });
     const m50 = c.addSeries(LineSeries, { ...common, color: cssVar('--demo') });
     markers.current = createSeriesMarkers(cs, []);
