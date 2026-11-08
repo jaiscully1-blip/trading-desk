@@ -268,10 +268,14 @@ describe('/api/world and /api/flows', () => {
     const feat = (n: string, lon: number, lat: number, c: number) => ({ type: 'Feature', geometry: { type: 'Point', coordinates: [lon, lat] }, properties: { name: n, count: c, html: `<a href="https://x/${n}">${n} markets</a>` } });
     routes.push((u) => (u.host === 'api.gdeltproject.org' ? { body: { type: 'FeatureCollection', features: decodeURIComponent(u.search).includes('tone<-2') ? [feat('Tokyo, Japan', 139.7, 35.7, 30)] : [feat('London, United Kingdom', -0.1, 51.5, 20)] } } : undefined));
     routes.push((u) => (u.host === 'finnhub.io' ? { body: { c: 70, d: -1.5, dp: u.searchParams.get('symbol') === 'EWJ' ? -2.4 : 0.8, h: 71, l: 69, o: 70, pc: 71, t: 1793797200 } } : undefined));
-    const p = worldApi();
+    // first request never waits on GDELT (its 5.2 s request spacing would make the page crawl); it starts the fetch in the background
+    const first = worldApi();
     await vi.advanceTimersByTimeAsync(12_000); // GDELT spacing: 5.2s between requests
-    const j = await (await p).json();
+    const j0 = await (await first).json();
+    expect(j0.hotspots).toEqual([]); // no desk feeds in this test, and GDELT was not waited on
+    const j = await (await worldApi()).json(); // GDELT is in memory now
     vi.useRealTimers();
+    expect(j.via).toBe('gdelt');
     expect(j.hotspots.map((h: { country: string; tone: number }) => [h.country, h.tone])).toEqual([['Japan', -1], ['United Kingdom', 1]]);
     const jp = j.regions.find((r: { id: string }) => r.id === 'jp');
     expect(jp).toMatchObject({ etf: 'EWJ', chgPct: -2.4, weather: 'storm' });

@@ -4,8 +4,8 @@
 import { CHOKEPOINTS, LAYER_QUERY, LAYER_WORDS, REGIONS, headlineHotspots, layerHotspots, mergeHotspots, regionWeather, type ExtraLayer, type Hotspot } from '../shared/world.js';
 import { keywordSentiment } from '../shared/news.js';
 import { placeOf } from '../shared/places.js';
-import { FEEDS, aisSnapshot, finnhubMarketNews, gdeltHotspots, gdeltLayer, geoIsDown, rssFeed, QUOTE_CHAIN } from './_lib/adapters.js';
-import { cached, hasKey, json, ttl } from './_lib/core.js';
+import { FEEDS, aisSnapshot, finnhubMarketNews, gdeltCooling, gdeltHotspots, gdeltLayer, geoIsDown, rssFeed, QUOTE_CHAIN } from './_lib/adapters.js';
+import { cached, getCached, hasKey, json, ttl } from './_lib/core.js';
 import { snapshot } from './_lib/research/markets.js';
 
 export const maxDuration = 30;
@@ -13,35 +13,76 @@ export const maxDuration = 30;
 /** Last 24h of headlines from the same feeds (and cache keys) as /api/news. */
 async function deskHeadlines(): Promise<{ title: string; url: string; sentiment: -1 | 0 | 1; t: number }[]> {
   const out: { title: string; url: string; t: number }[] = [];
+  // a slow feed is skipped after 3 s (it keeps loading into the cache for the next request) so one bad feed can't stall the map
+  const soft = <T,>(p: Promise<T>) => Promise.race([p, new Promise<never>((_, rej) => setTimeout(() => rej(new Error('slow')), 3000))]);
   await Promise.all(FEEDS.map(async (f) => {
-    try { out.push(...(await cached(`rss:${f.name}`, ttl(300, 1800), () => rssFeed(f.name, f.url))).val); } catch { /* optional feed */ }
+    try { out.push(...(await soft(cached(`rss:${f.name}`, ttl(300, 1800), () => rssFeed(f.name, f.url)))).val); } catch { /* optional feed */ }
   }));
   if (hasKey('finnhub')) {
-    try { for (const n of (await cached('fh:general', ttl(180, 900), finnhubMarketNews)).val) out.push({ title: n.headline, url: n.url, t: n.t }); } catch { /* optional */ }
+    try { for (const n of (await soft(cached('fh:general', ttl(180, 900), finnhubMarketNews))).val) out.push({ title: n.headline, url: n.url, t: n.t }); } catch { /* optional */ }
   }
   return out.filter((x) => Date.now() - x.t < 86400_000).sort((a, b) => b.t - a.t).map((x) => ({ title: x.title, url: x.url, t: x.t, sentiment: keywordSentiment(x.title) }));
 }
 
-const softNote = (err: string) => /429/.test(err)
+const softNote = (cooling: boolean) => cooling
   ? 'GDELT (the global news map service) is rate-limiting right now, so dots come from the desk’s own news feeds, placed by the place each headline names. Fewer dots than usual; GDELT is retried every 10 minutes.'
-  : 'GDELT (the global news map service) is not answering right now, so dots come from the desk’s own news feeds, placed by the place each headline names. Fewer dots than usual.';
+  : 'Dots come from the desk’s own news feeds, placed by the place each headline names, so the map opens at once. GDELT (the global news map service) allows one request per 5 seconds and is loading in the background; the map switches to it when it is ready.';
 
+/**
+ * GDELT's answer if this server already has one (fresh or stale), else null. When it is not fresh a refresh starts in the
+ * background. Never waits: GDELT's one-request-per-5-seconds rule makes a cold answer take 6+ seconds, far too slow for a page load.
+ */
+function gdeltPeek<T>(key: string, ttlSec: number, fn: () => Promise<T>): T | null {
+  const hit = getCached<T>(key);
+  if (!hit?.fresh && !gdeltCooling()) void cached(key, ttlSec, fn).catch(() => { /* retried on the next request */ });
+  return hit ? hit.val : null;
+}
+
+/** Run a slow call but give up after `ms`; never throws. The call keeps going in the background (its result may still land in the cache). */
+function budget<T>(p: Promise<T>, ms: number): Promise<{ v?: T; err: string }> {
+  return new Promise((res) => {
+    const t = setTimeout(() => res({ err: 'timeout' }), ms);
+    p.then((v) => { clearTimeout(t); res({ v, err: '' }); }, (e) => { clearTimeout(t); res({ err: (e as Error).message.slice(0, 160) }); });
+  });
+}
 async function extra(layer: ExtraLayer): Promise<Response> {
   const errors: Record<string, string> = {};
   let hotspots: Hotspot[] = [];
   let via: 'gdelt' | 'desk' = 'gdelt', note: string | undefined;
-  let gerr = '';
-  try { hotspots = layerHotspots((await cached(`world:${layer}`, 1800, () => gdeltLayer(LAYER_QUERY[layer]))).val); } catch (e) { gerr = (e as Error).message.slice(0, 160); }
+  // GDELT only if already in memory (never waited on); the desk feeds and ships (when asked for) load at the same time
+  const gv = gdeltPeek(`world:${layer}`, 1800, () => gdeltLayer(LAYER_QUERY[layer]));
+  const dp = deskHeadlines().catch(() => []);
+  const sp = layer === 'shipping' && hasKey('aisstream') ? budget(cached('world:ais', 300, () => aisSnapshot(CHOKEPOINTS.map((c) => c.box))).then((r) => r.val), 12_000) : null;
+  hotspots = gv ? layerHotspots(gv) : [];
   if (!hotspots.length) {
-    const desk = headlineHotspots((await deskHeadlines()).filter((h) => LAYER_WORDS[layer].test(h.title)), placeOf, 150)
+    const desk = headlineHotspots((await dp).filter((h) => LAYER_WORDS[layer].test(h.title)), placeOf, 150)
       .map((h) => ({ ...h, neg: h.pos + h.neg + (h.neu ?? 0), pos: 0, neu: 0, tone: 0 })); // one-sided layer: count = all articles
-    if (desk.length) { hotspots = desk; via = 'desk'; note = softNote(gerr); } else if (gerr) errors.gdelt = gerr;
+    if (desk.length) { hotspots = desk; via = 'desk'; note = softNote(gdeltCooling()); }
   }
   let ships = null as Awaited<ReturnType<typeof aisSnapshot>> | null;
-  if (layer === 'shipping' && hasKey('aisstream')) {
-    try { ships = (await cached('world:ais', 300, () => aisSnapshot(CHOKEPOINTS.map((c) => c.box)))).val; } catch (e) { errors.ships = (e as Error).message.slice(0, 160); }
-  }
+  if (sp) { const r = await sp; if (r.v) ships = r.v; else if (r.err) errors.ships = r.err; }
   return json({ layer, hotspots, chokepoints: layer === 'shipping' ? CHOKEPOINTS : [], ships, shipsKey: hasKey('aisstream'), placement: via === 'desk' || geoIsDown() ? 'headline' : 'geo', via, note, errors, asOf: Date.now() }, { sMaxAge: hotspots.length && via === 'gdelt' ? 600 : 120 });
+}
+
+/** Country ETF moves: Finnhub when keyed, else the screener snapshot (~15 min delayed). */
+async function etfMoves(errors: Record<string, string>): Promise<{ chg: Record<string, number>; src: string }> {
+  const chg: Record<string, number> = {};
+  let src = '';
+  if (hasKey('finnhub')) {
+    try {
+      const { val } = await cached('world:etfs', 180, () => QUOTE_CHAIN[0].fetch(REGIONS.map((r) => r.etf)));
+      for (const q of val) if (Number.isFinite(q.chgPct)) chg[q.symbol] = q.chgPct;
+      if (Object.keys(chg).length) src = 'Country ETFs via Finnhub';
+    } catch { /* fall through to the snapshot */ }
+  }
+  if (!Object.keys(chg).length) {
+    try {
+      const s = await snapshot();
+      for (const r of REGIONS) { const v = s.snap[r.etf]; if (v && Number.isFinite(v.c)) chg[r.etf] = v.c; }
+      if (Object.keys(chg).length) src = `Country ETFs via ${s.source}`;
+    } catch (e) { errors.etfs = (e as Error).message.slice(0, 160); }
+  }
+  return { chg, src };
 }
 
 export async function GET(req?: Request): Promise<Response> {
@@ -50,36 +91,19 @@ export async function GET(req?: Request): Promise<Response> {
   const errors: Record<string, string> = {};
   let hotspots: Hotspot[] = [];
   let via: 'gdelt' | 'desk' = 'gdelt', note: string | undefined;
-  let gerr = '';
-  try {
-    const { val } = await cached('world:gdelt', 1800, gdeltHotspots);
-    hotspots = mergeHotspots(val.neg, val.pos);
-  } catch (e) { gerr = (e as Error).message.slice(0, 160); }
+  // GDELT only if already in memory (never waited on); the desk feeds and the ETF moves load at the same time
+  const gv = gdeltPeek('world:gdelt', 1800, gdeltHotspots);
+  const dp = deskHeadlines().catch(() => []);
+  const ep = budget(etfMoves(errors), 4500);
+  hotspots = gv ? mergeHotspots(gv.neg, gv.pos) : [];
   if (!hotspots.length) {
-    const desk = headlineHotspots(await deskHeadlines(), placeOf);
-    if (desk.length) { hotspots = desk; via = 'desk'; note = softNote(gerr); } else if (gerr) errors.gdelt = gerr;
+    const desk = headlineHotspots(await dp, placeOf);
+    if (desk.length) { hotspots = desk; via = 'desk'; note = softNote(gdeltCooling()); }
   }
-
-  // country ETF moves: Finnhub when keyed, else the screener snapshot (~15 min delayed)
-  const chg: Record<string, number> = {};
-  let etfSrc = '';
-  if (hasKey('finnhub')) {
-    try {
-      const { val } = await cached('world:etfs', 180, () => QUOTE_CHAIN[0].fetch(REGIONS.map((r) => r.etf)));
-      for (const q of val) if (Number.isFinite(q.chgPct)) chg[q.symbol] = q.chgPct;
-      if (Object.keys(chg).length) etfSrc = 'Country ETFs via Finnhub';
-    } catch { /* fall through to the snapshot */ }
-  }
-  if (!Object.keys(chg).length) {
-    try {
-      const s = await snapshot();
-      for (const r of REGIONS) { const v = s.snap[r.etf]; if (v && Number.isFinite(v.c)) chg[r.etf] = v.c; }
-      if (Object.keys(chg).length) etfSrc = `Country ETFs via ${s.source}`;
-    } catch (e) { errors.etfs = (e as Error).message.slice(0, 160); }
-  }
-  const regions = REGIONS.map((r) => regionWeather(r, chg[r.etf] ?? null, hotspots));
+  const e = (await ep).v ?? { chg: {}, src: '' };
+  const regions = REGIONS.map((r) => regionWeather(r, e.chg[r.etf] ?? null, hotspots));
   return json({
     hotspots, regions, via, note, placement: via === 'desk' || geoIsDown() ? 'headline' : 'geo', errors, asOf: Date.now(),
-    sources: { news: via === 'desk' ? 'Desk news feeds (RSS + Finnhub, last 24h, keyword tone)' : 'GDELT GEO 2.0 (last 24h, market query, split by tone)', market: etfSrc || 'Country ETFs (unavailable)' },
+    sources: { news: via === 'desk' ? 'Desk news feeds (RSS + Finnhub, last 24h, keyword tone)' : 'GDELT GEO 2.0 (last 24h, market query, split by tone)', market: e.src || 'Country ETFs (unavailable)' },
   }, { sMaxAge: hotspots.length && via === 'gdelt' ? 600 : 120 });
 }

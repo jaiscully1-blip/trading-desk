@@ -310,7 +310,7 @@ async function gdelt(url: string) {
   const wait = lastGdelt + 5200 - Date.now();
   if (wait > 0) await sleep(wait);
   lastGdelt = Date.now();
-  try { return await getJson(url, 'gdelt', 15_000); }
+  try { return await getJson(url, 'gdelt', 6_000); }
   catch (e) {
     const m = (e as Error).message;
     if (/HTTP 429/.test(m)) gdeltCoolUntil = Date.now() + 10 * 60_000;
