@@ -59,6 +59,8 @@ export function ChartPanel({
   const zp = useRef<ZonePrimitive | null>(null);
   const fitted = useRef('');
   const [ov, setOv] = usePersisted<Overlays>('chartOverlays', { vwap: true, ma: true, lvl: true });
+  // the ladder beside the chart already lists every level with its distance, so on-chart tags would only repeat it and overlap
+  const ladderOn = ov.lad !== false && ov.lvl && tf !== 'W' && tf !== 'M';
   const bars = series.bars;
 
   // create once per timeframe/theme
@@ -213,15 +215,15 @@ export function ChartPanel({
     if (!dayTools && tf === 'D' && bars.length >= 60) {
       const yr = bars.slice(-252);
       const hi = Math.max(...yr.map((b) => b.high)), lo = Math.min(...yr.map((b) => b.low));
-      lines.current.push(x.c.createPriceLine({ price: hi, color: cssVar('--up'), lineWidth: 1, lineStyle: LineStyle.SparseDotted, axisLabelVisible: true, title: last > 0 ? `52W high ${distLabel((hi / last - 1) * 100)}` : '52W high' }));
-      lines.current.push(x.c.createPriceLine({ price: lo, color: cssVar('--down'), lineWidth: 1, lineStyle: LineStyle.SparseDotted, axisLabelVisible: true, title: last > 0 ? `52W low ${distLabel((lo / last - 1) * 100)}` : '52W low' }));
+      lines.current.push(x.c.createPriceLine({ price: hi, color: cssVar('--up'), lineWidth: 1, lineStyle: LineStyle.SparseDotted, axisLabelVisible: !ladderOn, title: ladderOn ? '' : last > 0 ? `52W high ${distLabel((hi / last - 1) * 100)}` : '52W high' }));
+      lines.current.push(x.c.createPriceLine({ price: lo, color: cssVar('--down'), lineWidth: 1, lineStyle: LineStyle.SparseDotted, axisLabelVisible: !ladderOn, title: ladderOn ? '' : last > 0 ? `52W low ${distLabel((lo / last - 1) * 100)}` : '52W low' }));
     }
     const color: Record<string, string> = { pdh: cssVar('--up'), pdl: cssVar('--down'), pdc: cssVar('--muted'), vwap: cssVar('--accent'), orh: cssVar('--warn'), orl: cssVar('--warn'), pmh: cssVar('--demo'), pml: cssVar('--demo') };
     for (const l of levels) {
       if (l.value == null || (l.id === 'vwap' && ov.vwap && tf !== 'D') || ((ov.swing || !dayTools) && !SWING_KEYS.has(l.id))) continue;
-      lines.current.push(x.c.createPriceLine({ price: l.value, color: color[l.id], lineWidth: 1, lineStyle: l.id === 'pdc' ? LineStyle.Dotted : LineStyle.Dashed, axisLabelVisible: true, title: last > 0 ? `${LEVEL_SHORT[l.id]} ${distLabel((l.value / last - 1) * 100)}` : LEVEL_SHORT[l.id] }));
+      lines.current.push(x.c.createPriceLine({ price: l.value, color: color[l.id], lineWidth: 1, lineStyle: l.id === 'pdc' ? LineStyle.Dotted : LineStyle.Dashed, axisLabelVisible: !ladderOn, title: ladderOn ? '' : last > 0 ? `${LEVEL_SHORT[l.id]} ${distLabel((l.value / last - 1) * 100)}` : LEVEL_SHORT[l.id] }));
     }
-  }, [levels, ov, tf, theme, bars, dayTools, Math.round(last * 20)]);
+  }, [levels, ov, tf, theme, bars, dayTools, ladderOn, Math.round(last * 20)]);
 
   // opening-range and premarket bands (intraday, day preset only)
   useEffect(() => {
@@ -247,11 +249,11 @@ export function ChartPanel({
     for (const l of gxLines.current) x.c.removePriceLine(l);
     gxLines.current = [];
     if (!gxOn || !gx) return;
-    const add = (v: number | null, color: string, title: string, style: LineStyle) => { if (v != null && Number.isFinite(v)) gxLines.current.push(x.c.createPriceLine({ price: v, color, lineWidth: 1, lineStyle: style, axisLabelVisible: true, title: last > 0 ? `${title} ${distLabel((v / last - 1) * 100)}` : title })); };
+    const add = (v: number | null, color: string, title: string, style: LineStyle) => { if (v != null && Number.isFinite(v)) gxLines.current.push(x.c.createPriceLine({ price: v, color, lineWidth: 1, lineStyle: style, axisLabelVisible: !ladderOn, title: ladderOn ? '' : last > 0 ? `${title} ${distLabel((v / last - 1) * 100)}` : title })); };
     add(gx.callWall, cssVar('--up'), 'Call wall', LineStyle.LargeDashed);
     add(gx.putWall, cssVar('--down'), 'Put wall', LineStyle.LargeDashed);
     add(gx.flip, cssVar('--accent'), 'γ flip', LineStyle.SparseDotted);
-  }, [gx, gxOn, tf, theme, bars, Math.round(last * 20)]);
+  }, [gx, gxOn, tf, theme, bars, ladderOn, Math.round(last * 20)]);
 
   // level ladder rows
   const ladOn = ov.lad !== false && ov.lvl && tf !== 'W' && tf !== 'M';

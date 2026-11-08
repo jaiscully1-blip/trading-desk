@@ -73,3 +73,11 @@ describe('15-minute timeframe', () => {
     expect(bars.every((b) => (b.time / 60) % 15 === 0)).toBe(true);
   });
 });
+
+import { cleanDiscord } from '../shared/discord';
+describe('Discord display text', () => {
+  it('drops markdown markers, custom emoji tags, mentions and divider lines', () => {
+    const t = cleanDiscord('**Today\'s pattern**\n\n-----\n**SPY** <:chart:123> hi <@456>\n`code`');
+    expect(t).toBe("Today's pattern\n\nSPY :chart: hi @user\ncode");
+  });
+});

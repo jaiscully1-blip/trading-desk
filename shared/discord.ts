@@ -54,3 +54,13 @@ export function botWatchlist(msgs: DcMessage[], day: string, etDay: (t: number) 
   }
   return [...tally.values()].sort((a, b) => b.n - a.n || a.first - b.first);
 }
+
+/** Discord markdown for display: drop the ** __ ~~ ` markers, custom emoji / mention tags and divider lines (text stays as written). */
+export function cleanDiscord(text: string): string {
+  return text
+    .replace(/<a?:(\w+):\d+>/g, ':$1:')
+    .replace(/<@[!&]?\d+>/g, '@user').replace(/<#\d+>/g, '#channel')
+    .replace(/(\*\*|__|~~|`{1,3})/g, '')
+    .split('\n').filter((l) => !/^\s*[-_=*]{3,}\s*$/.test(l)).join('\n')
+    .replace(/\n{3,}/g, '\n\n').trim();
+}

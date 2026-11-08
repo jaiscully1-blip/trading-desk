@@ -3,7 +3,9 @@ import type { Freshness } from '../types';
 import type { DataMode } from './live';
 import { computeBase, type ScanBase } from '../../shared/scan';
 import { encodeInstant, type Mover } from '../../shared/parse';
-import { clock } from '../lib/clock';
+import { clock, etToUtc, lastSessionDates } from '../lib/clock';
+import { load as loadLocal, save as saveLocal } from '../lib/store';
+import { scanNeeds } from '../../shared/scanCache';
 import { DEMO_AT, makeCandles, rng } from '../lib/demo';
 
 export interface ScanState {
@@ -37,6 +39,10 @@ function demoScan(universe: string[], demoLast: (s: string) => number): ScanStat
   return { bases, pending: [], errors: {}, asOf: DEMO_AT, freshness: 'demo', source: 'Generated sample candles', siSource: 'Demo', catalystSource: 'Demo', loading: false };
 }
 
+const CACHE = 'scanCache';
+interface ScanCache { at: number; bases: Record<string, ScanBase> }
+const lastCloseMs = () => { const d = lastSessionDates(1)[0]; return etToUtc(d.y, d.mo, d.d, 16, 0); };
+
 export function useScan(universe: string[], mode: DataMode, demoLast: (s: string) => number): ScanState {
   const key = universe.join(',');
   const [st, setSt] = useState<ScanState>(EMPTY);
@@ -47,15 +53,29 @@ export function useScan(universe: string[], mode: DataMode, demoLast: (s: string
     if (!key) { setSt({ ...EMPTY, loading: false, freshness: 'nodata' }); return; }
     let stop = false;
     let t: ReturnType<typeof setTimeout>;
+    // the last results live in this browser: the table is never empty on arrival, and a closed market costs no credits
+    const saved = loadLocal<ScanCache | null>(CACHE, null);
+    const acc: Record<string, ScanBase> = { ...(saved?.bases ?? {}) };
+    let savedAt = saved?.at ?? null; // moves to now once a full pass completes, so a closed market is not refetched every hour
+    const inUniverse = Object.keys(acc).filter((s) => universe.includes(s));
+    if (inUniverse.length) setSt({ ...EMPTY, bases: Object.fromEntries(inUniverse.map((s) => [s, acc[s]])), asOf: saved!.at, freshness: 'eod', source: 'Saved copy from your last visit, refreshing', loading: true });
     const tick = async () => {
       let next = 10 * 60_000;
+      const want = scanNeeds({ universe, have: Object.keys(acc), savedAt, now: Date.now(), closed: clock().session === 'Closed', lastCloseMs: lastCloseMs() });
+      if (!want.length) {
+        setSt((s) => ({ ...s, loading: false, pending: [], freshness: 'eod', source: 'Saved copy (market closed, nothing new)' }));
+        if (!stop) t = setTimeout(tick, 60 * 60_000);
+        return;
+      }
       try {
-        const r = await fetch(`/api/scan?symbols=${key}`);
+        const r = await fetch(`/api/scan?symbols=${want.join(',')}`);
         const j = await r.json();
         if (stop) return;
         if (r.ok) {
           const bases: Record<string, ScanBase> = {};
           for (const b of j.rows as ScanBase[]) bases[b.sym] = b;
+          Object.assign(acc, bases);
+          saveLocal(CACHE, { at: Date.now(), bases: acc } satisfies ScanCache);
           setSt((s) => ({
             bases: { ...s.bases, ...bases },
             pending: j.pending,
@@ -68,7 +88,7 @@ export function useScan(universe: string[], mode: DataMode, demoLast: (s: string
             loading: false,
           }));
           // still filling: come back after the per-minute credit window resets
-          if (j.pending.length) next = 65_000;
+          if (j.pending.length) next = 65_000; else savedAt = Date.now();
         } else setSt((s) => ({ ...s, loading: false, freshness: Object.keys(s.bases).length ? s.freshness : 'nodata' }));
       } catch {
         if (!stop) setSt((s) => ({ ...s, loading: false }));

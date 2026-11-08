@@ -5,6 +5,7 @@ import type { Bar, Freshness, MacroResult, QuoteResult, TF } from '../types';
 import { encodeInstant } from '../../shared/parse';
 import { clock } from '../lib/clock';
 import { DEMO_AT, makeCandles } from '../lib/demo';
+import { load as loadLocal, save as saveLocal } from '../lib/store';
 
 export interface Health {
   ok: boolean;
@@ -55,6 +56,14 @@ const EMPTY: SeriesState = { bars: [], source: '', freshness: 'pending', asOf: 0
 type Entry = { state: SeriesState; subs: Set<() => void>; timer?: ReturnType<typeof setTimeout>; live: boolean };
 const store = new Map<string, Entry>();
 
+/** The last good bars for each ticker / timeframe live in this browser, so a rate limit or outage never leaves an empty chart. */
+const CACHE_PREFIX = 'series:';
+const cacheKey = (sym: string, tf: TF) => `${CACHE_PREFIX}${sym}:${tf}`;
+function cachedSeries(sym: string, tf: TF): SeriesState | null {
+  const c = loadLocal<{ bars: Bar[]; source: string; at: number } | null>(cacheKey(sym, tf), null);
+  return c?.bars?.length ? { bars: c.bars, source: c.source, freshness: 'eod', asOf: c.at, loading: true, note: 'Saved copy from your last visit' } : null;
+}
+
 /** Next refresh: right after the next bar closes (5m), or on a slower cadence. Saves free-tier credits. */
 export function nextRefreshMs(tf: TF, now = Date.now()) {
   const inSession = clock(now).session === 'Regular session';
@@ -81,12 +90,14 @@ async function load(key: string, sym: string, tf: TF) {
       };
     } else {
       e.state = { bars: j.bars, source: j.source, freshness: j.freshness, asOf: j.asOf, loading: false, note: j.note };
+      if (j.bars?.length) saveLocal(cacheKey(sym, tf), { bars: j.bars.slice(-400), source: j.source, at: j.asOf });
     }
   } catch (err) {
     e.state = { ...e.state, loading: false, error: (err as Error).message };
   }
   e.subs.forEach((f) => f());
-  if (e.subs.size) e.timer = setTimeout(() => load(key, sym, tf), nextRefreshMs(tf));
+  // after a failure (429 rate limit, outage) try again in a minute instead of waiting for the normal cadence
+  if (e.subs.size) e.timer = setTimeout(() => load(key, sym, tf), e.state.error ? 60_000 : nextRefreshMs(tf));
 }
 
 function subscribe(key: string, sym: string, tf: TF, live: boolean, demoLast: number) {
@@ -95,7 +106,7 @@ function subscribe(key: string, sym: string, tf: TF, live: boolean, demoLast: nu
     if (!e) {
       e = { state: EMPTY, subs: new Set(), live };
       store.set(key, e);
-      if (live) load(key, sym, tf);
+      if (live) { const c = cachedSeries(sym, tf); if (c) e.state = c; load(key, sym, tf); }
       else e.state = { bars: makeCandles(sym, tf, demoLast), source: 'Generated sample candles', freshness: 'demo', asOf: DEMO_AT, loading: false };
     }
     e.subs.add(cb);

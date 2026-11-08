@@ -1,6 +1,5 @@
-import { sma } from './lib/indicators';
 import { useGammaLv } from './data/gamma';
-import { regimeRead } from '../shared/regime';
+import { movementRead } from '../shared/movement';
 import { Suspense, lazy, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { Board, Freshness, Layout, Mode, OrMinutes, Overlay, Quote, RightTab, TF } from './types';
 import { clock, et, modeLabel } from './lib/clock';
@@ -303,12 +302,13 @@ export default function App() {
   const qqqD = useSeries('QQQ', 'D', dataMode, demoLast('QQQ'));
   // regime badge: SPY vs its 50/200-day averages + dealer-gamma sign; live data only
   const spyGamma = useGammaLv('SPY', live);
-  const regime = useMemo(() => {
-    if (!live || spyD.freshness === 'demo') return null;
-    const cl = spyD.bars.map((b) => b.close);
-    if (cl.length < 50) return null;
-    return regimeRead({ close: cl[cl.length - 1], sma50: sma(cl, 50).at(-1) ?? null, sma200: sma(cl, 200).at(-1) ?? null, gamma: spyGamma?.regime ?? null, flip: spyGamma?.flip ?? null });
-  }, [live, spyD.bars, spyD.freshness, spyGamma]);
+  // Movement watch: priced-in move (VIX) against how far SPY actually moves, plus theta burn. Neutral on direction. Live data only.
+  const movement = useMemo(() => {
+    const vix = macro?.vix?.value, last = quotes.SPY?.last;
+    if (!live || spyD.freshness === 'demo' || !vix || !last) return null;
+    const minutesLeft = clk.session === 'Regular session' ? Math.max(0, Math.round((clk.closeSod - clk.et.sod) / 60)) : null;
+    return movementRead({ spot: last, iv: vix / 100, closes: spyD.bars.map((b) => b.close), minutesLeft, gamma: spyGamma?.regime ?? null });
+  }, [live, macro, quotes.SPY?.last, spyD.bars, spyD.freshness, spyGamma, clk.session, Math.floor(clk.et.sod / 600)]); // eslint-disable-line react-hooks/exhaustive-deps
   const qqq5 = useSeries('QQQ', '5m', dataMode, demoLast('QQQ'));
   const selD = useSeries(sel, 'D', dataMode, demoLast(sel));
   const sel5 = useSeries(sel, '5m', dataMode, demoLast(sel));
@@ -795,7 +795,7 @@ export default function App() {
       <SideNav compact={narrow} page={page} onPage={setPage} onCmd={() => setCmdOpen(true)} onHelp={() => setOverlay('help')} onAccount={() => setDrawer((d) => !d)} />
       <div className={`app ${layout.tickerOpen ? '' : 'no-ticker'} ${layout.fearOpen !== false ? 'has-fear' : ''}`}>
         <TopStrip
-          regime={regime} onRegime={() => setPage('gamma')}
+          movement={movement}
           quotes={quotes} clk={clk} mode={mode} override={override} onOverride={setOverride} onSelect={setSel}
           onAccount={() => setDrawer((d) => !d)} accountOpen={drawer} theme={theme} onTheme={toggleTheme} onCmd={() => setCmdOpen(true)}
           account={{ guard: g, settings, demo: views.some((v) => v.t.demo), demoPrices }}
