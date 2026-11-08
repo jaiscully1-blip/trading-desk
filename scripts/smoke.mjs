@@ -12,7 +12,7 @@ page.on('pageerror', (e) => errors.push(`pageerror: ${e.message}`));
 page.on('console', (m) => { if (m.type() === 'error' && !/Failed to load resource|net::ERR/.test(m.text())) errors.push(`console: ${m.text()}`); });
 await page.goto(file);
 await page.waitForTimeout(1200);
-for (const key of ['e', 'd', 'x', 'o', 's', 'm', 'g', 'u', 'i', 'y', 'c', 'J', 'h']) {
+for (const key of ['w', 'e', 'd', 'x', 'o', 's', 'm', 'g', 'u', 'i', 'y', 'c', 'J', 'h']) {
   await page.keyboard.press(key);
   await page.waitForTimeout(500);
 }

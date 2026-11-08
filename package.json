@@ -6,10 +6,11 @@
   "scripts": {
     "dev": "vite",
     "typecheck": "tsc --noEmit",
-    "build": "tsc --noEmit && vite build",
+    "build": "node scripts/rules-check.mjs && tsc --noEmit && vite build",
     "build:single": "vite build --mode single --outDir dist-single",
     "preview": "vite preview",
-    "test": "vitest run"
+    "test": "node scripts/rules-check.mjs && vitest run",
+    "rules": "node scripts/rules-check.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.118.0",

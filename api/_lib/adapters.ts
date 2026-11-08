@@ -301,13 +301,22 @@ let lastGdelt = 0;
 let geoDownUntil = 0;
 /** true while GDELT GEO is answering 404 and map points come from the DOC fallback */
 export const geoIsDown = () => Date.now() < geoDownUntil;
+/** after an HTTP 429, GDELT is left alone for 10 minutes so the block can clear (retrying keeps it blocked) */
+let gdeltCoolUntil = 0;
+export const gdeltCooling = () => Date.now() < gdeltCoolUntil;
 async function gdelt(url: string) {
+  if (Date.now() < gdeltCoolUntil) throw new ProviderError('gdelt', 'HTTP 429 rate limited (cooling down)', true);
   if (url.includes('/geo/geo') && Date.now() < geoDownUntil) throw new ProviderError('gdelt', 'HTTP 404 (GEO endpoint down, skipping)', true);
   const wait = lastGdelt + 5200 - Date.now();
   if (wait > 0) await sleep(wait);
   lastGdelt = Date.now();
   try { return await getJson(url, 'gdelt', 15_000); }
-  catch (e) { if (url.includes('/geo/geo') && /HTTP 404/.test((e as Error).message)) geoDownUntil = Date.now() + 30 * 60_000; throw e; }
+  catch (e) {
+    const m = (e as Error).message;
+    if (/HTTP 429/.test(m)) gdeltCoolUntil = Date.now() + 10 * 60_000;
+    if (url.includes('/geo/geo') && /HTTP 404/.test(m)) geoDownUntil = Date.now() + 30 * 60_000;
+    throw e;
+  }
 }
 
 /** GDELT GEO 2.0 PointData for market news, split by tone. */

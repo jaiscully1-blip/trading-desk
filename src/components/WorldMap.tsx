@@ -6,7 +6,7 @@ import type { Topology, GeometryCollection } from 'topojson-specification';
 import world from 'world-atlas/countries-110m.json';
 import { useWorldLayer, type WorldState } from '../data/world';
 import type { DataMode } from '../data/live';
-import { LAYER_LABEL, type ExtraLayer, type Hotspot, type RegionWeather, type Weather } from '../../shared/world';
+import { LAYER_LABEL, spotTotal, type ExtraLayer, type Hotspot, type RegionWeather, type Weather } from '../../shared/world';
 import { tagSymbols } from '../../shared/news';
 import { usePersisted } from '../lib/store';
 import { pct } from '../lib/format';
@@ -43,7 +43,7 @@ export default function WorldMap({ data, symbols, names, onSelect, onClose, mode
   const spots = extraLayer ? lay?.hotspots ?? [] : data?.hotspots ?? [];
   const [selHot, setSelHot] = useState<Hotspot | null>(null);
   const [selReg, setSelReg] = useState<RegionWeather | null>(null);
-  const maxCount = useMemo(() => Math.max(1, ...spots.map((h) => h.pos + h.neg)), [spots]);
+  const maxCount = useMemo(() => Math.max(1, ...spots.map(spotTotal)), [spots]);
   const affected = useMemo(() => {
     if (!selHot) return [];
     const t = selHot.articles.map((a) => a.title).join(' · ');
@@ -59,12 +59,13 @@ export default function WorldMap({ data, symbols, names, onSelect, onClose, mode
           <div className="phead-title">World map</div>
           <div className="phead-ctl">
             <Seg<MapLayer> value={layer} onChange={(l) => { setLayer(l); setSelHot(null); setSelReg(null); setSelChoke(null); }} options={[{ id: 'news', label: 'Market news' }, { id: 'weather', label: 'Weather' }, { id: 'conflict', label: 'Conflicts' }, { id: 'shipping', label: 'Shipping & oil' }, { id: 'legal', label: 'Lawsuits' }, { id: 'deals', label: 'Deals' }]} />
-            {extraLayer ? lay && <Fresh kind={lay.freshness} at={lay.asOf} src={`GDELT GEO 2.0 (last 24h, ${LAYER_LABEL[extraLayer]} query)${extraLayer === 'shipping' ? ' + EIA chokepoints + aisstream.io ships' : ''}`} />
-              : data && <Fresh kind={data.freshness} at={data.asOf} src="GDELT GEO 2.0 (24h market news, split by tone) + country ETFs (Finnhub)" />}
+            {extraLayer ? lay && <Fresh kind={lay.freshness} at={lay.asOf} src={`${lay.via === 'desk' ? 'Desk news feeds (RSS + Finnhub, last 24h)' : 'GDELT GEO 2.0 (last 24h'}, ${LAYER_LABEL[extraLayer]} query)${extraLayer === 'shipping' ? ' + EIA chokepoints + aisstream.io ships' : ''}`} />
+              : data && <Fresh kind={data.freshness} at={data.asOf} src={`${data.sources?.news ?? 'GDELT GEO 2.0 (24h market news, split by tone)'} + ${data.sources?.market ?? 'country ETFs'}`} />}
           </div>
           <button className="icon-btn" onClick={onClose} aria-label="Close">×</button>
         </div>
         <div className="wm-body">
+          <div className="wm-mapcol">
           <svg viewBox={`0 0 ${W} ${H}`} className="wm-svg" onClick={() => { setSelHot(null); setSelReg(null); }}>
             <defs>
               <filter id="glow" x="-100%" y="-100%" width="300%" height="300%"><feGaussianBlur stdDeviation="4" result="b" /><feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge></filter>
@@ -80,12 +81,12 @@ export default function WorldMap({ data, symbols, names, onSelect, onClose, mode
             {(layer === 'news' || extraLayer) && spots.map((h) => {
               const p = proj([h.lon, h.lat]);
               if (!p) return null;
-              const r = 3 + 12 * Math.sqrt((h.pos + h.neg) / maxCount);
+              const r = 3 + 12 * Math.sqrt(spotTotal(h) / maxCount);
               return (
                 <g key={h.id} className={`hot ${extraLayer ? `lay-${extraLayer}` : toneClass(h.tone)} ${selHot?.id === h.id ? 'sel' : ''}`} onClick={(e) => { e.stopPropagation(); setSelHot(h); setSelReg(null); }}>
                   <circle cx={p[0]} cy={p[1]} r={r} filter="url(#glow)" />
                   <circle cx={p[0]} cy={p[1]} r={r} className="hot-pulse" />
-                  <title>{extraLayer ? `${h.name}: ${h.neg} articles` : `${h.name}: ${h.neg} negative / ${h.pos} positive`}</title>
+                  <title>{extraLayer ? `${h.name}: ${h.neg} articles` : `${h.name}: ${h.neg} negative / ${h.pos} positive${h.neu ? ` / ${h.neu} neutral` : ''}`}</title>
                 </g>
               );
             })}
@@ -104,12 +105,20 @@ export default function WorldMap({ data, symbols, names, onSelect, onClose, mode
               );
             })}
           </svg>
+          {!extraLayer && data && data.regions.some((r) => r.chgPct != null) && (
+            <div className="wm-etfs" aria-label="Country ETFs today">
+              {[...data.regions].filter((r) => r.chgPct != null).sort((a, b) => b.chgPct! - a.chgPct!).map((r) => (
+                <button key={r.id} className="wm-etf" title={`${r.label} (${r.etf})`} onClick={() => onSelect(r.etf)}><span>{r.etf}</span> <b className={`num ${r.chgPct! >= 0 ? 'up' : 'down'}`}>{pct(r.chgPct!, 1)}</b></button>
+              ))}
+            </div>
+          )}
+          </div>
           <aside className="wm-side">
             {selHot ? (
               <>
                 <h4>{selHot.name}</h4>
                 {extraLayer ? <div className="kv"><span>{LAYER_LABEL[extraLayer]} articles (24h)</span><b className="num">{selHot.neg}</b></div>
-                  : <div className="kv"><span>Negative-tone articles</span><b className="num down">{selHot.neg}</b><span>Positive-tone articles</span><b className="num up">{selHot.pos}</b><span>Net tone</span><b className={`num ${selHot.tone > 0 ? 'up' : selHot.tone < 0 ? 'down' : ''}`}>{selHot.tone.toFixed(2)}</b></div>}
+                  : <div className="kv"><span>Negative-tone articles</span><b className="num down">{selHot.neg}</b><span>Positive-tone articles</span><b className="num up">{selHot.pos}</b>{selHot.neu ? <><span>Neutral articles</span><b className="num">{selHot.neu}</b></> : null}<span>Net tone</span><b className={`num ${selHot.tone > 0 ? 'up' : selHot.tone < 0 ? 'down' : ''}`}>{selHot.tone.toFixed(2)}</b></div>}
                 <h4>Tickers it affects</h4>
                 <div className="wm-chips">{affected.length ? affected.map((s) => <button key={s} className="sym-chip" onClick={() => onSelect(s)}>{s}</button>) : <span className="muted small">None of your tickers are named.</span>}</div>
                 <h4>Headlines</h4>
@@ -141,12 +150,13 @@ export default function WorldMap({ data, symbols, names, onSelect, onClose, mode
                 {extraLayer && <p className="small muted">{{ conflict: 'Where news reports armed conflict in the last 24 hours (airstrikes, shelling, clashes, drone attacks). Size = article count. Click a dot for headlines.', shipping: 'Oil chokepoints (diamonds), shipping news hotspots, and live ship positions near the chokepoints when a free aisstream.io key is set. Click a chokepoint for ships and context.', legal: 'Where news reports corporate lawsuits, antitrust cases, indictments and settlements in the last 24 hours. Located by where the article places the story.', deals: 'Where news reports acquisitions, mergers, new factories and plants, and big investments (data centers, billion-dollar projects) in the last 24 hours.' }[extraLayer]}</p>}
                 {extraLayer === 'shipping' && lay && !lay.shipsKey && <p className="small warn-txt">Add a free AISSTREAM_API_KEY (aisstream.io) in Vercel to see ship positions. Chokepoints and shipping news work without it.</p>}
                 {extraLayer && <ol className="wm-top">{spots.slice(0, 12).map((h) => <li key={h.id}><button className="link" onClick={() => setSelHot(h)}>{h.name.split(',')[0]}</button> <span className="num small muted">{h.neg}</span></li>)}</ol>}
-                {(extraLayer ? lay?.placement : data?.placement) === 'headline' && <p className="small warn-txt">GDELT’s map service is down right now, so dots are placed by the country or place each headline names (or the outlet’s country). Coarser than usual.</p>}
+                {(extraLayer ? lay?.note : data?.note) && <p className="small muted">{extraLayer ? lay?.note : data?.note}</p>}
+                {!(extraLayer ? lay?.note : data?.note) && (extraLayer ? lay?.placement : data?.placement) === 'headline' && <p className="small warn-txt">GDELT’s map service is down right now, so dots are placed by the country or place each headline names (or the outlet’s country). Coarser than usual.</p>}
                 {extraLayer && lay && Object.keys(lay.errors).length > 0 && <p className="small down">{Object.entries(lay.errors).map(([k, v]) => `${k}: ${v}`).join(' · ')}</p>}
                 {!extraLayer && <p className="small muted">{layer === 'news'
                   ? 'Where market news is happening in the last 24 hours. Size = article count; green = mostly positive tone, red = mostly negative. Click a hotspot for its headlines and the tickers they name.'
                   : 'Fear and greed by region: storms for fear, sunshine for greed. Click a region for the numbers behind it.'}</p>}
-                {layer === 'news' && <ol className="wm-top">{data?.hotspots.slice(0, 12).map((h) => <li key={h.id}><button className="link" onClick={() => setSelHot(h)}>{h.name.split(',')[0]}</button> <span className={`num small ${h.tone > 0 ? 'up' : h.tone < 0 ? 'down' : 'muted'}`}>{h.pos + h.neg}</span></li>)}</ol>}
+                {layer === 'news' && <ol className="wm-top">{data?.hotspots.slice(0, 12).map((h) => <li key={h.id}><button className="link" onClick={() => setSelHot(h)}>{h.name.split(',')[0]}</button> <span className={`num small ${h.tone > 0 ? 'up' : h.tone < 0 ? 'down' : 'muted'}`}>{spotTotal(h)}</span></li>)}</ol>}
                 {layer === 'weather' && <ul className="wm-top">{data?.regions.filter((r) => r.score != null).sort((a, b) => a.score! - b.score!).map((r) => <li key={r.id}><button className="link" onClick={() => setSelReg(r)}>{r.label}</button> <span className="small muted">{r.weather}</span></li>)}</ul>}
                 {!extraLayer && data?.errors && Object.keys(data.errors).length > 0 && <p className="small down">{Object.entries(data.errors).map(([k, v]) => `${k}: ${v}`).join(' · ')}</p>}
                 {(extraLayer ? !lay : !data) && <p className="muted small">Loading…</p>}

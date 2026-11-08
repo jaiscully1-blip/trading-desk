@@ -12,17 +12,28 @@ const RSS = [
   { kind: 'fed' as const, name: 'Fed press releases', url: 'https://www.federalreserve.gov/feeds/press_all.xml' },
   { kind: 'whitehouse' as const, name: 'White House', url: 'https://www.whitehouse.gov/briefings-statements/feed/' },
 ];
+/** YouTube channels checked for a live stream (order = order of the chips: markets first, then world news, then government). */
 export const STREAMS = [
-  { name: 'White House', handle: 'WhiteHouse' },
-  { name: 'Federal Reserve', handle: 'federalreserve' },
-  { name: 'C-SPAN', handle: 'cspan' },
-  // financial news channels that stream on YouTube
   { name: 'Bloomberg TV', handle: 'markets' },
   { name: 'Yahoo Finance', handle: 'YahooFinance' },
   { name: 'CNBC', handle: 'CNBCtelevision' },
   { name: 'Schwab Network', handle: 'SchwabNetwork' },
   { name: 'Fox Business', handle: 'FoxBusiness' },
   { name: 'Reuters', handle: 'Reuters' },
+  // world news channels that run 24/7 YouTube streams
+  { name: 'Sky News', handle: 'SkyNews' },
+  { name: 'Al Jazeera English', handle: 'aljazeeraenglish' },
+  { name: 'DW News', handle: 'dwnews' },
+  { name: 'France 24', handle: 'France24_en' },
+  { name: 'NBC News NOW', handle: 'NBCNews' },
+  { name: 'ABC News Live', handle: 'ABCNews' },
+  { name: 'CBS News 24/7', handle: 'CBSNews' },
+  { name: 'LiveNOW from FOX', handle: 'LiveNOWFOX' },
+  { name: 'Euronews', handle: 'euronews' },
+  // government
+  { name: 'White House', handle: 'WhiteHouse' },
+  { name: 'Federal Reserve', handle: 'federalreserve' },
+  { name: 'C-SPAN', handle: 'cspan' },
 ];
 const ymd = (ms: number) => new Date(ms).toISOString().slice(0, 10);
 
@@ -57,10 +68,10 @@ export async function GET(req: Request): Promise<Response> {
     .filter((x) => now - x.t < 4 * 86400_000)
     .map((x) => ({ id: `${r.kind}:${x.url || x.title}`, t: x.t, kind: r.kind, title: x.title, text: r.name, url: x.url }))));
   jobs.push(run('YouTube live', async () => {
-    const live = await Promise.all(STREAMS.map(async (s) => {
+    const live = await Promise.all(STREAMS.map(async (s, i) => {
       try {
         const id = (await cached(`yt:${s.handle}`, 180, async () => parseYoutubeLive(await getText(`https://www.youtube.com/@${s.handle}/live`, 7000)))).val;
-        return id ? [{ id: `live:${id}`, t: now, kind: 'live' as const, title: `${s.name} is live now`, text: s.name, url: `https://www.youtube.com/watch?v=${id}` }] : [];
+        return id ? [{ id: `live:${id}`, t: now - (STREAMS.length - i), kind: 'live' as const, title: `${s.name} is live now`, text: s.name, url: `https://www.youtube.com/watch?v=${id}` }] : [];
       } catch { return []; }
     }));
     return live.flat();

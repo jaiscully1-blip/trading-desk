@@ -1,5 +1,5 @@
 // Messages: earnings, results, Fed / White House releases and economic releases as a chat-style stream, plus a live
-// player whenever the White House, the Fed or C-SPAN is streaming.
+// player for whichever finance, world-news or government YouTube channels are streaming (pick one; the choice is remembered).
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { FeedItem } from '../../shared/feed';
 import type { FeedState } from '../data/feed';
@@ -7,6 +7,7 @@ import type { CalendarState } from '../data/news';
 import { useDesk } from '../lib/deskctx';
 import { CoName, Seg, Star } from './common';
 import { et, etToUtc } from '../lib/clock';
+import { usePersisted } from '../lib/store';
 
 type Filter = 'all' | 'earn' | 'gov';
 const LABEL: Record<FeedItem['kind'], string> = { filing: 'FILED', earnings: 'EARNINGS', result: 'RESULT', fed: 'FED', whitehouse: 'WHITE HOUSE', econ: 'ECONOMY', live: 'LIVE' };
@@ -15,6 +16,7 @@ export function Messages({ feed, cal, nowMs, onChart, compact = false }: { feed:
   const { stars, openArticle } = useDesk();
   const [f, setF] = useState<Filter>('all');
   const [watch, setWatch] = useState<string | null>(null);
+  const [chan, setChan] = usePersisted<string>('liveChan', 'Bloomberg TV');
   const box = useRef<HTMLDivElement>(null);
   const e0 = et(nowMs);
   const today = `${e0.y}-${String(e0.mo).padStart(2, '0')}-${String(e0.d).padStart(2, '0')}`;
@@ -29,13 +31,13 @@ export function Messages({ feed, cal, nowMs, onChart, compact = false }: { feed:
   const shown = all.filter((x) => x.kind !== 'live' && (f === 'all' || (f === 'earn' ? ['filing', 'earnings', 'result'].includes(x.kind) : ['fed', 'whitehouse', 'econ'].includes(x.kind))));
   useEffect(() => { box.current?.scrollTo({ top: box.current.scrollHeight }); }, [shown.length, f]);
   const vid = (u?: string) => u?.match(/v=([\w-]{11})/)?.[1];
-  const active = watch ?? vid(lives[0]?.url) ?? null;
+  const active = (watch && lives.some((l) => vid(l.url) === watch) ? watch : null) ?? vid(lives.find((l) => l.text === chan)?.url) ?? vid(lives[0]?.url) ?? null;
   let lastDay = '';
   return (
     <div className={`msgs ${compact ? 'compact' : ''}`}>
       <div className="msgs-bar">
         <Seg value={f} onChange={setF} options={[{ id: 'all', label: 'All' }, { id: 'earn', label: 'Earnings' }, { id: 'gov', label: 'Fed · Gov · Econ' }]} />
-        {lives.map((l) => <button key={l.id} className={`live-chip ${vid(l.url) === active ? 'on' : ''}`} onClick={() => setWatch(vid(l.url) ?? null)}>● {l.text} LIVE</button>)}
+        {lives.length > 0 && <div className="live-chips">{lives.map((l) => <button key={l.id} className={`live-chip ${vid(l.url) === active ? 'on' : ''}`} onClick={() => { setWatch(vid(l.url) ?? null); setChan(l.text ?? ''); }}>● {l.text}</button>)}</div>}
         {feed?.demo && <span className="fresh fresh-demo">DEMO DATA</span>}
       </div>
       {active && (
@@ -62,7 +64,7 @@ export function Messages({ feed, cal, nowMs, onChart, compact = false }: { feed:
           )];
         })}
       </div>
-      {!compact && <p className="note msgs-note">Earnings results appear the moment a company files its 8-K (Item 2.02) with the SEC, usually within minutes of the press release. Beat/miss numbers come from Finnhub and lag by minutes to hours. Fed and White House items come from their official RSS feeds; live video plays from their official YouTube channels when they are streaming. Covers your watchlist, starred and scanner tickers plus about 120 large caps.</p>}
+      {!compact && <p className="note msgs-note">Earnings results appear the moment a company files its 8-K (Item 2.02) with the SEC, usually within minutes of the press release. Beat/miss numbers come from Finnhub and lag by minutes to hours. Fed and White House items come from their official RSS feeds; live video plays from the official YouTube channels of finance networks (Bloomberg, Yahoo Finance, CNBC, Schwab, Fox Business, Reuters), world news (Sky, Al Jazeera, DW, France 24, NBC, ABC, CBS, LiveNOW, Euronews) and the White House, Fed and C-SPAN, whenever they are streaming; channels are checked every 3 minutes and the one you pick is remembered. Covers your watchlist, starred and scanner tickers plus about 120 large caps.</p>}
     </div>
   );
 }

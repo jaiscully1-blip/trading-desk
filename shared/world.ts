@@ -2,7 +2,9 @@
 import { decode } from './news.js';
 
 export interface Article { title: string; url: string }
-export interface Hotspot { id: string; name: string; country: string; lat: number; lon: number; neg: number; pos: number; tone: number; articles: Article[] }
+/** neu = neutral-tone headlines (only when placed from the desk's own news feeds) */
+export interface Hotspot { id: string; name: string; country: string; lat: number; lon: number; neg: number; pos: number; neu?: number; tone: number; articles: Article[] }
+export const spotTotal = (h: Hotspot) => h.pos + h.neg + (h.neu ?? 0);
 
 /** Article links embedded in the GEO API popup HTML. */
 export function parsePopupHtml(html: string): Article[] {
@@ -91,6 +93,42 @@ export const LAYER_QUERY: Record<ExtraLayer, string> = {
   deals: '(acquisition OR merger OR "new factory" OR "new plant" OR "breaks ground" OR "billion investment" OR "data center")',
 };
 export const LAYER_LABEL: Record<ExtraLayer, string> = { conflict: 'Conflicts', shipping: 'Shipping & oil', legal: 'Lawsuits', deals: 'Deals & developments' };
+
+/** Word filters for placing the desk's own headlines on the extra layers when GDELT is unavailable. */
+export const LAYER_WORDS: Record<ExtraLayer, RegExp> = {
+  conflict: /\b(airstrikes?|missiles?|shelling|clashes|drone (attack|strike)s?|insurgents?|offensive|troops|ceasefire|war|militants?|bombing)\b/i,
+  shipping: /\b(tankers?|shipping|strait of hormuz|hormuz|red sea|suez|panama canal|freight|vessels?|ports?|oil prices?|crude|opec)\b/i,
+  legal: /\b(lawsuits?|class action|antitrust|indicted|indictment|sued|sues|settlements?|court|judge|ruling|probe|regulators?|sec charges)\b/i,
+  deals: /\b(acquires?|acquisition|merger|merge|buyout|takeover|new (factory|plant)|breaks ground|billion investment|data cent(er|re)s?|to buy|deal)\b/i,
+};
+
+/** gazetteer places without a country in their name -> the country the weather layer matches on */
+const CITY_COUNTRY: Record<string, string> = {
+  'Wall Street': 'United States', 'Washington, D.C.': 'United States', 'Silicon Valley': 'United States', 'New York': 'United States', Texas: 'United States', California: 'United States',
+  London: 'United Kingdom', Tokyo: 'Japan', Beijing: 'China', Shanghai: 'China', Shenzhen: 'China', 'Hong Kong': 'Hong Kong', Mumbai: 'India', 'New Delhi': 'India',
+  Seoul: 'South Korea', Sydney: 'Australia', Toronto: 'Canada', 'Mexico City': 'Mexico', 'São Paulo': 'Brazil', 'Frankfurt (ECB)': 'Germany', 'Brussels (EU)': 'Belgium',
+};
+
+/**
+ * The desk's own headlines (RSS + Finnhub) -> hotspots, placed by the place each headline names and split by keyword tone.
+ * Used when GDELT is rate-limited or down, so the map is never empty while the news feeds work.
+ */
+export function headlineHotspots(items: { title: string; url: string; sentiment: -1 | 0 | 1 }[], placeOf: (t: string) => { name: string; lat: number; lon: number } | null, max = 120): Hotspot[] {
+  const m = new Map<string, Hotspot>();
+  const seen = new Set<string>();
+  for (const it of items) {
+    const k0 = it.title.toLowerCase().slice(0, 80);
+    if (!it.title || seen.has(k0)) continue;
+    seen.add(k0);
+    const p = placeOf(it.title);
+    if (!p) continue;
+    const h = m.get(p.name) ?? { id: `d:${p.name}`, name: p.name, country: CITY_COUNTRY[p.name] ?? countryOf(p.name), lat: p.lat, lon: p.lon, neg: 0, pos: 0, neu: 0, tone: 0, articles: [] };
+    if (it.sentiment > 0) h.pos++; else if (it.sentiment < 0) h.neg++; else h.neu = (h.neu ?? 0) + 1;
+    if (h.articles.length < 25) h.articles.push({ title: it.title, url: it.url });
+    m.set(p.name, h);
+  }
+  return [...m.values()].map((h) => ({ ...h, tone: (h.pos - h.neg) / Math.max(1, spotTotal(h)) })).sort((a, b) => spotTotal(b) - spotTotal(a)).slice(0, max);
+}
 
 /** One-sided GEO points -> hotspots (no tone split for these layers). */
 export function layerHotspots(pts: ReturnType<typeof parseGeo>, max = 150): Hotspot[] {

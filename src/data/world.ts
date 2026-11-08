@@ -5,7 +5,7 @@ import { REGIONS, regionWeather, type Hotspot, type RegionWeather } from '../../
 import { ROT_ASSETS, riskAppetite, rotationRows, type RotRow } from '../../shared/rotation';
 import { DEMO_AT, makeCandles, rng } from '../lib/demo';
 
-export interface WorldState { hotspots: Hotspot[]; regions: RegionWeather[]; placement?: 'geo' | 'headline'; errors: Record<string, string>; asOf: number; freshness: Freshness }
+export interface WorldState { hotspots: Hotspot[]; regions: RegionWeather[]; placement?: 'geo' | 'headline'; via?: 'gdelt' | 'desk'; note?: string; sources?: { news: string; market: string }; errors: Record<string, string>; asOf: number; freshness: Freshness }
 export interface FlowsState { rows: RotRow[]; risk: ReturnType<typeof riskAppetite>; pending: string[]; sources: string[]; asOfDay: string | null; asOf: number; freshness: Freshness }
 
 const CITIES: [string, number, number][] = [
@@ -69,7 +69,7 @@ export function useFlows(mode: DataMode, open: boolean): FlowsState | null {
 
 /* ---------------- extra layers: conflicts, shipping & oil, lawsuits, deals ---------------- */
 import { CHOKEPOINTS, type Chokepoint, type ExtraLayer, type Vessel } from '../../shared/world';
-export interface LayerState { layer: ExtraLayer; hotspots: Hotspot[]; chokepoints: Chokepoint[]; ships: Vessel[] | null; shipsKey: boolean; placement?: 'geo' | 'headline'; errors: Record<string, string>; asOf: number; freshness: Freshness }
+export interface LayerState { layer: ExtraLayer; hotspots: Hotspot[]; chokepoints: Chokepoint[]; ships: Vessel[] | null; shipsKey: boolean; placement?: 'geo' | 'headline'; via?: 'gdelt' | 'desk'; note?: string; errors: Record<string, string>; asOf: number; freshness: Freshness }
 
 function demoLayer(layer: ExtraLayer): LayerState {
   const r = rng(layer.length * 31);

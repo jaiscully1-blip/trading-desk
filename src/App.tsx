@@ -56,6 +56,8 @@ import type { ChartTF } from './types';
 import type { Bar } from '../shared/types';
 const CompanyPage = lazy(() => import('./components/CompanyPage'));
 const Home = lazy(() => import('./components/Home'));
+const Morning = lazy(() => import('./components/Morning'));
+import { useMorning } from './data/morning';
 import { Messages } from './components/Messages';
 import { useFeed } from './data/feed';
 import type { HomeLayout, Workspaces } from './components/Home';
@@ -278,6 +280,8 @@ export default function App() {
     return out;
   }, [live, qs, quoteSyms, sel, rowBy]);
   const tickers = useMemo(() => Object.values(quotes).map((q) => ({ sym: q.sym, name: q.name })), [quotes]);
+  const morningSyms = useMemo(() => [...new Set([...stars, ...Object.keys(quotes).filter((s) => !INDEXES.includes(s))])].slice(0, 40), [stars, quotes]);
+  const morning = useMorning(dataMode, page === 'morning', morningSyms);
 
   const demoLast = (s: string) => DEMO_QUOTES[s]?.last ?? 100;
   const spyD = useSeries('SPY', 'D', dataMode, demoLast('SPY'));
@@ -356,6 +360,7 @@ export default function App() {
   const today = etDay(now);
   const checkin = checkins.find((c) => c.day === today);
   const viols = useMemo(() => findViolations(views, liveTransfers, settings, checkins), [views, liveTransfers, settings, checkins]);
+  const rulesData = useMemo(() => ({ g, settings, checkedIn: !!checkin, viols, hasAccount: settings.startBalance != null && g.startOfDay > 0 }), [g, settings, checkin, viols]);
   const demoPrices = !live && views.some((v) => v.status === 'open');
   const logTrade = (t: Trade) => { setTrades((ts) => [...ts, t]); flash(`Logged ${t.side} ${t.sym}`); };
   const closeTrade = (id: string, qty: number, price: number) =>
@@ -549,6 +554,7 @@ export default function App() {
     { id: 'auto-backup', label: `Auto CSV backup at the close: ${autoBackup ? 'on (turn off)' : 'off (turn on)'}`, run: () => setAutoBackup(!autoBackup) },
     { id: 'risk', label: 'Open risk / position size', hint: 'R', run: () => setTab('risk') },
     { id: 'account', label: 'Open account drawer', hint: 'A', run: () => setDrawer(true) },
+    { id: 'morning', label: 'Morning plan: premarket movers, sectors, setups, events (before 11am)', hint: 'W', run: () => setPage('morning') },
     { id: 'map', label: 'World map page', hint: 'M', run: () => setPage('map') },
     { id: 'globe', label: 'Sector rotation page', hint: 'G', run: () => setPage('flows') },
     { id: 'etfs', label: 'ETFs & sectors: heatmap, ETF holdings, baskets', hint: 'U', run: () => setPage('etfs') },
@@ -576,7 +582,7 @@ export default function App() {
       if (e.key === 'Escape') { if (replayId) { setReplayId(null); return; } setCmdOpen(false); setOverlay(null); setDrawer(false); setPbOpen(false); setSyncOpen(false); setCiOpen(false); setRecapOpen(false); return; }
       if (cmdOpen || pbOpen || syncOpen || ciOpen || replayId || recapOpen || typing(e.target) || e.ctrlKey || e.metaKey || e.altKey) return;
       const map: Record<string, () => void> = {
-        h: () => setPage('home'), e: () => setPage('messages'), d: () => setPage('desk'), x: () => setPage('patterns'), s: () => setPage('scanner'), m: () => setPage('map'), g: () => setPage('flows'), c: () => setPage('calendar'), u: () => setPage('etfs'), i: () => setPage('smart'), y: () => setPage('odds'),
+        w: () => setPage('morning'), h: () => setPage('home'), e: () => setPage('messages'), d: () => setPage('desk'), x: () => setPage('patterns'), s: () => setPage('scanner'), m: () => setPage('map'), g: () => setPage('flows'), c: () => setPage('calendar'), u: () => setPage('etfs'), i: () => setPage('smart'), y: () => setPage('odds'),
         '?': () => setOverlay((o) => (o === 'help' ? null : 'help')),
         t: toggleTheme,
         a: () => setDrawer((d) => !d),
@@ -685,11 +691,17 @@ export default function App() {
     body = <div className="page"><JournalOverlay views={views} setTrades={setTrades} transfers={transfers} setTransfers={setTransfers} onAutoStart={(t) => setSettings((s) => (s.startBalance == null ? { ...s, startBalance: 0, startDate: t } : s))} violations={viols} lastPx={lastPx} settings={settings} onClose={() => setPage('desk')} onSelect={toDesk} onReplay={setReplayId} canSample={!live} /></div>;
   } else if (page === 'messages') {
     body = <div className="page"><section className="panel msgs-page"><div className="phead"><div className="phead-title">Messages: earnings, Fed, White House, economy</div></div><Messages feed={feed} cal={cal} nowMs={now} onChart={toDesk} /></section></div>;
+  } else if (page === 'morning') {
+    body = (
+      <Suspense fallback={<div className="page"><section className="panel"><div className="ph-body">Loading…</div></section></div>}>
+        <Morning data={morning} cal={cal} pm={pmLv} rules={rulesData} now={now} watch={morningSyms} onChart={toDesk} onCheckIn={() => setCiOpen(true)} />
+      </Suspense>
+    );
   } else if (page === 'home') {
     body = (
       <Suspense fallback={<div className="page"><section className="panel"><div className="ph-body">Loading…</div></section></div>}>
         <Home spaces={spaces} setSpaces={setSpaces} tickers={tickers.map((t) => ({ sym: t.sym, name: names[t.sym] ?? t.name }))}
-          d={{ mode: dataMode, theme, quotes, news, cal, movers, clk, macro, pingLog, sel, pingAt, setPingAt, onChart: toDesk, demoLast, feed, now, trades: closedR, riskPct: settings.riskPct, equity: settings.startBalance == null ? null : g.equity, playbooks }} />
+          d={{ mode: dataMode, theme, quotes, news, cal, movers, clk, macro, pingLog, sel, pingAt, setPingAt, onChart: toDesk, demoLast, feed, now, trades: closedR, riskPct: settings.riskPct, equity: settings.startBalance == null ? null : g.equity, playbooks, rules: rulesData }} />
       </Suspense>
     );
   } else if (page === 'company') {
