@@ -1,3 +1,6 @@
+import { sma } from './lib/indicators';
+import { useGammaLv } from './data/gamma';
+import { regimeRead } from '../shared/regime';
 import { Suspense, lazy, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { Board, Freshness, Layout, Mode, OrMinutes, Overlay, Quote, RightTab, TF } from './types';
 import { clock, et, modeLabel } from './lib/clock';
@@ -290,6 +293,14 @@ export default function App() {
   const spyD = useSeries('SPY', 'D', dataMode, demoLast('SPY'));
   const spy5 = useSeries('SPY', '5m', dataMode, demoLast('SPY'));
   const qqqD = useSeries('QQQ', 'D', dataMode, demoLast('QQQ'));
+  // regime badge: SPY vs its 50/200-day averages + dealer-gamma sign; live data only
+  const spyGamma = useGammaLv('SPY', live);
+  const regime = useMemo(() => {
+    if (!live || spyD.freshness === 'demo') return null;
+    const cl = spyD.bars.map((b) => b.close);
+    if (cl.length < 50) return null;
+    return regimeRead({ close: cl[cl.length - 1], sma50: sma(cl, 50).at(-1) ?? null, sma200: sma(cl, 200).at(-1) ?? null, gamma: spyGamma?.regime ?? null, flip: spyGamma?.flip ?? null });
+  }, [live, spyD.bars, spyD.freshness, spyGamma]);
   const qqq5 = useSeries('QQQ', '5m', dataMode, demoLast('QQQ'));
   const selD = useSeries(sel, 'D', dataMode, demoLast(sel));
   const sel5 = useSeries(sel, '5m', dataMode, demoLast(sel));
@@ -769,6 +780,7 @@ export default function App() {
       <SideNav compact={narrow} page={page} onPage={setPage} onCmd={() => setCmdOpen(true)} onHelp={() => setOverlay('help')} onAccount={() => setDrawer((d) => !d)} />
       <div className={`app ${layout.tickerOpen ? '' : 'no-ticker'} ${layout.fearOpen !== false ? 'has-fear' : ''}`}>
         <TopStrip
+          regime={regime} onRegime={() => setPage('gamma')}
           quotes={quotes} clk={clk} mode={mode} override={override} onOverride={setOverride} onSelect={setSel}
           onAccount={() => setDrawer((d) => !d)} accountOpen={drawer} theme={theme} onTheme={toggleTheme} onCmd={() => setCmdOpen(true)}
           account={{ guard: g, settings, demo: views.some((v) => v.t.demo), demoPrices }}

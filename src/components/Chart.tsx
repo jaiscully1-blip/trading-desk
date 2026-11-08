@@ -9,7 +9,11 @@ import { etTime } from '../lib/clock';
 import type { ChartTF, TF } from '../types';
 import type { DataMode } from '../data/live';
 import { useHistNews } from '../data/company';
-import { CoName, Star } from './common';
+import { CoName, FlashNum, Skel, Star } from './common';
+import { Ladder } from './Ladder';
+import { useGammaLv } from '../data/gamma';
+import { ZonePrimitive } from '../lib/zones';
+import { SWING_KEYS, buildLadder, distLabel, nearestKey, type LadderIn } from '../../shared/ladder';
 import type { SeriesState } from '../data/live';
 import { sma, toPts, vwapSeries } from '../lib/indicators';
 import { LEVEL_SHORT, type Level } from '../lib/levels';
@@ -18,8 +22,7 @@ import { Fresh, PanelHead, Seg } from './common';
 import { pct, px, tone } from '../lib/format';
 
 const cssVar = (n: string) => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
-type Overlays = { vwap: boolean; ma: boolean; lvl: boolean; cg?: boolean; gx?: boolean };
-type GxLv = { callWall: number | null; putWall: number | null; flip: number | null; asOf: number };
+type Overlays = { vwap: boolean; ma: boolean; lvl: boolean; cg?: boolean; gx?: boolean; lad?: boolean; swing?: boolean; zn?: boolean };
 const GX_SYMS = ['SPY', 'QQQ', 'IWM'];
 type CgTrade = { who: string; party: string; state: string; type: string; traded: string; filed: string; min: number | null; max: number | null };
 const cgCache = new Map<string, CgTrade[]>();
@@ -46,6 +49,7 @@ export function ChartPanel({
   const s = useRef<{ c: ISeriesApi<'Candlestick'>; v: ISeriesApi<'Histogram'>; vw: ISeriesApi<'Line'>; m20: ISeriesApi<'Line'>; m50: ISeriesApi<'Line'> } | null>(null);
   const lines = useRef<IPriceLine[]>([]);
   const gxLines = useRef<IPriceLine[]>([]);
+  const zp = useRef<ZonePrimitive | null>(null);
   const fitted = useRef('');
   const [ov, setOv] = usePersisted<Overlays>('chartOverlays', { vwap: true, ma: true, lvl: true });
   const bars = series.bars;
@@ -81,6 +85,7 @@ export function ChartPanel({
     fitted.current = '';
     lines.current = [];
     gxLines.current = [];
+    zp.current = null;
     return () => { c.remove(); chart.current = null; s.current = null; };
   }, [tf, theme]);
 
@@ -199,34 +204,49 @@ export function ChartPanel({
     if (!ov.lvl || tf === 'W' || tf === 'M') return; // day-trading levels don't belong on weekly / monthly candles
     const color: Record<string, string> = { pdh: cssVar('--up'), pdl: cssVar('--down'), pdc: cssVar('--muted'), vwap: cssVar('--accent'), orh: cssVar('--warn'), orl: cssVar('--warn'), pmh: cssVar('--demo'), pml: cssVar('--demo') };
     for (const l of levels) {
-      if (l.value == null || (l.id === 'vwap' && ov.vwap && tf !== 'D')) continue;
-      lines.current.push(x.c.createPriceLine({ price: l.value, color: color[l.id], lineWidth: 1, lineStyle: l.id === 'pdc' ? LineStyle.Dotted : LineStyle.Dashed, axisLabelVisible: true, title: LEVEL_SHORT[l.id] }));
+      if (l.value == null || (l.id === 'vwap' && ov.vwap && tf !== 'D') || (ov.swing && !SWING_KEYS.has(l.id))) continue;
+      lines.current.push(x.c.createPriceLine({ price: l.value, color: color[l.id], lineWidth: 1, lineStyle: l.id === 'pdc' ? LineStyle.Dotted : LineStyle.Dashed, axisLabelVisible: true, title: last > 0 ? `${LEVEL_SHORT[l.id]} ${distLabel((l.value / last - 1) * 100)}` : LEVEL_SHORT[l.id] }));
     }
+  }, [levels, ov, tf, theme, bars, Math.round(last * 20)]);
+
+  // opening-range and premarket bands (intraday, day preset only)
+  useEffect(() => {
+    const x = s.current;
+    if (!x) return;
+    if (!zp.current) { zp.current = new ZonePrimitive(); x.c.attachPrimitive(zp.current); }
+    const v = (id: string) => levels.find((l) => l.id === id)?.value ?? null;
+    const z: { lo: number; hi: number; color: string; label: string }[] = [];
+    if (ov.lvl && ov.zn !== false && !ov.swing && tf !== 'D' && tf !== 'W' && tf !== 'M') {
+      const orl = v('orl'), orh = v('orh'), pml = v('pml'), pmh = v('pmh');
+      if (orl != null && orh != null) z.push({ lo: orl, hi: orh, color: cssVar('--warn'), label: 'Opening range' });
+      if (pml != null && pmh != null) z.push({ lo: pml, hi: pmh, color: cssVar('--demo'), label: 'Premarket range' });
+    }
+    zp.current.set(z);
   }, [levels, ov, tf, theme, bars]);
 
   // Gamma walls + zero-gamma flip (Cboe delayed chain, next 7 days) for SPY / QQQ / IWM; real data only, nothing in demo mode
   const gxOn = ov.gx !== false && GX_SYMS.includes(sym) && mode?.kind === 'live' && tf !== 'W' && tf !== 'M';
-  const [gx, setGx] = useState<GxLv | null>(null);
-  useEffect(() => {
-    setGx(null);
-    if (!gxOn) return;
-    let stop = false;
-    const go = () => fetch(`/api/research?fn=gamma&symbol=${sym}`).then((r) => r.json()).then((j) => { if (!stop && j?.gexWeek) setGx({ callWall: j.gexWeek.callWall, putWall: j.gexWeek.putWall, flip: j.gexWeek.flip, asOf: j.asOf }); }).catch(() => {});
-    go();
-    const id = setInterval(go, 15 * 60_000);
-    return () => { stop = true; clearInterval(id); };
-  }, [sym, gxOn]);
+  const gx = useGammaLv(sym, gxOn);
   useEffect(() => {
     const x = s.current;
     if (!x) return;
     for (const l of gxLines.current) x.c.removePriceLine(l);
     gxLines.current = [];
     if (!gxOn || !gx) return;
-    const add = (v: number | null, color: string, title: string, style: LineStyle) => { if (v != null && Number.isFinite(v)) gxLines.current.push(x.c.createPriceLine({ price: v, color, lineWidth: 1, lineStyle: style, axisLabelVisible: true, title })); };
+    const add = (v: number | null, color: string, title: string, style: LineStyle) => { if (v != null && Number.isFinite(v)) gxLines.current.push(x.c.createPriceLine({ price: v, color, lineWidth: 1, lineStyle: style, axisLabelVisible: true, title: last > 0 ? `${title} ${distLabel((v / last - 1) * 100)}` : title })); };
     add(gx.callWall, cssVar('--up'), 'Call wall', LineStyle.LargeDashed);
     add(gx.putWall, cssVar('--down'), 'Put wall', LineStyle.LargeDashed);
     add(gx.flip, cssVar('--accent'), 'γ flip', LineStyle.SparseDotted);
-  }, [gx, gxOn, tf, theme, bars]);
+  }, [gx, gxOn, tf, theme, bars, Math.round(last * 20)]);
+
+  // level ladder rows
+  const ladOn = ov.lad !== false && ov.lvl && tf !== 'W' && tf !== 'M';
+  const ladRows = useMemo(() => {
+    if (!ladOn) return [];
+    const items: LadderIn[] = levels.map((l) => ({ key: l.id as string, short: LEVEL_SHORT[l.id], label: l.label, value: l.id === 'vwap' && tf === 'D' ? null : l.value, kind: 'level' }));
+    if (gxOn && gx) items.push({ key: 'callWall', short: 'Call wall', label: 'Gamma call wall', value: gx.callWall, kind: 'gamma' }, { key: 'putWall', short: 'Put wall', label: 'Gamma put wall', value: gx.putWall, kind: 'gamma' }, { key: 'flip', short: 'γ flip', label: 'Zero-gamma flip', value: gx.flip, kind: 'gamma' });
+    return buildLadder(items, last, !!ov.swing);
+  }, [ladOn, levels, gx, gxOn, last, ov.swing, tf]);
 
   const T = (k: keyof Overlays, label: string, hint: string) => (
     <button className={`chip sm ${ov[k] ? 'on' : ''}`} onClick={() => setOv({ ...ov, [k]: !ov[k] })} title={hint} aria-pressed={ov[k]}>{label}</button>
@@ -240,7 +260,7 @@ export function ChartPanel({
             <Star sym={sym} size="md" />
             <b>{sym}</b>
             <CoName sym={sym} className="muted" />{!name || name === sym ? null : null}
-            <span className="num">{px(last)}</span>
+            <FlashNum v={last}>{px(last)}</FlashNum>
             <span className={`num ${tone(chgPct)}`}>{pct(chgPct)}</span>
           </span>
         }
@@ -251,16 +271,19 @@ export function ChartPanel({
         {T('ma', 'MA 20/50', '20 and 50-period simple moving averages')}
         {T('lvl', 'Levels', 'Draw key levels on the chart')}
         {GX_SYMS.includes(sym) && mode?.kind === 'live' && <button className={`chip sm ${ov.gx !== false ? 'on' : ''}`} onClick={() => setOv({ ...ov, gx: ov.gx === false })} title={`Dealer gamma: call wall, put wall and zero-gamma flip for the next 7 days (Cboe delayed ~15 min, estimated from open interest)`} aria-pressed={ov.gx !== false}>Gamma</button>}
+        {ov.lvl && tf !== 'W' && tf !== 'M' && <button className={`chip sm ${ov.lad !== false ? 'on' : ''}`} onClick={() => setOv({ ...ov, lad: ov.lad === false })} title="Ladder: every level in price order beside the chart, with distance from the last price" aria-pressed={ov.lad !== false}>Ladder</button>}
+        {ov.lvl && tf !== 'W' && tf !== 'M' && <button className={`chip sm ${ov.swing ? 'on' : ''}`} onClick={() => setOv({ ...ov, swing: !ov.swing })} title={ov.swing ? 'Swing preset: prior-day range and gamma walls only. Click for Day (all levels).' : 'Day preset: all levels. Click for Swing (prior-day range and gamma walls only).'} aria-pressed={!!ov.swing}>{ov.swing ? 'Swing' : 'Day'}</button>}
         {longTf && T('cg', 'Congress', 'Arrows under the candles where members of Congress bought (▲) or sold (▼) this stock. Click one for who and how much.')}
         <select className="flag-sel" value={flags} onChange={(e) => setFlags(e.target.value as FlagMode)} title="News flags on candles (click a flag for headlines)" aria-label="News flags">
           <option value="both">News: ticker + macro</option><option value="sym">News: ticker</option><option value="macro">News: macro</option><option value="off">News: off</option>
         </select>
         <Seg<ChartTF> value={ctf} onChange={onTf} options={[{ id: '5m', label: '5m', hint: '5-minute (3)', keyHint: '3' }, { id: '1H', label: '1H', hint: '1-hour (2)', keyHint: '2' }, { id: 'D', label: 'D', hint: 'Daily (1): one news button per day', keyHint: '1' }, { id: 'W', label: 'W', hint: 'Weekly (4): one news button per week', keyHint: '4' }, { id: 'M', label: 'M', hint: 'Monthly (5): one news button per month', keyHint: '5' }, { id: 'Y', label: 'Y', hint: 'Monthly candles, one news button per year (6)', keyHint: '6' }]} />
       </PanelHead>
+      <div className="chart-body">
       <div className="chart-wrap" ref={el}>
         {!bars.length && (
           <div className="chart-empty">
-            {series.loading ? 'Loading candles…' : series.error ? <><b>No candles.</b> <span className="muted">{series.error}</span></> : 'No data'}
+            {series.loading ? <div className="chart-skel" aria-label="Loading candles"><Skel h={14} w="40%" /><Skel h={160} w="100%" /><Skel h={40} w="100%" /></div> : series.error ? <><b>No candles.</b> <span className="muted">{series.error}</span></> : 'No data'}
           </div>
         )}
         {series.note && <div className="chart-note">{series.note}</div>}
@@ -282,6 +305,8 @@ export function ChartPanel({
             ))}
           </div>
         )}
+      </div>
+      {ladOn && <Ladder rows={ladRows} nearest={nearestKey(ladRows)} />}
       </div>
     </section>
   );

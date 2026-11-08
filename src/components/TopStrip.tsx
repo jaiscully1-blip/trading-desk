@@ -2,13 +2,14 @@ import type { Freshness, MacroResult, Mode, Quote } from '../types';
 import type { ClockState } from '../lib/clock';
 import type { AccountSettings, Guard } from '../lib/journal';
 import { pct, px, sUsd, tone, usd } from '../lib/format';
-import { Fresh } from './common';
+import { Fresh, FlashNum } from './common';
+import type { RegimeRead } from '../../shared/regime';
 
-function Tick({ label, value, chg, chgFmt, onClick, minor }: { label: string; value: string; chg: number; chgFmt: string; onClick?: () => void; minor?: boolean }) {
+function Tick({ label, value, raw, chg, chgFmt, onClick, minor }: { label: string; value: string; raw?: number; chg: number; chgFmt: string; onClick?: () => void; minor?: boolean }) {
   return (
     <button className="tick" onClick={onClick} disabled={!onClick}>
       <span className="tick-l">{label}</span>
-      <span className="num">{value}</span>
+      <FlashNum v={raw}>{value}</FlashNum>
       <span className={`num ${tone(chg)} ${minor ? 'wide-only' : ''}`}>{chgFmt}</span>
     </button>
   );
@@ -26,6 +27,8 @@ export function TopStrip({
   quoteFresh,
   quoteAsOf,
   quoteSource,
+  regime,
+  onRegime,
 }: {
   account: { guard: Guard; settings: AccountSettings; demo: boolean; demoPrices: boolean };
   marketSource?: string;
@@ -45,15 +48,18 @@ export function TopStrip({
   theme: string;
   onTheme: () => void;
   onCmd?: () => void;
+  regime?: RegimeRead | null;
+  onRegime?: () => void;
 }) {
   const dayPnl = account.guard.todayRealized + account.guard.todayUnrealized;
   const spy = quotes.SPY, qqq = quotes.QQQ;
   return (
     <header className="top">
       <div className="top-group">
-        <Tick label="SPY" value={px(spy.last)} chg={spy.chgPct} chgFmt={pct(spy.chgPct)} onClick={() => onSelect('SPY')} />
-        <Tick label="QQQ" value={px(qqq.last)} chg={qqq.chgPct} chgFmt={pct(qqq.chgPct)} onClick={() => onSelect('QQQ')} />
+        <Tick label="SPY" raw={spy.last} value={px(spy.last)} chg={spy.chgPct} chgFmt={pct(spy.chgPct)} onClick={() => onSelect('SPY')} />
+        <Tick label="QQQ" raw={qqq.last} value={px(qqq.last)} chg={qqq.chgPct} chgFmt={pct(qqq.chgPct)} onClick={() => onSelect('QQQ')} />
         <Fresh kind={quoteFresh} at={quoteAsOf} src={quoteSource} />
+        {regime && <button className={`regime ${regime.tone}`} onClick={onRegime} title={`${regime.parts.join('\n')}\n\nRule-based read, not a forecast. Click for the Gamma page.`}><i />{regime.label}</button>}
       </div>
 
       {(clk.holiday || clk.earlyClose) && (

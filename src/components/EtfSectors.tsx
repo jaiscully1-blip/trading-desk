@@ -6,7 +6,7 @@ import { basketCurve, holdingsMove, squarify, type Basket, type Closes, type Etf
 import { moveColor, pct, useApi, useSnapshot, type SnapshotResp } from '../data/apis';
 import type { DataMode } from '../data/live';
 import { usePersisted } from '../lib/store';
-import { Fresh, Seg } from './common';
+import { Fresh, Seg, Skel } from './common';
 
 type Tab = 'heat' | 'etf' | 'baskets';
 const capFmt = (v: number) => (v >= 1e12 ? `$${(v / 1e12).toFixed(2)}T` : v >= 1e9 ? `$${(v / 1e9).toFixed(0)}B` : `$${(v / 1e6).toFixed(0)}M`);
@@ -88,7 +88,7 @@ function Heatmap({ snap, onChart }: { snap: SnapshotResp | null; onChart: (s: st
         <span className="es-legend">{[-3, -2, -1, 0, 1, 2, 3].map((v) => <i key={v} style={{ background: moveColor(v === 0 ? 0.0001 : v) }}>{v > 0 ? `+${v}` : v}%</i>)}</span>
         {size === 'cap' && snap && !caps && <span className="small muted">Market caps unavailable from the backup source; boxes are equal size.</span>}
       </div>
-      {!snap ? <p className="muted hw-pad">Loading quotes…</p> : <Treemap tiles={tiles} onPick={onChart} />}
+      {!snap ? <div className="hw-pad"><Skel h={110} n={2} /></div> : <Treemap tiles={tiles} onPick={onChart} />}
     </div>
   );
 }

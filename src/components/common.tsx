@@ -1,5 +1,5 @@
 import { useDesk } from '../lib/deskctx';
-import type { ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { LEAN5_LABEL, leanColor, type Lean } from '../../shared/bias';
 import type { Freshness } from '../types';
 import { etTime } from '../lib/clock';
@@ -122,4 +122,28 @@ export function LeanDot({ lean }: { lean?: Lean }) {
   ];
   const short = lean.political && lean.article ? (lean.article === 'center' ? 'NEUTRAL' : lean.article === 'left' ? 'LEFT' : 'RIGHT') : lean.outlet ? LEAN5_LABEL[lean.outlet].toUpperCase().replace('LEAN ', 'LEAN-') : '';
   return <span className={`lean lean-${c} ${lean.political ? 'pol' : ''}`} title={parts.join('\n')}>{lean.political ? short : ''}</span>;
+}
+
+/** 'flash-up' / 'flash-down' for ~1 s after a number changes (empty on first paint and on big jumps like a symbol switch). */
+export function useFlash(v: number | null | undefined): string {
+  const prev = useRef(v);
+  const [cls, setCls] = useState('');
+  useEffect(() => {
+    const p = prev.current;
+    prev.current = v;
+    if (v == null || p == null || v === p || Math.abs(v / p - 1) > 0.05) return;
+    setCls(v > p ? 'flash-up' : 'flash-down');
+    const t = setTimeout(() => setCls(''), 900);
+    return () => clearTimeout(t);
+  }, [v]);
+  return cls;
+}
+/** A number that briefly tints green/red when it ticks up/down. */
+export function FlashNum({ v, children, className = 'num' }: { v: number | null | undefined; children: ReactNode; className?: string }) {
+  const f = useFlash(v);
+  return <span className={`${className} ${f}`}>{children}</span>;
+}
+/** Shimmering placeholder block while a panel loads. */
+export function Skel({ w = '100%', h = 12, n = 1 }: { w?: number | string; h?: number; n?: number }) {
+  return <>{Array.from({ length: n }, (_, i) => <span key={i} className="skel" style={{ width: typeof w === 'number' ? w : i === n - 1 && n > 1 ? '62%' : w, height: h, marginBottom: n > 1 ? 8 : 0 }} aria-hidden />)}</>;
 }

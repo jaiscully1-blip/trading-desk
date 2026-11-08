@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import type { DataMode } from '../data/live';
 import { MONEYNESS, gammaRead, ivSurface, parseCboe, pcRatios, type GammaRead, type IvRow } from '../../shared/gamma';
 import { usePersisted } from '../lib/store';
-import { Fresh, Seg } from './common';
+import { Fresh, Seg, Skel } from './common';
 import { DEMO_AT, rng } from '../lib/demo';
 
 type Sym = 'SPY' | 'QQQ' | 'IWM' | 'SPX';
@@ -159,7 +159,7 @@ export default function Gamma({ mode, onChart }: { mode: DataMode; onChart: (s: 
           </div>
         </div>
         {err && !d && <p className="small down gx-pad">Could not load the {sym} option chain: {err}</p>}
-        {!d && !err && <p className="small muted gx-pad">Loading the {sym} option chain…</p>}
+        {!d && !err && <div className="gx-pad"><p className="small muted">Loading the {sym} option chain…</p><Skel h={120} n={2} /></div>}
         {d && g && (
           <>
             <div className="gx-kpis">

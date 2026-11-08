@@ -6,10 +6,11 @@ import type { PmRow, Setup } from '../../shared/morning';
 import { RulesStatus, type RulesData } from './RulesW';
 import { et } from '../lib/clock';
 import { pct } from '../lib/format';
-import { Fresh } from './common';
+import { Fresh, Skel } from './common';
 import { useDesk } from '../lib/deskctx';
 import { tick } from '../../shared/orders';
 import { FOMC } from '../../shared/calendar';
+import { DAY_END, DAY_START, PHASES, clockMin, frac, phaseAt } from '../../shared/dayplan';
 
 const ymd = (e: { y: number; mo: number; d: number }) => `${e.y}-${String(e.mo).padStart(2, '0')}-${String(e.d).padStart(2, '0')}`;
 /** The trading day being planned: today on a weekday before the close, else the next weekday. */
@@ -22,6 +23,31 @@ export function planDay(now: number): string {
 
 function Move({ v }: { v: number | null }) {
   return v == null ? <span className="muted">—</span> : <b className={`num ${v >= 0 ? 'up' : 'down'}`}>{pct(v, 2)}</b>;
+}
+
+const hm = (m: number) => `${Math.floor(m / 60)}:${String(m % 60).padStart(2, '0')}`;
+/** Heat colour for a % move: stronger move, stronger tint (full tint at 2%). */
+const heat = (v: number | null) => v == null ? 'transparent' : `color-mix(in srgb, var(${v >= 0 ? '--up' : '--down'}) ${Math.round(Math.min(1, Math.abs(v) / 2) * 38 + 4)}%, var(--panel))`;
+
+/** 4:00-20:00 ET strip: sessions, the 11:00 cut-off, a "now" needle and today's releases as ticks. */
+function DayStrip({ nowMin, isToday, events }: { nowMin: number; isToday: boolean; events: { t: number; label: string }[] }) {
+  const cur = isToday ? phaseAt(nowMin) : null;
+  return (
+    <div className="am-day" aria-label="Trading day timeline">
+      <div className="am-day-bar">
+        {PHASES.map((p) => <div key={p.id} className={`am-ph ${p.focus ? 'focus' : ''} ${cur?.id === p.id ? 'now' : ''}`} style={{ left: `${frac(p.from) * 100}%`, width: `${(frac(p.to) - frac(p.from)) * 100}%` }} title={`${p.label} ${hm(p.from)}–${hm(p.to)} ET`}><span>{p.label}</span></div>)}
+        {events.map((e, i) => <i key={i} className="am-evt" style={{ left: `${frac(e.t) * 100}%` }} title={`${hm(e.t)} ${e.label}`} />)}
+        {isToday && nowMin >= DAY_START && nowMin <= DAY_END && <b className="am-needle" style={{ left: `${frac(nowMin) * 100}%` }} title="Now"><u>now</u></b>}
+      </div>
+      <div className="am-day-ax">{[4, 9.5, 11, 15, 16, 20].map((h) => <span key={h} style={{ left: `${frac(h * 60) * 100}%` }}>{hm(h * 60)}</span>)}</div>
+    </div>
+  );
+}
+
+/** Score as a ring (full at 8). */
+function Ring({ v, tone }: { v: number; tone: string }) {
+  const r = 11, c = 2 * Math.PI * r, f = Math.max(0.04, Math.min(1, v / 8));
+  return <svg className={`am-ring ${tone}`} width="34" height="34" viewBox="0 0 30 30" role="img" aria-label={`Setup score ${v.toFixed(1)}`}><title>{`Setup score ${v.toFixed(1)} (ring is full at 8)`}</title><circle cx="15" cy="15" r={r} className="bg" /><circle cx="15" cy="15" r={r} className="fg" strokeDasharray={`${c * f} ${c}`} transform="rotate(-90 15 15)" /><text x="15" y="18.5" textAnchor="middle">{v.toFixed(1)}</text></svg>;
 }
 
 function MoverTable({ rows, phase, onChart, title }: { rows: PmRow[]; phase: 'premarket' | 'day'; onChart: (s: string) => void; title: string }) {
@@ -55,9 +81,14 @@ function SetupCard({ s, onChart, mine }: { s: Setup; onChart: (x: string) => voi
         <span className={`am-bias ${cls}`}>{s.bias}</span>
         <Move v={s.move} />
         <span className="small muted">{s.moveKind === 'premarket' ? 'premarket' : 'last session'}</span>
+        <span className="am-sp" /><Ring v={s.score} tone={cls} />
         {openOrder && s.bias === 'Buy bias' && <button className="link small am-order" onClick={() => openOrder({ sym: s.sym, side: 'BUY', type: 'LIMIT', limit: tick(entry), stopLoss: s.prevClose < entry ? tick(s.prevClose) : null }, entry)} title="Opens the Webull ticket prefilled; nothing is sent until you preview, type your PIN and confirm">Order…</button>}
       </header>
       <div className="am-sname">{s.name}</div>
+      <div className="am-meters">
+        <div title={`Gap ${pct(s.move, 2)} (bar is full at 5%)`}><span className="small muted">Gap</span><span className="am-bar"><i className={s.move >= 0 ? 'up' : 'down'} style={{ width: `${Math.min(50, (Math.abs(s.move) / 5) * 50)}%`, [s.move >= 0 ? 'left' : 'right']: '50%' }} /></span></div>
+        {s.pmVolPct != null && <div title={`Premarket volume is ${s.pmVolPct.toFixed(1)}% of a normal day (bar is full at 20%)`}><span className="small muted">Volume</span><span className="am-bar vol"><i style={{ width: `${Math.min(100, (s.pmVolPct / 20) * 100)}%`, left: 0 }} /></span></div>}
+      </div>
       <p className="am-plan">{s.plan}</p>
       <ul className="am-why">{s.reasons.map((r, i) => <li key={i}>{r}</li>)}</ul>
       {s.catalyst && <a className="small" href={s.catalyst.url} target="_blank" rel="noreferrer noopener">{s.catalyst.src}: {s.catalyst.title}</a>}
@@ -82,7 +113,8 @@ export default function Morning({ data, cal, pm, rules, now, watch, onChart, onC
   const ws = new Set(watch);
   const phase = data?.phase ?? 'premarket';
   const sectors = [...(data?.sectors ?? [])].sort((a, b) => ((phase === 'premarket' ? b.pmChg : b.chg) ?? -99) - ((phase === 'premarket' ? a.pmChg : a.chg) ?? -99));
-  const maxAbs = Math.max(0.5, ...sectors.map((s) => Math.abs((phase === 'premarket' ? s.pmChg : s.chg) ?? 0)));
+  const nowMin = Math.floor(e.sod / 60);
+  const dayEvents = [...econ.map((x) => ({ t: clockMin(x.time), label: x.label })), ...(fomc ? [{ t: 14 * 60, label: 'FOMC statement' }] : [])].filter((x): x is { t: number; label: string } => x.t != null);
 
   return (
     <div className="page am">
@@ -95,6 +127,7 @@ export default function Morning({ data, cal, pm, rules, now, watch, onChart, onC
             {data && <Fresh kind={data.freshness} at={data.asOf} src={data.source} />}
           </div>
         </div>
+        <DayStrip nowMin={nowMin} isToday={isToday} events={dayEvents} />
         <div className="am-top">
           <RulesStatus r={rules} now={now} />
           {!rules.checkedIn && <button className="hw-btn" onClick={onCheckIn}>Check in</button>}
@@ -114,7 +147,7 @@ export default function Morning({ data, cal, pm, rules, now, watch, onChart, onC
       <div className="am-grid">
         <section className="am-col am-setups">
           <h3>Best setups {phase === 'premarket' ? 'this morning' : 'from the last session'}</h3>
-          {!data && <p className="muted small">Loading…</p>}
+          {!data && <div aria-label="Loading setups"><Skel h={96} n={3} /></div>}
           {data && !data.setups.length && <p className="muted small">No liquid movers yet. Premarket activity shows up after 4:00 ET.</p>}
           {data?.setups.map((s) => <SetupCard key={s.sym} s={s} onChart={onChart} mine={ws.has(s.sym)} />)}
           {data && data.setups.length > 0 && <p className="note">Bias = premarket gap direction + the stock’s own trend (quant read from a year of daily closes) + premarket volume. Buy bias: gap up into an uptrend. Sell bias: gap down into a downtrend. Wait: the gap fights the trend or nothing lines up. A starting point for your own plan, not advice.</p>}
@@ -134,14 +167,12 @@ export default function Morning({ data, cal, pm, rules, now, watch, onChart, onC
           {sectors.length > 0 && (
             <section className="am-card">
               <h4>Sectors {phase === 'premarket' ? 'premarket' : 'last session'}</h4>
-              <ul className="am-sec">
-                {sectors.map((s) => { const v = (phase === 'premarket' ? s.pmChg : s.chg) ?? 0; return (
-                  <li key={s.sym}>
-                    <button className="link" onClick={() => onChart(s.sym)}>{s.sym}</button><span className="small muted">{s.label}</span>
-                    <span className="am-bar"><i className={v >= 0 ? 'up' : 'down'} style={{ width: `${(Math.abs(v) / maxAbs) * 50}%`, [v >= 0 ? 'left' : 'right']: '50%' }} /></span>
-                    <Move v={phase === 'premarket' ? s.pmChg : s.chg} />
-                  </li>); })}
-              </ul>
+              <div className="am-tiles">
+                {sectors.map((x) => { const v = phase === 'premarket' ? x.pmChg : x.chg; return (
+                  <button key={x.sym} className="am-tile" style={{ background: heat(v) }} onClick={() => onChart(x.sym)} title={`${x.label} (${x.sym})`}>
+                    <b>{x.sym}</b><Move v={v} /><em>{x.label}</em>
+                  </button>); })}
+              </div>
             </section>
           )}
 
