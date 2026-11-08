@@ -5,7 +5,7 @@ import { parseSecTickers } from '../../../shared/company.js';
 import { etDay } from '../../../shared/webull.js';
 import { secJson } from '../adapters.js';
 import { cached, hasKey, json } from '../core.js';
-import { denyPrivate } from '../private.js';
+
 
 async function channel(id: string, token: string): Promise<{ guild?: string; msgs: any[] }> {
   const head = { authorization: `Bot ${token}`, 'user-agent': 'DiscordBot (https://github.com/jaiscully1-blip/trading-desk, 1.0)' };
@@ -20,8 +20,7 @@ async function channel(id: string, token: string): Promise<{ guild?: string; msg
 }
 
 export async function GET(req: Request): Promise<Response> {
-  const deny = denyPrivate(req);
-  if (deny) return deny;
+    void req;
   const token = process.env.DISCORD_BOT_TOKEN;
   if (!token) return json({ error: 'Add DISCORD_BOT_TOKEN in Vercel, then redeploy.', code: 'no-token' }, { status: 400 });
   const known = hasKey('sec')
