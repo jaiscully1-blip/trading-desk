@@ -31,7 +31,7 @@ import { useFlows, useWorld } from './data/world';
 // Map and globe load on first use so they don't slow the desk's first load
 const WorldMap = lazy(() => import('./components/WorldMap'));
 const PatternLab = lazy(() => import('./components/PatternLab'));
-const MoneyGlobe = lazy(() => import('./components/MoneyGlobe'));
+const Rotation = lazy(() => import('./components/Rotation'));
 const CompanyMap = lazy(() => import('./components/CompanyMap'));
 import { Calendars } from './components/Calendars';
 import { FearStrip } from './components/FearStrip';
@@ -658,7 +658,7 @@ export default function App() {
   const cols3 = `${leftShown ? `${Math.min(layout.left, narrow ? 220 : 520)}px 5px` : '0 0'} minmax(0,1fr) ${layout.rightOpen ? `5px ${rightW}px` : '0 0'}`;
   const toDesk = (s: string) => { setSel(s); setPage('desk'); };
   const closedR = views.filter((v) => v.status === 'closed' && !v.t.deleted).map((v) => ({ r: v.r, realized: v.realized }));
-  const flowSwitch = <Seg<'flow' | 'companies'> value={flowView} onChange={setFlowView} options={[{ id: 'flow', label: 'Money flow' }, { id: 'companies', label: 'Companies map' }]} />;
+  const flowSwitch = <Seg<'flow' | 'companies'> value={flowView} onChange={setFlowView} options={[{ id: 'flow', label: 'Sector rotation' }, { id: 'companies', label: 'Companies map' }]} />;
   let body: ReactNode;
   if (page === 'scanner') {
     body = <div className="page page-split"><section className="panel rr"><div className="rr-body">{scanner}</div></section><div className="center">{chart()}</div></div>;
@@ -695,7 +695,7 @@ export default function App() {
             ? <WorldMap mode={dataMode} data={worldData} symbols={[...new Set([...INDEXES, ...wlSyms, ...universe])]} names={Object.fromEntries(Object.values(quotes).map((x) => [x.sym, x.name]))} onSelect={toDesk} onClose={() => setPage('desk')} />
             : flowView === 'companies'
               ? <CompanyMap mode={dataMode} extra={flowSwitch} onChart={toDesk} onClose={() => setPage('desk')} />
-              : <MoneyGlobe data={flowsData} theme={theme} onSelect={toDesk} onClose={() => setPage('desk')} extra={flowSwitch} />}
+              : <Rotation data={flowsData} onSelect={toDesk} extra={flowSwitch} />}
         </Suspense>
       </div>
     );

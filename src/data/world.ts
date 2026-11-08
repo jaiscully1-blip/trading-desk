@@ -2,11 +2,11 @@ import { useEffect, useState } from 'react';
 import type { Bar, Freshness } from '../types';
 import type { DataMode } from './live';
 import { REGIONS, regionWeather, type Hotspot, type RegionWeather } from '../../shared/world';
-import { ASSETS, computeFlows, flowArcs, type Arc, type FlowRow, type FlowWindow } from '../../shared/flows';
+import { ROT_ASSETS, riskAppetite, rotationRows, type RotRow } from '../../shared/rotation';
 import { DEMO_AT, makeCandles, rng } from '../lib/demo';
 
 export interface WorldState { hotspots: Hotspot[]; regions: RegionWeather[]; placement?: 'geo' | 'headline'; errors: Record<string, string>; asOf: number; freshness: Freshness }
-export interface FlowsState { windows: Record<FlowWindow, { rows: FlowRow[]; arcs: Arc[] }>; pending: string[]; sources: string[]; asOf: number; freshness: Freshness }
+export interface FlowsState { rows: RotRow[]; risk: ReturnType<typeof riskAppetite>; pending: string[]; sources: string[]; asOfDay: string | null; asOf: number; freshness: Freshness }
 
 const CITIES: [string, number, number][] = [
   ['New York, New York, United States', 40.7, -74], ['Washington, District of Columbia, United States', 38.9, -77], ['Chicago, Illinois, United States', 41.9, -87.6],
@@ -31,10 +31,10 @@ function demoWorld(): WorldState {
 function demoFlows(): FlowsState {
   const r = rng(99);
   const series: Record<string, Bar[]> = {};
-  for (const a of ASSETS) series[a.sym] = makeCandles(a.sym, 'D', 20 + r() * 200);
+  for (const a of ROT_ASSETS) series[a.sym] = makeCandles(a.sym, 'D', 20 + r() * 200);
   const spy = makeCandles('SPY', 'D', 580);
-  const windows = Object.fromEntries((['1D', '5D', '20D'] as FlowWindow[]).map((w) => { const rows = computeFlows(series, spy, w); return [w, { rows, arcs: flowArcs(rows) }]; })) as FlowsState['windows'];
-  return { windows, pending: [], sources: ['Generated sample candles'], asOf: DEMO_AT, freshness: 'demo' };
+  const rows = rotationRows(series, spy);
+  return { rows, risk: riskAppetite(series, spy), pending: [], sources: ['Generated sample candles'], asOfDay: rows[0]?.asOf ?? null, asOf: DEMO_AT, freshness: 'demo' };
 }
 
 /** Only fetches while the overlay is open; GDELT is cached 30 min server-side. */

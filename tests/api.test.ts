@@ -277,14 +277,14 @@ describe('/api/world and /api/flows', () => {
     expect(jp).toMatchObject({ etf: 'EWJ', chgPct: -2.4, weather: 'storm' });
     expect(calls.filter((c) => c.startsWith('api.gdeltproject.org')).length).toBe(2);
   });
-  it('flows: ETF daily bars (Twelve Data) + crypto via Binance mirror, CoinGecko if it fails', async () => {
-    routes.push((u) => (u.host === 'api.twelvedata.com' ? { body: tdDaily(ramp(50, 60, 60)) } : undefined));
-    routes.push((u) => (u.host === 'data-api.binance.vision' ? { status: 451, body: { code: 0, msg: 'restricted location' } } : undefined));
-    routes.push((u) => (u.host === 'api.coingecko.com' ? { body: { prices: Array.from({ length: 60 }, (_, i) => [1790000000000 + i * 864e5, 60000 + i * 100]), total_volumes: Array.from({ length: 60 }, (_, i) => [1790000000000 + i * 864e5, 3e10]) } } : undefined));
+  it('flows: sector rotation from Yahoo daily bars (rows, rotation map, risk appetite)', async () => {
+    const yh = (n: number) => ({ chart: { result: [{ meta: { gmtoffset: -18000 }, timestamp: Array.from({ length: n }, (_, i) => 1730000000 + i * 86400), indicators: { quote: [{ open: Array(n).fill(1), high: Array(n).fill(1), low: Array(n).fill(1), close: Array.from({ length: n }, (_, i) => 100 + i * 0.1 + Math.sin(i / 7)), volume: Array(n).fill(1000) }] } }] } });
+    routes.push((u) => (u.host === 'query1.finance.yahoo.com' ? { body: yh(250) } : undefined));
     const j = await (await flowsApi()).json();
-    expect(j.windows['5D'].rows.some((r: { sym: string }) => r.sym === 'BTC')).toBe(true);
-    expect(j.sources).toContain('CoinGecko');
-    expect(j.pending.length).toBeGreaterThan(0); // 15 ETF series can't all load inside one minute's free credits
-    expect(j.proxy).toMatch(/Not actual fund-flow data/);
+    expect(j.pending).toEqual([]);
+    expect(j.sources).toContain('Yahoo Finance');
+    expect(j.rows.map((r: { sym: string }) => r.sym)).toEqual(expect.arrayContaining(['XLK', 'BTC', 'TLT', 'SMH']));
+    expect(j.rows[0].rel[20]).not.toBeNull();
+    expect(j.risk.line.length).toBeGreaterThan(50);
   });
 });

@@ -9,7 +9,7 @@ const PAGES: { id: Page; label: string; key: string }[] = [
   { id: 'company', label: 'COMPANY', key: 'O' },
   { id: 'scanner', label: 'SCANNER', key: 'S' },
   { id: 'map', label: 'WORLD MAP', key: 'M' },
-  { id: 'flows', label: 'MONEY FLOW', key: 'G' },
+  { id: 'flows', label: 'ROTATION', key: 'G' },
   { id: 'calendar', label: 'CALENDARS', key: 'C' },
   { id: 'journal', label: 'JOURNAL', key: '⇧J' },
 ];
