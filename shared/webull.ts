@@ -130,3 +130,25 @@ export function realized(fills: WbFill[]): { closed: WbClosed[]; days: WbDay[]; 
 
 /** Webull's time format for order history: yyyy-MM-dd'T'HH:mm:ss.SSSZ */
 export const wbTime = (t: number) => new Date(t).toISOString().replace('Z', '+0000');
+
+/** Open (resting) orders, read under the field names Webull's order endpoints use. Combo legs are flattened. */
+export interface WbOpenOrder { id: string; sym: string; side: string; type: string; qty: number | null; filled: number | null; limit: number | null; stop: number | null; status: string; tif: string; placed: number | null; combo: string }
+export function normOpenOrders(raw: any): WbOpenOrder[] {
+  const out: WbOpenOrder[] = [];
+  const add = (o: any) => {
+    const id = String(o?.client_order_id ?? o?.clientOrderId ?? '');
+    if (!id) return;
+    const t = o?.place_time ?? o?.create_time ?? o?.placed_time;
+    out.push({
+      id, sym: String(o?.symbol ?? '').toUpperCase(), side: String(o?.side ?? ''), type: String(o?.order_type ?? ''),
+      qty: num(o?.quantity ?? o?.total_quantity ?? o?.qty), filled: num(o?.filled_quantity ?? o?.filled_qty), limit: num(o?.limit_price), stop: num(o?.stop_price),
+      status: String(o?.status ?? o?.order_status ?? ''), tif: String(o?.time_in_force ?? ''), placed: t == null ? null : typeof t === 'number' ? t : Date.parse(String(t)) || null,
+      combo: String(o?.combo_type ?? ''),
+    });
+  };
+  for (const g of listOf(raw)) {
+    const legs = Array.isArray(g?.orders) ? g.orders : Array.isArray(g?.items) ? g.items : null;
+    if (legs) legs.forEach(add); else add(g);
+  }
+  return out;
+}

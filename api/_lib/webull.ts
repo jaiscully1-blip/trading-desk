@@ -3,7 +3,8 @@
 //   sign params = x-app-key, x-timestamp, x-signature-version, x-signature-algorithm, x-signature-nonce, host + every query param,
 //   sorted by name and joined k=v&...; string = path&params[&UPPER(sha256_hex(compact body))]; percent-encode everything but A-Za-z0-9-._~;
 //   signature = base64(HMAC-SHA256(secret + '&', string)).
-// This module only exposes GET calls (plus the token create/check POSTs Webull requires for 2FA). It cannot place, change or cancel orders.
+// This module exposes read calls (plus the token create/check POSTs Webull requires for 2FA). Order calls live only in
+// api/_lib/broker/webull-orders.ts behind the desk password, the order PIN and the WEBULL_ORDERS switch (RULES.md R6).
 import { createHash, createHmac, randomUUID } from 'node:crypto';
 import { ProviderError } from '../../shared/parse.js';
 
@@ -12,19 +13,20 @@ export const WEBULL_HOST = process.env.WEBULL_HOST || 'api.webull.com'; // US pr
 /** Python's urllib quote(s, safe='') */
 export const pyQuote = (s: string) => encodeURIComponent(s).replace(/[!'()*]/g, (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`);
 
-export function webullSign(o: { host: string; path: string; query?: Record<string, string>; body?: unknown; appKey: string; secret: string; timestamp: string; nonce: string }): { headers: Record<string, string>; signature: string } {
+export function webullSign(o: { host: string; path: string; query?: Record<string, string>; body?: unknown; appKey: string; secret: string; timestamp: string; nonce: string; algo?: 'sha256' | 'sha1' }): { headers: Record<string, string>; signature: string } {
+  const sha1 = o.algo === 'sha1'; // SHA1 + MD5 body = the variant in Webull's docs worked example (used in tests)
   const headers: Record<string, string> = {
     'x-app-key': o.appKey,
     'x-timestamp': o.timestamp,
     'x-signature-version': '1.0',
-    'x-signature-algorithm': 'HMAC-SHA256',
+    'x-signature-algorithm': sha1 ? 'HMAC-SHA1' : 'HMAC-SHA256',
     'x-signature-nonce': o.nonce,
   };
   const params: Record<string, string> = { ...headers, host: o.host };
   for (const [k, v] of Object.entries(o.query ?? {})) params[k] = params[k] != null ? `${params[k]}&${v}` : String(v);
   let s = `${o.path}&${Object.keys(params).sort().map((k) => `${k}=${params[k]}`).join('&')}`;
-  if (o.body !== undefined) s += `&${createHash('sha256').update(JSON.stringify(o.body)).digest('hex').toUpperCase()}`;
-  const signature = createHmac('sha256', `${o.secret}&`).update(pyQuote(s)).digest('base64');
+  if (o.body !== undefined) s += `&${createHash(sha1 ? 'md5' : 'sha256').update(typeof o.body === 'string' ? o.body : JSON.stringify(o.body)).digest('hex').toUpperCase()}`;
+  const signature = createHmac(sha1 ? 'sha1' : 'sha256', `${o.secret}&`).update(pyQuote(s)).digest('base64');
   return { headers: { ...headers, 'x-signature': signature }, signature };
 }
 
@@ -35,7 +37,7 @@ export const hasWebull = () => !!(process.env.WEBULL_APP_KEY && process.env.WEBU
 let last = 0;
 async function spacing() { const wait = last + 1100 - Date.now(); if (wait > 0) await new Promise((r) => setTimeout(r, wait)); last = Date.now(); }
 
-async function call(method: 'GET' | 'POST', path: string, query: Record<string, string> = {}, body?: unknown, token?: string): Promise<any> {
+export async function wbCall(method: 'GET' | 'POST', path: string, query: Record<string, string> = {}, body?: unknown, token?: string, extra: Record<string, string> = {}): Promise<any> {
   const appKey = process.env.WEBULL_APP_KEY, secret = process.env.WEBULL_APP_SECRET;
   if (!appKey || !secret) throw new ProviderError('webull', 'missing WEBULL_APP_KEY / WEBULL_APP_SECRET', false);
   await spacing();
@@ -46,7 +48,7 @@ async function call(method: 'GET' | 'POST', path: string, query: Record<string, 
   try {
     const r = await fetch(`https://${WEBULL_HOST}${path}${qs ? `?${qs}` : ''}`, {
       method, signal: ctl.signal,
-      headers: { ...headers, 'x-version': 'v3', accept: 'application/json', 'x-webull-client-source': 'trading-desk-readonly', ...(tok ? { 'x-access-token': tok } : {}), ...(body !== undefined ? { 'content-type': 'application/json' } : {}) },
+      headers: { ...headers, 'x-version': 'v3', accept: 'application/json', 'x-webull-client-source': 'trading-desk', ...extra, ...(tok ? { 'x-access-token': tok } : {}), ...(body !== undefined ? { 'content-type': 'application/json' } : {}) },
       body: body !== undefined ? JSON.stringify(body) : undefined,
     });
     const text = await r.text();
@@ -62,7 +64,8 @@ async function call(method: 'GET' | 'POST', path: string, query: Record<string, 
   } finally { clearTimeout(t); }
 }
 
-/* ---- the only calls the desk makes ---- */
+const call = wbCall;
+/* ---- read calls ---- */
 export const wbConfig = () => call('GET', '/openapi/config');
 export const wbTokenCreate = () => call('POST', '/auth/tokens/create', {}, {});
 export const wbTokenCheck = (token: string) => call('POST', '/auth/tokens/check', {}, { token }, token);

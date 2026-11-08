@@ -7,6 +7,8 @@ import { RulesStatus, type RulesData } from './RulesW';
 import { et } from '../lib/clock';
 import { pct } from '../lib/format';
 import { Fresh } from './common';
+import { useDesk } from '../lib/deskctx';
+import { tick } from '../../shared/orders';
 import { FOMC } from '../../shared/calendar';
 
 const ymd = (e: { y: number; mo: number; d: number }) => `${e.y}-${String(e.mo).padStart(2, '0')}-${String(e.d).padStart(2, '0')}`;
@@ -43,6 +45,8 @@ function MoverTable({ rows, phase, onChart, title }: { rows: PmRow[]; phase: 'pr
 
 function SetupCard({ s, onChart, mine }: { s: Setup; onChart: (x: string) => void; mine: boolean }) {
   const cls = s.bias === 'Buy bias' ? 'buy' : s.bias === 'Sell bias' ? 'sell' : 'wait';
+  const { openOrder } = useDesk();
+  const entry = s.pmPx ?? s.prevClose;
   return (
     <article className={`am-setup ${cls}`}>
       <header>
@@ -51,6 +55,7 @@ function SetupCard({ s, onChart, mine }: { s: Setup; onChart: (x: string) => voi
         <span className={`am-bias ${cls}`}>{s.bias}</span>
         <Move v={s.move} />
         <span className="small muted">{s.moveKind === 'premarket' ? 'premarket' : 'last session'}</span>
+        {openOrder && s.bias === 'Buy bias' && <button className="link small am-order" onClick={() => openOrder({ sym: s.sym, side: 'BUY', type: 'LIMIT', limit: tick(entry), stopLoss: s.prevClose < entry ? tick(s.prevClose) : null }, entry)} title="Opens the Webull ticket prefilled; nothing is sent until you preview, type your PIN and confirm">Order…</button>}
       </header>
       <div className="am-sname">{s.name}</div>
       <p className="am-plan">{s.plan}</p>

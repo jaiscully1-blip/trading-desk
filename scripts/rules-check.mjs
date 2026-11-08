@@ -35,8 +35,10 @@ const union = core.match(/export type Provider =([^;]+);/)?.[1].match(/'([a-z]+)
 const limits = core.slice(core.indexOf('const LIMITS'));
 for (const p of union) if (!new RegExp(`\\b${p}: \\{ perMin`).test(limits)) fail('R5 provider has no rate limit entry', p);
 
-// 6. The desk never places orders (until the AI-bot switch ships behind its own limits, see RULES.md "Bot policy")
-scan([...src, ...api, ...shared], /\/v2\/orders|placeOrder\s*\(|submitOrder\s*\(|\/trade\/order/i, 'R6 order-placing code found (the bot policy is still pending)', (_l, f) => f.includes('/api/_lib/bot/'));
+// 6. Order calls live only in api/_lib/broker/ (human-approved Webull ticket); no bot code anywhere (RULES.md "Bot policy")
+scan([...src, ...api, ...shared], /\/v2\/orders|placeOrder\s*\(|submitOrder\s*\(|\/trade\/order|\/trading\/orders\/(place|replace|cancel|batch-place|preview)/i, 'R6 order code outside api/_lib/broker/', (_l, f) => f.includes('/api/_lib/broker/'));
+for (const f of [...src, ...api, ...shared]) if (/\bsetInterval\([^)]*(place|order)/i.test(readFileSync(f, 'utf8'))) fail('R6 orders on a timer (that would be a bot)', relative(root, f));
+for (const f of code('api/_lib/broker')) { const t = readFileSync(f, 'utf8'); for (const g of ['pinOk', 'ordersOn', 'ticketOk', 'denyPrivate']) if (!t.includes(g) && !readFileSync(join(root, 'api/_lib/research/webull-order.ts'), 'utf8').includes(g)) fail('R6 order gate missing', `${relative(root, f)}: ${g}`); }
 
 // 7. Sample data is always labeled: demo generators live in src/lib/demo* or are named demo*/sample*
 for (const f of src) {

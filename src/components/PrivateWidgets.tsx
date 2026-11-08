@@ -3,7 +3,9 @@ import { useEffect, useMemo, useState } from 'react';
 import type { HomeData } from './HomeWidgets';
 import type { WbBalance, WbClosed, WbDay, WbFill, WbPosition } from '../../shared/webull';
 import type { DcMessage } from '../../shared/discord';
-import { getDeskKey, privateFetch, setDeskKey, usePrivate } from '../data/private';
+import { getDeskKey, privateFetch, privatePost, setDeskKey, usePrivate } from '../data/private';
+import type { WbOpenOrder } from '../../shared/webull';
+import { useDesk } from '../lib/deskctx';
 import { DEMO_AT, rng } from '../lib/demo';
 import { pct, px, sUsd, tone } from '../lib/format';
 import { etTime } from '../lib/clock';
@@ -112,8 +114,39 @@ function PnlCalendar({ rows, days, onPick, pick }: { rows: WbDay[]; days: number
   );
 }
 
+/** Resting orders with Cancel (needs the order PIN, typed here, never saved). */
+function OpenOrders({ d }: { d: HomeData }) {
+  const q = usePrivate<{ orders: WbOpenOrder[]; asOf: number }>({ fn: 'webull-orders', op: 'open' }, d.mode, 15_000);
+  const [pinFor, setPinFor] = useState<string | null>(null);
+  const [pin, setPin] = useState('');
+  const [msg, setMsg] = useState('');
+  const cancel = async (id: string) => {
+    const { ok, j } = await privatePost({ fn: 'webull-order', op: 'cancel' }, { clientOrderId: id }, { 'x-order-pin': pin }).catch(() => ({ ok: false, j: { error: 'network error' } }));
+    setPin(''); setPinFor(null); setMsg(ok ? 'Cancel sent. Webull confirms it in a few seconds.' : j.error ?? 'Cancel failed.'); q.reload();
+  };
+  if (q.error && !q.data) return <p className="hw-pad small down">{q.error}</p>;
+  if (!q.data) return <p className="hw-pad small muted">Loading open orders…</p>;
+  return (
+    <div className="wb-tbl">
+      {q.data.orders.map((o) => (
+        <div key={o.id} className="wb-r wb-oo">
+          <span className="wb-sym"><b>{o.sym}</b><span className="small">{o.side} {o.type.replace(/_/g, ' ').toLowerCase()}</span><span className="num muted small">×{o.qty ?? '?'}{o.filled ? ` (${o.filled} filled)` : ''}</span></span>
+          <span className="num">{o.limit != null ? `L ${px(o.limit)}` : ''}{o.stop != null ? ` S ${px(o.stop)}` : ''}</span>
+          <span className="small muted">{o.status.toLowerCase()}</span>
+          {pinFor === o.id
+            ? <span className="wb-ord"><input type="password" autoComplete="off" placeholder="PIN" value={pin} onChange={(e) => setPin(e.target.value)} aria-label="Order PIN" /><button className="link small down" disabled={!pin} onClick={() => cancel(o.id)}>Cancel order</button></span>
+            : <button className="link small" onClick={() => { setPinFor(o.id); setPin(''); }}>Cancel…</button>}
+        </div>
+      ))}
+      {!q.data.orders.length && <p className="small muted hw-pad">No open orders. (Only orders placed through the desk can be cancelled here.)</p>}
+      {msg && <p className="small hw-pad">{msg}</p>}
+    </div>
+  );
+}
+
 export function WebullW({ d, cfg, set }: P) {
-  const tab: 'pos' | 'pnl' = cfg.tab ?? 'pos';
+  const tab: 'pos' | 'pnl' | 'orders' = cfg.tab ?? 'pos';
+  const { openOrder } = useDesk();
   const days: number = cfg.days ?? 30;
   const live = d.mode.kind === 'live';
   const st = usePrivate<Status>({ fn: 'webull', op: 'status' }, d.mode, 0);
@@ -129,9 +162,10 @@ export function WebullW({ d, cfg, set }: P) {
 
   const head = (
     <div className="hw-bar">
-      <Seg value={tab} options={[{ id: 'pos', label: 'Positions' }, { id: 'pnl', label: 'P&L calendar' }]} onChange={(v) => set({ ...cfg, tab: v })} />
+      <Seg value={tab} options={[{ id: 'pos', label: 'Positions' }, { id: 'orders', label: 'Orders' }, { id: 'pnl', label: 'P&L calendar' }]} onChange={(v) => set({ ...cfg, tab: v })} />
+      {openOrder && <button className="hw-btn" onClick={() => openOrder({ sym: d.sel, side: 'BUY', type: 'LIMIT' }, Number.isFinite(d.quotes[d.sel]?.last) ? d.quotes[d.sel].last : null)} title="Opens the order ticket; nothing is sent until you preview, type your PIN and confirm">New order</button>}
       {tab === 'pnl' && <Seg value={String(days) as '30'} options={[{ id: '30', label: '30d' }, { id: '60', label: '60d' }, { id: '90', label: '90d' }] as { id: '30'; label: string }[]} onChange={(v) => set({ ...cfg, days: +v })} />}
-      {demo ? <Fresh kind="demo" /> : <Fresh kind={(tab === 'pos' ? acct.data : pnlQ.data) ? 'live' : 'nodata'} at={(tab === 'pos' ? acct.at : pnlQ.at)} src="Webull OpenAPI, read-only" />}
+      {demo ? <Fresh kind="demo" /> : <Fresh kind={(tab === 'pnl' ? pnlQ.data : acct.data) ? 'live' : 'nodata'} at={(tab === 'pnl' ? pnlQ.at : acct.at)} src="Webull OpenAPI" />}
     </div>
   );
   if (!demo) {
@@ -140,7 +174,7 @@ export function WebullW({ d, cfg, set }: P) {
     if (!st.data) return <div className="hw-col">{head}<p className="hw-pad small muted">{live ? 'Checking Webull…' : 'Webull loads on the live desk.'}</p></div>;
     if (!ready) return <div className="hw-col">{head}<WebullSetup st={st.data} reload={st.reload} /></div>;
   }
-  const err = tab === 'pos' ? acct.error : pnlQ.error;
+  const err = tab === 'pos' ? acct.error : tab === 'pnl' ? pnlQ.error : undefined;
   return (
     <div className="hw-col">
       {head}
@@ -167,6 +201,7 @@ export function WebullW({ d, cfg, set }: P) {
           </div>
         </>
       )}
+      {tab === 'orders' && (demo ? <p className="small muted hw-pad">Open orders load on the live desk.</p> : <OpenOrders d={d} />)}
       {tab === 'pnl' && pnlRaw && (
         <>
           <PnlCalendar rows={dayRows} days={days} pick={pick} onPick={setPick} />
@@ -176,7 +211,7 @@ export function WebullW({ d, cfg, set }: P) {
           {pnlRaw.unmatched.length > 0 && <p className="note hw-pad">Not counted: sells of shares bought before {pnlRaw.from} ({pnlRaw.unmatched.map((u) => `${u.sym} ×${u.qty}`).join(', ')}) — Webull’s history here doesn’t include their buy price. Pick a longer range to include them.</p>}
         </>
       )}
-      <p className="note hw-pad">Read-only: the desk can see your account but cannot trade. Realized P&L is matched first-in-first-out from Webull’s filled orders; fees aren’t included.</p>
+      <p className="note hw-pad">The desk never trades on its own: every order goes through the ticket (preview → your PIN → Confirm), within the caps set in Vercel. Realized P&L is matched first-in-first-out from Webull’s filled orders; fees aren’t included.</p>
     </div>
   );
 }

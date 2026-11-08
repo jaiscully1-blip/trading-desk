@@ -15,6 +15,13 @@ export async function privateFetch(params: Record<string, string>): Promise<{ ok
   return { ok: r.ok, status: r.status, j };
 }
 
+/** POST to a private endpoint (order ticket). extra headers carry the order PIN, which is never stored. */
+export async function privatePost(params: Record<string, string>, body: unknown, extra: Record<string, string> = {}): Promise<{ ok: boolean; status: number; j: any }> {
+  const r = await fetch(`/api/research?${new URLSearchParams(params)}`, { method: 'POST', headers: { 'x-desk-key': deskKey, 'content-type': 'application/json', ...extra }, body: JSON.stringify(body) });
+  const j = await r.json().catch(() => ({ error: `HTTP ${r.status}` }));
+  return { ok: r.ok, status: r.status, j };
+}
+
 export interface PrivState<T> { data: T | null; error?: string; code?: string; loading: boolean; at?: number }
 
 /** Live-only fetch with auto refresh. Returns code 'bad-password' / 'no-password-set' when the lock should show. */

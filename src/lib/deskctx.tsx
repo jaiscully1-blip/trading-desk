@@ -10,6 +10,8 @@ export interface DeskCtx {
   openCompany: (sym: string) => void;
   /** small "what is this?" card next to the click */
   openInfo: (sym: string, at?: { x: number; y: number }) => void;
+  /** open the approve-to-send Webull order ticket, prefilled */
+  openOrder?: (draft: Partial<import('../../shared/orders').OrderDraft>, last?: number | null) => void;
 }
 export const Desk = createContext<DeskCtx>({ stars: [], toggleStar: () => {}, names: {}, openCompany: () => {}, openArticle: () => {}, openInfo: () => {} });
 export const useDesk = () => useContext(Desk);

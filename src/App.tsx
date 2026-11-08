@@ -58,6 +58,8 @@ const CompanyPage = lazy(() => import('./components/CompanyPage'));
 const Home = lazy(() => import('./components/Home'));
 const Morning = lazy(() => import('./components/Morning'));
 import { useMorning } from './data/morning';
+import { OrderTicket } from './components/OrderTicket';
+import type { OrderDraft } from '../shared/orders';
 import { Messages } from './components/Messages';
 import { useFeed } from './data/feed';
 import type { HomeLayout, Workspaces } from './components/Home';
@@ -444,7 +446,9 @@ export default function App() {
   const [article, setArticle] = useState<Article | null>(null);
   const [info, setInfo] = useState<{ sym: string; at: { x: number; y: number } } | null>(null);
   const openInfo = useCallback((sym: string, at?: { x: number; y: number }) => setInfo({ sym, at: at ?? { x: window.innerWidth / 2 - 170, y: 120 } }), []);
-  const desk: DeskCtx = useMemo(() => ({ stars, toggleStar, names, openCompany, openArticle: setArticle, openInfo }), [stars, toggleStar, names, openCompany, openInfo]);
+  const [orderReq, setOrderReq] = useState<{ initial: Partial<OrderDraft>; last?: number | null } | null>(null);
+  const openOrder = useCallback((initial: Partial<OrderDraft>, last?: number | null) => setOrderReq({ initial, last }), []);
+  const desk: DeskCtx = useMemo(() => ({ stars, toggleStar, names, openCompany, openArticle: setArticle, openInfo, openOrder }), [stars, toggleStar, names, openCompany, openInfo, openOrder]);
 
   const fired = useRef<Set<string>>(new Set(load<string[]>('pingFired', [])));
   const pushPings = useCallback((ps: Ping[]) => {
@@ -554,6 +558,7 @@ export default function App() {
     { id: 'auto-backup', label: `Auto CSV backup at the close: ${autoBackup ? 'on (turn off)' : 'off (turn on)'}`, run: () => setAutoBackup(!autoBackup) },
     { id: 'risk', label: 'Open risk / position size', hint: 'R', run: () => setTab('risk') },
     { id: 'account', label: 'Open account drawer', hint: 'A', run: () => setDrawer(true) },
+    { id: 'order', label: 'Webull order ticket (you approve every order)', run: () => openOrder({ sym: sel, side: 'BUY', type: 'LIMIT' }, Number.isFinite(quotes[sel]?.last) ? quotes[sel].last : null) },
     { id: 'morning', label: 'Morning plan: premarket movers, sectors, setups, events (before 11am)', hint: 'W', run: () => setPage('morning') },
     { id: 'map', label: 'World map page', hint: 'M', run: () => setPage('map') },
     { id: 'globe', label: 'Sector rotation page', hint: 'G', run: () => setPage('flows') },
@@ -781,6 +786,7 @@ export default function App() {
       {overlay === 'help' && <OverlayView kind="help" onClose={() => setOverlay(null)} />}
       {toast && <div className="toast" role="status">{toast}</div>}
       {article && <ReaderOverlay a={article} mode={dataMode} onClose={() => setArticle(null)} />}
+      {orderReq && <OrderTicket initial={orderReq.initial} last={orderReq.last ?? (orderReq.initial.sym && Number.isFinite(quotes[orderReq.initial.sym]?.last) ? quotes[orderReq.initial.sym].last : null)} live={live} onClose={() => setOrderReq(null)} onPlaced={(t) => flash(`Sent to Webull: ${t}`, 5000)} />}
       {info && <TickerInfo key={info.sym} sym={info.sym} at={info.at} mode={dataMode} onClose={() => setInfo(null)} onChart={toDesk} onCompany={openCompany} />}
       <PingStack pings={pings} onOpen={toDesk} onDismiss={(id) => setPings((x) => x.filter((p) => p.id !== id))} />
     </div>
