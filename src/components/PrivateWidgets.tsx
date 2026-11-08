@@ -10,6 +10,8 @@ import { DEMO_AT, rng } from '../lib/demo';
 import { pct, px, sUsd, tone } from '../lib/format';
 import { etTime } from '../lib/clock';
 import { CoName, Fresh, Seg, Star, SymInfo } from './common';
+import { usePersisted } from '../lib/store';
+import { tokenMessage } from '../../shared/webull';
 
 type Cfg = Record<string, any>;
 interface P { d: HomeData; cfg: Cfg; set: (c: Cfg) => void }
@@ -53,10 +55,26 @@ function demoWebull(): { acct: Acct; pnl: Pnl } {
   };
 }
 
-function WebullSetup({ st, reload }: { st: Status; reload: () => void }) {
-  const [tok, setTok] = useState<{ token?: string; status?: string; error?: string } | null>(null);
-  const create = async () => { const { ok, j } = await privateFetch({ fn: 'webull', op: 'token-create' }); setTok(ok ? j : { error: j.error }); };
-  const check = async () => { const { ok, j } = await privateFetch({ fn: 'webull', op: 'token-check', token: tok?.token ?? '' }); setTok((t) => ({ ...t, status: ok ? j.status : undefined, error: ok ? undefined : j.error })); };
+function WebullSetup({ st, reload, loading }: { st: Status; reload: () => void; loading: boolean }) {
+  // Setup progress lives in the browser store so closing and reopening the widget never restarts it.
+  const [tok, setTok] = usePersisted<{ token?: string; status?: string; at?: number } | null>('wbTok', null);
+  const [busy, setBusy] = useState<'' | 'create' | 'check'>('');
+  const [err, setErr] = useState('');
+  const create = async () => {
+    setBusy('create'); setErr('');
+    try { const { ok, j } = await privateFetch({ fn: 'webull', op: 'token-create' }); if (ok && j.token) setTok({ token: j.token, status: j.status ?? 'PENDING', at: Date.now() }); else setErr(j.error ?? 'Webull sent no token. Try again in a minute.'); }
+    catch { setErr('Network error. Try again.'); }
+    setBusy('');
+  };
+  const check = async () => {
+    if (!tok?.token) return;
+    setBusy('check'); setErr('');
+    try { const { ok, j } = await privateFetch({ fn: 'webull', op: 'token-check', token: tok.token }); if (ok) setTok({ ...tok, status: j.status ?? undefined }); else setErr(j.error ?? 'Webull could not check the token.'); }
+    catch { setErr('Network error. Try again.'); }
+    setBusy('');
+  };
+  const msg = tok?.token ? tokenMessage(tok.status) : null;
+  const age = tok?.at ? Math.round((Date.now() - tok.at) / 60000) : 0;
   if (!st.configured) return (
     <div className="hw-pad small">
       <p><b>Connect Webull (read-only).</b> In Vercel → Settings → Environment Variables add:</p>
@@ -69,13 +87,18 @@ function WebullSetup({ st, reload }: { st: Status; reload: () => void }) {
       {st.configError && <p className="down">Webull answered: {st.configError}</p>}
       <p><b>Webull needs a one-time access token</b> because your account has 2-step security.</p>
       <ol className="steps-ol">
-        <li><button className="btn" onClick={create}>Create token</button> — Webull then sends a code / prompt to your phone.</li>
-        <li>Approve it in the Webull app within 5 minutes, then <button className="btn" onClick={check} disabled={!tok?.token}>Check</button></li>
+        <li><button className="btn" onClick={create} disabled={busy !== ''}>{busy === 'create' ? 'Creating…' : tok?.token ? 'Create a new token' : 'Create token'}</button> — Webull then sends a code / prompt to your phone.</li>
+        <li>Approve it in the Webull app within 5 minutes, then <button className="btn" onClick={check} disabled={!tok?.token || busy !== ''}>{busy === 'check' ? 'Checking…' : 'Check'}</button>{!tok?.token && <span className="muted"> (create a token first)</span>}</li>
         <li>When it says <b>NORMAL</b>, copy the token into Vercel as <code>WEBULL_ACCESS_TOKEN</code> and redeploy. It stays valid while used at least every 15 days.</li>
       </ol>
-      {tok?.token && <p className="tok">Token: <code className="sel-all">{tok.token}</code> · status <b className={tok.status === 'NORMAL' ? 'up' : ''}>{tok.status ?? '?'}</b></p>}
-      {tok?.error && <p className="down">{tok.error}</p>}
-      <button className="btn" onClick={reload}>Recheck setup</button>
+      {tok?.token && <p className="tok">Token: <code className="sel-all">{tok.token}</code> · status <b className={tok.status === 'NORMAL' ? 'up' : ''}>{tok.status ?? 'not checked'}</b>{age > 0 && <span className="muted"> · created {age} min ago</span>}</p>}
+      {msg && <p className={msg.ok ? 'up' : 'muted'}>{msg.text}</p>}
+      {err && <p className="down">{err}</p>}
+      <div className="hw-bar">
+        <button className="btn" disabled={loading} onClick={reload}>{loading ? 'Rechecking…' : 'Recheck setup'}</button>
+        {st.tokenSet ? <span className="up small">WEBULL_ACCESS_TOKEN is set on the server. Redeploy if the account still does not load.</span> : <span className="muted small">Server has no access token yet.</span>}
+        {tok && <button className="link small" onClick={() => { setTok(null); setErr(''); }}>Start over</button>}
+      </div>
     </div>
   );
 }
@@ -172,7 +195,7 @@ export function WebullW({ d, cfg, set }: P) {
     if (locked(st.code)) return <div className="hw-col">{head}<DeskLock code={st.code} error={st.error} /></div>;
     if (st.error && !st.data) return <div className="hw-col">{head}<p className="hw-pad small down">{st.error}</p></div>;
     if (!st.data) return <div className="hw-col">{head}<p className="hw-pad small muted">{live ? 'Checking Webull…' : 'Webull loads on the live desk.'}</p></div>;
-    if (!ready) return <div className="hw-col">{head}<WebullSetup st={st.data} reload={st.reload} /></div>;
+    if (!ready) return <div className="hw-col">{head}<WebullSetup st={st.data} reload={st.reload} loading={st.loading} /></div>;
   }
   const err = tab === 'pos' ? acct.error : tab === 'pnl' ? pnlQ.error : undefined;
   return (

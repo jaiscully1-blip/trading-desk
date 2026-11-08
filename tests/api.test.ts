@@ -37,6 +37,14 @@ afterEach(() => vi.unstubAllGlobals());
 const req = (p: string) => new Request(`http://x${p}`);
 
 describe('/api/candles', () => {
+  it('serves the 15-minute timeframe from Twelve Data (15min interval)', async () => {
+    let interval = '';
+    routes.push((u) => { if (u.host === 'api.twelvedata.com') { interval = u.searchParams.get('interval') ?? ''; return { body: td }; } });
+    const r = await candles(req('/api/candles?symbol=spy&tf=15m'));
+    expect(r.status).toBe(200);
+    expect((await r.json()).tf).toBe('15m');
+    expect(interval).toBe('15min');
+  });
   it('uses Twelve Data first and sets CDN cache headers', async () => {
     routes.push((u) => (u.host === 'api.twelvedata.com' ? { body: td } : undefined));
     const r = await candles(req('/api/candles?symbol=spy&tf=5m'));

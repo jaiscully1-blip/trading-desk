@@ -152,3 +152,22 @@ export function normOpenOrders(raw: any): WbOpenOrder[] {
   }
   return out;
 }
+
+/** Webull's token create/check answers are read under the common shapes (top level or under `data`). */
+export function tokenInfo(raw: any): { token?: string; status?: string; expires?: number } {
+  const o = raw?.data && typeof raw.data === 'object' && !Array.isArray(raw.data) ? { ...raw, ...raw.data } : raw ?? {};
+  const s = o.status ?? o.token_status ?? o.state;
+  const e = Number(o.expires ?? o.expire_time ?? o.expires_at);
+  return { token: typeof o.token === 'string' && o.token ? o.token : undefined, status: s == null ? undefined : String(s).toUpperCase(), expires: Number.isFinite(e) && e > 0 ? e : undefined };
+}
+
+/** Plain-English line for a token status, shown under the Check button. */
+export function tokenMessage(status: string | undefined): { text: string; ok: boolean } {
+  switch (status) {
+    case 'NORMAL': return { text: 'Approved. Copy the token into Vercel as WEBULL_ACCESS_TOKEN and redeploy.', ok: true };
+    case 'PENDING': return { text: 'Not approved yet. Open the Webull app, approve the request, then press Check again.', ok: false };
+    case 'INVALID': case 'EXPIRED': return { text: 'This token expired or was rejected. Press Create token to start again.', ok: false };
+    case undefined: return { text: 'Webull sent no status. Press Check again in a few seconds.', ok: false };
+    default: return { text: `Webull says the token is ${status}.`, ok: false };
+  }
+}

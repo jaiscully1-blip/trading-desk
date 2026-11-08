@@ -85,14 +85,15 @@ export function defaultBoards(q: Record<string, Quote>): Record<string, Board> {
 
 const SLOTS_1H = [570, 630, 690, 750, 810, 870, 930];
 const SLOTS_5M = Array.from({ length: 78 }, (_, i) => 570 + i * 5);
+const SLOTS_15M = Array.from({ length: 26 }, (_, i) => 570 + i * 15);
 
 export function makeCandles(sym: string, tf: TF, last: number): Bar[] {
   if (tf === 'W' || tf === 'M') return makeLongCandles(sym, tf, last);
   const r = rng(hash(sym + tf) + DAY_SEED);
   const idx = INDEXES.includes(sym);
-  const days = lastSessionDates(tf === 'D' ? 260 : tf === '1H' ? 45 : 5);
-  const slots = tf === 'D' ? [0] : tf === '1H' ? SLOTS_1H : SLOTS_5M;
-  const vol = (tf === 'D' ? 0.022 : tf === '1H' ? 0.0075 : 0.0024) * (idx ? 0.45 : 1);
+  const days = lastSessionDates(tf === 'D' ? 260 : tf === '1H' ? 45 : tf === '15m' ? 15 : 5);
+  const slots = tf === 'D' ? [0] : tf === '1H' ? SLOTS_1H : tf === '15m' ? SLOTS_15M : SLOTS_5M;
+  const vol = (tf === 'D' ? 0.022 : tf === '1H' ? 0.0075 : tf === '15m' ? 0.0042 : 0.0024) * (idx ? 0.45 : 1);
   const drift = (tf === 'D' ? 0.0009 : 0.00012) * (idx ? 0.5 : 1);
   const baseVol = idx ? 6e7 : 2.5e7;
 
@@ -110,7 +111,7 @@ export function makeCandles(sym: string, tf: TF, last: number): Bar[] {
       const close = open * (1 + gauss(r) * vol + drift);
       const high = Math.max(open, close) * (1 + r() * vol * 0.7);
       const low = Math.min(open, close) * (1 - r() * vol * 0.7);
-      const u = tf === '5m' ? 1 + 2.2 * Math.pow((m - 570) / 390 - 0.5, 2) * 4 : 1; // intraday U-shape
+      const u = tf === '5m' || tf === '15m' ? 1 + 2.2 * Math.pow((m - 570) / 390 - 0.5, 2) * 4 : 1; // intraday U-shape
       const volume = Math.round((baseVol / (tf === 'D' ? 1 : slots.length)) * (0.5 + r()) * u);
       bars.push({ time, open, high, low, close, volume });
       p = close;

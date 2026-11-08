@@ -61,6 +61,8 @@ export function LevelsPanel({
 function Row({ id, cols }: { id: LevelId; cols: LevelCol[] }) {
   // a level the free data can't provide for any column (premarket high/low) is left out
   if (cols.length && cols.every((c) => c.levels.find((x) => x.id === id)?.status === 'unavailable')) return null;
+  // day-trading levels are dropped outside regular hours (and ORH / ORL before the opening range completes)
+  if (cols.length && cols.every((c) => !c.levels.some((x) => x.id === id))) return null;
   return (
     <>
       <div className="lv-l" title={LEVEL_LABEL[id]}>{LEVEL_SHORT[id]}<span className="muted small"> {LEVEL_LABEL[id].replace(/^(Prior-day|Premarket|Opening-range) /, '')}</span></div>

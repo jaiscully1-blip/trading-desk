@@ -3,7 +3,7 @@
 import { cached, json } from '../core.js';
 import { denyPrivate } from '../private.js';
 import { WEBULL_HOST, hasWebull, wbAccounts, wbBalance, wbConfig, wbOrders, wbPositions, wbTokenCheck, wbTokenCreate } from '../webull.js';
-import { fillsFromOrders, listOf, normBalance, normPositions, realized, wbTime } from '../../../shared/webull.js';
+import { fillsFromOrders, listOf, normBalance, normPositions, realized, tokenInfo, wbTime } from '../../../shared/webull.js';
 
 export async function accountId(): Promise<{ id: string; list: { id: string; type: string; label: string }[] }> {
   const raw = (await cached('wb:accounts', 3600, wbAccounts)).val;
@@ -34,13 +34,14 @@ export async function GET(req: Request): Promise<Response> {
       case 'token-create': {
         // Webull texts a code to the phone on the account; approving it in the Webull app activates this token.
         const r = await wbTokenCreate();
-        return json({ token: r?.token, status: r?.status, expires: r?.expires });
+        return json(tokenInfo(r));
       }
       case 'token-check': {
         const token = q.get('token') || process.env.WEBULL_ACCESS_TOKEN || '';
         if (!token) return json({ error: 'no token to check' }, { status: 400 });
         const r = await wbTokenCheck(token);
-        return json({ status: r?.status, expires: r?.expires });
+        const t = tokenInfo(r);
+        return json({ status: t.status, expires: t.expires });
       }
       case 'account': {
         const { id, list } = await accountId();

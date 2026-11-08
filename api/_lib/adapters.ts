@@ -25,6 +25,7 @@ const TD_INTERVAL: Record<TF, { interval: string; size: number }> = {
   D: { interval: '1day', size: 760 }, // ~3 years: enough history for backtests (same 1 credit)
   '1H': { interval: '1h', size: 500 },
   '5m': { interval: '5min', size: 800 }, // ~10 regular sessions
+  '15m': { interval: '15min', size: 800 }, // ~30 regular sessions
   W: { interval: '1week', size: 260 }, // ~5 years
   M: { interval: '1month', size: 240 }, // ~20 years
 };
@@ -460,7 +461,7 @@ export async function aisSnapshot(boxes: [[number, number], [number, number]][],
 
 /** Any crypto vs USDT from Binance's public data mirror, all timeframes (time = UTC open of the bar). */
 export async function cryptoBars(base: string, tf: TF): Promise<{ bars: Bar[]; source: string }> {
-  const iv: Record<TF, string> = { '5m': '5m', '1H': '1h', D: '1d', W: '1w', M: '1M' };
+  const iv: Record<TF, string> = { '5m': '5m', '15m': '15m', '1H': '1h', D: '1d', W: '1w', M: '1M' };
   const j = await getJson(`https://data-api.binance.vision/api/v3/klines?symbol=${encodeURIComponent(base)}USDT&interval=${iv[tf]}&limit=500`, 'binance');
   return { bars: parseBinanceKlines(j), source: 'Binance (USDT pair)' };
 }

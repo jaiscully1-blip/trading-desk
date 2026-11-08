@@ -10,6 +10,7 @@ import { useSeries, type DataMode } from '../data/live';
 import { usePersisted } from '../lib/store';
 import { px } from '../lib/format';
 import { Fresh, Seg } from './common';
+import DrawLayer, { type Painter } from './DrawLayer';
 
 type PTF = 'D' | '1H';
 const cssVar = (n: string) => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
@@ -37,6 +38,7 @@ export default function PatternLab({ mode, theme, symbols, demoLast, onChart }: 
   const mk = useRef<ISeriesMarkersPluginApi<Time> | null>(null);
   const drawn = useRef<ISeriesApi<'Line'>[]>([]);
   const plines = useRef<IPriceLine[]>([]);
+  const painter = useRef<Painter | null>(null);
 
   useEffect(() => setSelKey(null), [sym, tf]);
 
@@ -140,6 +142,7 @@ export default function PatternLab({ mode, theme, symbols, demoLast, onChart }: 
     g.fillStyle = cssVar('--muted'); g.font = font(12);
     g.fillText(`${series.source || 'data'} · ${series.freshness === 'demo' ? 'DEMO DATA' : 'as of ' + new Date(series.asOf || Date.now()).toLocaleString('en-US', { timeZone: 'America/New_York' }) + ' ET'} · rule-based detection, not advice`, pad, 48 * dpr);
     g.drawImage(shot, 0, head);
+    painter.current?.(g, dpr, head); // your drawings
     let y = head + shot.height + pad;
     for (const b of blocks) {
       if (b.head) { g.fillStyle = cssVar('--accent'); g.font = font(14, 600); g.fillText(b.head, pad, y); y += lh * 1.2; }
@@ -172,7 +175,7 @@ export default function PatternLab({ mode, theme, symbols, demoLast, onChart }: 
           </div>
         </div>
         <div className="pat-quick">{quick.map((s) => <button key={s} className={`sym-chip ${s === sym ? 'on' : ''}`} onClick={() => { setDraft(s); setSym(s); }}>{s}</button>)}</div>
-        <div className="pat-canvas" ref={el} />
+        <DrawLayer chart={chart} series={cs} bars={bars} storeKey={`${sym}:${tf}`} painter={painter}><div className="pat-canvas" ref={el} /></DrawLayer>
         {series.error && <p className="small down pat-err">Couldn’t load {sym}: {series.error}</p>}
       </section>
       <section className="panel pat-side">

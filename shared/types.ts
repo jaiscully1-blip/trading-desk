@@ -1,8 +1,8 @@
 // Types shared by the browser app and the /api serverless functions.
 
-export type TF = 'D' | '1H' | '5m' | 'W' | 'M';
+export type TF = 'D' | '1H' | '15m' | '5m' | 'W' | 'M';
 /** What the chart's timeframe picker offers: Y = monthly candles with one news button per year. */
-export type ChartTF = TF | 'Y';
+export type ChartTF = TF; // the yearly (Y) timeframe was replaced by 15m on Nov 8, 2026
 export type Mode = 'pre' | 'open' | 'midday' | 'power' | 'after';
 
 /** Every panel shows one of these, with a timestamp. */
