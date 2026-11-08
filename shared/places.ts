@@ -51,6 +51,7 @@ export function placeOf(text: string): { name: string; lat: number; lon: number 
 }
 
 /** GDELT DOC ArtList articles -> map points shaped like the GEO API's. */
+import { safeUrl } from './safeurl.js';
 export function pointsFromArticles(arts: { title?: string; url?: string; sourcecountry?: string }[]) {
   const by = new Map<string, { name: string; lat: number; lon: number; count: number; articles: { title: string; url: string }[] }>();
   for (const a of arts) {
@@ -60,7 +61,7 @@ export function pointsFromArticles(arts: { title?: string; url?: string; sourcec
     if (!p) continue;
     const v = by.get(p.name) ?? { name: p.name, lat: p.lat, lon: p.lon, count: 0, articles: [] };
     v.count++;
-    if (v.articles.length < 25) v.articles.push({ title, url: String(a.url ?? '') });
+    if (v.articles.length < 25) v.articles.push({ title, url: safeUrl(a.url) });
     by.set(p.name, v);
   }
   return [...by.values()].sort((a, b) => b.count - a.count);

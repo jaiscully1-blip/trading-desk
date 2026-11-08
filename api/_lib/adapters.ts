@@ -123,11 +123,12 @@ export const alpacaQuotes: QuoteAdapter = {
     return out;
   },
 };
+import { safeUrl } from '../../shared/safeurl.js';
 export async function alpacaNews(symbols: string[]): Promise<{ title: string; url: string; t: number; src: string; explicit: string[]; summary?: string }[]> {
   need('alpaca');
   const q = symbols.length ? `symbols=${symbols.map(encodeURIComponent).join(',')}&` : '';
   const j = await getJson(`https://data.alpaca.markets/v1beta1/news?${q}limit=50&sort=desc`, 'alpaca', 8000, { headers: alpacaHeaders() });
-  return (Array.isArray(j?.news) ? j.news : []).map((n: any) => ({ title: decode(String(n.headline ?? '')), url: String(n.url ?? ''), t: Date.parse(n.created_at) || Date.now(), src: 'Benzinga', explicit: (n.symbols ?? []).map((x: string) => String(x).toUpperCase()), summary: n.summary ? decode(String(n.summary)).slice(0, 400) : undefined })).filter((n: any) => n.title);
+  return (Array.isArray(j?.news) ? j.news : []).map((n: any) => ({ title: decode(String(n.headline ?? '')), url: safeUrl(n.url), t: Date.parse(n.created_at) || Date.now(), src: 'Benzinga', explicit: (n.symbols ?? []).map((x: string) => String(x).toUpperCase()), summary: n.summary ? decode(String(n.summary)).slice(0, 400) : undefined })).filter((n: any) => n.title);
 }
 
 /** A FRED daily series history (newest `limit` observations), oldest first. */

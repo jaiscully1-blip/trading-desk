@@ -6,7 +6,7 @@ import { denyPrivate } from '../private.js';
 import { hasWebull, wbPositions } from '../webull.js';
 import { normOpenOrders, normPositions } from '../../../shared/webull.js';
 import { parseDraft } from '../../../shared/orders.js';
-import { audit, cancel, caps, describe, makeTicket, maxPerDay, openOrders, orderProblems, ordersOn, pinOk, place, preview, ticketOk, underDailyCap } from '../broker/webull-orders.js';
+import { audit, cancel, caps, checkPin, claimTicket, describe, makeTicket, maxPerDay, openOrders, orderProblems, ordersOn, place, preview, reserveDaily, ticketOk } from '../broker/webull-orders.js';
 import { accountId } from './webull.js';
 
 const err = (msg: string, status: number, code?: string) => json({ error: msg, code }, { status });
@@ -38,7 +38,8 @@ export async function POST(req: Request): Promise<Response> {
   try {
     const { id } = await accountId();
     if (op === 'cancel') {
-      if (!pinOk(req.headers.get('x-order-pin'))) { audit('cancel-refused-pin', {}); return err('Wrong order PIN.', 401, 'bad-pin'); }
+      const pc = checkPin(req.headers.get('x-order-pin'));
+      if (pc !== 'ok') { audit('cancel-refused-pin', { why: pc }); return pc === 'locked' ? err('Too many wrong PINs. Order PIN is locked for 15 minutes.', 429, 'pin-locked') : err('Wrong order PIN.', 401, 'bad-pin'); }
       const cid = String(body?.clientOrderId ?? '');
       if (!/^[A-Za-z0-9_-]{1,40}$/.test(cid)) return err('bad order id', 400);
       const raw = await cancel(id, cid);
@@ -56,10 +57,13 @@ export async function POST(req: Request): Promise<Response> {
       return json({ ok: true, text: describe(d), preview: raw, ticket: makeTicket(d) });
     }
     if (op === 'place') {
-      if (!pinOk(req.headers.get('x-order-pin'))) { audit('place-refused-pin', { order: describe(d) }); return err('Wrong order PIN.', 401, 'bad-pin'); }
-      if (!ticketOk(d, String(body?.ticket ?? ''))) return err('This order changed or the preview is older than 3 minutes. Preview it again.', 409, 'stale-preview');
-      if (!underDailyCap()) return err(`Daily order cap reached (${maxPerDay()}).`, 429, 'daily-cap');
-      const r = await place(id, d);
+      const pc = checkPin(req.headers.get('x-order-pin'));
+      if (pc !== 'ok') { audit('place-refused-pin', { order: describe(d), why: pc }); return pc === 'locked' ? err('Too many wrong PINs. Order PIN is locked for 15 minutes.', 429, 'pin-locked') : err('Wrong order PIN.', 401, 'bad-pin'); }
+      const ticket = String(body?.ticket ?? '');
+      if (!ticketOk(d, ticket)) return err('This order changed or the preview is older than 3 minutes. Preview it again.', 409, 'stale-preview');
+      if (!claimTicket(ticket)) { audit('place-refused-repeat', { order: describe(d) }); return err('This confirmation was already used. Preview the order again if you want another.', 409, 'already-used'); }
+      if (!reserveDaily()) return err(`Daily order cap reached (${maxPerDay()}).`, 429, 'daily-cap');
+      const r = await place(id, d, ticket);
       audit('place', { order: describe(d), clientOrderIds: r.clientOrderIds });
       return json({ ok: true, text: describe(d), clientOrderIds: r.clientOrderIds, comboId: r.comboId, raw: r.raw });
     }

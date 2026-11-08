@@ -30,6 +30,7 @@ const tag = (block: string, name: string) => {
 };
 
 /** Parse RSS 2.0 <item> or Atom <entry> blocks without a DOM (runs in serverless functions). */
+import { safeUrl } from './safeurl.js';
 export function parseFeed(xml: string, src: string): { title: string; url: string; t: number; src: string; summary?: string }[] {
   const out: { title: string; url: string; t: number; src: string; summary?: string }[] = [];
   const blocks = xml.match(/<item[\s>][\s\S]*?<\/item>/gi) ?? xml.match(/<entry[\s>][\s\S]*?<\/entry>/gi) ?? [];
@@ -40,7 +41,7 @@ export function parseFeed(xml: string, src: string): { title: string; url: strin
     const when = tag(b, 'pubDate') || tag(b, 'published') || tag(b, 'updated') || tag(b, 'dc:date');
     const t = Date.parse(when);
     const summary = (tag(b, 'description') || tag(b, 'summary')).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 1200) || undefined;
-    if (title && Number.isFinite(t)) out.push({ title, url, t, src, summary });
+    if (title && Number.isFinite(t)) out.push({ title, url: safeUrl(url), t, src, summary });
   }
   return out;
 }

@@ -1,5 +1,6 @@
 // Pure parsers that turn provider JSON into normalized shapes. No network here, so they're unit-tested.
 import type { Bar, MacroPoint, QuoteResult } from './types.js';
+import { safeUrl } from './safeurl.js';
 
 export class ProviderError extends Error {
   constructor(
@@ -180,7 +181,7 @@ export function parseFinnhubNews(j: any, symbol: string): NewsItem[] {
   if (!Array.isArray(j)) throw new ProviderError('finnhub', String(j?.error ?? 'unexpected response'), false, /access/i.test(String(j?.error)));
   return j
     .filter((x) => x && x.headline && Number.isFinite(num(x.datetime)))
-    .map((x) => ({ id: String(x.id ?? `${symbol}-${x.datetime}`), t: num(x.datetime) * 1000, headline: String(x.headline), source: String(x.source ?? ''), url: String(x.url ?? ''), symbol, summary: x.summary ? String(x.summary).slice(0, 1200) : undefined, image: x.image ? String(x.image) : undefined }))
+    .map((x) => ({ id: String(x.id ?? `${symbol}-${x.datetime}`), t: num(x.datetime) * 1000, headline: String(x.headline), source: String(x.source ?? ''), url: safeUrl(x.url), symbol, summary: x.summary ? String(x.summary).slice(0, 1200) : undefined, image: x.image ? String(x.image) : undefined }))
     .sort((a, b) => b.t - a.t);
 }
 // /stock/profile2 -> { name, shareOutstanding (millions), ticker, ... }  ({} for unknown symbols)

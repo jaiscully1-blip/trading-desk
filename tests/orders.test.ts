@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { webullSign } from '../api/_lib/webull';
 import { DEFAULT_CAPS, canonical, describe as say, orderProblems, parseDraft, webullBody, type OrderDraft } from '../shared/orders';
-import { makeTicket, pinOk, ticketOk } from '../api/_lib/broker/webull-orders';
+import { checkPin, claimTicket, idsFromTicket, makeTicket, pinOk, reserveDaily, ticketOk } from '../api/_lib/broker/webull-orders';
 import { normOpenOrders } from '../shared/webull';
 
 describe('webull signature (docs worked example)', () => {
@@ -68,5 +68,40 @@ describe('open orders', () => {
   it('flattens combo groups', () => {
     const o = normOpenOrders({ data: [{ client_combo_order_id: 'C', orders: [{ client_order_id: 'a', symbol: 'nvda', side: 'BUY', order_type: 'LIMIT', quantity: '5', limit_price: '180', status: 'SUBMITTED' }, { client_order_id: 'b', symbol: 'NVDA', side: 'SELL', order_type: 'STOP_LOSS', stop_price: '170' }] }] });
     expect(o.map((x) => [x.id, x.sym, x.limit, x.stop])).toEqual([['a', 'NVDA', 180, null], ['b', 'NVDA', null, 170]]);
+  });
+});
+
+describe('order safety: single use, repeat-proof ids, PIN lockout, daily cap', () => {
+  it('a confirmation works once, and its order ids never change', () => {
+    process.env.WEBULL_APP_SECRET = 's'; process.env.WEBULL_ORDER_PIN = '4821';
+    const t = makeTicket(buy, 1000), t2 = makeTicket(buy, 1000);
+    expect(t).not.toBe(t2); // a fresh nonce each preview
+    expect(claimTicket(t, 2000)).toBe(true);
+    expect(claimTicket(t, 2100)).toBe(false);
+    expect(claimTicket(t2, 2200)).toBe(true);
+    const a = idsFromTicket(t), b = idsFromTicket(t), c = idsFromTicket(t2);
+    expect(a).toEqual(b);
+    expect(a.legs[0]).not.toBe(c.legs[0]);
+    for (const id of [a.combo, ...a.legs]) expect(id.length).toBeLessThanOrEqual(32);
+    expect(new Set([a.combo, ...a.legs]).size).toBe(4);
+  });
+  it('tampered tickets fail', () => {
+    const t = makeTicket(buy, 1000);
+    const [e, n, m] = t.split('.');
+    expect(ticketOk(buy, `${e}.${n}.${m.slice(0, -2)}xx`, 2000)).toBe(false);
+    expect(ticketOk(buy, `${Number(e) + 999999}.${n}.${m}`, 2000)).toBe(false);
+    expect(ticketOk(buy, 'x.y', 2000)).toBe(false);
+  });
+  it('five wrong PINs lock it for 15 minutes, even for the right PIN', () => {
+    const t0 = Date.UTC(2030, 0, 1);
+    for (let i = 0; i < 5; i++) expect(checkPin('0000', t0 + i * 1000)).toBe('bad');
+    expect(checkPin('4821', t0 + 10_000)).toBe('locked');
+    expect(checkPin('4821', t0 + 16 * 60_000)).toBe('ok');
+  });
+  it('daily cap is reserved before sending', () => {
+    process.env.WEBULL_MAX_ORDERS_DAY = '2';
+    const got = [reserveDaily(), reserveDaily(), reserveDaily()];
+    expect(got).toEqual([true, true, false]);
+    delete process.env.WEBULL_MAX_ORDERS_DAY;
   });
 });

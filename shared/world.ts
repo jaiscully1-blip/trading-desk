@@ -1,5 +1,6 @@
 // World map data: GDELT GEO hotspots (news layer) and regional "sentiment weather" (news tone + regional ETF move).
 import { decode } from './news.js';
+import { safeUrl } from './safeurl.js';
 
 /** t = published time (ms) and s = keyword tone, set only for the desk's own headlines (GDELT gives neither) */
 export interface Article { title: string; url: string; t?: number; s?: -1 | 0 | 1 }
@@ -12,7 +13,7 @@ export function parsePopupHtml(html: string): Article[] {
   const out: Article[] = [];
   const re = /<a[^>]+href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/gi;
   let m: RegExpExecArray | null;
-  while ((m = re.exec(html))) { const title = decode(m[2]); if (title) out.push({ url: m[1], title }); }
+  while ((m = re.exec(html))) { const title = decode(m[2]); if (title && safeUrl(decode(m[1]))) out.push({ url: safeUrl(decode(m[1])), title }); }
   return out;
 }
 

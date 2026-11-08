@@ -27,6 +27,13 @@ if ('serviceWorker' in navigator && import.meta.env.PROD && import.meta.env.MODE
   window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(() => {}));
 }
 
+// Defence in depth: links from news feeds are filtered on the server, and any link that is not a web, mail or in-page link is blocked here.
+document.addEventListener('click', (e) => {
+  const a = (e.target as Element | null)?.closest?.('a[href]');
+  const h = a?.getAttribute('href')?.trim() ?? '';
+  if (a && !/^(https?:|mailto:|#|\/(?!\/))/i.test(h)) e.preventDefault();
+}, true);
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <Boundary><App /></Boundary>
