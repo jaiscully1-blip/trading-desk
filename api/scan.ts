@@ -7,6 +7,7 @@ import { computeBase, type ScanBase } from '../shared/scan.js';
 import { finnhubNews, finnhubProfile, finraShortInterest } from './_lib/adapters.js';
 import { SYMBOL_RE, cached, getCached, hasKey, json, setCached, ttl } from './_lib/core.js';
 import { loadSeries } from './_lib/series.js';
+import { yahooDaily } from './_lib/yahoo.js';
 
 const MAX = 40;
 
@@ -46,7 +47,13 @@ export async function GET(req: Request): Promise<Response> {
   const bases: ScanBase[] = [];
   const pending: string[] = [];
   const errors: Record<string, string> = {};
+  // Yahoo's public daily chart first (no credits, cached 6 hours): it keeps the scan full when Twelve Data's free minute or day budget is
+  // used up. Whatever Yahoo can't give falls back to Twelve Data, one symbol at a time inside its per-minute budget.
+  const yh = new Map<string, Awaited<ReturnType<typeof yahooDaily>>>();
+  for (let i = 0; i < all.length; i += 8) await Promise.all(all.slice(i, i + 8).map(async (s) => { yh.set(s, await yahooDaily(s)); }));
   for (const s of all) {
+    const y = yh.get(s);
+    if (y) { bases.push(computeBase(s, y, nowEnc, Date.now(), 'Yahoo Finance')); continue; }
     const r = await loadSeries(s, 'D', { fallback: false, reserve: 2 });
     if (r.ok) bases.push(computeBase(s, r.val.bars, nowEnc, r.val.asOf, r.val.source));
     else if (r.budget) pending.push(s);

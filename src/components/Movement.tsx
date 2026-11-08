@@ -58,8 +58,8 @@ export function MovementBadge({ m, vol, stats }: { m: MovementRead; vol?: VolRea
 
 function DayTable({ s }: { s: MoveStats }) {
   const row = (d: DayStat, base = false) => (
-    <div key={d.key} className={`mv-tr ${base ? 'mv-base' : ''}`} title={`${d.n} days`}>
-      <span>{d.label}</span><span className="num">{d.avgMovePct.toFixed(2)}%</span><span className="num mv-theta">{d.chopPct.toFixed(0)}%</span><span className="num mv-move">{d.bigPct.toFixed(0)}%</span><span className="num muted small">{d.n}</span>
+    <div key={d.key} className={`mv-tr ${base ? 'mv-base' : ''} ${d.n < 8 ? 'mv-few' : ''}`} title={d.n < 8 ? `Only ${d.n} days: too few to trust` : `${d.n} days`}>
+      <span>{d.label}{d.n < 8 && <span className="muted small"> (few days)</span>}</span><span className="num">{d.avgMovePct.toFixed(2)}%</span><span className="num mv-theta">{d.chopPct.toFixed(0)}%</span><span className="num mv-move">{d.bigPct.toFixed(0)}%</span><span className="num muted small">{d.n}</span>
     </div>
   );
   const g = s.gaps;

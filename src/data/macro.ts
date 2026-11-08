@@ -5,7 +5,7 @@ import type { DataMode } from './live';
 import type { LiqRow } from '../../shared/liquidity';
 import type { EventDays } from '../../shared/movementStats';
 
-export interface MacroPack { liquidity: LiqRow[]; vix: number[]; events: EventDays; asOf: number; errors?: Record<string, string> }
+export interface MacroPack { liquidity: LiqRow[]; vix: number[]; events: EventDays; /** SPY daily [time, open, high, low, close], about 3 years (Yahoo) */ spy?: number[][]; asOf: number; errors?: Record<string, string> }
 
 let pack: MacroPack | null = null;
 let inflight: Promise<void> | null = null;

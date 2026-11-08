@@ -6,7 +6,7 @@ import { COMPANIES } from '../../../shared/data/companies.js';
 import { ETFS } from '../../../shared/etfs.js';
 import { TV_BODY, approxSectorEtf, parseEtfProfile, parseTvScan, parseYahooSpark, type SnapMap } from '../../../shared/markets.js';
 import { SYMBOL_RE, cached, getJson, hasKey, json, key, take, ttl } from '../core.js';
-import { YH_HEADERS, dailyBars } from '../yahoo.js';
+import { YH_HEADERS, dailyBars, longDaily } from '../yahoo.js';
 import { alignCloses, quantRead } from '../../../shared/quant.js';
 import { fredHistory, fredReleaseDates, fredReleases } from '../adapters.js';
 import { LIQ_SERIES, liquiditySummary, type LiqId, type Obs } from '../../../shared/liquidity.js';
@@ -128,8 +128,11 @@ async function macropack(): Promise<Response> {
         if (cpiId) events.cpi = (await fredReleaseDates(cpiId, start, today)).filter((d) => d <= today);
         if (jobsId) events.jobs = (await fredReleaseDates(jobsId, start, today)).filter((d) => d <= today);
       } catch (e) { errors.events = String((e as Error).message); }
+      // about 3 years of SPY daily OHLC for the volatility and which-days-move numbers (the quote providers' free daily history is only ~100 bars)
+      let spy: number[][] = [];
+      try { spy = (await longDaily('SPY', '3y')).map((b) => [b.time, b.open, b.high, b.low, b.close]); } catch (e) { errors.spy = String((e as Error).message); }
       events.fomc = FOMC.filter((f) => f.date < new Date().toISOString().slice(0, 10)).map((f) => f.date);
-      return { liquidity: liquiditySummary(raw), vix, events, asOf: Date.now(), ...(Object.keys(errors).length ? { errors } : {}) };
+      return { liquidity: liquiditySummary(raw), vix, events, spy, asOf: Date.now(), ...(Object.keys(errors).length ? { errors } : {}) };
     })).val;
     return json(out, { sMaxAge: 1800 });
   } catch (e) { return json({ error: (e as Error).message }, { status: 502 }); }
