@@ -18,7 +18,9 @@ import { Fresh, PanelHead, Seg } from './common';
 import { pct, px, tone } from '../lib/format';
 
 const cssVar = (n: string) => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
-type Overlays = { vwap: boolean; ma: boolean; lvl: boolean; cg?: boolean };
+type Overlays = { vwap: boolean; ma: boolean; lvl: boolean; cg?: boolean; gx?: boolean };
+type GxLv = { callWall: number | null; putWall: number | null; flip: number | null; asOf: number };
+const GX_SYMS = ['SPY', 'QQQ', 'IWM'];
 type CgTrade = { who: string; party: string; state: string; type: string; traded: string; filed: string; min: number | null; max: number | null };
 const cgCache = new Map<string, CgTrade[]>();
 const cgRange = (a: number | null, b: number | null) => { const k = (v: number) => (v >= 1e6 ? `$${(v / 1e6).toFixed(1)}M` : `$${Math.round(v / 1000)}K`); return a == null ? '' : b == null ? `${k(a)}+` : `${k(a)}–${k(b)}`; };
@@ -43,6 +45,7 @@ export function ChartPanel({
   const chart = useRef<IChartApi | null>(null);
   const s = useRef<{ c: ISeriesApi<'Candlestick'>; v: ISeriesApi<'Histogram'>; vw: ISeriesApi<'Line'>; m20: ISeriesApi<'Line'>; m50: ISeriesApi<'Line'> } | null>(null);
   const lines = useRef<IPriceLine[]>([]);
+  const gxLines = useRef<IPriceLine[]>([]);
   const fitted = useRef('');
   const [ov, setOv] = usePersisted<Overlays>('chartOverlays', { vwap: true, ma: true, lvl: true });
   const bars = series.bars;
@@ -77,6 +80,7 @@ export function ChartPanel({
     s.current = { c: cs, v, vw, m20, m50 };
     fitted.current = '';
     lines.current = [];
+    gxLines.current = [];
     return () => { c.remove(); chart.current = null; s.current = null; };
   }, [tf, theme]);
 
@@ -200,6 +204,30 @@ export function ChartPanel({
     }
   }, [levels, ov, tf, theme, bars]);
 
+  // Gamma walls + zero-gamma flip (Cboe delayed chain, next 7 days) for SPY / QQQ / IWM; real data only, nothing in demo mode
+  const gxOn = ov.gx !== false && GX_SYMS.includes(sym) && mode?.kind === 'live' && tf !== 'W' && tf !== 'M';
+  const [gx, setGx] = useState<GxLv | null>(null);
+  useEffect(() => {
+    setGx(null);
+    if (!gxOn) return;
+    let stop = false;
+    const go = () => fetch(`/api/research?fn=gamma&symbol=${sym}`).then((r) => r.json()).then((j) => { if (!stop && j?.gexWeek) setGx({ callWall: j.gexWeek.callWall, putWall: j.gexWeek.putWall, flip: j.gexWeek.flip, asOf: j.asOf }); }).catch(() => {});
+    go();
+    const id = setInterval(go, 15 * 60_000);
+    return () => { stop = true; clearInterval(id); };
+  }, [sym, gxOn]);
+  useEffect(() => {
+    const x = s.current;
+    if (!x) return;
+    for (const l of gxLines.current) x.c.removePriceLine(l);
+    gxLines.current = [];
+    if (!gxOn || !gx) return;
+    const add = (v: number | null, color: string, title: string, style: LineStyle) => { if (v != null && Number.isFinite(v)) gxLines.current.push(x.c.createPriceLine({ price: v, color, lineWidth: 1, lineStyle: style, axisLabelVisible: true, title })); };
+    add(gx.callWall, cssVar('--up'), 'Call wall', LineStyle.LargeDashed);
+    add(gx.putWall, cssVar('--down'), 'Put wall', LineStyle.LargeDashed);
+    add(gx.flip, cssVar('--accent'), 'γ flip', LineStyle.SparseDotted);
+  }, [gx, gxOn, tf, theme, bars]);
+
   const T = (k: keyof Overlays, label: string, hint: string) => (
     <button className={`chip sm ${ov[k] ? 'on' : ''}`} onClick={() => setOv({ ...ov, [k]: !ov[k] })} title={hint} aria-pressed={ov[k]}>{label}</button>
   );
@@ -222,6 +250,7 @@ export function ChartPanel({
         {T('vwap', 'VWAP', 'Session VWAP (intraday)')}
         {T('ma', 'MA 20/50', '20 and 50-period simple moving averages')}
         {T('lvl', 'Levels', 'Draw key levels on the chart')}
+        {GX_SYMS.includes(sym) && mode?.kind === 'live' && <button className={`chip sm ${ov.gx !== false ? 'on' : ''}`} onClick={() => setOv({ ...ov, gx: ov.gx === false })} title={`Dealer gamma: call wall, put wall and zero-gamma flip for the next 7 days (Cboe delayed ~15 min, estimated from open interest)`} aria-pressed={ov.gx !== false}>Gamma</button>}
         {longTf && T('cg', 'Congress', 'Arrows under the candles where members of Congress bought (▲) or sold (▼) this stock. Click one for who and how much.')}
         <select className="flag-sel" value={flags} onChange={(e) => setFlags(e.target.value as FlagMode)} title="News flags on candles (click a flag for headlines)" aria-label="News flags">
           <option value="both">News: ticker + macro</option><option value="sym">News: ticker</option><option value="macro">News: macro</option><option value="off">News: off</option>
