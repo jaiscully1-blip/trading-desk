@@ -28,6 +28,7 @@ import { useMovers, useScan, useUniverse } from './data/scan';
 import { useCalendar, useNews } from './data/news';
 import { useMarketStatus } from './data/market';
 import { useFlows, useWorld } from './data/world';
+import { rotationTurns } from '../shared/rotation';
 // Map and globe load on first use so they don't slow the desk's first load
 const WorldMap = lazy(() => import('./components/WorldMap'));
 const PatternLab = lazy(() => import('./components/PatternLab'));
@@ -223,7 +224,8 @@ export default function App() {
   const macro = useMacro(dataMode);
   const market = useMarketStatus(dataMode);
   const worldData = useWorld(dataMode, page === 'map');
-  const flowsData = useFlows(dataMode, page === 'flows');
+  // always loaded (cheap: the server caches it for hours) so sector rotation pings work on every page
+  const flowsData = useFlows(dataMode, true);
   // Hold Alt / Option to see every keyboard shortcut on screen
   useEffect(() => {
     const root = document.documentElement;
@@ -445,6 +447,15 @@ export default function App() {
     beep();
     try { if (Notification.permission === 'granted' && document.hidden) for (const p of ps) new Notification(`★ ${p.sym}: ${p.text}`, { tag: p.id }); } catch { /* not supported */ }
   }, [setPingLog]);
+  // rotation: ping when a sector / theme / country turns (Lagging->Improving, Improving->Leading, Leading->Weakening, Weakening->Lagging)
+  useEffect(() => {
+    if (!live || !flowsData?.rows.length) return;
+    const prev = load<Record<string, { q: string; day: string }>>('rotQuad', {});
+    const { turns, next } = rotationTurns(flowsData.rows, prev);
+    save('rotQuad', next);
+    if (!Object.keys(prev).length) return; // first time: just remember where everything is
+    pushPings(turns.slice(0, 6).map((t) => ({ id: `rot:${t.sym}:${t.day}`, t: Date.now(), sym: t.sym, kind: 'rotation' as const, text: `${t.label} ${t.text}`, tone: t.tone })));
+  }, [flowsData, live, pushPings]);
   // news: any new headline tagged with a starred ticker (the first load only marks what's already there)
   const newsPrimed = useRef(false);
   useEffect(() => {

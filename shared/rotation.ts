@@ -137,3 +137,26 @@ export function parseYahooChart(j: any): Bar[] {
   });
   return out;
 }
+
+/** The quadrant turns worth a ping: a sector starting to turn up, breaking into the lead, or losing steam / slipping. */
+export const PING_TURNS: Record<string, { text: string; tone: 'up' | 'down' }> = {
+  'lagging>improving': { text: 'turning up: moved from Lagging to Improving (still behind SPY, gaining)', tone: 'up' },
+  'improving>leading': { text: 'now Leading: moved ahead of SPY and still gaining', tone: 'up' },
+  'leading>weakening': { text: 'losing steam: moved from Leading to Weakening (still ahead of SPY)', tone: 'down' },
+  'weakening>lagging': { text: 'now Lagging: fell behind SPY and still slipping', tone: 'down' },
+};
+/** Compare today's quadrants with the last ones seen. Returns the turns and the new memory to save. */
+export function rotationTurns(rows: Pick<RotRow, 'sym' | 'label' | 'quadrant' | 'asOf'>[], prev: Record<string, { q: string; day: string }>) {
+  const turns: { sym: string; label: string; from: string; to: string; text: string; tone: 'up' | 'down'; day: string }[] = [];
+  const next = { ...prev };
+  for (const r of rows) {
+    if (!r.quadrant) continue;
+    const p = prev[r.sym];
+    if (p && p.day < r.asOf && p.q !== r.quadrant) {
+      const t = PING_TURNS[`${p.q}>${r.quadrant}`];
+      if (t) turns.push({ sym: r.sym, label: r.label, from: p.q, to: r.quadrant, text: t.text, tone: t.tone, day: r.asOf });
+    }
+    if (!p || p.day <= r.asOf) next[r.sym] = { q: r.quadrant, day: r.asOf };
+  }
+  return { turns, next };
+}

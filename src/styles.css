@@ -662,7 +662,7 @@ html, body { min-width: 900px; }
 @media (prefers-reduced-motion: reduce) { .ping { animation: none; } }
 .ping-h { display: flex; align-items: center; gap: 6px; margin-bottom: 3px; }
 .ping-k { font: 600 9.5px 'IBM Plex Mono', monospace; letter-spacing: .06em; padding: 0 4px; border-radius: 3px; background: var(--panel-2); color: var(--muted); }
-.ping-k.k-news { color: var(--vwap); } .ping-k.k-earnings { color: var(--demo); } .ping-k.k-move { color: var(--accent); } .ping-k.k-level { color: var(--warn); }
+.ping-k.k-news { color: var(--vwap); } .ping-k.k-earnings { color: var(--demo); } .ping-k.k-move { color: var(--accent); } .ping-k.k-level { color: var(--warn); } .ping-k.k-rotation { color: #4e9af1; }
 .ping-sym { font: 600 12px 'IBM Plex Mono', monospace; color: var(--accent); }
 .ping-n { color: var(--muted); font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; min-width: 0; }
 .ping-t { color: var(--faint); font-size: 10.5px; }

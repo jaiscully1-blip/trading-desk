@@ -59,7 +59,7 @@ export function useFlows(mode: DataMode, open: boolean): FlowsState | null {
     if (mode.kind === 'demo') { setSt(demoFlows()); return; }
     let stop = false, t: ReturnType<typeof setTimeout>;
     const go = async () => {
-      try { const r = await fetch('/api/flows'); const j = await r.json(); if (!stop && r.ok) { setSt({ ...j, freshness: 'eod' }); if (j.pending.length) t = setTimeout(go, 65_000); } } catch { /* keep */ }
+      try { const r = await fetch('/api/flows'); const j = await r.json(); if (!stop && r.ok) setSt({ ...j, freshness: 'eod' }); if (!stop) t = setTimeout(go, r.ok && !j.pending?.length ? 60 * 60_000 : 90_000); } catch { if (!stop) t = setTimeout(go, 5 * 60_000); }
     };
     go();
     return () => { stop = true; clearTimeout(t); };

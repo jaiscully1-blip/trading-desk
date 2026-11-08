@@ -26,3 +26,15 @@ describe('rotation', () => {
     expect(b[0]).toMatchObject({ close: 1.5, volume: 10 });
   });
 });
+
+import { rotationTurns } from '../shared/rotation';
+describe('rotation pings', () => {
+  it('pings only on a new day and only for the turns that matter', () => {
+    const prev = { XLF: { q: 'lagging', day: '2026-11-05' }, XLK: { q: 'leading', day: '2026-11-05' }, XLU: { q: 'lagging', day: '2026-11-05' } };
+    const rows = [{ sym: 'XLF', label: 'Financials', quadrant: 'improving' as const, asOf: '2026-11-06' }, { sym: 'XLK', label: 'Tech', quadrant: 'weakening' as const, asOf: '2026-11-06' }, { sym: 'XLU', label: 'Utilities', quadrant: 'leading' as const, asOf: '2026-11-06' }, { sym: 'SMH', label: 'Semis', quadrant: 'leading' as const, asOf: '2026-11-06' }];
+    const { turns, next } = rotationTurns(rows, prev);
+    expect(turns.map((t) => [t.sym, t.tone])).toEqual([['XLF', 'up'], ['XLK', 'down']]); // lagging->leading skips a step: no ping
+    expect(next.SMH).toEqual({ q: 'leading', day: '2026-11-06' });
+    expect(rotationTurns(rows, next).turns).toEqual([]); // same day again: nothing new
+  });
+});
