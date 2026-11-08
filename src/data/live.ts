@@ -8,7 +8,7 @@ import { DEMO_AT, makeCandles } from '../lib/demo';
 
 export interface Health {
   ok: boolean;
-  providers: Record<'twelvedata' | 'finnhub' | 'alphavantage' | 'fred', boolean> & { sec?: boolean; gemini?: boolean };
+  providers: Record<'twelvedata' | 'finnhub' | 'alphavantage' | 'fred', boolean> & { sec?: boolean; gemini?: boolean; alpaca?: boolean };
   extendedHours: boolean;
 }
 export type DataMode = { kind: 'checking' } | { kind: 'demo'; reason: string } | { kind: 'live'; health: Health };

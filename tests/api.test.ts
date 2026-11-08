@@ -117,7 +117,7 @@ describe('/api/macro and /api/health', () => {
   it('health lists which keys exist, never the keys', async () => {
     delete process.env.FRED_API_KEY;
     const j = await (await health()).json();
-    expect(j.providers).toEqual({ twelvedata: true, finnhub: true, alphavantage: true, fred: false, sec: false, gemini: false });
+    expect(j.providers).toEqual({ twelvedata: true, finnhub: true, alphavantage: true, fred: false, sec: false, gemini: false, alpaca: false });
     expect(JSON.stringify(j)).not.toMatch(/key/);
   });
 });

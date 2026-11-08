@@ -3,7 +3,7 @@ import type { Bar, MacroPoint, QuoteResult, TF } from '../../shared/types.js';
 import { isPlainTicker, parseAlphaMovers, parseFinnhubNews, parseFinnhubProfile, parseFinraShortInterest, type FinraSI, type Mover, type NewsItem } from '../../shared/parse.js';
 import { ProviderError, parseAlphaDaily, parseFinnhubQuote, parseFredLatest, parseFredSeries, parseTwelveQuote, parseTwelveSeries } from '../../shared/parse.js';
 import { getJson, key, take, type Provider } from './core.js';
-import { parseFeed } from '../../shared/news.js';
+import { decode, parseFeed } from '../../shared/news.js';
 import { MARKET_QUERY, collectVessels, parseGeo, type Vessel } from '../../shared/world.js';
 import { pointsFromArticles } from '../../shared/places.js';
 import { parseBinanceKlines, parseGeckoChart } from '../../shared/flows.js';
@@ -98,6 +98,37 @@ export const twelveQuotes: QuoteAdapter = {
 };
 
 export const QUOTE_CHAIN: QuoteAdapter[] = [finnhubQuotes, twelveQuotes];
+
+/* ---------- Alpaca (free account): real-time IEX quotes for many symbols in one call, and Benzinga news ---------- */
+const alpacaHeaders = () => ({ 'APCA-API-KEY-ID': key('alpaca'), 'APCA-API-SECRET-KEY': process.env.ALPACA_SECRET_KEY ?? '' });
+export function parseAlpacaSnapshots(j: any, symbols: string[]): QuoteResult[] {
+  const out: QuoteResult[] = [];
+  for (const s of symbols) {
+    const v = j?.[s] ?? j?.snapshots?.[s];
+    const last = Number(v?.latestTrade?.p), prev = Number(v?.prevDailyBar?.c);
+    if (!Number.isFinite(last) || !Number.isFinite(prev) || prev <= 0) continue;
+    const d = v.dailyBar ?? {};
+    out.push({ symbol: s, last, prevClose: prev, chgPct: ((last - prev) / prev) * 100, open: Number(d.o) || last, high: Math.max(Number(d.h) || last, last), low: Math.min(Number(d.l) || last, last), t: Date.parse(v.latestTrade.t) || Date.now(), source: 'Alpaca (IEX real-time)', freshness: 'live' });
+  }
+  return out;
+}
+export const alpacaQuotes: QuoteAdapter = {
+  name: 'Alpaca',
+  provider: 'alpaca',
+  async fetch(symbols) {
+    need('alpaca');
+    const j = await getJson(`https://data.alpaca.markets/v2/stocks/snapshots?symbols=${symbols.map(encodeURIComponent).join(',')}&feed=iex`, 'alpaca', 6000, { headers: alpacaHeaders() });
+    const out = parseAlpacaSnapshots(j, symbols);
+    if (!out.length) throw new ProviderError('alpaca', 'no quotes returned', true);
+    return out;
+  },
+};
+export async function alpacaNews(symbols: string[]): Promise<{ title: string; url: string; t: number; src: string; explicit: string[]; summary?: string }[]> {
+  need('alpaca');
+  const q = symbols.length ? `symbols=${symbols.map(encodeURIComponent).join(',')}&` : '';
+  const j = await getJson(`https://data.alpaca.markets/v1beta1/news?${q}limit=50&sort=desc`, 'alpaca', 8000, { headers: alpacaHeaders() });
+  return (Array.isArray(j?.news) ? j.news : []).map((n: any) => ({ title: decode(String(n.headline ?? '')), url: String(n.url ?? ''), t: Date.parse(n.created_at) || Date.now(), src: 'Benzinga', explicit: (n.symbols ?? []).map((x: string) => String(x).toUpperCase()), summary: n.summary ? decode(String(n.summary)).slice(0, 400) : undefined })).filter((n: any) => n.title);
+}
 
 /** A FRED daily series history (newest `limit` observations), oldest first. */
 export async function fredHistory(series: string, limit = 300): Promise<{ date: string; value: number }[]> {

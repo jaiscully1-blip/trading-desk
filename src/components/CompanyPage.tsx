@@ -1,5 +1,6 @@
 // Company page: what they do, main products, and a clickable supply chain (suppliers -> company -> customers, competitors below).
 // Click any company with a ticker to re-center the diagram on it. Facts come from the latest 10-K, read by free Gemini.
+import { QuantPanel } from './QuantRead';
 import { Fragment, useState, type ReactNode } from 'react';
 import type { ChainLink } from '../../shared/company';
 import { useCompany } from '../data/company';
@@ -139,6 +140,8 @@ export default function CompanyPage({ sym, mode, onOpen, onChart, onPatterns }: 
                   return rows.filter(([, v]) => v != null && v !== '').map(([k, v, t]) => <Fragment key={k}><span>{k}</span><b title={t}>{v}</b></Fragment>);
                 })()}
               </div>
+              <h4>Quant read <span className="muted small">bullish or bearish, and why</span></h4>
+              <QuantPanel sym={sym} mode={mode} compact />
               <h4>What they do</h4>
               <p className="co-sum">{f?.summary || data.wiki?.extract || 'No description available.'}</p>
               {!f?.summary && data.wiki && <p className="small muted">From Wikipedia: <a href={data.wiki.url} target="_blank" rel="noreferrer noopener">{data.wiki.title}</a></p>}

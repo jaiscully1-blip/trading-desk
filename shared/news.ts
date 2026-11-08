@@ -12,6 +12,8 @@ export interface NewsItem {
   sentiment: -1 | 0 | 1;
   /** publisher's own summary when the feed provides one (Finnhub, RSS description) */
   summary?: string;
+  /** political lean: outlet rating (AllSides) + AI read of political headlines */
+  lean?: import('./bias.js').Lean;
 }
 
 const ENT: Record<string, string> = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ', '#39': "'", '#8217': '’', '#8216': '‘', '#8220': '“', '#8221': '”', '#8212': '—', '#8211': '–' };

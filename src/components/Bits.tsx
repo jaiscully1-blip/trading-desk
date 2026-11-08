@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Board, Freshness, Headline } from '../types';
 import { DEMO_AT } from '../lib/demo';
 import { etTime } from '../lib/clock';
-import { Fresh, Kbd } from './common';
+import { Fresh, Kbd, LeanDot } from './common';
 
 /* ---------------- 24/7 news ticker ---------------- */
 export function NewsTicker({
@@ -42,7 +42,7 @@ export function NewsTicker({
                   ))}{' '}
                   {h.sentiment != null && <span className={`sent ${h.sentiment > 0 ? 'up' : h.sentiment < 0 ? 'down' : 'muted'}`}>● </span>}
                   {h.title}
-                  <span className="muted small"> · {h.src}</span>
+                  <span className="muted small"> · {h.src}</span><LeanDot lean={(h as { lean?: import('../../shared/bias').Lean }).lean} />
                 </span>
               ))}
             </span>

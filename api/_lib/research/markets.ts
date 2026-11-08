@@ -7,6 +7,7 @@ import { ETFS } from '../../../shared/etfs.js';
 import { TV_BODY, approxSectorEtf, parseEtfProfile, parseTvScan, parseYahooSpark, type SnapMap } from '../../../shared/markets.js';
 import { SYMBOL_RE, cached, getJson, hasKey, json, key, take, ttl } from '../core.js';
 import { YH_HEADERS, dailyBars } from '../yahoo.js';
+import { alignCloses, quantRead } from '../../../shared/quant.js';
 
 async function tradingView(): Promise<SnapMap> {
   if (!take('tradingview')) throw new Error('rate limit');
@@ -78,4 +79,22 @@ async function closes(req: Request): Promise<Response> {
   return json({ closes: out, missing, sources: [...sources], asOf: Date.now() }, { sMaxAge: missing.length ? 60 : 3 * 3600 });
 }
 
-export const MARKET_ROUTES = { snapshot: () => snapshotRoute(), etf, closes };
+// GET /api/research?fn=quant&symbol=NVDA -> risk, CAPM vs SPY, GARCH volatility, Hurst memory, entropy and a bull/bear lean
+async function quant(req: Request): Promise<Response> {
+  const sym = (new URL(req.url).searchParams.get('symbol') ?? '').toUpperCase();
+  if (!SYMBOL_RE.test(sym)) return json({ error: 'bad symbol' }, { status: 400 });
+  try {
+    const { val, stale } = await cached(`quant:${sym}`, 3 * 3600, async () => {
+      const [a, b] = await Promise.all([dailyBars(sym, 1), sym === 'SPY' ? null : dailyBars('SPY', 1)]);
+      if (!a) throw new Error('no daily history for this ticker');
+      const pts = (x: { bars: { time: number; close: number }[] }) => x.bars.map((k) => [k.time, k.close] as [number, number]);
+      const inp = alignCloses(pts(a), b ? pts(b) : pts(a));
+      const q = quantRead(inp);
+      if (!q) throw new Error('not enough history (needs ~3 months of daily closes)');
+      return { sym, ...q, asOfDay: new Date(a.bars[a.bars.length - 1].time * 1000).toISOString().slice(0, 10), source: a.source };
+    });
+    return json({ ...val, stale, asOf: Date.now() }, { sMaxAge: 3 * 3600 });
+  } catch (e) { return json({ sym, error: (e as Error).message }, { status: 502 }); }
+}
+
+export const MARKET_ROUTES = { snapshot: () => snapshotRoute(), etf, closes, quant };

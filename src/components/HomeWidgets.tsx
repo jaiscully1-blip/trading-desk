@@ -12,7 +12,7 @@ import { useDesk } from '../lib/deskctx';
 import { etTime, hms } from '../lib/clock';
 import { pct, px, tone } from '../lib/format';
 import type { Ping } from '../lib/pings';
-import { CoName, Fresh, Seg, Star } from './common';
+import { CoName, Fresh, Seg, Star, LeanDot } from './common';
 import { StarredList } from './Pings';
 import { Messages } from './Messages';
 import type { FeedState } from '../data/feed';
@@ -85,7 +85,7 @@ export function NewsW({ d, cfg, set }: P) {
       <div className="hw-bar"><Seg value={f} onChange={(filter) => set({ ...cfg, filter })} options={[{ id: 'all', label: 'All' }, { id: 'macro', label: 'Macro' }, { id: 'starred', label: '★ Starred' }]} /><Fresh kind={d.news.freshness} at={d.news.asOf} /></div>
       <ul className="hw-news grow">{items.map((n) => (
         <li key={n.id}><span className={`sent ${n.sentiment > 0 ? 'up' : n.sentiment < 0 ? 'down' : 'muted'}`}>●</span><span className="muted num">{etTime(n.t)}</span> <button className="link hw-headline" onClick={() => openArticle({ title: n.title, url: n.url, src: n.src, t: n.t, summary: n.summary, syms: n.syms, sentiment: n.sentiment })}>{n.title}</button>
-          <span className="muted small"> · {n.src}</span>{n.syms.slice(0, 3).map((s) => <button key={s} className="sym-chip" onClick={() => d.onChart(s)}>{s}</button>)}</li>
+          <span className="muted small"> · {n.src}</span><LeanDot lean={n.lean} />{n.syms.slice(0, 3).map((s) => <button key={s} className="sym-chip" onClick={() => d.onChart(s)}>{s}</button>)}</li>
       ))}{!items.length && <li className="muted small">Nothing yet.</li>}</ul>
     </div>
   );

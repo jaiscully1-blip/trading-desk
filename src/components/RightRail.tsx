@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import type { Board, Quote, RightTab } from '../types';
 import type { NewsState } from '../data/news';
 import { etTime } from '../lib/clock';
-import { Fresh, PanelHead } from './common';
+import { Fresh, PanelHead, LeanDot } from './common';
 
 export type NewsFilter = 'all' | 'watchlist' | 'macro';
 const TABS: { id: RightTab; label: string; key: string }[] = [
@@ -93,7 +93,7 @@ function NewsTab({ news, boards, newsFilter, setNewsFilter, onSelect }: Paramete
                 <button key={s} className="sym-chip" onClick={() => onSelect(s)}>{s}</button>
               ))}
               {h.macro && <span className="tag">Macro</span>}
-              <span className="muted small">{h.src}</span>
+              <span className="muted small">{h.src}</span><LeanDot lean={(h as { lean?: import('../../shared/bias').Lean }).lean} />
             </span>
           </li>
         ))}

@@ -1,7 +1,25 @@
 // GET /api/news?symbols=NVDA,AMD   -> merged 24/7 headlines: Finnhub market + company news, plus RSS (CNBC, MarketWatch, Yahoo, Fed, BLS)
 import { isMacro, keywordSentiment, mergeNews, tagSymbols, type NewsItem } from '../shared/news.js';
 import { FEEDS, finnhubMarketNews, finnhubNews, finnhubProfile, rssFeed } from './_lib/adapters.js';
-import { SYMBOL_RE, cached, getCached, hasKey, json, ttl } from './_lib/core.js';
+import { SYMBOL_RE, cached, getCached, hasKey, json, setCached, take, ttl } from './_lib/core.js';
+import { LEAN_PROMPT, LEAN_SCHEMA, leanOf, isPolitical, titleKey, type ArticleLean } from '../shared/bias.js';
+import { alpacaNews, geminiJson } from './_lib/adapters.js';
+
+/** AI read of political headlines' framing, cached per headline for a week; waits at most ~7 s, the rest fill in next time. */
+let leanBusy = false;
+async function classifyPolitical(items: NewsItem[]) {
+  if (!hasKey('gemini') || leanBusy) return;
+  const todo = items.filter((n) => isPolitical(n.title, n.summary) && !getCached(`lean:${titleKey(n.title)}`)).slice(0, 30);
+  if (!todo.length || !take('gemini')) return;
+  leanBusy = true;
+  const run = geminiJson(LEAN_PROMPT(todo.map((n, i) => ({ i, title: n.title, src: n.src }))), LEAN_SCHEMA).then(({ data }) => {
+    for (const r of Array.isArray(data) ? data : []) {
+      const n = todo[r.i];
+      if (n && ['left', 'center', 'right'].includes(r.lean)) setCached(`lean:${titleKey(n.title)}`, { lean: r.lean as ArticleLean, why: String(r.why ?? '').slice(0, 120) }, 7 * 86400);
+    }
+  }).catch(() => { /* labels are optional */ }).finally(() => { leanBusy = false; });
+  await Promise.race([run, new Promise((r) => setTimeout(r, 7000))]);
+}
 
 const MAX_COMPANY = 15; // company-news calls per request (Finnhub free: 60/min, shared with quotes)
 
@@ -45,7 +63,10 @@ export async function GET(req: Request): Promise<Response> {
       return out;
     }));
   }
+  if (hasKey('alpaca')) jobs.push(run('Benzinga (Alpaca)', async () => (await cached(`alp:news:${symbols.slice(0, 30).join(',')}`, ttl(60, 600), () => alpacaNews(symbols.slice(0, 30)))).val));
   await Promise.all(jobs);
-  const items = mergeNews(all.filter((x) => Date.now() - x.t < 3 * 86400_000 && x.t <= Date.now() + 3600_000));
+  const merged = mergeNews(all.filter((x) => Date.now() - x.t < 3 * 86400_000 && x.t <= Date.now() + 3600_000));
+  await classifyPolitical(merged);
+  const items = merged.map((n) => ({ ...n, lean: leanOf(n.src, n.url, n.title, n.summary, getCached<{ lean: ArticleLean; why: string }>(`lean:${titleKey(n.title)}`)?.val) }));
   return json({ items, sources: sources.sort((a, b) => a.name.localeCompare(b.name)), asOf: Date.now() }, { sMaxAge: items.length ? life : 0 });
 }

@@ -1,7 +1,7 @@
 // GET /api/quotes?symbols=SPY,QQQ,NVDA
 import type { ApiError, QuoteResult } from '../shared/types.js';
-import { QUOTE_CHAIN } from './_lib/adapters.js';
-import { SYMBOL_RE, getCached, json, setCached, ttl } from './_lib/core.js';
+import { QUOTE_CHAIN, alpacaQuotes } from './_lib/adapters.js';
+import { SYMBOL_RE, getCached, hasKey, json, setCached, ttl } from './_lib/core.js';
 
 const MAX = 40;
 
@@ -21,10 +21,12 @@ export async function GET(req: Request): Promise<Response> {
   }
   const tried: string[] = [];
   let missing = need;
-  for (const [i, a] of QUOTE_CHAIN.entries()) {
+  // Alpaca (when keyed) prices every symbol in one real-time call; then Finnhub; Twelve Data only for the index quotes
+  const chain = hasKey('alpaca') ? [alpacaQuotes, ...QUOTE_CHAIN] : QUOTE_CHAIN;
+  for (const a of chain) {
     if (!missing.length) break;
-    // Fallbacks after Finnhub cost Twelve Data credits: only spend them on the index quotes
-    if (i > 0) missing = missing.filter((s) => s === 'SPY' || s === 'QQQ');
+    // Twelve Data credits are scarce: only spend them on the index quotes
+    if (a.provider === 'twelvedata') missing = missing.filter((s) => s === 'SPY' || s === 'QQQ');
     if (!missing.length) break;
     try {
       for (const q of await a.fetch(missing)) {

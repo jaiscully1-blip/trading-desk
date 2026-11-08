@@ -1338,3 +1338,21 @@ button.bt-r:hover { background: var(--panel-2); }
   .sm-list { max-height: 220px; }
   .eo-card.wide { grid-column: auto; }
 }
+
+/* ---------- political lean dots on news (blue = left, red = right, gray = center / neutral) ---------- */
+.lean { display: inline-block; margin-left: 5px; vertical-align: middle; width: 8px; height: 8px; border-radius: 50%; cursor: help; }
+.lean.pol { width: auto; height: auto; border-radius: 3px; padding: 0 4px; font: 700 9px 'IBM Plex Mono', monospace; letter-spacing: .04em; color: #fff; line-height: 13px; }
+.lean-blue { background: #3b82f6; } .lean-red { background: #e5484d; } .lean-gray { background: #8a93a0; }
+.lean:not(.pol) { opacity: .75; }
+
+/* ---------- quant read ---------- */
+.qr { display: flex; flex-direction: column; gap: 6px; }
+.qr-top { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.qr-verdict { font: 700 12px 'IBM Plex Mono', monospace; padding: 2px 8px; border: 1px solid currentColor; border-radius: 4px; }
+.qr-why { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 3px; font-size: 12px; }
+.qr-pt { margin-right: 5px; font-size: 10px; }
+.qr-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 12px; font-size: 11px; }
+.qr-grid > div { display: flex; flex-direction: column; border-bottom: 1px solid var(--line); padding: 2px 0; }
+.qr-grid span { color: var(--muted); }
+.qr-grid b { font: 600 12px 'IBM Plex Mono', monospace; }
+.qr-note { margin: 2px 0 0; }

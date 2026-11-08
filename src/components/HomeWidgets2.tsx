@@ -7,7 +7,7 @@ import { MARKETS, sessionState } from '../../shared/sessions';
 import { hms } from '../lib/clock';
 import { makeCandles } from '../lib/demo';
 import { pct, px, tone } from '../lib/format';
-import { Seg, Star } from './common';
+import { Seg, Star, LeanDot } from './common';
 import type { HomeData } from './HomeWidgets';
 
 type Cfg = Record<string, any>;
@@ -133,7 +133,7 @@ function Candles({ bars, theme, timeVisible }: { bars: Bar[]; theme: string; tim
   }, [bars, theme, timeVisible]);
   return <div className="hw-chart" ref={el} />;
 }
-interface CNews { id: string; t: number; title: string; src: string; url: string; sentiment: number }
+interface CNews { id: string; t: number; title: string; src: string; url: string; sentiment: number; lean?: import('../../shared/bias').Lean }
 export function CryptoW({ d, cfg, set }: P) {
   const sym: string = cfg.sym ?? 'BTC-USD';
   const tf: TF = cfg.tf ?? 'D';
@@ -156,7 +156,7 @@ export function CryptoW({ d, cfg, set }: P) {
         <span className="hw-tf"><Seg<TF> value={tf} onChange={(t) => set({ ...cfg, tf: t })} options={[{ id: '5m', label: '5m' }, { id: '1H', label: '1H' }, { id: 'D', label: 'D' }]} /></span>
       </div>
       {error ? <p className="small down hw-pad">{error}</p> : <Candles bars={bars} theme={d.theme} timeVisible={tf !== 'D'} />}
-      <ul className="hw-news">{[...news.filter((n) => n.title.toUpperCase().includes(base)), ...news.filter((n) => !n.title.toUpperCase().includes(base))].slice(0, 10).map((n) => <li key={n.id}><span className={`sent ${n.sentiment > 0 ? 'up' : n.sentiment < 0 ? 'down' : 'muted'}`}>●</span>{n.url ? <a href={n.url} target="_blank" rel="noreferrer noopener">{n.title}</a> : n.title}<span className="muted small"> · {n.src}</span></li>)}</ul>
+      <ul className="hw-news">{[...news.filter((n) => n.title.toUpperCase().includes(base)), ...news.filter((n) => !n.title.toUpperCase().includes(base))].slice(0, 10).map((n) => <li key={n.id}><span className={`sent ${n.sentiment > 0 ? 'up' : n.sentiment < 0 ? 'down' : 'muted'}`}>●</span>{n.url ? <a href={n.url} target="_blank" rel="noreferrer noopener">{n.title}</a> : n.title}<span className="muted small"> · {n.src}</span><LeanDot lean={n.lean} /></li>)}</ul>
       <p className="note hw-pad">{source || 'Binance'} · 24/7, refreshes every minute · crypto news: Finnhub</p>
     </div>
   );

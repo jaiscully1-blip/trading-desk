@@ -3,7 +3,7 @@
 import { ProviderError } from '../../shared/parse.js';
 import { clock } from '../../shared/clock.js';
 
-export type Provider = 'twelvedata' | 'finnhub' | 'alphavantage' | 'fred' | 'finra' | 'kalshi' | 'gdelt' | 'binance' | 'coingecko' | 'sec' | 'gemini' | 'wikipedia' | 'aisstream' | 'polymarket' | 'github' | 'yahoo' | 'openfigi' | 'ark' | 'tradingview';
+export type Provider = 'twelvedata' | 'finnhub' | 'alphavantage' | 'fred' | 'finra' | 'kalshi' | 'gdelt' | 'binance' | 'coingecko' | 'sec' | 'gemini' | 'wikipedia' | 'aisstream' | 'polymarket' | 'github' | 'yahoo' | 'openfigi' | 'ark' | 'tradingview' | 'alpaca';
 
 export const KEY_ENV: Record<Provider, string> = {
   twelvedata: 'TWELVEDATA_API_KEY',
@@ -25,6 +25,7 @@ export const KEY_ENV: Record<Provider, string> = {
   openfigi: '', // CUSIP -> ticker, keyless tier
   ark: '', // arkfunds.io community API over ARK's public daily files
   tradingview: '', // public screener endpoint
+  alpaca: 'ALPACA_KEY_ID', // + ALPACA_SECRET_KEY; free account, IEX real-time + Benzinga news
 };
 
 export function key(p: Provider): string {
@@ -33,7 +34,7 @@ export function key(p: Provider): string {
   if (!k) throw new ProviderError(p, `missing ${KEY_ENV[p]}`, false);
   return k;
 }
-export const hasKey = (p: Provider) => !KEY_ENV[p] || !!process.env[KEY_ENV[p]];
+export const hasKey = (p: Provider) => (!KEY_ENV[p] || !!process.env[KEY_ENV[p]]) && (p !== 'alpaca' || !!process.env.ALPACA_SECRET_KEY);
 
 /* ---------- rate limits (free tiers, verified Nov 2026) ----------
  * Twelve Data Basic: 8 credits/min, 800/day
@@ -61,6 +62,7 @@ const LIMITS: Record<Provider, { perMin: number; perDay: number }> = {
   openfigi: { perMin: 20, perDay: 2000 }, // keyless: 25 requests/min, 10 jobs each
   ark: { perMin: 20, perDay: 500 },
   tradingview: { perMin: 10, perDay: 500 },
+  alpaca: { perMin: 180, perDay: Infinity }, // free Basic plan: 200 requests/min
 };
 const hits: Record<string, number[]> = {};
 const dayCount: Record<string, { day: string; n: number }> = {};

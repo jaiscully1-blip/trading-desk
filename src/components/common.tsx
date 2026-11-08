@@ -1,5 +1,6 @@
 import { useDesk } from '../lib/deskctx';
 import type { ReactNode } from 'react';
+import { LEAN5_LABEL, leanColor, type Lean } from '../../shared/bias';
 import type { Freshness } from '../types';
 import { etTime } from '../lib/clock';
 
@@ -109,4 +110,16 @@ export function CoName({ sym, className = '' }: { sym: string; className?: strin
 export function SymInfo({ sym, className = '', children }: { sym: string; className?: string; children?: ReactNode }) {
   const { openInfo, names } = useDesk();
   return <button className={`syminfo ${className}`} title={names[sym] ? `${names[sym]}: what is it?` : 'What is this?'} onClick={(e) => { e.stopPropagation(); openInfo(sym, { x: e.clientX, y: e.clientY }); }}>{children ?? sym}</button>;
+}
+
+/** Political lean dot for a news item: blue = left, red = right, gray = center / neutral. Hover for why. */
+export function LeanDot({ lean }: { lean?: Lean }) {
+  const c = leanColor(lean);
+  if (!lean || !c) return null;
+  const parts = [
+    lean.political && lean.article ? `This story's framing: ${lean.article === 'center' ? 'neutral / center' : lean.article === 'left' ? 'leans left' : 'leans right'}${lean.why ? ` (${lean.why})` : ''} · AI read` : lean.political ? 'Political story (framing not rated yet)' : 'Not a political story',
+    lean.outlet ? `Outlet: ${LEAN5_LABEL[lean.outlet]} · ${lean.outletBasis}` : 'Outlet not rated',
+  ];
+  const short = lean.political && lean.article ? (lean.article === 'center' ? 'NEUTRAL' : lean.article === 'left' ? 'LEFT' : 'RIGHT') : lean.outlet ? LEAN5_LABEL[lean.outlet].toUpperCase().replace('LEAN ', 'LEAN-') : '';
+  return <span className={`lean lean-${c} ${lean.political ? 'pol' : ''}`} title={parts.join('\n')}>{lean.political ? short : ''}</span>;
 }
