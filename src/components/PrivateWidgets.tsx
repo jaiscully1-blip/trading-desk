@@ -57,7 +57,7 @@ function demoWebull(): { acct: Acct; pnl: Pnl } {
 
 function WebullSetup({ st, reload, loading }: { st: Status; reload: () => void; loading: boolean }) {
   // Setup progress lives in the browser store so closing and reopening the widget never restarts it.
-  const [tok, setTok] = usePersisted<{ token?: string; status?: string; at?: number } | null>('wbTok', null);
+  const [tok, setTok] = usePersisted<{ token?: string; status?: string; at?: number; checked?: number; fields?: string[] } | null>('wbTok', null);
   const [busy, setBusy] = useState<'' | 'create' | 'check'>('');
   const [err, setErr] = useState('');
   const create = async () => {
@@ -69,7 +69,7 @@ function WebullSetup({ st, reload, loading }: { st: Status; reload: () => void; 
   const check = async () => {
     if (!tok?.token) return;
     setBusy('check'); setErr('');
-    try { const { ok, j } = await privateFetch({ fn: 'webull', op: 'token-check', token: tok.token }); if (ok) setTok({ ...tok, status: j.status ?? undefined }); else setErr(j.error ?? 'Webull could not check the token.'); }
+    try { const { ok, j } = await privateFetch({ fn: 'webull', op: 'token-check', token: tok.token }); if (ok) setTok({ ...tok, status: j.status ?? undefined, checked: Date.now(), fields: j.fields }); else setErr(j.error ?? 'Webull could not check the token.'); }
     catch { setErr('Network error. Try again.'); }
     setBusy('');
   };
@@ -93,6 +93,8 @@ function WebullSetup({ st, reload, loading }: { st: Status; reload: () => void; 
       </ol>
       {tok?.token && <p className="tok">Token: <code className="sel-all">{tok.token}</code> · status <b className={tok.status === 'NORMAL' ? 'up' : ''}>{tok.status ?? 'not checked'}</b>{age > 0 && <span className="muted"> · created {age} min ago</span>}</p>}
       {msg && <p className={msg.ok ? 'up' : 'muted'}>{msg.text}</p>}
+      {tok?.checked && <p className="small muted">Last checked {new Date(tok.checked).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', second: '2-digit' })}: Webull answered {tok.status ?? 'with no status'}{!tok.status && tok.fields?.length ? ` (fields: ${tok.fields.join(', ')})` : ''}.</p>}
+      {tok?.status === 'PENDING' && <p className="small muted">Still pending? Webull sends the approval to the phone number on the account, as a text message or an alert in the Webull app (Messages / notifications). It expires after 5 minutes, then press Create a new token and approve the newest request only.</p>}
       {err && <p className="down">{err}</p>}
       <div className="hw-bar">
         <button className="btn" disabled={loading} onClick={reload}>{loading ? 'Rechecking…' : 'Recheck setup'}</button>

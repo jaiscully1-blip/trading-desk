@@ -41,7 +41,8 @@ export async function GET(req: Request): Promise<Response> {
         if (!token) return json({ error: 'no token to check' }, { status: 400 });
         const r = await wbTokenCheck(token);
         const t = tokenInfo(r);
-        return json({ status: t.status, expires: t.expires });
+        // field names only (never values): lets the widget show what Webull answered when no status is in it
+        return json({ status: t.status, expires: t.expires, fields: r && typeof r === 'object' ? Object.keys(r).slice(0, 12) : [] });
       }
       case 'account': {
         const { id, list } = await accountId();
