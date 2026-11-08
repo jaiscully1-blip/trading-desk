@@ -119,6 +119,7 @@ function WebullSetup({ st, reload, loading }: { st: Status; reload: () => void; 
       <div className="hw-bar">
         <button className="btn" disabled={loading} onClick={reload}>{loading ? 'Rechecking…' : 'Recheck setup'}</button>
         {st.tokenSet ? <span className="up small">WEBULL_ACCESS_TOKEN is set on the server. Redeploy if the account still does not load.</span> : <span className="muted small">Server has no access token yet.</span>}
+        {tok?.token && tok.status !== 'NORMAL' && <button className="link small" onClick={check} disabled={busy !== ''}>{busy === 'check' ? 'Checking…' : 'Check now'}</button>}
         {tok && <button className="link small" onClick={() => { setTok(null); setErr(''); }}>Start over</button>}
       </div>
     </div>
