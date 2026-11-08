@@ -1,5 +1,8 @@
 import { useGammaLv } from './data/gamma';
 import { movementRead } from '../shared/movement';
+import { volRead } from '../shared/volatility';
+import { moveStats } from '../shared/movementStats';
+import { useMacroPack } from './data/macro';
 import { Suspense, lazy, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { Board, Freshness, Layout, Mode, OrMinutes, Overlay, Quote, RightTab, TF } from './types';
 import { clock, et, modeLabel } from './lib/clock';
@@ -303,6 +306,9 @@ export default function App() {
   // regime badge: SPY vs its 50/200-day averages + dealer-gamma sign; live data only
   const spyGamma = useGammaLv('SPY', live);
   // Movement watch: priced-in move (VIX) against how far SPY actually moves, plus theta burn. Neutral on direction. Live data only.
+  const macroPack = useMacroPack(dataMode).pack;
+  const vol = useMemo(() => (live && macroPack?.vix.length ? volRead(macroPack.vix, spyD.bars) : null), [live, macroPack, spyD.bars]);
+  const dayStats = useMemo(() => (live && spyD.freshness !== 'demo' ? moveStats(spyD.bars, macroPack?.events ?? {}) : null), [live, macroPack, spyD.bars, spyD.freshness]);
   const movement = useMemo(() => {
     const vix = macro?.vix?.value, last = quotes.SPY?.last;
     if (!live || spyD.freshness === 'demo' || !vix || !last) return null;
@@ -795,7 +801,7 @@ export default function App() {
       <SideNav compact={narrow} page={page} onPage={setPage} onCmd={() => setCmdOpen(true)} onHelp={() => setOverlay('help')} onAccount={() => setDrawer((d) => !d)} />
       <div className={`app ${layout.tickerOpen ? '' : 'no-ticker'} ${layout.fearOpen !== false ? 'has-fear' : ''}`}>
         <TopStrip
-          movement={movement}
+          movement={movement} vol={vol} moveStats={dayStats}
           quotes={quotes} clk={clk} mode={mode} override={override} onOverride={setOverride} onSelect={setSel}
           onAccount={() => setDrawer((d) => !d)} accountOpen={drawer} theme={theme} onTheme={toggleTheme} onCmd={() => setCmdOpen(true)}
           account={{ guard: g, settings, demo: views.some((v) => v.t.demo), demoPrices }}

@@ -34,6 +34,7 @@ interface P { d: HomeData; cfg: Cfg; set: (c: Cfg) => void }
 import { CongressW, DiscordW, WebullW } from './PrivateWidgets';
 import { AgentsW, InsiderW, PolymarketW, SimW } from './MoreWidgets';
 import { BacktestW } from './BacktestW';
+import { MacroW } from './MacroW';
 import { RulesW as RulesInner } from './RulesW';
 function RulesW({ d, cfg, set }: P) { return <RulesInner r={d.rules} now={d.now} cfg={cfg} set={set} />; }
 const cssVar = (n: string) => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
@@ -240,4 +241,5 @@ export const WIDGETS = {
   agents: { title: 'AI analysts', make: AgentsW },
   backtest: { title: 'Playbook backtest', make: BacktestW },
   rules: { title: 'My rules', make: RulesW },
+  macro: { title: 'Macro and liquidity', make: MacroW },
 } as const;

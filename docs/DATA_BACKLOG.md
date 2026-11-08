@@ -7,6 +7,10 @@ Endpoints marked (verify) were not re-checked against current documentation; con
 
 Effort: easy under 1 day, medium 1 to 3, hard 4 to 10. Kind: observed = reported by a source; calculated = derived on the desk (must carry a CALCULATED / ESTIMATE tag).
 
+## Built Nov 8, 2026
+
+Fed liquidity and credit widget (`macro`), VIX rank and realized-vol estimators and the weekday / event / gap / overnight tables inside the Movement watch. Data: `api/research?fn=macropack` (FRED only).
+
 ## Build next (free, fits the desk, high value)
 
 | Item | Kind | Free source or method | Effort | Why |
