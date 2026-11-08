@@ -8,6 +8,9 @@ import { TV_BODY, approxSectorEtf, parseEtfProfile, parseTvScan, parseYahooSpark
 import { SYMBOL_RE, cached, getJson, hasKey, json, key, take, ttl } from '../core.js';
 import { YH_HEADERS, dailyBars } from '../yahoo.js';
 import { alignCloses, quantRead } from '../../../shared/quant.js';
+import { fredHistory, fredReleaseDates, fredReleases } from '../adapters.js';
+import { LIQ_SERIES, liquiditySummary, type LiqId, type Obs } from '../../../shared/liquidity.js';
+import { FOMC } from '../../../shared/calendar.js';
 
 async function tradingView(): Promise<SnapMap> {
   if (!take('tradingview')) throw new Error('rate limit');
@@ -102,4 +105,34 @@ export function quantCached(sym: string) {
   });
 }
 
-export const MARKET_ROUTES = { snapshot: () => snapshotRoute(), etf, closes, quant };
+/** GET /api/research?fn=macropack: Fed liquidity + credit rows, a year of VIX closes, past CPI / jobs / FOMC dates. All FRED (free key), cached 6 hours. */
+async function macropack(): Promise<Response> {
+  if (!hasKey('fred')) return json({ error: 'Add FRED_API_KEY in Vercel (free key from fred.stlouisfed.org), then redeploy.' }, { status: 400 });
+  try {
+    const out = (await cached('macropack', 6 * 3600, async () => {
+      const errors: Record<string, string> = {};
+      const ids = LIQ_SERIES.map((s) => s.id);
+      const got = await Promise.allSettled([...LIQ_SERIES.map((s) => fredHistory(s.id, s.days)), fredHistory('VIXCLS', 260)]);
+      const raw: Partial<Record<LiqId, Obs[]>> = {};
+      ids.forEach((id, i) => { const r = got[i]; if (r.status === 'fulfilled') raw[id] = r.value; else errors[id] = String(r.reason?.message ?? r.reason); });
+      const vixRes = got[ids.length];
+      const vix = vixRes.status === 'fulfilled' ? vixRes.value.map((o) => o.value) : [];
+      if (vixRes.status === 'rejected') errors.VIXCLS = String(vixRes.reason?.message ?? vixRes.reason);
+      // past release dates for CPI and the jobs report (3 years), plus FOMC decision days that have already happened
+      const events: { cpi?: string[]; jobs?: string[]; fomc?: string[] } = {};
+      try {
+        const rel = (await cached('fred:releases', 7 * 86400, fredReleases)).val;
+        const today = new Date().toISOString().slice(0, 10), start = new Date(Date.now() - 3 * 365 * 86400_000).toISOString().slice(0, 10);
+        const find = (re: RegExp) => rel.find((r) => re.test(r.name))?.id;
+        const [cpiId, jobsId] = [find(/^Consumer Price Index$/i), find(/^Employment Situation$/i)];
+        if (cpiId) events.cpi = (await fredReleaseDates(cpiId, start, today)).filter((d) => d <= today);
+        if (jobsId) events.jobs = (await fredReleaseDates(jobsId, start, today)).filter((d) => d <= today);
+      } catch (e) { errors.events = String((e as Error).message); }
+      events.fomc = FOMC.filter((f) => f.date < new Date().toISOString().slice(0, 10)).map((f) => f.date);
+      return { liquidity: liquiditySummary(raw), vix, events, asOf: Date.now(), ...(Object.keys(errors).length ? { errors } : {}) };
+    })).val;
+    return json(out, { sMaxAge: 1800 });
+  } catch (e) { return json({ error: (e as Error).message }, { status: 502 }); }
+}
+
+export const MARKET_ROUTES = { snapshot: () => snapshotRoute(), etf, closes, quant, macropack: () => macropack() };

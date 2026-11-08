@@ -1,5 +1,5 @@
 // Private widgets: Webull account (read-only) and the Discord bot's channels. Both need the desk password.
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { HomeData } from './HomeWidgets';
 import type { WbBalance, WbClosed, WbDay, WbFill, WbPosition } from '../../shared/webull';
 import { cleanDiscord, type DcMessage } from '../../shared/discord';
@@ -57,7 +57,7 @@ function demoWebull(): { acct: Acct; pnl: Pnl } {
 
 function WebullSetup({ st, reload, loading }: { st: Status; reload: () => void; loading: boolean }) {
   // Setup progress lives in the browser store so closing and reopening the widget never restarts it.
-  const [tok, setTok] = usePersisted<{ token?: string; status?: string; at?: number } | null>('wbTok', null);
+  const [tok, setTok] = usePersisted<{ token?: string; status?: string; at?: number; checked?: number; fields?: string[] } | null>('wbTok', null);
   const [busy, setBusy] = useState<'' | 'create' | 'check'>('');
   const [err, setErr] = useState('');
   const create = async () => {
@@ -69,10 +69,31 @@ function WebullSetup({ st, reload, loading }: { st: Status; reload: () => void; 
   const check = async () => {
     if (!tok?.token) return;
     setBusy('check'); setErr('');
-    try { const { ok, j } = await privateFetch({ fn: 'webull', op: 'token-check', token: tok.token }); if (ok) setTok({ ...tok, status: j.status ?? undefined }); else setErr(j.error ?? 'Webull could not check the token.'); }
+    try { const { ok, j } = await privateFetch({ fn: 'webull', op: 'token-check', token: tok.token }); if (ok) setTok({ ...tok, status: j.status ?? undefined, checked: Date.now(), fields: j.fields }); else setErr(j.error ?? 'Webull could not check the token.'); }
     catch { setErr('Network error. Try again.'); }
     setBusy('');
   };
+  // Webull's phone approval is its own rule and stays; the desk now checks for it by itself every 6 seconds (up to 6 minutes),
+  // so after Create token the only step left is approving on the phone.
+  const pending = !!tok?.token && tok.status === 'PENDING';
+  const tokRef = useRef(tok); tokRef.current = tok;
+  useEffect(() => {
+    if (!pending) return;
+    const since = Date.now();
+    let stop = false;
+    const id = setInterval(async () => {
+      const cur = tokRef.current;
+      if (stop || !cur?.token) return;
+      if (Date.now() - since > 6 * 60_000) { clearInterval(id); return; }
+      try {
+        const { ok, j } = await privateFetch({ fn: 'webull', op: 'token-check', token: cur.token });
+        if (!stop && ok) setTok({ ...cur, status: j.status ?? undefined, checked: Date.now(), fields: j.fields });
+      } catch { /* try again on the next beat */ }
+    }, 6000);
+    return () => { stop = true; clearInterval(id); };
+  }, [pending, tok?.token]); // eslint-disable-line react-hooks/exhaustive-deps
+  const [copied, setCopied] = useState(false);
+  const copy = async () => { try { await navigator.clipboard.writeText(tok?.token ?? ''); setCopied(true); setTimeout(() => setCopied(false), 2000); } catch { setErr('Copy failed: select the token and copy it by hand.'); } };
   const msg = tok?.token ? tokenMessage(tok.status) : null;
   const age = tok?.at ? Math.round((Date.now() - tok.at) / 60000) : 0;
   if (!st.configured) return (
@@ -85,18 +106,20 @@ function WebullSetup({ st, reload, loading }: { st: Status; reload: () => void; 
   return (
     <div className="hw-pad small">
       {st.configError && <p className="down">Webull answered: {st.configError}</p>}
-      <p><b>Webull needs a one-time access token</b> because your account has 2-step security.</p>
+      <p><b>Webull needs a one-time access token</b> because your account has 2-step security. This is Webull's own rule, so the phone approval can't be skipped, but it only happens once.</p>
       <ol className="steps-ol">
-        <li><button className="btn" onClick={create} disabled={busy !== ''}>{busy === 'create' ? 'Creating…' : tok?.token ? 'Create a new token' : 'Create token'}</button> — Webull then sends a code / prompt to your phone.</li>
-        <li>Approve it in the Webull app within 5 minutes, then <button className="btn" onClick={check} disabled={!tok?.token || busy !== ''}>{busy === 'check' ? 'Checking…' : 'Check'}</button>{!tok?.token && <span className="muted"> (create a token first)</span>}</li>
-        <li>When it says <b>NORMAL</b>, copy the token into Vercel as <code>WEBULL_ACCESS_TOKEN</code> and redeploy. It stays valid while used at least every 15 days.</li>
+        <li><button className="btn" onClick={create} disabled={busy !== ''}>{busy === 'create' ? 'Creating…' : tok?.token ? 'Create a new token' : 'Create token'}</button> then approve the request on your phone within 5 minutes. The desk checks by itself{pending ? ' (checking now…)' : ''}.</li>
+        <li>When it says <b>NORMAL</b>, <button className="btn" onClick={copy} disabled={tok?.status !== 'NORMAL'}>{copied ? 'Copied' : 'Copy token'}</button> and paste it into Vercel as <code>WEBULL_ACCESS_TOKEN</code>, then redeploy. It stays valid while used at least every 15 days.</li>
       </ol>
       {tok?.token && <p className="tok">Token: <code className="sel-all">{tok.token}</code> · status <b className={tok.status === 'NORMAL' ? 'up' : ''}>{tok.status ?? 'not checked'}</b>{age > 0 && <span className="muted"> · created {age} min ago</span>}</p>}
       {msg && <p className={msg.ok ? 'up' : 'muted'}>{msg.text}</p>}
+      {tok?.checked && <p className="small muted">Last checked {new Date(tok.checked).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', second: '2-digit' })}: Webull answered {tok.status ?? 'with no status'}{!tok.status && tok.fields?.length ? ` (fields: ${tok.fields.join(', ')})` : ''}.</p>}
+      {tok?.status === 'PENDING' && <p className="small muted">Still pending? Webull sends the approval to the phone number on the account, as a text message or an alert in the Webull app (Messages / notifications). It expires after 5 minutes, then press Create a new token and approve the newest request only.</p>}
       {err && <p className="down">{err}</p>}
       <div className="hw-bar">
         <button className="btn" disabled={loading} onClick={reload}>{loading ? 'Rechecking…' : 'Recheck setup'}</button>
         {st.tokenSet ? <span className="up small">WEBULL_ACCESS_TOKEN is set on the server. Redeploy if the account still does not load.</span> : <span className="muted small">Server has no access token yet.</span>}
+        {tok?.token && tok.status !== 'NORMAL' && <button className="link small" onClick={check} disabled={busy !== ''}>{busy === 'check' ? 'Checking…' : 'Check now'}</button>}
         {tok && <button className="link small" onClick={() => { setTok(null); setErr(''); }}>Start over</button>}
       </div>
     </div>

@@ -2,10 +2,12 @@
 // Neutral on direction: big movement either way is good for long options, a quiet tape lets theta burn them.
 import { useEffect, useRef, useState } from 'react';
 import type { MovementRead } from '../../shared/movement';
+import type { VolRead } from '../../shared/volatility';
+import type { MoveStats, DayStat } from '../../shared/movementStats';
 
 const usd = (n: number, d = 2) => `$${n.toFixed(d)}`;
 
-export function MovementBadge({ m }: { m: MovementRead }) {
+export function MovementBadge({ m, vol, stats }: { m: MovementRead; vol?: VolRead | null; stats?: MoveStats | null }) {
   const [open, setOpen] = useState(false);
   const box = useRef<HTMLSpanElement>(null);
   useEffect(() => {
@@ -35,9 +37,40 @@ export function MovementBadge({ m }: { m: MovementRead }) {
           </div>
           <div className="mv-sec">ATM option premium burned (0DTE opens at {usd(m.atm0, 0)} per contract)</div>
           <Row t="0DTE" rows={m.decay0} /><Row t="1DTE" rows={m.decay1} />
+          {vol && (
+            <>
+              <div className="mv-sec">Volatility <span className="tag">CALCULATED</span></div>
+              <div className="mv-grid">
+                <Cell l="VIX, one-year rank" v={vol.vixRank ? `${vol.vixRank.rank.toFixed(0)}` : '-'} sub={vol.vixRank ? `percentile ${vol.vixRank.percentile.toFixed(0)} · range ${vol.vixRank.lo.toFixed(1)} to ${vol.vixRank.hi.toFixed(1)}` : ''} />
+                <Cell l="SPY realized, 20 days" v={vol.realized.yangZhang != null ? `${(vol.realized.yangZhang * 100).toFixed(1)}%` : '-'} sub={`Yang-Zhang (counts gaps) · range-based ${vol.realized.parkinson != null ? (vol.realized.parkinson * 100).toFixed(1) : '-'}% · close-close ${vol.realized.cc != null ? (vol.realized.cc * 100).toFixed(1) : '-'}%`} />
+                <Cell l="VIX minus realized" v={vol.premium != null ? `${vol.premium >= 0 ? '+' : '−'}${Math.abs(vol.premium).toFixed(1)} pts` : '-'} sub="what options charge over what the tape did" cls={vol.premium != null && vol.premium > 3 ? 'mv-theta' : ''} />
+                <Cell l="Vol of vol, 20 days" v={vol.vixOfVol != null ? `${(vol.vixOfVol * 100).toFixed(1)}%` : '-'} sub="typical daily % swing in VIX" />
+              </div>
+            </>
+          )}
+          {stats && <DayTable s={stats} />}
           <p className="note mv-note">{m.parts.join(' · ')}. Decay is Black-Scholes at the money with no rates or skew, so it is an estimate: real 0DTE pricing differs. Chop and big days are measured against today's priced-in move. Not a forecast, not advice.</p>
         </div>
       )}
     </span>
+  );
+}
+
+function DayTable({ s }: { s: MoveStats }) {
+  const row = (d: DayStat, base = false) => (
+    <div key={d.key} className={`mv-tr ${base ? 'mv-base' : ''}`} title={`${d.n} days`}>
+      <span>{d.label}</span><span className="num">{d.avgMovePct.toFixed(2)}%</span><span className="num mv-theta">{d.chopPct.toFixed(0)}%</span><span className="num mv-move">{d.bigPct.toFixed(0)}%</span><span className="num muted small">{d.n}</span>
+    </div>
+  );
+  const g = s.gaps;
+  return (
+    <>
+      <div className="mv-sec">Which days move <span className="tag">CALCULATED</span> <span className="muted">last {s.days} sessions, SPY</span></div>
+      <div className="mv-tr mv-th"><span>Day type</span><span>Avg move</span><span>Chop</span><span>Big</span><span>Days</span></div>
+      {row(s.all, true)}{s.weekday.map((d) => row(d))}{s.events.map((d) => row(d))}
+      <p className="note mv-note">Chop = moved under half of the prior 20-day average move. Big = 1.5x or more. Compare each row with "All days".
+        Gaps of {g.minPct}% or more: up gaps {g.up.n} (filled the same day {g.up.fillPct.toFixed(0)}%, kept going {g.up.continuePct.toFixed(0)}%), down gaps {g.down.n} (filled {g.down.fillPct.toFixed(0)}%, kept going {g.down.continuePct.toFixed(0)}%).
+        About {s.overnightVarShare.toFixed(0)}% of day-to-day variance happens overnight (average {s.overnightAvgPct.toFixed(2)}% overnight vs {s.sessionAvgPct.toFixed(2)}% in the session): long options held overnight carry that gap risk.</p>
+    </>
   );
 }

@@ -29,6 +29,8 @@ export function TopStrip({
   quoteAsOf,
   quoteSource,
   movement,
+  vol,
+  moveStats,
 }: {
   account: { guard: Guard; settings: AccountSettings; demo: boolean; demoPrices: boolean };
   marketSource?: string;
@@ -49,6 +51,8 @@ export function TopStrip({
   onTheme: () => void;
   onCmd?: () => void;
   movement?: MovementRead | null;
+  vol?: import('../../shared/volatility').VolRead | null;
+  moveStats?: import('../../shared/movementStats').MoveStats | null;
 }) {
   const dayPnl = account.guard.todayRealized + account.guard.todayUnrealized;
   const spy = quotes.SPY, qqq = quotes.QQQ;
@@ -58,7 +62,7 @@ export function TopStrip({
         <Tick label="SPY" raw={spy.last} value={px(spy.last)} chg={spy.chgPct} chgFmt={pct(spy.chgPct)} onClick={() => onSelect('SPY')} />
         <Tick label="QQQ" raw={qqq.last} value={px(qqq.last)} chg={qqq.chgPct} chgFmt={pct(qqq.chgPct)} onClick={() => onSelect('QQQ')} />
         <Fresh kind={quoteFresh} at={quoteAsOf} src={quoteSource} />
-        {movement && <MovementBadge m={movement} />}
+        {movement && <MovementBadge m={movement} vol={vol} stats={moveStats} />}
       </div>
 
       {(clk.holiday || clk.earlyClose) && (
