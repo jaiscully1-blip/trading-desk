@@ -3,7 +3,7 @@
 import { ProviderError } from '../../shared/parse.js';
 import { clock } from '../../shared/clock.js';
 
-export type Provider = 'twelvedata' | 'finnhub' | 'alphavantage' | 'fred' | 'finra' | 'kalshi' | 'gdelt' | 'binance' | 'coingecko' | 'sec' | 'gemini' | 'wikipedia' | 'aisstream' | 'polymarket' | 'github' | 'yahoo';
+export type Provider = 'twelvedata' | 'finnhub' | 'alphavantage' | 'fred' | 'finra' | 'kalshi' | 'gdelt' | 'binance' | 'coingecko' | 'sec' | 'gemini' | 'wikipedia' | 'aisstream' | 'polymarket' | 'github' | 'yahoo' | 'openfigi' | 'ark' | 'tradingview';
 
 export const KEY_ENV: Record<Provider, string> = {
   twelvedata: 'TWELVEDATA_API_KEY',
@@ -22,6 +22,9 @@ export const KEY_ENV: Record<Provider, string> = {
   polymarket: '', // public read-only market data
   github: '', // public repo files
   yahoo: '', // unofficial public chart data
+  openfigi: '', // CUSIP -> ticker, keyless tier
+  ark: '', // arkfunds.io community API over ARK's public daily files
+  tradingview: '', // public screener endpoint
 };
 
 export function key(p: Provider): string {
@@ -44,7 +47,7 @@ const LIMITS: Record<Provider, { perMin: number; perDay: number }> = {
   alphavantage: { perMin: 5, perDay: 24 },
   fred: { perMin: 60, perDay: Infinity },
   finra: { perMin: 10, perDay: 200 },
-  kalshi: { perMin: 10, perDay: 500 },
+  kalshi: { perMin: 40, perDay: 2000 }, // public reads allow ~20/s; stay far below
   gdelt: { perMin: 10, perDay: 1000 },
   binance: { perMin: 30, perDay: 5000 },
   coingecko: { perMin: 5, perDay: 500 },
@@ -55,6 +58,9 @@ const LIMITS: Record<Provider, { perMin: number; perDay: number }> = {
   polymarket: { perMin: 30, perDay: 3000 },
   github: { perMin: 30, perDay: 3000 },
   yahoo: { perMin: 60, perDay: 2000 },
+  openfigi: { perMin: 20, perDay: 2000 }, // keyless: 25 requests/min, 10 jobs each
+  ark: { perMin: 20, perDay: 500 },
+  tradingview: { perMin: 10, perDay: 500 },
 };
 const hits: Record<string, number[]> = {};
 const dayCount: Record<string, { day: string; n: number }> = {};

@@ -34,6 +34,9 @@ const WorldMap = lazy(() => import('./components/WorldMap'));
 const PatternLab = lazy(() => import('./components/PatternLab'));
 const Rotation = lazy(() => import('./components/Rotation'));
 const CompanyMap = lazy(() => import('./components/CompanyMap'));
+const SmartMoney = lazy(() => import('./components/SmartMoney'));
+const EtfSectors = lazy(() => import('./components/EtfSectors'));
+const EconOdds = lazy(() => import('./components/EconOdds'));
 import { Calendars } from './components/Calendars';
 import { FearStrip } from './components/FearStrip';
 import { cloudConfigured, signIn, signOut, useCloudItems, useCloudSync, useCloudUser } from './data/cloud';
@@ -547,7 +550,10 @@ export default function App() {
     { id: 'risk', label: 'Open risk / position size', hint: 'R', run: () => setTab('risk') },
     { id: 'account', label: 'Open account drawer', hint: 'A', run: () => setDrawer(true) },
     { id: 'map', label: 'World map page', hint: 'M', run: () => setPage('map') },
-    { id: 'globe', label: 'Money flow globe page', hint: 'G', run: () => setPage('flows') },
+    { id: 'globe', label: 'Sector rotation page', hint: 'G', run: () => setPage('flows') },
+    { id: 'etfs', label: 'ETFs & sectors: heatmap, ETF holdings, baskets', hint: 'U', run: () => setPage('etfs') },
+    { id: 'smart', label: 'Smart money: 13F investors, ARK, politicians', hint: 'I', run: () => setPage('smart') },
+    { id: 'odds', label: 'Economic odds (Fed, recession, CPI)', hint: 'Y', run: () => setPage('odds') },
     { id: 'd', label: 'Chart: daily', hint: '1', run: () => setTf('D') },
     { id: '1h', label: 'Chart: 1-hour', hint: '2', run: () => setTf('1H') },
     { id: '5m', label: 'Chart: 5-minute', hint: '3', run: () => setTf('5m') },
@@ -570,7 +576,7 @@ export default function App() {
       if (e.key === 'Escape') { if (replayId) { setReplayId(null); return; } setCmdOpen(false); setOverlay(null); setDrawer(false); setPbOpen(false); setSyncOpen(false); setCiOpen(false); setRecapOpen(false); return; }
       if (cmdOpen || pbOpen || syncOpen || ciOpen || replayId || recapOpen || typing(e.target) || e.ctrlKey || e.metaKey || e.altKey) return;
       const map: Record<string, () => void> = {
-        h: () => setPage('home'), e: () => setPage('messages'), d: () => setPage('desk'), x: () => setPage('patterns'), s: () => setPage('scanner'), m: () => setPage('map'), g: () => setPage('flows'), c: () => setPage('calendar'),
+        h: () => setPage('home'), e: () => setPage('messages'), d: () => setPage('desk'), x: () => setPage('patterns'), s: () => setPage('scanner'), m: () => setPage('map'), g: () => setPage('flows'), c: () => setPage('calendar'), u: () => setPage('etfs'), i: () => setPage('smart'), y: () => setPage('odds'),
         '?': () => setOverlay((o) => (o === 'help' ? null : 'help')),
         t: toggleTheme,
         a: () => setDrawer((d) => !d),
@@ -697,6 +703,14 @@ export default function App() {
       <Suspense fallback={<div className="page"><section className="panel"><div className="ph-body">Loading…</div></section></div>}>
         <PatternLab mode={dataMode} theme={theme} symbols={[...wlSyms, ...universe]} demoLast={demoLast} onChart={toDesk} />
       </Suspense>
+    );
+  } else if (page === 'smart' || page === 'etfs' || page === 'odds') {
+    body = (
+      <div className="page">
+        <Suspense fallback={<section className="panel"><div className="ph-body">Loading…</div></section>}>
+          {page === 'smart' ? <SmartMoney mode={dataMode} onChart={toDesk} /> : page === 'etfs' ? <EtfSectors mode={dataMode} onChart={toDesk} /> : <EconOdds mode={dataMode} />}
+        </Suspense>
+      </div>
     );
   } else if (page === 'map' || page === 'flows') {
     body = (

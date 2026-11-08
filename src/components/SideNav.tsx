@@ -1,5 +1,5 @@
 // Left side menu: one full-screen page per section, each with a single-key shortcut.
-export type Page = 'home' | 'messages' | 'desk' | 'patterns' | 'company' | 'scanner' | 'map' | 'flows' | 'journal' | 'calendar';
+export type Page = 'home' | 'messages' | 'desk' | 'patterns' | 'company' | 'scanner' | 'map' | 'flows' | 'smart' | 'etfs' | 'odds' | 'journal' | 'calendar';
 
 const PAGES: { id: Page; label: string; key: string }[] = [
   { id: 'home', label: 'HOME', key: 'H' },
@@ -10,6 +10,9 @@ const PAGES: { id: Page; label: string; key: string }[] = [
   { id: 'scanner', label: 'SCANNER', key: 'S' },
   { id: 'map', label: 'WORLD MAP', key: 'M' },
   { id: 'flows', label: 'ROTATION', key: 'G' },
+  { id: 'etfs', label: 'ETFS & SECTORS', key: 'U' },
+  { id: 'smart', label: 'SMART MONEY', key: 'I' },
+  { id: 'odds', label: 'ECON ODDS', key: 'Y' },
   { id: 'calendar', label: 'CALENDARS', key: 'C' },
   { id: 'journal', label: 'JOURNAL', key: '⇧J' },
 ];

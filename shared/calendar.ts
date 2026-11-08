@@ -52,7 +52,7 @@ export function usualMove(spyDaily: Bar[], pastDates: string[]): Usual | null {
 /* ---------------- Kalshi Fed decision odds ---------------- */
 export interface Odds { event: string; meeting: string; closes: number; outcomes: { label: string; prob: number }[] }
 
-const outcomeLabel = (m: any): string => {
+export const outcomeLabel = (m: any): string => {
   const sub = m.yes_sub_title || m.subtitle;
   if (sub) return String(sub);
   const x = /-(H|C)(\d+)$/.exec(String(m.ticker ?? ''));
@@ -60,7 +60,7 @@ const outcomeLabel = (m: any): string => {
   const bp = +x[2];
   return bp === 0 ? 'Hold' : `${x[1] === 'H' ? 'Hike' : 'Cut'} ${bp}bp`;
 };
-const px = (v: unknown) => { const n = parseFloat(String(v)); return Number.isFinite(n) ? (n > 1 ? n / 100 : n) : NaN; };
+export const px = (v: unknown) => { const n = parseFloat(String(v)); return Number.isFinite(n) ? (n > 1 ? n / 100 : n) : NaN; };
 
 /** Nearest open KXFEDDECISION event; probability = last trade, else bid/ask midpoint. */
 export function parseKalshiFed(j: any): Odds | null {
