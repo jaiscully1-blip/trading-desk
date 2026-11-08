@@ -1,7 +1,8 @@
 // World map data: GDELT GEO hotspots (news layer) and regional "sentiment weather" (news tone + regional ETF move).
 import { decode } from './news.js';
 
-export interface Article { title: string; url: string }
+/** t = published time (ms) and s = keyword tone, set only for the desk's own headlines (GDELT gives neither) */
+export interface Article { title: string; url: string; t?: number; s?: -1 | 0 | 1 }
 /** neu = neutral-tone headlines (only when placed from the desk's own news feeds) */
 export interface Hotspot { id: string; name: string; country: string; lat: number; lon: number; neg: number; pos: number; neu?: number; tone: number; articles: Article[] }
 export const spotTotal = (h: Hotspot) => h.pos + h.neg + (h.neu ?? 0);
@@ -113,7 +114,7 @@ const CITY_COUNTRY: Record<string, string> = {
  * The desk's own headlines (RSS + Finnhub) -> hotspots, placed by the place each headline names and split by keyword tone.
  * Used when GDELT is rate-limited or down, so the map is never empty while the news feeds work.
  */
-export function headlineHotspots(items: { title: string; url: string; sentiment: -1 | 0 | 1 }[], placeOf: (t: string) => { name: string; lat: number; lon: number } | null, max = 120): Hotspot[] {
+export function headlineHotspots(items: { title: string; url: string; sentiment: -1 | 0 | 1; t?: number }[], placeOf: (t: string) => { name: string; lat: number; lon: number } | null, max = 120): Hotspot[] {
   const m = new Map<string, Hotspot>();
   const seen = new Set<string>();
   for (const it of items) {
@@ -124,7 +125,7 @@ export function headlineHotspots(items: { title: string; url: string; sentiment:
     if (!p) continue;
     const h = m.get(p.name) ?? { id: `d:${p.name}`, name: p.name, country: CITY_COUNTRY[p.name] ?? countryOf(p.name), lat: p.lat, lon: p.lon, neg: 0, pos: 0, neu: 0, tone: 0, articles: [] };
     if (it.sentiment > 0) h.pos++; else if (it.sentiment < 0) h.neg++; else h.neu = (h.neu ?? 0) + 1;
-    if (h.articles.length < 25) h.articles.push({ title: it.title, url: it.url });
+    if (h.articles.length < 25) h.articles.push({ title: it.title, url: it.url, t: it.t, s: it.sentiment });
     m.set(p.name, h);
   }
   return [...m.values()].map((h) => ({ ...h, tone: (h.pos - h.neg) / Math.max(1, spotTotal(h)) })).sort((a, b) => spotTotal(b) - spotTotal(a)).slice(0, max);
@@ -165,4 +166,22 @@ export function collectVessels(msgs: any[]): Vessel[] {
     by.set(mmsi, { mmsi, name: String(md.ShipName ?? '').trim() || `MMSI ${mmsi}`, lat, lon, tanker: false, sog: pr ? Number(pr.Sog) : by.get(mmsi)?.sog });
   }
   return [...by.values()].map((v) => ({ ...v, tanker: (types.get(v.mmsi) ?? 0) >= 80 && (types.get(v.mmsi) ?? 0) <= 89 }));
+}
+
+/** Do these hotspots carry article times (so the 24-hour slider can replay them)? */
+export const hasTimes = (spots: Hotspot[]) => spots.some((h) => h.articles.some((a) => a.t != null));
+
+/**
+ * Hotspots as they stood at `upto` (ms): only articles published by then, counts rebuilt from them.
+ * Counts come from the stored headlines (at most 25 per place), so they can sit below the full-day totals.
+ * `oneSided` = the conflict / shipping / deals layers, which count every article in `neg`.
+ */
+export function hotspotsAt(spots: Hotspot[], upto: number, oneSided: boolean): Hotspot[] {
+  return spots.flatMap((h) => {
+    const arts = h.articles.filter((a) => a.t == null || a.t <= upto);
+    if (!arts.length) return [];
+    let pos = 0, neg = 0, neu = 0;
+    for (const a of arts) { if (oneSided) neg++; else if (a.s === 1) pos++; else if (a.s === -1) neg++; else neu++; }
+    return [{ ...h, articles: arts, pos, neg, neu, tone: oneSided ? 0 : (pos - neg) / Math.max(1, pos + neg + neu) }];
+  }).sort((a, b) => spotTotal(b) - spotTotal(a));
 }

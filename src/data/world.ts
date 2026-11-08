@@ -4,8 +4,13 @@ import type { DataMode } from './live';
 import { REGIONS, regionWeather, type Hotspot, type RegionWeather } from '../../shared/world';
 import { ROT_ASSETS, riskAppetite, rotationRows, type RotRow } from '../../shared/rotation';
 import { DEMO_AT, makeCandles, rng } from '../lib/demo';
+import { load, save } from '../lib/store';
 
-export interface WorldState { hotspots: Hotspot[]; regions: RegionWeather[]; placement?: 'geo' | 'headline'; via?: 'gdelt' | 'desk'; note?: string; sources?: { news: string; market: string }; errors: Record<string, string>; asOf: number; freshness: Freshness }
+/** Last good answer kept in this browser so the map paints at once and refreshes behind it (trimmed to stay small). */
+const slim = <T extends { hotspots: Hotspot[] }>(x: T): T => ({ ...x, hotspots: x.hotspots.slice(0, 70).map((h) => ({ ...h, articles: h.articles.slice(0, 12) })) });
+const fromCache = <T extends { freshness: Freshness; cached?: boolean }>(key: string): T | null => { const c = load<T | null>(`worldCache.${key}`, null); return c ? { ...c, freshness: 'delayed', cached: true } : null; };
+
+export interface WorldState { cached?: boolean; hotspots: Hotspot[]; regions: RegionWeather[]; placement?: 'geo' | 'headline'; via?: 'gdelt' | 'desk'; note?: string; sources?: { news: string; market: string }; errors: Record<string, string>; asOf: number; freshness: Freshness }
 export interface FlowsState { rows: RotRow[]; risk: ReturnType<typeof riskAppetite>; pending: string[]; sources: string[]; asOfDay: string | null; asOf: number; freshness: Freshness }
 
 const CITIES: [string, number, number][] = [
@@ -39,12 +44,13 @@ function demoFlows(): FlowsState {
 
 /** Only fetches while the overlay is open; GDELT is cached 30 min server-side. */
 export function useWorld(mode: DataMode, open: boolean): WorldState | null {
-  const [st, setSt] = useState<WorldState | null>(null);
+  const [st, setSt] = useState<WorldState | null>(() => fromCache<WorldState>('news'));
   useEffect(() => {
     if (!open || mode.kind === 'checking') return;
     if (mode.kind === 'demo') { setSt(demoWorld()); return; }
     let stop = false;
-    const go = () => fetch('/api/world').then(async (r) => { const j = await r.json(); if (!stop && r.ok) setSt({ ...j, freshness: j.hotspots.length ? 'live' : 'nodata' }); }).catch(() => {});
+    setSt((s) => s ?? fromCache<WorldState>('news'));
+    const go = () => fetch('/api/world').then(async (r) => { const j = await r.json(); if (!stop && r.ok) { const next: WorldState = { ...j, freshness: j.hotspots.length ? 'live' : 'nodata', cached: false }; setSt(next); if (j.hotspots.length) save('worldCache.news', slim(next)); } }).catch(() => {});
     go();
     const id = setInterval(go, 10 * 60_000);
     return () => { stop = true; clearInterval(id); };
@@ -69,7 +75,7 @@ export function useFlows(mode: DataMode, open: boolean): FlowsState | null {
 
 /* ---------------- extra layers: conflicts, shipping & oil, lawsuits, deals ---------------- */
 import { CHOKEPOINTS, type Chokepoint, type ExtraLayer, type Vessel } from '../../shared/world';
-export interface LayerState { layer: ExtraLayer; hotspots: Hotspot[]; chokepoints: Chokepoint[]; ships: Vessel[] | null; shipsKey: boolean; placement?: 'geo' | 'headline'; via?: 'gdelt' | 'desk'; note?: string; errors: Record<string, string>; asOf: number; freshness: Freshness }
+export interface LayerState { cached?: boolean; layer: ExtraLayer; hotspots: Hotspot[]; chokepoints: Chokepoint[]; ships: Vessel[] | null; shipsKey: boolean; placement?: 'geo' | 'headline'; via?: 'gdelt' | 'desk'; note?: string; errors: Record<string, string>; asOf: number; freshness: Freshness }
 
 function demoLayer(layer: ExtraLayer): LayerState {
   const r = rng(layer.length * 31);
@@ -86,8 +92,8 @@ export function useWorldLayer(layer: ExtraLayer | null, mode: DataMode): LayerSt
     if (!layer || mode.kind === 'checking') return;
     if (mode.kind === 'demo') { setSt(demoLayer(layer)); return; }
     let stop = false;
-    setSt(null);
-    const go = () => fetch(`/api/world?layer=${layer}`).then(async (r) => { const j = await r.json(); if (!stop && r.ok) setSt({ ...j, freshness: j.hotspots.length || j.ships?.length ? 'live' : 'nodata' }); }).catch(() => {});
+    setSt(fromCache<LayerState>(layer));
+    const go = () => fetch(`/api/world?layer=${layer}`).then(async (r) => { const j = await r.json(); if (!stop && r.ok) { const next: LayerState = { ...j, freshness: j.hotspots.length || j.ships?.length ? 'live' : 'nodata', cached: false }; setSt(next); if (j.hotspots.length) save(`worldCache.${layer}`, slim(next)); } }).catch(() => {});
     go();
     const id = setInterval(go, 10 * 60_000);
     return () => { stop = true; clearInterval(id); };

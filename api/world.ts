@@ -11,7 +11,7 @@ import { snapshot } from './_lib/research/markets.js';
 export const maxDuration = 30;
 
 /** Last 24h of headlines from the same feeds (and cache keys) as /api/news. */
-async function deskHeadlines(): Promise<{ title: string; url: string; sentiment: -1 | 0 | 1 }[]> {
+async function deskHeadlines(): Promise<{ title: string; url: string; sentiment: -1 | 0 | 1; t: number }[]> {
   const out: { title: string; url: string; t: number }[] = [];
   await Promise.all(FEEDS.map(async (f) => {
     try { out.push(...(await cached(`rss:${f.name}`, ttl(300, 1800), () => rssFeed(f.name, f.url))).val); } catch { /* optional feed */ }
@@ -19,7 +19,7 @@ async function deskHeadlines(): Promise<{ title: string; url: string; sentiment:
   if (hasKey('finnhub')) {
     try { for (const n of (await cached('fh:general', ttl(180, 900), finnhubMarketNews)).val) out.push({ title: n.headline, url: n.url, t: n.t }); } catch { /* optional */ }
   }
-  return out.filter((x) => Date.now() - x.t < 86400_000).sort((a, b) => b.t - a.t).map((x) => ({ title: x.title, url: x.url, sentiment: keywordSentiment(x.title) }));
+  return out.filter((x) => Date.now() - x.t < 86400_000).sort((a, b) => b.t - a.t).map((x) => ({ title: x.title, url: x.url, t: x.t, sentiment: keywordSentiment(x.title) }));
 }
 
 const softNote = (err: string) => /429/.test(err)

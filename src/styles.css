@@ -525,7 +525,7 @@ label.ci-row { grid-template-columns: auto 1fr; }
 
 /* ---------- world map / money globe ---------- */
 .overlay-in.wm { width: min(1400px, 98vw); height: min(820px, 94vh); }
-.wm-body { flex: 1; display: grid; grid-template-columns: 1fr 320px; min-height: 0; }
+.wm-body { flex: 1; display: grid; grid-template-columns: 1fr 340px; min-height: 0; }
 .wm-mapcol { display: flex; flex-direction: column; min-height: 0; min-width: 0; }
 .wm-svg { width: 100%; flex: 1; min-height: 0; display: block; background: var(--panel); }
 .wm-etfs { display: flex; gap: 4px; overflow-x: auto; padding: 4px 8px; border-top: 1px solid var(--line); flex: none; }
@@ -1459,3 +1459,31 @@ button.bt-r:hover { background: var(--panel-2); }
 .gx-iv { border-collapse: collapse; font-size: 11px; width: 100%; }
 .gx-iv th { font-weight: 500; color: var(--muted); padding: 2px 3px; text-align: right; } .gx-iv th:first-child { text-align: left; } .gx-iv th.atm { color: var(--text); }
 .gx-iv td { padding: 2px 3px; text-align: right; border-bottom: 1px solid var(--line); } .gx-iv td:first-child { text-align: left; white-space: nowrap; }
+
+/* ---------- world map v2: fast map, hot list, replay, heat tiles ---------- */
+.wm-stage { position: relative; flex: 1; min-height: 0; display: flex; }
+.wm-night { fill: #0b1220; fill-opacity: 0.16; pointer-events: none; }
+:root[data-theme='dark'] .wm-night { fill: #000; fill-opacity: 0.32; }
+.mkt circle { fill: var(--up); fill-opacity: 0.35; stroke: var(--up); stroke-width: 1.2; }
+.hot-lbl { font: 600 10px 'IBM Plex Mono', monospace; fill: var(--text); paint-order: stroke; stroke: var(--panel); stroke-width: 3px; pointer-events: none; }
+.hot.hv circle:first-child { stroke: var(--text); stroke-width: 2; fill-opacity: 0.85; }
+.wm-open { position: absolute; left: 10px; top: 8px; font-size: 11px; background: color-mix(in srgb, var(--panel) 85%, transparent); border: 1px solid var(--line); border-radius: 4px; padding: 2px 8px; pointer-events: none; }
+.wm-open i { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--up); margin-right: 4px; }
+.wm-load { position: absolute; inset: auto 0 12px 0; text-align: center; font-size: 12px; color: var(--muted); pointer-events: none; }
+.wm-replay { display: flex; align-items: center; gap: 10px; padding: 6px 10px; border-top: 1px solid var(--line); flex: none; }
+.wm-replay input[type=range] { flex: 1; min-width: 80px; accent-color: var(--accent); }
+.wm-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(64px, 1fr)); gap: 4px; padding: 6px 8px; border-top: 1px solid var(--line); flex: none; }
+.wm-tile { display: flex; flex-direction: column; align-items: flex-start; gap: 1px; border: 1px solid var(--line); border-radius: 4px; padding: 3px 6px; color: var(--text); cursor: pointer; text-align: left; font-size: 11px; }
+.wm-tile b { font-size: 13px; } .wm-tile em { font-style: normal; font-size: 9.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.wm-tile:hover { border-color: var(--text); }
+.wm-rank { list-style: none; margin: 0; padding: 0; counter-reset: r; }
+.wm-rank li { counter-increment: r; }
+.wm-row { display: grid; grid-template-columns: 1fr 44px auto auto; align-items: center; gap: 8px; width: 100%; background: none; border: 0; border-bottom: 1px solid var(--line); padding: 6px 2px; color: var(--text); font-size: 12.5px; cursor: pointer; text-align: left; }
+.wm-rank li:hover .wm-row { background: var(--sel, var(--panel-2)); }
+.wm-nm { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wm-nm::before { content: counter(r) '. '; color: var(--muted); font-size: 11px; }
+.wm-tone { display: flex; height: 5px; border-radius: 3px; overflow: hidden; background: var(--line); }
+.wm-tone i.up { background: var(--up); } .wm-tone i.down { background: var(--down); }
+.wm-row:not(:has(.wm-tone)) { grid-template-columns: 1fr auto auto; }
+:root[data-theme='dark'] .wm-land { fill: #28323e; stroke: #3b4756; }
+:root[data-theme='dark'] .wm-night { fill-opacity: 0.28; }
