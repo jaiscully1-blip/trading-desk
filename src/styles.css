@@ -23,27 +23,28 @@
   color-scheme: light;
 }
 :root[data-theme='dark'] {
-  /* Terminal: near-black, amber accent, mono numbers */
-  --bg: #0b0d10;
-  --panel: #0f1216;
-  --panel-2: #151a20;
-  --line: #20262e;
-  --line-2: #323a45;
-  --text: #e6e8eb;
-  --muted: #9aa3ae;
-  --faint: #6b7480;
-  --accent: #f5b83d;
-  --accent-bg: #2a2112;
-  --accent-ink: #0b0d10;
+  /* Ember: near-black with a warm cast, copper accent, crimson for losses (was the amber "Terminal" palette) */
+  --bg: #0a0807;
+  --panel: #110e0c;
+  --panel-2: #181310;
+  --line: #271f19;
+  --line-2: #3b2f25;
+  --text: #ece6df;
+  --muted: #a69a8c;
+  --faint: #70655a;
+  --accent: #ee9a45;
+  --accent-bg: #2b1b0e;
+  --accent-ink: #0a0807;
   --vwap: #5cc8f5;
-  --up: #3dd68c;
-  --down: #ff6b6b;
-  --warn: #ff9f5a;
-  --warn-bg: #2b1c12;
-  --sel: #1c2129;
+  --up: #46d69a;
+  --down: #ff5a4d;
+  --warn: #ffb347;
+  --warn-bg: #2d1d10;
+  --sel: #20160f;
   --demo: #c4a5ff;
   --demo-bg: #241b38;
-  --shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+  --ember: #ff7a2f;
+  --shadow: 0 10px 30px rgba(0, 0, 0, 0.65);
   color-scheme: dark;
 }
 
@@ -1586,3 +1587,45 @@ button.bt-r:hover { background: var(--panel-2); }
 .pd-handle { fill: var(--panel); stroke: var(--accent); stroke-width: 2; }
 .pd-draft { opacity: .85; }
 .pat-text-in { position: absolute; z-index: 3; transform: translateY(-50%); background: var(--panel); color: var(--text); border: 1px solid var(--accent); border-radius: 4px; padding: 3px 6px; font: 500 12px 'IBM Plex Mono', monospace; width: 180px; }
+
+/* ---------- Ember mood (dark theme only): ambient glow, hover reveals, live glow ---------- */
+:root[data-theme='dark'] body { background: var(--bg); }
+:root[data-theme='dark'] #root { position: relative; z-index: 1; }
+:root[data-theme='dark'] body::before {
+  content: ''; position: fixed; inset: -20%; z-index: 0; pointer-events: none; opacity: .9;
+  background:
+    radial-gradient(40% 35% at 12% 8%, rgba(255, 122, 47, .10), transparent 70%),
+    radial-gradient(38% 40% at 92% 96%, rgba(190, 40, 30, .09), transparent 70%),
+    radial-gradient(30% 30% at 60% 40%, rgba(255, 170, 90, .035), transparent 70%);
+  animation: ember-drift 46s ease-in-out infinite alternate;
+}
+@keyframes ember-drift { from { transform: translate3d(-2%, -1%, 0) scale(1); } to { transform: translate3d(3%, 2%, 0) scale(1.08); } }
+body:has(.hw.dragging)::before { animation-play-state: paused; }
+/* panels: faint warm top edge; the border and a soft halo light up on hover */
+:root[data-theme='dark'] .panel { box-shadow: inset 0 1px 0 rgba(255, 190, 130, .045); transition: border-color .25s, box-shadow .3s; }
+:root[data-theme='dark'] .panel:hover { border-color: color-mix(in srgb, var(--ember) 38%, var(--line-2)); box-shadow: inset 0 1px 0 rgba(255, 190, 130, .08), 0 0 26px -10px color-mix(in srgb, var(--ember) 55%, transparent); }
+:root[data-theme='dark'] .hw.dragging { box-shadow: 0 0 0 1px var(--ember), 0 14px 40px -8px rgba(255, 122, 47, .35); }
+/* headers fade their controls in on hover so idle screens stay quiet */
+:root[data-theme='dark'] .hw-head .hw-btn { opacity: .35; transition: opacity .2s; }
+:root[data-theme='dark'] .hw:hover .hw-head .hw-btn, :root[data-theme='dark'] .hw-head .hw-btn.on { opacity: 1; }
+/* live glow: LIVE badges breathe; price flashes get a warm halo */
+:root[data-theme='dark'] .fresh-live { animation: live-breathe 3.2s ease-in-out infinite; }
+@keyframes live-breathe { 0%, 100% { box-shadow: 0 0 0 0 transparent; } 50% { box-shadow: 0 0 10px -2px color-mix(in srgb, var(--up) 70%, transparent); } }
+:root[data-theme='dark'] .flash-up { box-shadow: 0 0 12px -2px color-mix(in srgb, var(--up) 60%, transparent); }
+:root[data-theme='dark'] .flash-down { box-shadow: 0 0 12px -2px color-mix(in srgb, var(--down) 60%, transparent); }
+:root[data-theme='dark'] .nav-item.on { box-shadow: inset 2px 0 12px -6px var(--ember); }
+:root[data-theme='dark'] .btn.primary { box-shadow: 0 0 16px -6px var(--ember); }
+@media (prefers-reduced-motion: reduce) { :root[data-theme='dark'] body::before, :root[data-theme='dark'] .fresh-live { animation: none; } }
+
+/* ---------- slimmer chrome ---------- */
+.top { height: 36px; }
+.phead { height: 30px; }
+.fear { height: 22px; }
+.ticker { height: 26px; }
+.nav { padding: 8px 6px; }
+
+/* ---------- focus mode (key Z): chart + one panel, everything else out of the way ---------- */
+.shell.focus .nav, .shell.focus .fear, .shell.focus .ticker { display: none; }
+.shell.focus { grid-template-columns: minmax(0, 1fr); }
+.focus-chip { position: fixed; right: 12px; bottom: 12px; z-index: 30; background: var(--panel); border: 1px solid var(--ember, var(--accent)); color: var(--accent); border-radius: 99px; padding: 4px 12px; font-size: 11px; cursor: pointer; opacity: .55; transition: opacity .2s; }
+.focus-chip:hover { opacity: 1; }

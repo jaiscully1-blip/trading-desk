@@ -144,6 +144,8 @@ export default function App() {
   const narrow = useNarrow(1240);
   const [narrowLeft, setNarrowLeft] = useState(false);
   useLayoutEffect(() => { document.documentElement.dataset.theme = theme; }, [theme]);
+  const [focus, setFocus] = useState(false);
+  const prevRails = useRef({ l: true, r: true });
   const toggleTheme = useCallback(() => setTheme((t) => (t === 'dark' ? 'light' : 'dark')), [setTheme]);
 
   const [boards, setBoards] = usePersisted<Record<string, Board>>('boards', () => defaultBoards(DEMO_QUOTES));
@@ -160,6 +162,10 @@ export default function App() {
     (patch: Partial<Layout>) => setLayouts((all) => ({ ...all, [mode]: { ...DEFAULT_LAYOUTS[mode], ...all[mode], ...patch } })),
     [mode, setLayouts],
   );
+  const toggleFocus = () => {
+    if (!focus) { prevRails.current = { l: layout.leftOpen, r: layout.rightOpen }; setLayout({ leftOpen: false, rightOpen: false }); setFocus(true); }
+    else { setLayout({ leftOpen: prevRails.current.l, rightOpen: prevRails.current.r }); setFocus(false); }
+  };
 
   const [cmdOpen, setCmdOpen] = useState(false);
   const [overlay, setOverlay] = useState<Overlay>(null);
@@ -585,6 +591,7 @@ export default function App() {
     { id: '5m', label: 'Chart: 5-minute', hint: '3', run: () => setTf('5m') },
     { id: '15m', label: 'Chart: 15-minute', hint: '6', run: () => setTf('15m') },
     { id: 'theme', label: 'Toggle light / dark', hint: 'T', run: toggleTheme },
+    { id: 'focus', label: 'Focus mode: hide side bars, strips and ticker', hint: 'Z', run: () => toggleFocus() },
     { id: 'popout', label: 'Pop chart out to a new window', run: () => popout('chart', sel) },
     { id: 'layout-reset', label: `Reset layout for ${modeLabel(mode)}`, run: () => { setLayouts((a) => { const b = { ...a }; delete b[mode]; return b; }); flash(`Layout reset for ${modeLabel(mode)}`); } },
     { id: 'mode-auto', label: 'Market-clock mode: auto', run: () => setOverride(null) },
@@ -606,6 +613,7 @@ export default function App() {
         w: () => setPage('morning'), v: () => setPage('gamma'), h: () => setPage('home'), e: () => setPage('messages'), d: () => setPage('desk'), x: () => setPage('patterns'), s: () => setPage('scanner'), m: () => setPage('map'), g: () => setPage('flows'), c: () => setPage('calendar'), u: () => setPage('etfs'), i: () => setPage('smart'), y: () => setPage('odds'),
         '?': () => setOverlay((o) => (o === 'help' ? null : 'help')),
         t: toggleTheme,
+        z: () => toggleFocus(),
         a: () => setDrawer((d) => !d),
         l: () => setLayout({ levelsOpen: !layout.levelsOpen }),
         p: () => setPbOpen(true),
@@ -782,7 +790,8 @@ export default function App() {
   }
   return (
     <Desk.Provider value={desk}>
-    <div className="shell">
+    <div className={`shell ${focus ? 'focus' : ''}`}>
+      {focus && <button className="focus-chip" onClick={toggleFocus} title="Bring the side bars back (Z)">Focus mode · Z to exit</button>}
       <SideNav compact={narrow} page={page} onPage={setPage} onCmd={() => setCmdOpen(true)} onHelp={() => setOverlay('help')} onAccount={() => setDrawer((d) => !d)} />
       <div className={`app ${layout.tickerOpen ? '' : 'no-ticker'} ${layout.fearOpen !== false ? 'has-fear' : ''}`}>
         <TopStrip

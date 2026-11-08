@@ -148,6 +148,7 @@ export function OverlayView({ kind, onClose }: { kind: 'map' | 'globe' | 'help';
       ['Ctrl K', 'Command bar: jump to ticker or run /command'],
       ['H  E  D  X  O  S  M  G  C', 'Pages: Home, Messages, Desk, Patterns, Company, Scanner, World map, Money flow, Calendars'],
       ['4  5  6', 'Chart: Weekly, Monthly, 15-minute'],
+      ['Z', 'Focus mode: hide side bars, strips and ticker (Z again to exit)'],
       ['↑ ↓  or  J K', 'Move through watchlist'],
       ['1  2  3', 'Chart timeframe: Daily, 1-hour, 5-minute'],
       ['L', 'Show/hide levels panel'],

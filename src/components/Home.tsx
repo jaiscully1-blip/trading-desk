@@ -101,6 +101,15 @@ export default function Home({ spaces, setSpaces, d, tickers }: { spaces: Worksp
     const w: Widget = { id: uid(), type, x: 0, y: 0, w: s.w, h: to === 'side' ? s.side : s.h, cfg };
     commit((l) => (to === 'side' ? { ...l, side: [w, ...l.side] } : { ...l, main: addTop(l.main, w, viewCol(), viewRow()) }));
   };
+  // a ready-made arrangement for a blank workspace (placed in the screen you are looking at)
+  const starter = () => {
+    const col = viewCol(), row = viewRow();
+    const spec: { type: WidgetType; x: number; y: number; w: number; h: number; cfg?: Record<string, any> }[] = [
+      { type: 'stock', x: 0, y: 0, w: 5, h: 10, cfg: { sym: d.sel, tf: 'D' } }, { type: 'news', x: 5, y: 0, w: 4, h: 10 }, { type: 'movers', x: 9, y: 0, w: 3, h: 10 },
+      { type: 'rules', x: 0, y: 10, w: 4, h: 11 }, { type: 'risk', x: 4, y: 10, w: 4, h: 11 }, { type: 'sessions', x: 8, y: 10, w: 4, h: 7 },
+    ];
+    commit((l) => ({ ...l, main: settle([...l.main, ...spec.map((s) => ({ id: uid(), type: s.type, x: col + s.x, y: row + s.y, w: s.w, h: s.h, cfg: s.cfg ?? (symFor(s.type) ? { sym: d.sel } : {}) }))]) }));
+  };
   const search = (e: FormEvent) => {
     e.preventDefault();
     const raw = q.trim().toUpperCase();
@@ -257,6 +266,7 @@ export default function Home({ spaces, setSpaces, d, tickers }: { spaces: Worksp
           {!layout.main.length && (
             <div className="home-empty">
               <p><b>{ws.name} is blank.</b> Make it yours.</p>
+              <p><button className="btn primary" onClick={starter}>Command-centre starter</button> <span className="muted small">chart, news, scanner movers, risk and rules in one click</span></p>
               <p className="muted">Search a ticker above, or pick from the widget library on the left. Drag a widget by its title bar, resize from its corner, pin it with ⌖, and send it to the side bar with ⇥. Workspaces live in the tabs at the bottom.</p>
             </div>
           )}
