@@ -159,6 +159,17 @@ describe('/api/scan', () => {
     expect(r.headers.get('cache-control')).toBe('no-store'); // incomplete scans aren't cached at the CDN
   });
 
+  it('uses Yahoo daily bars first, so a used-up Twelve Data budget does not empty the scan', async () => {
+    const n = 80, t0 = 1_700_000_000;
+    const mk = (f: (i: number) => number) => Array.from({ length: n }, (_, i) => f(i));
+    routes.push((u) => (u.hostname === 'query1.finance.yahoo.com' ? { body: { chart: { result: [{ meta: { gmtoffset: -18000 }, timestamp: mk((i) => t0 + i * 86400), indicators: { quote: [{ open: mk((i) => 100 + i / 5), high: mk((i) => 101 + i / 5), low: mk((i) => 99 + i / 5), close: mk((i) => 100.5 + i / 5), volume: mk(() => 1_000_000) }] } }] } } } : undefined));
+    routes.push((u) => (u.host === 'api.twelvedata.com' ? { status: 429, body: { code: 429, message: 'rate limited' } } : undefined));
+    const j = await (await scan(req('/api/scan?symbols=AAA,BBB,CCC,DDD,EEE,FFF,GGG'))).json();
+    expect(j.rows).toHaveLength(8); // SPY + 7
+    expect(j.pending).toEqual([]);
+    expect(calls.some((c) => c.includes('twelvedata'))).toBe(false);
+  });
+
   it('marks short interest unavailable (undefined) when FINRA is down', async () => {
     routes.push((u) => (u.host === 'api.twelvedata.com' ? { body: tdDaily(ramp(50, 100, 120)) } : undefined));
     routes.push((u) => (u.host === 'api.finra.org' ? { status: 500, body: {} } : undefined));

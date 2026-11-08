@@ -75,14 +75,14 @@ export function useScan(universe: string[], mode: DataMode, demoLast: (s: string
           const bases: Record<string, ScanBase> = {};
           for (const b of j.rows as ScanBase[]) bases[b.sym] = b;
           Object.assign(acc, bases);
-          saveLocal(CACHE, { at: Date.now(), bases: acc } satisfies ScanCache);
+          if (Object.keys(acc).length) saveLocal(CACHE, { at: Date.now(), bases: acc } satisfies ScanCache);
           setSt((s) => ({
             bases: { ...s.bases, ...bases },
             pending: j.pending,
             errors: j.errors,
             asOf: j.asOf,
             freshness: 'live',
-            source: 'Twelve Data daily bars',
+            source: 'Daily bars: Yahoo Finance, Twelve Data as backup',
             siSource: j.siSource,
             catalystSource: j.catalystSource,
             loading: false,

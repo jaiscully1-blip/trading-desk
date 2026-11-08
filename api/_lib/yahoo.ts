@@ -15,6 +15,11 @@ async function yahoo(sym: string): Promise<Bar[]> {
   return bars;
 }
 
+/** About a year of daily bars from Yahoo alone (null when it fails), so callers can choose their own fallback. */
+export async function yahooDaily(sym: string): Promise<Bar[] | null> {
+  try { return (await cached(`yh:${sym}`, 6 * 3600, () => yahoo(sym))).val; } catch { return null; }
+}
+
 /** Several years of daily bars from Yahoo's chart endpoint (no fallback: callers decide what to do without it). */
 export async function longDaily(sym: string, range: '2y' | '3y' | '5y' = '3y'): Promise<Bar[]> {
   return (await cached(`yh:${range}:${sym}`, 6 * 3600, async () => {
