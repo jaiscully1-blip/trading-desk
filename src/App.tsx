@@ -307,8 +307,10 @@ export default function App() {
   const spyGamma = useGammaLv('SPY', live);
   // Movement watch: priced-in move (VIX) against how far SPY actually moves, plus theta burn. Neutral on direction. Live data only.
   const macroPack = useMacroPack(dataMode).pack;
-  const vol = useMemo(() => (live && macroPack?.vix.length ? volRead(macroPack.vix, spyD.bars) : null), [live, macroPack, spyD.bars]);
-  const dayStats = useMemo(() => (live && spyD.freshness !== 'demo' ? moveStats(spyD.bars, macroPack?.events ?? {}) : null), [live, macroPack, spyD.bars, spyD.freshness]);
+  // the free quote providers only give ~100 daily bars; the macro pack carries about 3 years of SPY from Yahoo, used when it is longer
+  const longSpy = useMemo(() => (macroPack?.spy && macroPack.spy.length > spyD.bars.length ? macroPack.spy.map(([time, open, high, low, close]) => ({ time, open, high, low, close, volume: 0 })) : spyD.bars), [macroPack, spyD.bars]);
+  const vol = useMemo(() => (live && macroPack?.vix.length ? volRead(macroPack.vix, longSpy) : null), [live, macroPack, longSpy]);
+  const dayStats = useMemo(() => (live && spyD.freshness !== 'demo' ? moveStats(longSpy, macroPack?.events ?? {}) : null), [live, macroPack, longSpy, spyD.freshness]);
   const movement = useMemo(() => {
     const vix = macro?.vix?.value, last = quotes.SPY?.last;
     if (!live || spyD.freshness === 'demo' || !vix || !last) return null;

@@ -15,6 +15,16 @@ async function yahoo(sym: string): Promise<Bar[]> {
   return bars;
 }
 
+/** Several years of daily bars from Yahoo's chart endpoint (no fallback: callers decide what to do without it). */
+export async function longDaily(sym: string, range: '2y' | '3y' | '5y' = '3y'): Promise<Bar[]> {
+  return (await cached(`yh:${range}:${sym}`, 6 * 3600, async () => {
+    const j = await getJson(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym.replace('.', '-'))}?range=${range}&interval=1d`, 'yahoo', 10000, { headers: YH_HEADERS });
+    const bars = parseYahooChart(j);
+    if (bars.length < 100) throw new Error('short history');
+    return bars;
+  })).val;
+}
+
 /** About a year of daily bars: Yahoo first, then crypto feeds or the regular quote providers. */
 export async function dailyBars(sym: string, reserve = 2): Promise<{ bars: Bar[]; source: string } | null> {
   try { return { bars: (await cached(`yh:${sym}`, 6 * 3600, () => yahoo(sym))).val, source: 'Yahoo Finance' }; } catch { /* fall back */ }

@@ -1660,3 +1660,5 @@ body:has(.hw.dragging)::before { animation-play-state: paused; }
 .mw-r { display: grid; grid-template-columns: minmax(0, 2fr) 1fr 1fr 1.4fr; gap: 8px; padding: 5px 0; border-bottom: 1px solid var(--line); align-items: baseline; font-size: 12px; }
 .mw-h { font: 600 10px 'IBM Plex Mono', monospace; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
 .mw-calc { margin-left: 6px; }
+
+.mv-few { opacity: .5; }
