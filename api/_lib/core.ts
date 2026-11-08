@@ -3,7 +3,7 @@
 import { ProviderError } from '../../shared/parse.js';
 import { clock } from '../../shared/clock.js';
 
-export type Provider = 'twelvedata' | 'finnhub' | 'alphavantage' | 'fred' | 'finra' | 'kalshi' | 'gdelt' | 'binance' | 'coingecko' | 'sec' | 'gemini' | 'wikipedia' | 'aisstream' | 'polymarket' | 'github' | 'yahoo' | 'openfigi' | 'ark' | 'tradingview' | 'alpaca';
+export type Provider = 'twelvedata' | 'finnhub' | 'alphavantage' | 'fred' | 'finra' | 'kalshi' | 'gdelt' | 'binance' | 'coingecko' | 'sec' | 'gemini' | 'wikipedia' | 'aisstream' | 'polymarket' | 'github' | 'yahoo' | 'openfigi' | 'ark' | 'tradingview' | 'alpaca' | 'cboe';
 
 export const KEY_ENV: Record<Provider, string> = {
   twelvedata: 'TWELVEDATA_API_KEY',
@@ -26,6 +26,7 @@ export const KEY_ENV: Record<Provider, string> = {
   ark: '', // arkfunds.io community API over ARK's public daily files
   tradingview: '', // public screener endpoint
   alpaca: 'ALPACA_KEY_ID', // + ALPACA_SECRET_KEY; free account, IEX real-time + Benzinga news
+  cboe: '', // public delayed option chains (cdn.cboe.com), ~15 min delayed; personal, non-commercial use
 };
 
 export function key(p: Provider): string {
@@ -63,6 +64,7 @@ const LIMITS: Record<Provider, { perMin: number; perDay: number }> = {
   ark: { perMin: 20, perDay: 500 },
   tradingview: { perMin: 10, perDay: 500 },
   alpaca: { perMin: 180, perDay: Infinity }, // free Basic plan: 200 requests/min
+  cboe: { perMin: 6, perDay: 300 }, // no published limit; each chain is cached 15 min in session
 };
 const hits: Record<string, number[]> = {};
 const dayCount: Record<string, { day: string; n: number }> = {};
