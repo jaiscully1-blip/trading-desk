@@ -10,6 +10,7 @@ import { DEFAULT_LAYOUTS } from './lib/layout';
 import { load, save, usePersisted } from './lib/store';
 import { px } from './lib/format';
 import { computeLevels, detectLevelEvents, LEVEL_SHORT, type LevelEvent } from './lib/levels';
+import { levelsForHours, toolHours } from '../shared/toolHours';
 import { encodeInstant } from '../shared/parse';
 import { patchWithQuote, useDataMode, useMacro, useQuotes, useSeries, type SeriesState } from './data/live';
 import { TopStrip } from './components/TopStrip';
@@ -154,6 +155,7 @@ export default function App() {
   // Saved layouts per market-clock mode; whatever you change is saved to the current mode.
   const [layouts, setLayouts] = usePersisted<Partial<Record<Mode, Layout>>>('layouts', {});
   const layout: Layout = { levelsOpen: true, ...DEFAULT_LAYOUTS[mode], ...layouts[mode] };
+  if ((layout.tf as string) === 'Y') layout.tf = 'M'; // the yearly chart was retired; a saved Y falls back to monthly
   const setLayout = useCallback(
     (patch: Partial<Layout>) => setLayouts((all) => ({ ...all, [mode]: { ...DEFAULT_LAYOUTS[mode], ...all[mode], ...patch } })),
     [mode, setLayouts],
@@ -304,7 +306,7 @@ export default function App() {
   const qqq5 = useSeries('QQQ', '5m', dataMode, demoLast('QQQ'));
   const selD = useSeries(sel, 'D', dataMode, demoLast(sel));
   const sel5 = useSeries(sel, '5m', dataMode, demoLast(sel));
-  const seriesTf: TF = layout.tf === 'Y' ? 'M' : layout.tf;
+  const seriesTf: TF = layout.tf;
   const selTf = useSeries(sel, seriesTf, dataMode, demoLast(sel));
 
   const patch = useCallback(
@@ -337,10 +339,10 @@ export default function App() {
       return {
         sym,
         last: live ? quotes[sym]?.last ?? (intra.at(-1)?.close ?? NaN) : intra.at(-1)?.close ?? NaN,
-        levels: computeLevels({ daily, intraday: intra, orMinutes: orMin, hasExtendedHours: false, sessionDay: day, nowEnc }).map((l) => {
+        levels: levelsForHours(computeLevels({ daily, intraday: intra, orMinutes: orMin, hasExtendedHours: false, sessionDay: day, nowEnc }).map((l) => {
           const pm = live ? pmLv[sym] : null;
           return pm && (l.id === 'pmh' || l.id === 'pml') ? { ...l, value: l.id === 'pmh' ? pm.high : pm.low, status: undefined } : l;
-        }),
+        }), toolHours(now, orMin)),
         freshness: worst(d.freshness, i5.freshness),
         asOf: i5.asOf || d.asOf || undefined,
         source: [...new Set([d.source, i5.source].filter(Boolean))].join(' + '),
@@ -349,7 +351,7 @@ export default function App() {
     },
     // recompute when bars, quotes or the OR setting change (not every clock tick)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [patch, orMin, live, sessionDay, quotes, pmLv, Math.floor(nowEnc / 60)],
+    [patch, orMin, live, sessionDay, quotes, pmLv, Math.floor(nowEnc / 60), Math.floor(now / 60_000)],
   );
   const cols = useMemo(() => {
     const c = [levelCol('SPY', spyD, spy5), levelCol('QQQ', qqqD, qqq5)];
@@ -581,6 +583,7 @@ export default function App() {
     { id: 'd', label: 'Chart: daily', hint: '1', run: () => setTf('D') },
     { id: '1h', label: 'Chart: 1-hour', hint: '2', run: () => setTf('1H') },
     { id: '5m', label: 'Chart: 5-minute', hint: '3', run: () => setTf('5m') },
+    { id: '15m', label: 'Chart: 15-minute', hint: '6', run: () => setTf('15m') },
     { id: 'theme', label: 'Toggle light / dark', hint: 'T', run: toggleTheme },
     { id: 'popout', label: 'Pop chart out to a new window', run: () => popout('chart', sel) },
     { id: 'layout-reset', label: `Reset layout for ${modeLabel(mode)}`, run: () => { setLayouts((a) => { const b = { ...a }; delete b[mode]; return b; }); flash(`Layout reset for ${modeLabel(mode)}`); } },
@@ -607,7 +610,7 @@ export default function App() {
         l: () => setLayout({ levelsOpen: !layout.levelsOpen }),
         p: () => setPbOpen(true),
         J: () => setPage('journal'),
-        '1': () => setTf('D'), '2': () => setTf('1H'), '3': () => setTf('5m'), '4': () => setTf('W'), '5': () => setTf('M'), '6': () => setTf('Y'),
+        '1': () => setTf('D'), '2': () => setTf('1H'), '3': () => setTf('5m'), '4': () => setTf('W'), '5': () => setTf('M'), '6': () => setTf('15m'),
         o: () => openCompany(sel),
         n: () => { setPage('desk'); setTab('news'); }, q: () => { setPage('desk'); setTab('journal'); }, r: () => { setPage('desk'); setTab('risk'); },
         f: () => setLayout({ fearOpen: layout.fearOpen === false }),
@@ -683,13 +686,16 @@ export default function App() {
   /* ---------- Popped-out single panel ---------- */
   if (POPOUT) {
     return (
+      <Desk.Provider value={desk}>
       <div className="popout">
         {POPOUT === 'chart' && <div className="center">{chart()}{layout.levelsOpen && levelsPanel}</div>}
         {POPOUT === 'watchlist' && <Watchlist {...wlProps} />}
         {POPOUT === 'right' && <RightRail {...rightProps} />}
         {POPOUT === 'ticker' && <NewsTicker headlines={news.items} fresh={news.freshness} asOf={news.asOf} boards={boards} watchOnly={watchOnly} setWatchOnly={setWatchOnly} onSelect={setSel} />}
         {toast && <div className="toast" role="status">{toast}</div>}
+        {article && <ReaderOverlay a={article} mode={dataMode} onClose={() => setArticle(null)} />}
       </div>
+      </Desk.Provider>
     );
   }
 

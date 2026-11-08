@@ -26,7 +26,7 @@ const GROUPS: { name: string; items: { type: WidgetType; blurb: string }[] }[] =
 ];
 const symFor = (t: WidgetType) => t === 'stock' || t === 'options' || t === 'claims' || t === 'congress' || t === 'insider';
 
-type Drag = { id: string; kind: 'move' | 'size'; x0: number; y0: number; start: Widget; area: 'main' | 'side' };
+type Drag = { id: string; kind: 'move' | 'size'; x0: number; y0: number; sl0: number; st0: number; start: Widget; area: 'main' | 'side'; before: HomeLayout; moved: boolean };
 
 export default function Home({ spaces, setSpaces, d, tickers }: { spaces: Workspaces; setSpaces: (f: (s: Workspaces) => Workspaces) => void; d: HomeData; tickers: { sym: string; name: string }[] }) {
   const { names } = useDesk();
@@ -53,6 +53,7 @@ export default function Home({ spaces, setSpaces, d, tickers }: { spaces: Worksp
   const colW = Math.max(40, (width - GAP * (COLS - 1)) / COLS);
   const viewCol = () => Math.round((port.current?.scrollLeft ?? 0) / (colW + GAP));
   const viewRow = () => Math.floor((port.current?.scrollTop ?? 0) / (ROW + GAP));
+  const go = (dx: number, dy: number) => { const p = port.current; if (p) panTo(p.scrollLeft + dx * p.clientWidth, p.scrollTop + dy * p.clientHeight * 0.8); };
   const pan = useRef<{ x: number; y: number; sl: number; st: number } | null>(null);
   const panTo = (x: number, y: number, smooth = true) => port.current?.scrollTo({ left: x, top: y, behavior: smooth ? 'smooth' : 'auto' });
 
@@ -114,30 +115,67 @@ export default function Home({ spaces, setSpaces, d, tickers }: { spaces: Worksp
   const toMain = (id: string) => commit((l) => { const w = l.side.find((x) => x.id === id)!; return { main: addTop(l.main, { ...w, w: DEFAULT_SIZE[w.type].w, h: DEFAULT_SIZE[w.type].h }, viewCol(), viewRow()), side: l.side.filter((x) => x.id !== id) }; });
   const moveSide = (id: string, dir: -1 | 1) => commit((l) => { const i = l.side.findIndex((x) => x.id === id), j = i + dir; if (j < 0 || j >= l.side.length) return l; const s = [...l.side]; [s[i], s[j]] = [s[j], s[i]]; return { ...l, side: s }; });
 
-  // drag / resize with pointer capture; layout settles live so you see where it will land
+  // Drag / resize: pointer capture on the grab handle, and the drag ends on ANY of pointerup, pointercancel, lost capture,
+  // window blur, tab hidden, or no button held on the next move. Escape cancels and puts the widget back.
+  // Scrolling the canvas mid-drag is added to the pointer movement so the widget never jumps away from the cursor.
   const down = (e: RPE, w: Widget, kind: Drag['kind'], where: 'main' | 'side') => {
+    if (e.button !== 0) return;
     if (kind === 'move' && ((e.target as HTMLElement).closest('button, input, select, textarea, a') || w.pinned)) return;
     e.preventDefault();
-    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-    h().u.push(layout); h().r = [];
-    setDrag({ id: w.id, kind, x0: e.clientX, y0: e.clientY, start: { ...w }, area: where });
+    try { (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId); } catch { /* window listeners below still end the drag */ }
+    setDrag({ id: w.id, kind, x0: e.clientX, y0: e.clientY, sl0: port.current?.scrollLeft ?? 0, st0: port.current?.scrollTop ?? 0, start: { ...w }, area: where, before: layout, moved: false });
   };
-  const move = (e: RPE) => {
-    if (!drag) return;
-    const dx = e.clientX - drag.x0, dy = e.clientY - drag.y0, s = drag.start;
-    if (drag.area === 'side') {
-      if (drag.kind === 'size') setLayout((l) => ({ ...l, side: l.side.map((w) => (w.id === s.id ? { ...w, h: Math.max(3, Math.round(s.h + dy / (ROW + GAP))) } : w)) }));
+  const dragRef = useRef<Drag | null>(null);
+  dragRef.current = drag;
+  const moveTo = (cx0: number, cy0: number) => {
+    const dg = dragRef.current;
+    if (!dg) return;
+    const dx = cx0 - dg.x0 + (port.current?.scrollLeft ?? 0) - dg.sl0, dy = cy0 - dg.y0 + (port.current?.scrollTop ?? 0) - dg.st0, s = dg.start;
+    if (!dg.moved && Math.abs(dx) < 3 && Math.abs(dy) < 3) return; // a click on the title bar must not nudge anything
+    dg.moved = true;
+    if (dg.area === 'side') {
+      if (dg.kind === 'size') setLayout((l) => ({ ...l, side: l.side.map((w) => (w.id === s.id ? { ...w, h: Math.max(3, Math.round(s.h + dy / (ROW + GAP))) } : w)) }));
       return;
     }
     const cx = Math.round(dx / (colW + GAP)), cy = Math.round(dy / (ROW + GAP));
-    const next = drag.kind === 'move' ? { ...s, x: s.x + cx, y: Math.max(0, s.y + cy) } : { ...s, w: Math.max(2, Math.min(COLS, CANVAS_COLS - s.x, s.w + cx)), h: Math.max(3, s.h + cy) };
+    const next = dg.kind === 'move'
+      ? { ...s, x: Math.max(0, Math.min(CANVAS_COLS - Math.min(s.w, COLS), s.x + cx)), y: Math.max(0, s.y + cy) }
+      : { ...s, w: Math.max(2, Math.min(COLS, CANVAS_COLS - s.x, s.w + cx)), h: Math.max(3, s.h + cy) };
     setLayout((l) => {
       const cur = l.main.find((w) => w.id === s.id);
-      if (cur && cur.x === next.x && cur.y === next.y && cur.w === next.w && cur.h === next.h) return l;
+      if (!cur || (cur.x === next.x && cur.y === next.y && cur.w === next.w && cur.h === next.h)) return l;
       return { ...l, main: settle(l.main.map((w) => (w.id === s.id ? next : w)), s.id) };
     });
   };
-  const up = () => { if (drag) { setLayout((l) => ({ ...l, main: settle(l.main) })); setDrag(null); bump((x) => x + 1); } };
+  const endDrag = (cancel = false) => {
+    const dg = dragRef.current;
+    if (!dg) return;
+    dragRef.current = null;
+    if (cancel) setLayout(() => dg.before);
+    else if (dg.moved) { setLayout((l) => ({ ...l, main: settle(l.main) })); h().u.push(dg.before); h().u.splice(0, h().u.length - 60); h().r = []; }
+    setDrag(null); bump((x) => x + 1);
+  };
+  const moveRef = useRef(moveTo), endRef = useRef(endDrag);
+  moveRef.current = moveTo; endRef.current = endDrag;
+  const dragging = !!drag;
+  useEffect(() => {
+    if (!dragging) return;
+    const mv = (e: PointerEvent) => { if (e.buttons === 0) endRef.current(); else moveRef.current(e.clientX, e.clientY); };
+    const end = () => endRef.current();
+    const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') endRef.current(true); };
+    const vis = () => { if (document.hidden) endRef.current(); };
+    window.addEventListener('pointermove', mv);
+    window.addEventListener('pointerup', end);
+    window.addEventListener('pointercancel', end);
+    window.addEventListener('blur', end);
+    window.addEventListener('keydown', esc);
+    document.addEventListener('visibilitychange', vis);
+    return () => {
+      window.removeEventListener('pointermove', mv); window.removeEventListener('pointerup', end); window.removeEventListener('pointercancel', end);
+      window.removeEventListener('blur', end); window.removeEventListener('keydown', esc); document.removeEventListener('visibilitychange', vis);
+    };
+  }, [dragging]);
+  const grab = { onLostPointerCapture: () => endRef.current() };
 
   const chrome = (w: Widget, where: 'main' | 'side') => {
     const W = WIDGETS[w.type];
@@ -145,7 +183,7 @@ export default function Home({ spaces, setSpaces, d, tickers }: { spaces: Worksp
     const title = symFor(w.type) ? `${W.title}${w.cfg.sym ? ` · ${w.cfg.sym}` : ''}${w.cfg.sym && names[w.cfg.sym] ? ` · ${names[w.cfg.sym]}` : ''}` : W.title;
     return (
       <>
-        <div className={`hw-head ${where} ${w.pinned ? 'pinned' : ''}`} onPointerDown={(e) => down(e, w, 'move', where)} onPointerMove={move} onPointerUp={up} title={where === 'main' ? (w.pinned ? 'Pinned: unpin to move' : 'Drag to move') : undefined}>
+        <div className={`hw-head ${where} ${w.pinned ? 'pinned' : ''}`} onPointerDown={(e) => down(e, w, 'move', where)} {...grab} title={where === 'main' ? (w.pinned ? 'Pinned: unpin to move' : 'Drag to move') : undefined}>
           <span className="hw-title">{title}</span>
           {where === 'main' && <button className={`hw-btn ${w.pinned ? 'on' : ''}`} onClick={() => togglePin(w.id)} title={w.pinned ? 'Unpin' : 'Pin in place (nothing can move it)'} aria-label={w.pinned ? 'Unpin widget' : 'Pin widget'} aria-pressed={!!w.pinned}>⌖</button>}
           {where === 'side' && <><button className="hw-btn" onClick={() => moveSide(w.id, -1)} title="Move up" aria-label="Move up">↑</button><button className="hw-btn" onClick={() => moveSide(w.id, 1)} title="Move down" aria-label="Move down">↓</button></>}
@@ -167,10 +205,11 @@ export default function Home({ spaces, setSpaces, d, tickers }: { spaces: Worksp
     pan.current = { x: e.clientX, y: e.clientY, sl: port.current.scrollLeft, st: port.current.scrollTop };
   };
   const panMove = (e: RPE) => {
-    if (pan.current && port.current) { port.current.scrollLeft = pan.current.sl - (e.clientX - pan.current.x); port.current.scrollTop = pan.current.st - (e.clientY - pan.current.y); return; }
-    move(e);
+    if (!pan.current || !port.current) return;
+    if (e.buttons === 0) { pan.current = null; return; }
+    port.current.scrollLeft = pan.current.sl - (e.clientX - pan.current.x); port.current.scrollTop = pan.current.st - (e.clientY - pan.current.y);
   };
-  const panUp = () => { if (pan.current) { pan.current = null; return; } up(); };
+  const panUp = () => { pan.current = null; };
   // minimap: whole canvas scaled into a small box; click to jump there
   const MM_W = 168, mmScale = MM_W / canvasW, MM_H = Math.min(110, Math.max(46, height * mmScale));
   const lq = libQ.trim().toLowerCase();
@@ -205,9 +244,15 @@ export default function Home({ spaces, setSpaces, d, tickers }: { spaces: Worksp
             <datalist id="home-tickers">{tickers.slice(0, 300).map((t) => <option key={t.sym} value={t.sym}>{t.name}</option>)}</datalist>
             <button className="btn primary" type="submit">Add</button>
           </form>
+          <div className="home-nav" role="group" aria-label="Move around the workspace">
+            <button className="btn" onClick={() => go(-1, 0)} disabled={scroll.x < 4} title="One screen left (Shift + ←)" aria-label="Screen left">◀</button>
+            <button className="btn" onClick={() => go(0, -1)} disabled={scroll.y < 4} title="Up (Shift + ↑)" aria-label="Scroll up">▲</button>
+            <button className="btn" onClick={() => go(0, 1)} title="Down (Shift + ↓)" aria-label="Scroll down">▼</button>
+            <button className="btn" onClick={() => go(1, 0)} disabled={scroll.x > canvasW - width - 4} title="One screen right (Shift + →)" aria-label="Screen right">▶</button>
+          </div>
         </div>
         <div className="home-port" ref={port} onScroll={(e) => setScroll({ x: e.currentTarget.scrollLeft, y: e.currentTarget.scrollTop })}>
-        <div className="home-grid" ref={area} style={{ height, width: canvasW }} onPointerDown={panDown} onPointerMove={panMove} onPointerUp={panUp}>
+        <div className="home-grid" ref={area} style={{ height, width: canvasW }} onPointerDown={panDown} onPointerMove={panMove} onPointerUp={panUp} onPointerCancel={panUp} onLostPointerCapture={panUp}>
           {Array.from({ length: CANVAS_COLS / COLS - 1 }, (_, i) => <div key={i} className="home-screen-edge" style={{ left: (i + 1) * COLS * (colW + GAP) - GAP / 2 }} />)}
           {!layout.main.length && (
             <div className="home-empty">
@@ -218,7 +263,7 @@ export default function Home({ spaces, setSpaces, d, tickers }: { spaces: Worksp
           {layout.main.map((w) => (
             <section key={w.id} className={`hw panel ${drag?.id === w.id ? 'dragging' : ''} ${w.pinned ? 'pinned' : ''}`} style={{ left: w.x * (colW + GAP), top: w.y * (ROW + GAP), width: w.w * colW + (w.w - 1) * GAP, height: w.h * ROW + (w.h - 1) * GAP }}>
               {chrome(w, 'main')}
-              {!w.pinned && <div className="hw-size" onPointerDown={(e) => down(e, w, 'size', 'main')} onPointerMove={move} onPointerUp={up} title="Drag to resize" aria-hidden="true" />}
+              {!w.pinned && <div className="hw-size" onPointerDown={(e) => down(e, w, 'size', 'main')} {...grab} title="Drag to resize" aria-hidden="true" />}
             </section>
           ))}
         </div>
@@ -236,7 +281,7 @@ export default function Home({ spaces, setSpaces, d, tickers }: { spaces: Worksp
         {layout.side.map((w) => (
           <section key={w.id} className="hw panel side" style={{ height: w.h * ROW + (w.h - 1) * GAP }}>
             {chrome(w, 'side')}
-            <div className="hw-size" onPointerDown={(e) => down(e, w, 'size', 'side')} onPointerMove={move} onPointerUp={up} title="Drag to change height" aria-hidden="true" />
+            <div className="hw-size" onPointerDown={(e) => down(e, w, 'size', 'side')} {...grab} title="Drag to change height" aria-hidden="true" />
           </section>
         ))}
       </aside>

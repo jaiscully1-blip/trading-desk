@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { useDesk } from '../lib/deskctx';
 import type { Board, Quote, RightTab } from '../types';
 import type { NewsState } from '../data/news';
 import { etTime } from '../lib/clock';
@@ -71,6 +72,7 @@ function Chips<T extends string>({ value, options, onChange }: { value: T; optio
 const DOT = { 1: 'up', 0: 'muted', [-1]: 'down' } as const;
 
 function NewsTab({ news, boards, newsFilter, setNewsFilter, onSelect }: Parameters<typeof RightRail>[0]) {
+  const { openArticle } = useDesk();
   const list = news.items.filter((h) =>
     newsFilter === 'all' ? true : newsFilter === 'macro' ? h.macro : h.syms.some((s) => boards[s]),
   );
@@ -86,7 +88,7 @@ function NewsTab({ news, boards, newsFilter, setNewsFilter, onSelect }: Paramete
             <span className="num muted" title={new Date(h.t).toLocaleString()}>{etTime(h.t)}</span>
             <span className="news-t">
               <span className={`sent ${DOT[h.sentiment]}`} title={`Keyword sentiment: ${h.sentiment > 0 ? 'bullish' : h.sentiment < 0 ? 'bearish' : 'neutral'} (rough)`}>●</span>{' '}
-              {h.url ? <a href={h.url} target="_blank" rel="noreferrer noopener">{h.title}</a> : h.title}
+              <button className="link-plain news-hl" onClick={() => openArticle({ title: h.title, url: h.url, src: h.src, t: h.t, syms: h.syms, sentiment: h.sentiment })} title="Open the article reader">{h.title}</button>
             </span>
             <span className="news-m">
               {h.syms.map((s) => (

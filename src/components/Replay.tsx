@@ -11,7 +11,7 @@ import { rng } from '../lib/demo';
 import { px, sUsd, tone } from '../lib/format';
 import { Fresh, Kbd, Seg } from './common';
 
-const PERIOD: Record<TF, number> = { '5m': 300, '1H': 3600, D: 86400, W: 7 * 86400, M: 31 * 86400 };
+const PERIOD: Record<TF, number> = { '5m': 300, '15m': 900, '1H': 3600, D: 86400, W: 7 * 86400, M: 31 * 86400 };
 const css = (n: string) => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
 
 /** Preview only: a 5-minute path that passes through the trade's real fill prices (Brownian bridge). Badged DEMO. */

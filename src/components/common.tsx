@@ -3,6 +3,8 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { LEAN5_LABEL, leanColor, type Lean } from '../../shared/bias';
 import type { Freshness } from '../types';
 import { etTime } from '../lib/clock';
+import { usePersisted } from '../lib/store';
+import { beltOrder, splitBelt, toFront } from '../../shared/belt';
 
 const LABEL: Record<Freshness, string> = {
   demo: 'DEMO DATA',
@@ -146,4 +148,38 @@ export function FlashNum({ v, children, className = 'num' }: { v: number | null 
 /** Shimmering placeholder block while a panel loads. */
 export function Skel({ w = '100%', h = 12, n = 1 }: { w?: number | string; h?: number; n?: number }) {
   return <>{Array.from({ length: n }, (_, i) => <span key={i} className="skel" style={{ width: typeof w === 'number' ? w : i === n - 1 && n > 1 ? '62%' : w, height: h, marginBottom: n > 1 ? 8 : 0 }} aria-hidden />)}</>;
+}
+
+/** Filter chips as a conveyor belt: a few show; a new or picked one jumps to the front and the rest shift down. */
+export function Belt({ items, value, onChange, orderKey, size = 3, trailing }: {
+  items: { id: string; label: string; title?: string }[]; value: string; onChange: (id: string) => void; orderKey: string; size?: number; trailing?: ReactNode;
+}) {
+  const [stored, setStored] = usePersisted<string[]>(orderKey, []);
+  const ids = items.map((i) => i.id);
+  const order = beltOrder(stored, ids);
+  const [menu, setMenu] = useState(false);
+  const prev = useRef<Record<string, number> | null>(null); // null on the first render: nothing animates on page load
+  const { shown, more } = splitBelt(items, order, size);
+  // the active filter is always on the belt (it may have been picked elsewhere, e.g. from the command bar)
+  const activeHidden = value && more.some((m) => m.id === value);
+  useEffect(() => { if (activeHidden) setStored(toFront(order, value)); }, [activeHidden, value]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (stored.join() !== order.join()) setStored(order); }); // keep the saved order in step with new / removed items
+  const pick = (id: string) => { setStored(toFront(order, id)); onChange(id); setMenu(false); };
+  const cls = (id: string, i: number) => { if (!prev.current) return ''; const p = prev.current[id]; return p == null ? 'belt-new' : p < i ? 'belt-shift' : ''; };
+  const classes = shown.map((x, i) => cls(x.id, i));
+  useEffect(() => { prev.current = Object.fromEntries(shown.map((x, i) => [x.id, i])); });
+  return (
+    <div className="chips belt">
+      {shown.map((x, i) => (
+        <button key={x.id} className={`chip ${value === x.id ? 'on' : ''} ${classes[i]}`} onClick={() => pick(x.id)} title={x.title}>{x.label}</button>
+      ))}
+      {more.length > 0 && (
+        <span className="belt-more">
+          <button className={`chip ${menu ? 'on' : ''}`} onClick={() => setMenu(!menu)} aria-expanded={menu} title="More filters: pick one and it jumps to the front">More {more.length} ▾</button>
+          {menu && <div className="belt-menu" role="menu">{more.map((x) => <button key={x.id} role="menuitem" className="belt-item" onClick={() => pick(x.id)} title={x.title}>{x.label}</button>)}</div>}
+        </span>
+      )}
+      {trailing}
+    </div>
+  );
 }

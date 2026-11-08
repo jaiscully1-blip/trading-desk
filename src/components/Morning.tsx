@@ -71,7 +71,7 @@ function MoverTable({ rows, phase, onChart, title }: { rows: PmRow[]; phase: 'pr
 
 function SetupCard({ s, onChart, mine }: { s: Setup; onChart: (x: string) => void; mine: boolean }) {
   const cls = s.bias === 'Buy bias' ? 'buy' : s.bias === 'Sell bias' ? 'sell' : 'wait';
-  const { openOrder } = useDesk();
+  const { openOrder, openArticle } = useDesk();
   const entry = s.pmPx ?? s.prevClose;
   return (
     <article className={`am-setup ${cls}`}>
@@ -91,7 +91,7 @@ function SetupCard({ s, onChart, mine }: { s: Setup; onChart: (x: string) => voi
       </div>
       <p className="am-plan">{s.plan}</p>
       <ul className="am-why">{s.reasons.map((r, i) => <li key={i}>{r}</li>)}</ul>
-      {s.catalyst && <a className="small" href={s.catalyst.url} target="_blank" rel="noreferrer noopener">{s.catalyst.src}: {s.catalyst.title}</a>}
+      {s.catalyst && <button className="link-plain small news-hl" onClick={() => openArticle({ title: s.catalyst!.title, url: s.catalyst!.url, src: s.catalyst!.src, t: Date.now(), syms: [s.sym] })} title="Open the article reader">{s.catalyst.src}: {s.catalyst.title}</button>}
     </article>
   );
 }

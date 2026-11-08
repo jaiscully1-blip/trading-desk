@@ -59,9 +59,9 @@ const store = new Map<string, Entry>();
 export function nextRefreshMs(tf: TF, now = Date.now()) {
   const inSession = clock(now).session === 'Regular session';
   if (!inSession) return 30 * 60_000;
-  if (tf === '5m') {
-    const period = 5 * 60_000;
-    return period - (now % period) + 20_000; // 20s after each 5-minute close
+  if (tf === '5m' || tf === '15m') {
+    const period = (tf === '5m' ? 5 : 15) * 60_000;
+    return period - (now % period) + 20_000; // 20s after each bar closes
   }
   return 15 * 60_000;
 }
@@ -114,7 +114,7 @@ export function useSeries(sym: string, tf: TF, mode: DataMode, demoLast: number)
 }
 
 /* ---------------- patch the forming bar with the latest quote ---------------- */
-const PERIOD: Record<TF, number> = { '5m': 300, '1H': 3600, D: 86400, W: 7 * 86400, M: 31 * 86400 };
+const PERIOD: Record<TF, number> = { '5m': 300, '15m': 900, '1H': 3600, D: 86400, W: 7 * 86400, M: 31 * 86400 };
 
 export function patchWithQuote(bars: Bar[], q: QuoteResult | undefined, tf: TF): Bar[] {
   if (!q || !bars.length || !Number.isFinite(q.last) || !q.t) return bars;

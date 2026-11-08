@@ -307,7 +307,7 @@ Premarket high/low are marked unavailable: Twelve Data includes extended-hours c
 | `Shift J` | Journal page |
 | `F` | Hide/show fear strip |
 | `H E D X O S M G C` | Pages: Home, Messages, Desk, Patterns, Company, Scanner, World map, Money flow, Calendars |
-| `1 2 3 4 5 6` | Chart: Daily, 1-hour, 5-min, Weekly, Monthly, Yearly news |
+| `1 2 3 4 5 6` | Chart: Daily, 1-hour, 5-min, Weekly, Monthly, 15-minute |
 | `N Q R` | Desk right rail: News, Quick Journal, Risk |
 | `[ ]` | Hide/show left or right rail |
 | `B` | Hide/show news ticker |

@@ -5,7 +5,7 @@ import type { ScanState, MoversState } from '../data/scan';
 import { CRIT_META, FIELD_META, PRESET_FILTERS, gradeRank, matches, type Cond, type Criterion, type FilterField, type GradeResult, type Playbook, type SavedFilter } from '../lib/playbook';
 import { etTime } from '../lib/clock';
 import { pct, px, tone } from '../lib/format';
-import { CoName, Fresh, Star } from './common';
+import { Belt, CoName, Fresh, Star } from './common';
 
 type SortKey = 'sym' | 'chgPct' | 'gapPct' | 'rvol' | 'rsRank' | 'grade';
 
@@ -79,14 +79,8 @@ export function Scanner(p: ScannerProps) {
           </button>
           <Fresh kind={p.scan.freshness} at={p.scan.asOf || undefined} src={p.scan.source} />
         </div>
-        <div className="chips">
-          {allFilters.map((x) => (
-            <button key={x.id} className={`chip ${p.filterId === x.id ? 'on' : ''}`} onClick={() => p.setFilterId(x.id)} title={x.builtin ? undefined : 'Saved filter'}>
-              {x.name}
-            </button>
-          ))}
-          <button className={`chip ${panel === 'filter' ? 'on' : ''}`} onClick={() => setPanel(panel === 'filter' ? 'none' : 'filter')} title="Build and save a filter">+ Filter</button>
-        </div>
+        <Belt items={allFilters.map((x) => ({ id: x.id, label: x.name, title: x.builtin ? undefined : 'Saved filter' }))} value={p.filterId} onChange={p.setFilterId} orderKey="filterBelt" size={3}
+          trailing={<button className={`chip ${panel === 'filter' ? 'on' : ''}`} onClick={() => setPanel(panel === 'filter' ? 'none' : 'filter')} title="Build and save a filter">+ Filter</button>} />
         {p.scan.pending.length > 0 && (
           <div className="sc-pending" title={p.scan.pending.join(', ')}>
             Loading {p.scan.pending.length} more ticker{p.scan.pending.length > 1 ? 's' : ''} as free-tier credits free up (8 a minute)…
