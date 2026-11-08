@@ -38,6 +38,10 @@ export interface Trade {
   notes?: string;
   /** created from a broker import with no plan logged beforehand */
   imported?: boolean;
+  /** dollars per 1.00 of price per unit: 100 for option contracts, 1 (default) for shares */
+  mult?: number;
+  /** option contract details when this is an options trade */
+  opt?: { root: string; type: 'call' | 'put'; strike: number; expiry: string };
   /** sample data for the preview */
   demo?: boolean;
   deleted?: boolean;
@@ -81,7 +85,7 @@ const sgn = (s: Side) => (s === 'long' ? 1 : -1);
 
 /** Average-cost position math. Fills that would flip the position are clipped at flat. */
 export function viewTrade(t: Trade): TradeView {
-  const s = sgn(t.side);
+  const s = sgn(t.side), m = t.mult ?? 1;
   const fills = [...t.fills].sort((a, b) => a.t - b.t);
   let pos = 0, cost = 0, maxQty = 0, fees = 0, exitQty = 0, exitVal = 0;
   let openedAt: number | null = null, closedAt: number | null = null;
@@ -100,7 +104,7 @@ export function viewTrade(t: Trade): TradeView {
       const q = Math.min(f.qty, pos);
       if (q <= 0) continue;
       const avg = cost / pos;
-      const pnl = s * (f.price - avg) * q - (f.fee ?? 0);
+      const pnl = s * (f.price - avg) * q * m - (f.fee ?? 0);
       events.push({ t: f.t, pnl, qty: q, tradeId: t.id });
       cost -= avg * q;
       pos -= q;
@@ -110,7 +114,7 @@ export function viewTrade(t: Trade): TradeView {
   }
   const avgEntry = entryQty ? entryVal / entryQty : null;
   const realized = events.reduce((a, e) => a + e.pnl, 0) - fills.filter((f) => (f.action === 'buy') === (s === 1)).reduce((a, f) => a + (f.fee ?? 0), 0);
-  const risk = avgEntry != null && t.initialStop != null && maxQty > 0 ? Math.abs(avgEntry - t.initialStop) * maxQty : null;
+  const risk = avgEntry != null && t.initialStop != null && maxQty > 0 ? Math.abs(avgEntry - t.initialStop) * maxQty * m : null;
   const status = !fills.length ? 'planned' : pos > 0 ? 'open' : 'closed';
   return {
     t, status, openQty: pos, maxQty, avgEntry, avgExit: exitQty ? exitVal / exitQty : null, openedAt, closedAt: status === 'closed' ? closedAt : null,
@@ -127,7 +131,7 @@ export function unrealized(v: TradeView, last: number | undefined): number {
     if ((f.action === 'buy') === (s === 1)) { cost += f.qty * f.price; pos += f.qty; }
     else { const q = Math.min(f.qty, pos); if (q > 0) { cost -= (cost / pos) * q; pos -= q; } }
   }
-  return pos ? s * (last - cost / pos) * pos : 0;
+  return pos ? s * (last - cost / pos) * pos * (v.t.mult ?? 1) : 0;
 }
 
 /** $ at risk to the current stop on what's still open (0 once the stop locks in profit). */

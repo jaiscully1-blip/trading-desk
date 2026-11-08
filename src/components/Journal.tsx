@@ -5,7 +5,7 @@ import {
   EMOTIONS, VIOLATION_LABEL, equityByDay, etDay, stats, timeOfDay, unrealized,
   type AccountSettings, type Fill, type Guard, type Trade, type TradeView, type Transfer, type Violation, type ViolationType,
 } from '../lib/journal';
-import { detect, detectAll, fillsReady, mergeFills, parseCsv, toFills, transfersReady, trimToHeader, type ParsedFill, toTransfers, type FillField, type Mapping, type TransferField } from '../lib/csv';
+import { detect, detectAll, fillsReady, mergeFills, parseCsv, toFills, transfersReady, trimToHeader, toTransfers, type FillField, type Mapping, type TransferField } from '../lib/csv';
 import { etTime } from '../lib/clock';
 import { rng } from '../lib/demo';
 import { px, sUsd, tone, usd } from '../lib/format';
@@ -286,7 +286,13 @@ function ViolationsTab({ v }: { v: Violation[] }) {
 
 /* ---------------- import ---------------- */
 interface Pending { name: string; rows: string[][]; map: Mapping }
-interface Batch { at: number; files: { name: string; fills: number; dup: number; deposits: number; withdrawals: number; skipped: number; via: string }[]; pnl: number; closed: number; wins: number; depositSum: number; withdrawSum: number; started?: boolean }
+/** One file's result. fillIds / transferIds are what this file added, so Undo can take exactly those back out. */
+interface FileResult {
+  id: string; name: string; at: number; ok: boolean; why?: string; via: string;
+  added: number; dup: number; options: number; deposits: number; withdrawals: number; depositSum: number; withdrawSum: number; other: number;
+  pnl: number; closed: number; wins: number; trades: { sym: string; side: string; pnl: number | null; day: string }[];
+  fillIds: string[]; transferIds: string[]; undone?: boolean; started?: boolean; first?: number;
+}
 
 /** Ask the server's free AI to name the columns. Only the header row leaves this browser. */
 async function aiColumns(headers: string[]): Promise<Partial<Record<FillField | TransferField, number>> | null> {
@@ -296,123 +302,163 @@ async function aiColumns(headers: string[]): Promise<Partial<Record<FillField | 
     return r.ok ? j.cols : null;
   } catch { return null; }
 }
+const fid = () => Math.random().toString(36).slice(2, 9);
 
 function ImportTab(p: JournalProps) {
-  const [files, setFiles] = useState<Pending[]>([]);
+  const [log, setLog] = useState<FileResult[]>(() => { try { return JSON.parse(localStorage.getItem('td.importLog') ?? '[]'); } catch { return []; } });
+  const saveLog = (f: (l: FileResult[]) => FileResult[]) => setLog((l) => { const n = f(l).slice(0, 15); try { localStorage.setItem('td.importLog', JSON.stringify(n)); } catch { /* full */ } return n; });
+  const [manual, setManual] = useState<(Pending & { id: string })[]>([]);
   const [busy, setBusy] = useState('');
-  const [batches, setBatches] = useState<Batch[]>([]);
-  const [msg, setMsg] = useState('');
-  // Read every file, sort each row into trades / deposits / withdrawals, and import straight away.
+  const [over, setOver] = useState(false);
+  const input = useRef<HTMLInputElement>(null);
+
+  /** Add one file's rows to the journal and return what happened. */
+  const apply = (name: string, rows: string[][], fills: Mapping, transfers: Mapping, via: string): FileResult => {
+    const fr = fillsReady(fills) ? toFills(rows, fills) : { items: [], skipped: [] };
+    const tr = transfersReady(transfers) ? toTransfers(rows, transfers) : { items: [], skipped: [] };
+    const res: FileResult = { id: fid(), name, at: Date.now(), ok: true, via, added: 0, dup: 0, options: 0, deposits: 0, withdrawals: 0, depositSum: 0, withdrawSum: 0, other: 0, pnl: 0, closed: 0, wins: 0, trades: [], fillIds: [], transferIds: [] };
+    if (fr.items.length) {
+      p.setTrades((ts) => {
+        const have = new Set(ts.flatMap((t) => t.fills.map((f) => f.id)));
+        const fresh = fr.items.filter((f) => !have.has(f.id));
+        res.fillIds = fresh.map((f) => f.id); res.added = fresh.length; res.dup = fr.items.length - fresh.length;
+        return mergeFills(ts, fr.items).trades;
+      });
+      res.options = fr.items.filter((f) => f.opt).length;
+      const rz = realized(fr.items.map((f) => ({ id: f.id, sym: f.sym, side: f.action === 'buy' ? 'BUY' as const : 'SELL' as const, qty: f.qty, price: f.price, t: f.t, mult: f.mult ?? 1 })));
+      res.pnl = rz.closed.reduce((a, c) => a + c.pnl, 0) - fr.items.reduce((a, f) => a + (f.fee ?? 0), 0);
+      res.closed = rz.closed.length; res.wins = rz.closed.filter((c) => c.pnl > 0).length;
+      res.trades = rz.closed.slice(-40).reverse().map((c) => ({ sym: c.sym, side: c.side, pnl: c.pnl, day: c.day }));
+    }
+    if (tr.items.length) {
+      p.setTransfers((ts) => { const ids = new Set(ts.map((x) => x.id)); const fresh = tr.items.filter((x) => !ids.has(x.id)); res.transferIds = fresh.map((x) => x.id); return [...ts, ...fresh]; });
+      const dep = tr.items.filter((t) => t.amount > 0), wd = tr.items.filter((t) => t.amount < 0);
+      res.deposits = dep.length; res.withdrawals = wd.length;
+      res.depositSum = dep.reduce((a, t) => a + t.amount, 0); res.withdrawSum = wd.reduce((a, t) => a + t.amount, 0);
+    }
+    res.other = Math.max(0, rows.length - 1 - fr.items.length - tr.items.length);
+    const ts = [...fr.items.map((f) => f.t), ...tr.items.map((t) => t.t)];
+    if (ts.length) res.first = Math.min(...ts);
+    if (!fr.items.length && !tr.items.length) { res.ok = false; res.why = fr.skipped[0]?.why ? `no trade, deposit or withdrawal rows (first skipped row: ${fr.skipped[0].why})` : 'no trade, deposit or withdrawal rows found'; }
+    return res;
+  };
+
   const read = async (list: FileList | File[]) => {
-    const arr = [...list].filter((f) => /\.csv$|text\/csv|excel/i.test(f.name + f.type));
+    const arr = [...list].filter((f) => /\.(csv|txt)$/i.test(f.name) || /csv|excel|text/i.test(f.type));
     if (!arr.length) return;
-    const allFills: ParsedFill[] = [], allTr: Transfer[] = [], manual: Pending[] = [];
-    const b: Batch = { at: Date.now(), files: [], pnl: 0, closed: 0, wins: 0, depositSum: 0, withdrawSum: 0 };
+    const out: FileResult[] = [];
     for (let i = 0; i < arr.length; i++) {
       const f = arr[i];
-      setBusy(`Reading ${i + 1}/${arr.length}: ${f.name}`);
+      setBusy(`Reading ${f.name}${arr.length > 1 ? ` (${i + 1} of ${arr.length})` : ''}…`);
       const rows = trimToHeader(parseCsv(await f.text()));
-      if (rows.length < 2) { b.files.push({ name: f.name, fills: 0, dup: 0, deposits: 0, withdrawals: 0, skipped: 0, via: 'empty file' }); continue; }
+      if (rows.length < 2) { out.push({ ...apply(f.name, rows, { kind: 'fills', cols: {} }, { kind: 'transfers', cols: {} }, '—'), ok: false, why: 'the file is empty' }); continue; }
       let { fills, transfers } = detectAll(rows);
       let via = 'built-in rules';
-      if (!fillsReady(fills) && !transfersReady(transfers)) {
-        setBusy(`Asking the AI which column is which in ${f.name} (column names only)…`);
+      let r = apply(f.name, rows, fills, transfers, via);
+      if (!r.ok) {
+        setBusy(`Matching the columns of ${f.name} with AI (column names only)…`);
         const ai = await aiColumns(rows[0]);
         if (ai) {
-          fills = { kind: 'fills', cols: { ...ai, ...Object.fromEntries(Object.entries(fills.cols).filter(([, v]) => v != null)) } };
-          transfers = { kind: 'transfers', cols: { time: ai.time, amount: (ai as any).amount, type: ai.type, ...Object.fromEntries(Object.entries(transfers.cols).filter(([, v]) => v != null)) } };
+          fills = { kind: 'fills', cols: { ...ai } };
+          transfers = { kind: 'transfers', cols: { time: ai.time, amount: (ai as Record<string, number | undefined>).amount, type: ai.type } };
           via = 'AI column match';
+          const r2 = apply(f.name, rows, fills, transfers, via);
+          if (r2.ok) r = r2;
         }
       }
-      const fr = fillsReady(fills) ? toFills(rows, fills) : { items: [], skipped: [] };
-      const tr = transfersReady(transfers) ? toTransfers(rows, transfers) : { items: [], skipped: [] };
-      if (!fr.items.length && !tr.items.length) { manual.push({ name: f.name, rows, map: fillsReady(fills) || !transfersReady(transfers) ? fills : transfers }); continue; }
-      allFills.push(...fr.items); allTr.push(...tr.items);
-      const dep = tr.items.filter((t) => t.amount > 0), wd = tr.items.filter((t) => t.amount < 0);
-      b.depositSum += dep.reduce((a, t) => a + t.amount, 0); b.withdrawSum += wd.reduce((a, t) => a + t.amount, 0);
-      // a row is "skipped" only if neither reading used it
-      const used = fr.items.length + tr.items.length;
-      b.files.push({ name: f.name, fills: fr.items.length, dup: 0, deposits: dep.length, withdrawals: wd.length, skipped: Math.max(0, rows.length - 1 - used), via });
+      if (!r.ok) setManual((m) => [...m, { id: r.id, name: f.name, rows, map: fillsReady(fills) || !transfersReady(transfers) ? fills : transfers }]);
+      out.push(r);
+    }
+    // no starting balance yet: start the account at $0 on the first date in these files
+    const firsts = out.filter((r) => r.ok && r.first != null).map((r) => r.first!);
+    if (p.settings.startBalance == null && firsts.length && p.onAutoStart) {
+      p.onAutoStart(Math.min(...firsts) - 1000);
+      out.forEach((r) => { if (r.ok) r.started = true; });
     }
     setBusy('');
-    if (allFills.length) {
-      let res = { added: 0, duplicate: 0 } as { added: number; duplicate: number };
-      p.setTrades((ts) => { const m = mergeFills(ts, allFills); res = m; return m.trades; });
-      const r = realized(allFills.map((f) => ({ id: f.id, sym: f.sym, side: f.action === 'buy' ? 'BUY' : 'SELL', qty: f.qty, price: f.price, t: f.t, mult: 1 })));
-      b.pnl = r.closed.reduce((a, c) => a + c.pnl, 0) - allFills.reduce((a, f) => a + (f.fee ?? 0), 0);
-      b.closed = r.closed.length; b.wins = r.closed.filter((c) => c.pnl > 0).length;
-      setTimeout(() => setMsg(res.duplicate ? `${res.duplicate} fills were already in your journal and were not added twice.` : ''), 0);
-    }
-    if (allTr.length) p.setTransfers((ts) => { const ids = new Set(ts.map((x) => x.id)); return [...ts, ...allTr.filter((x) => !ids.has(x.id))]; });
-    // no starting balance yet: start the account at $0 on the first date in the files, so deposits + P&L become the balance
-    if (p.settings.startBalance == null && (allTr.length || allFills.length) && p.onAutoStart) {
-      const first = Math.min(...allTr.map((t) => t.t), ...allFills.map((f) => f.t));
-      p.onAutoStart(first - 1000); b.started = true;
-    }
-    setBatches((x) => [b, ...x].slice(0, 5));
-    if (manual.length) setFiles((x) => [...x, ...manual]);
+    saveLog((l) => [...out.reverse(), ...l]);
   };
-  const doImport = (i: number) => {
-    const f = files[i];
-    if (f.map.kind === 'fills') {
-      const r = toFills(f.rows, f.map);
-      let res = { added: 0, matched: 0, created: 0, duplicate: 0 };
-      p.setTrades((ts) => { const m = mergeFills(ts, r.items); res = m; return m.trades; });
-      setTimeout(() => setMsg(`${f.name}: ${res.added} new fills (${res.duplicate} already imported). ${res.matched} matched journal entries, ${res.created} new imported trades. ${r.skipped.length} rows skipped.`), 0);
-    } else {
-      const r = toTransfers(f.rows, f.map);
-      p.setTransfers((ts) => { const ids = new Set(ts.map((x) => x.id)); return [...ts, ...r.items.filter((x) => !ids.has(x.id))]; });
-      setMsg(`${f.name}: ${r.items.length} deposits/withdrawals, ${r.skipped.length} other rows skipped.`);
-    }
-    setFiles((x) => x.filter((_, j) => j !== i));
+
+  const undo = (r: FileResult) => {
+    const fids = new Set(r.fillIds), tids = new Set(r.transferIds);
+    if (fids.size) p.setTrades((ts) => ts.map((t) => (t.fills.some((f) => fids.has(f.id)) ? { ...t, fills: t.fills.filter((f) => !fids.has(f.id)), updated: Date.now() } : t)).filter((t) => !(t.imported && t.fills.length === 0)));
+    if (tids.size) p.setTransfers((ts) => ts.filter((x) => !tids.has(x.id)));
+    saveLog((l) => l.map((x) => (x.id === r.id ? { ...x, undone: true } : x)));
+  };
+  const importManual = (i: number) => {
+    const f = manual[i];
+    const r = f.map.kind === 'fills' ? apply(f.name, f.rows, f.map, { kind: 'transfers', cols: {} }, 'your column match') : apply(f.name, f.rows, { kind: 'fills', cols: {} }, f.map, 'your column match');
+    saveLog((l) => [r, ...l.filter((x) => x.id !== f.id)]);
+    if (r.ok) setManual((m) => m.filter((_, j) => j !== i));
   };
   const live = p.transfers.filter((t) => !t.deleted).sort((a, b) => b.t - a.t);
   return (
     <div className="jn-scroll imp">
-      <label
-        className="drop"
-        onDragOver={(e) => e.preventDefault()}
-        onDrop={(e) => { e.preventDefault(); read(e.dataTransfer.files); }}
-      >
-        <b>Drop any number of broker CSVs here</b> or click to choose several. Each row is sorted into a trade, a deposit or a withdrawal and imported right away; your balance updates from them. Webull, Robinhood, Schwab, Fidelity, IBKR, E*TRADE and thinkorswim are read automatically; for other brokers the AI names the columns (it only sees the column names).
-        <input type="file" accept=".csv,text/csv" multiple hidden onChange={(e) => { if (e.target.files) read(e.target.files); e.target.value = ''; }} />
-      </label>
-      {busy && <div className="banner">{busy}</div>}
-      {batches.map((b) => (
-        <div key={b.at} className="imp-sum">
-          <div className="imp-sum-h"><b>Imported {b.files.length} file{b.files.length === 1 ? '' : 's'}</b>
-            {b.closed > 0 && <span>Realized P&L <b className={`num ${tone(b.pnl)}`}>{sUsd(b.pnl)}</b> on {b.closed} closed trades ({b.wins} wins)</span>}
-            {b.depositSum > 0 && <span>Deposits <b className="num up">{sUsd(b.depositSum)}</b></span>}
-            {b.withdrawSum < 0 && <span>Withdrawals <b className="num down">{sUsd(b.withdrawSum)}</b></span>}
+      <div className={`drop2 ${over ? 'over' : ''}`} role="button" tabIndex={0}
+        onClick={() => input.current?.click()} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') input.current?.click(); }}
+        onDragOver={(e) => { e.preventDefault(); setOver(true); }} onDragLeave={() => setOver(false)}
+        onDrop={(e) => { e.preventDefault(); setOver(false); read(e.dataTransfer.files); }}>
+        <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true"><path d="M12 16V4m0 0l-4 4m4-4l4 4M4 16v3a1 1 0 001 1h14a1 1 0 001-1v-3" /></svg>
+        <b>Drop broker CSVs here</b>
+        <span className="muted small">or click to choose. Stocks and options, any number of files: trades, deposits and withdrawals are added to your journal and balance right away.</span>
+        <input ref={input} type="file" accept=".csv,.txt,text/csv" multiple hidden onChange={(e) => { if (e.target.files) read(e.target.files); e.target.value = ''; }} />
+      </div>
+      {busy && <div className="imp-busy small"><span className="spin" />{busy}</div>}
+
+      {log.length > 0 && <div className="imp-list">
+        {log.map((r) => (
+          <div key={r.id} className={`imp-card ${r.ok ? (r.undone ? 'undone' : 'ok') : 'bad'}`}>
+            <div className="imp-card-h">
+              <span className="imp-ic" aria-hidden="true">{r.ok ? (r.undone ? '↺' : '✓') : '!'}</span>
+              <b className="imp-name" title={r.name}>{r.name}</b>
+              <span className="muted small">{new Date(r.at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}</span>
+              {r.ok && !r.undone && <button className="btn sm" onClick={() => undo(r)} title="Take this file's trades and transfers back out">Undo</button>}
+              <button className="hw-btn" onClick={() => saveLog((l) => l.filter((x) => x.id !== r.id))} aria-label="Remove from this list" title="Remove from this list (keeps the data)">×</button>
+            </div>
+            {r.ok ? (
+              <div className="imp-card-b">
+                {r.undone ? <span className="muted small">Undone: nothing from this file is in your journal.</span> : <>
+                  <span className="imp-stat"><b className="num">{r.added}</b> trade fills{r.options ? ` (${r.options} options)` : ''}{r.dup ? <span className="muted"> · {r.dup} already there</span> : null}</span>
+                  {r.closed > 0 && <span className="imp-stat">Realized <b className={`num ${tone(r.pnl)}`}>{sUsd(r.pnl)}</b> <span className="muted">on {r.closed} closed · {r.wins} wins</span></span>}
+                  {r.deposits > 0 && <span className="imp-stat">Deposits <b className="num up">{sUsd(r.depositSum)}</b></span>}
+                  {r.withdrawals > 0 && <span className="imp-stat">Withdrawals <b className="num down">{sUsd(r.withdrawSum)}</b></span>}
+                  {r.started && <span className="imp-stat small muted">Balance now built from your deposits and trades</span>}
+                </>}
+                {!r.undone && r.trades.length > 0 && (
+                  <details className="imp-tr"><summary className="small">Closed trades in this file</summary>
+                    {r.trades.map((t, i) => <div key={i} className="imp-tr-r small"><span className="num muted">{t.day}</span><b>{t.sym}</b><span className="muted">{t.side}</span><span className={`num ${tone(t.pnl ?? 0)}`}>{t.pnl != null ? sUsd(t.pnl) : ''}</span></div>)}
+                  </details>
+                )}
+                <span className="muted small imp-via">Read by {r.via}{r.other ? ` · ${r.other} other rows (cancelled orders, dividends, fees) left out` : ''}</span>
+              </div>
+            ) : (
+              <div className="imp-card-b"><span className="small down">Couldn’t read it: {r.why}.</span>
+                {manual.some((m) => m.id === r.id) && <details className="imp-fix"><summary className="small">Match the columns by hand</summary>
+                  {manual.map((f, i) => f.id === r.id && <MapFile key={f.id} f={f} setMap={(map) => setManual((x) => x.map((y, j) => (j === i ? { ...y, map } : y)))} onImport={() => importManual(i)} onDrop={() => setManual((x) => x.filter((_, j) => j !== i))} />)}
+                </details>}
+              </div>
+            )}
           </div>
-          <table className="grid small"><thead><tr><th>File</th><th>Trades (fills)</th><th>Deposits</th><th>Withdrawals</th><th>Other rows</th><th>Read by</th></tr></thead>
-            <tbody>{b.files.map((f, i) => <tr key={i}><td>{f.name}</td><td className="num">{f.fills}</td><td className="num">{f.deposits}</td><td className="num">{f.withdrawals}</td><td className="num muted">{f.skipped}</td><td className="muted">{f.via}</td></tr>)}</tbody>
-          </table>
-          {b.started && <p className="small">No starting balance was set, so your account now starts at $0 on the first date in these files: balance = deposits − withdrawals + trading P&L. You can change it in the account drawer.</p>}
-          <p className="small muted">P&L here is first-in-first-out within these files, after the fees the CSV lists. Sells of shares bought before the files start aren’t priced.</p>
-        </div>
-      ))}
-      {msg && <div className="banner">{msg}</div>}
-      {files.length > 0 && <p className="small down">These files need a hand with their columns:</p>}
-      {files.map((f, i) => <MapFile key={f.name + i} f={f} setMap={(map) => setFiles((x) => x.map((y, j) => (j === i ? { ...y, map } : y)))} onImport={() => doImport(i)} onDrop={() => setFiles((x) => x.filter((_, j) => j !== i))} />)}
+        ))}
+      </div>}
+
       <h4>Deposits and withdrawals</h4>
       <table className="grid"><thead><tr><th>Date</th><th>Amount</th><th>Note</th><th /></tr></thead>
         <tbody>
           {live.map((t) => <tr key={t.id}><td className="num">{etDay(t.t)}</td><td className={`num ${tone(t.amount)}`}>{sUsd(t.amount)}</td><td className="small muted">{t.note}</td>
             <td><button className="wl-x vis" onClick={() => p.setTransfers((ts) => ts.map((x) => (x.id === t.id ? { ...x, deleted: true, updated: Date.now() } : x)))} aria-label="Delete">×</button></td></tr>)}
-          {!live.length && <tr><td colSpan={4} className="muted">None imported. Deposits are never typed in by hand; they come from your broker’s CSV.</td></tr>}
+          {!live.length && <tr><td colSpan={4} className="muted">None yet. They come in with your broker’s CSV.</td></tr>}
         </tbody>
       </table>
       <details className="note">
-        <summary>Webull export steps</summary>
-        In the Webull app: Account → History (not Orders) → Filter: Fully Filled and a date range → download icon. Webull emails the CSV and allows one export a day.
-        It doesn’t include fees or cash transfers; export transfers separately and drop both files here together. Times are read as US Eastern.
+        <summary>Where to export from</summary>
+        Webull: Account → Orders → Order History → export (stocks and options are separate files; drop both). Robinhood: Account → Reports and statements → account activity CSV. Schwab: History → Export. Fidelity: Activity & Orders → History → Download. IBKR: Reports → Statements → Activity → CSV. Times are read as US Eastern.
       </details>
     </div>
   );
 }
 
-const FILL_FIELDS: FillField[] = ['symbol', 'side', 'qty', 'price', 'time', 'status', 'fee'];
+const FILL_FIELDS: FillField[] = ['symbol', 'side', 'qty', 'price', 'time', 'status', 'fee', 'desc'];
 const TRANSFER_FIELDS: TransferField[] = ['time', 'amount', 'type'];
 
 function MapFile({ f, setMap, onImport, onDrop }: { f: Pending; setMap: (m: Mapping) => void; onImport: () => void; onDrop: () => void }) {

@@ -25,7 +25,7 @@ export function parseCsv(text: string): string[][] {
   return rows;
 }
 
-export type FillField = 'symbol' | 'side' | 'qty' | 'price' | 'time' | 'status' | 'fee';
+export type FillField = 'symbol' | 'side' | 'qty' | 'price' | 'time' | 'status' | 'fee' | 'desc';
 export type TransferField = 'time' | 'amount' | 'type';
 export interface Mapping { kind: 'fills' | 'transfers'; cols: Partial<Record<FillField | TransferField, number>> }
 
@@ -41,6 +41,8 @@ const FILL_ALIASES: Record<FillField, string[]> = {
   time: ['filledtime', 'executiontime', 'exectime', 'filltime', 'time', 'datetime', 'activitydate', 'rundate', 'transactiondate', 'tradedate', 'date', 'placedtime'],
   status: ['status', 'orderstatus'],
   fee: ['fee', 'fees', 'commission', 'commissions', 'feescomm', 'commfee', 'commissionfees'],
+  // option contracts are often only spelled out here (Robinhood: Instrument = NVDA, Description = NVDA 11/21/2025 Call $150.00)
+  desc: ['description', 'name', 'securitydescription', 'instrumentdescription'],
 };
 const TRANSFER_ALIASES: Record<TransferField, string[]> = {
   time: ['date', 'time', 'datetime', 'transferdate', 'completedtime', 'createdtime', 'activitydate', 'rundate', 'transactiondate', 'tradedate', 'settledate'],
@@ -115,7 +117,41 @@ export function rowId(parts: (string | number)[]) {
   return `csv-${(h >>> 0).toString(36)}`;
 }
 
-export interface ParsedFill extends Fill { sym: string }
+export interface ParsedFill extends Fill { sym: string; mult?: number; opt?: OptionContract }
+
+/* ---------------- options ---------------- */
+export interface OptionContract { root: string; type: 'call' | 'put'; strike: number; expiry: string }
+const MON: Record<string, number> = { JAN: 1, FEB: 2, MAR: 3, APR: 4, MAY: 5, JUN: 6, JUL: 7, AUG: 8, SEP: 9, OCT: 10, NOV: 11, DEC: 12 };
+const ymd = (y: number, m: number, d: number) => `${y < 100 ? 2000 + y : y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+/**
+ * Read an option contract from what brokers write:
+ *  OCC "NVDA251121C00150000" (Webull, IBKR, Schwab; may be padded "NVDA  251121C00150000" or start with "-" / ".")
+ *  compact "NVDA251121C150"; descriptive "NVDA 11/21/2025 Call $150.00", "NVDA Nov 21 '25 $150 Call", "NVDA 21 NOV 25 150 C".
+ */
+export function parseOption(raw: string): OptionContract | null {
+  const s = raw.trim().toUpperCase().replace(/^[-.]+/, '').replace(/\s+/g, ' ');
+  if (!s) return null;
+  let m = /^([A-Z]{1,6}(?:\.[A-Z])?)\s*(\d{2})(\d{2})(\d{2})([CP])(\d{8})$/.exec(s);
+  if (m) return { root: m[1], expiry: ymd(+m[2], +m[3], +m[4]), type: m[5] === 'C' ? 'call' : 'put', strike: +m[6] / 1000 };
+  m = /^([A-Z]{1,6})\s*(\d{2})(\d{2})(\d{2})([CP])(\d+(?:\.\d+)?)$/.exec(s);
+  if (m) return { root: m[1], expiry: ymd(+m[2], +m[3], +m[4]), type: m[5] === 'C' ? 'call' : 'put', strike: +m[6] };
+  const cp = /\b(CALL|PUT|C|P)\b/.exec(s);
+  const root = /^([A-Z]{1,6})\b/.exec(s)?.[1];
+  if (!cp || !root) return null;
+  let rest = s.slice(root.length).replace(/'(\d{2})\b/g, '20$1');
+  let expiry: string | null = null;
+  if ((m = /(\d{4})-(\d{1,2})-(\d{1,2})/.exec(rest))) expiry = ymd(+m[1], +m[2], +m[3]);
+  else if ((m = /(\d{1,2})\/(\d{1,2})\/(\d{2,4})/.exec(rest))) expiry = ymd(+m[3], +m[1], +m[2]);
+  else if ((m = /\b([A-Z]{3})[A-Z]*\.? (\d{1,2}),? (\d{2,4})\b/.exec(rest)) && MON[m[1]]) expiry = ymd(+m[3], MON[m[1]], +m[2]);
+  else if ((m = /\b(\d{1,2}) ([A-Z]{3})[A-Z]* (\d{2,4})\b/.exec(rest)) && MON[m[2]]) expiry = ymd(+m[3], MON[m[2]], +m[1]);
+  if (!expiry || !m) return null;
+  rest = rest.replace(m[0], ' ');
+  const k = /\$?(\d+(?:\.\d+)?)/.exec(rest);
+  if (!k) return null;
+  return { root, expiry, type: cp[1].startsWith('C') ? 'call' : 'put', strike: +k[1] };
+}
+/** How an option shows in the journal: "NVDA 150C 11/21/25" */
+export const optionLabel = (o: OptionContract) => `${o.root} ${+o.strike.toFixed(2)}${o.type === 'call' ? 'C' : 'P'} ${o.expiry.slice(5, 7)}/${o.expiry.slice(8, 10)}/${o.expiry.slice(2, 4)}`;
 export interface ParseResult<T> { items: T[]; skipped: { row: number; why: string }[] }
 
 export function toFills(rows: string[][], m: Mapping): ParseResult<ParsedFill> {
@@ -125,16 +161,20 @@ export function toFills(rows: string[][], m: Mapping): ParseResult<ParsedFill> {
     const get = (k: FillField) => (c[k] != null ? r[c[k]!] ?? '' : '');
     const status = get('status');
     if (status && !/fill|executed|complete/i.test(status)) return skipped.push({ row: i + 2, why: `status ${status}` });
-    const sym = get('symbol').toUpperCase().replace(/\s.*$/, '');
+    const symRaw = get('symbol'), desc = get('desc');
+    const plain = symRaw.toUpperCase().replace(/^[-.]/, '').trim();
+    // an option contract code, or a stock ticker whose row describes an option (Robinhood)
+    const opt = /^[A-Z][A-Z0-9.\-]{0,9}$/.test(plain) && !(desc && /\b(call|put)\b/i.test(desc)) ? null : parseOption(symRaw) ?? (desc ? parseOption(desc) : null);
+    const sym = opt ? optionLabel(opt) : plain.replace(/\s.*$/, '');
     const sideRaw = get('side').toLowerCase();
-    let action: 'buy' | 'sell' | null = /buy|bot|bought|long|cover/.test(sideRaw) ? 'buy' : /sell|sld|sold|short/.test(sideRaw) ? 'sell' : null;
+    let action: 'buy' | 'sell' | null = /buy|bot|bought|long|cover|\bbto\b|\bbtc\b/.test(sideRaw) ? 'buy' : /sell|sld|sold|short|\bsto\b|\bstc\b/.test(sideRaw) ? 'sell' : null;
     const qtyRaw = money(get('qty'));
     // IBKR has no side column: a negative quantity is a sell
     if (!action && c.side == null && Number.isFinite(qtyRaw) && qtyRaw !== 0) action = qtyRaw < 0 ? 'sell' : 'buy';
     const qty = Math.abs(qtyRaw);
     const price = Math.abs(money(get('price')));
     const t = parseTime(get('time'));
-    if (!/^[A-Z][A-Z0-9.\-]{0,9}$/.test(sym)) return skipped.push({ row: i + 2, why: 'no symbol' });
+    if (!opt && !/^[A-Z][A-Z0-9.\-]{0,9}$/.test(sym)) return skipped.push({ row: i + 2, why: symRaw ? `can't read symbol "${symRaw.slice(0, 24)}"` : 'no symbol' });
     if (!action) return skipped.push({ row: i + 2, why: c.side == null ? 'no side column (map one)' : `side "${get('side')}"` });
     if (!(qty > 0) || !(price > 0)) return skipped.push({ row: i + 2, why: 'no qty/price (unfilled?)' });
     if (t == null) return skipped.push({ row: i + 2, why: `time "${get('time')}"` });
@@ -142,7 +182,7 @@ export function toFills(rows: string[][], m: Mapping): ParseResult<ParsedFill> {
     const n = (seen.get(base) ?? 0) + 1; // identical fills in one file stay distinct
     seen.set(base, n);
     const fee = c.fee != null ? Math.abs(money(get('fee'))) : undefined;
-    items.push({ id: n > 1 ? `${base}-${n}` : base, sym, t, action, qty, price, src: 'csv', fee: Number.isFinite(fee) ? fee : undefined });
+    items.push({ id: n > 1 ? `${base}-${n}` : base, sym, t, action, qty, price, src: 'csv', fee: Number.isFinite(fee) ? fee : undefined, ...(opt ? { mult: 100, opt } : {}) });
   });
   return { items: items.sort((a, b) => a.t - b.t), skipped };
 }
@@ -197,7 +237,7 @@ export function mergeFills(trades: Trade[], fills: ParsedFill[], now = Date.now(
       const target = out
         .filter((t) => !t.deleted && t.sym === sym && t.side === side && !t.fills.some((f) => f.src === 'csv') && t.created <= start + 60_000 && t.created >= start - 30 * 60_000)
         .sort((a, b) => Math.abs(a.created - start) - Math.abs(b.created - start))[0];
-      const clean = trip.map(({ sym: _s, ...f }) => f);
+      const clean = trip.map(({ sym: _s, mult: _m, opt: _o, ...f }) => f);
       if (target) {
         target.fills = [...target.fills.filter((f) => f.src !== 'manual'), ...clean]; // broker fills replace hand-entered ones
         target.updated = now;
@@ -206,6 +246,7 @@ export function mergeFills(trades: Trade[], fills: ParsedFill[], now = Date.now(
         out.push({
           id: `imp-${trip[0].id}`, created: start, updated: now, sym, side, initialStop: null, stop: null, stopHistory: [], target: null, plannedSize: null,
           thesis: '', setup: '', emotion: null, grade: null, checklist: [], fills: clean, imported: true,
+          ...(trip[0].opt ? { mult: 100, opt: trip[0].opt } : {}),
         });
         created++;
       }
