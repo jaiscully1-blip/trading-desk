@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Trading Desk: look options (static mockups)</title>
+<!-- Static design exploration. Not part of the app, not served by Vercel (the app builds from index.html only).
+     Every number is a placeholder to show layout, not data. -->
+<style>
+:root{--r:10px}
+*{box-sizing:border-box}body{margin:0;font:14px/1.4 system-ui,Segoe UI,sans-serif;background:#0b0d10;color:#e8eaed}
+header.top{padding:14px 20px;display:flex;gap:12px;align-items:center;flex-wrap:wrap;border-bottom:1px solid #222}
+header.top b{font-size:15px}.pill{border:1px solid #333;border-radius:99px;padding:6px 14px;background:none;color:inherit;cursor:pointer}
+.pill.on{background:#e8eaed;color:#111}
+.note{color:#9aa0a6;font-size:12px;padding:6px 20px}
+.stage{display:none;padding:16px 20px 40px}.stage.on{display:block}
+.frame{border-radius:14px;padding:14px;min-height:620px;display:grid;grid-template-columns:150px 1fr 260px;grid-template-rows:auto 1fr auto;gap:12px}
+.frame>*{min-width:0}
+.bar{grid-column:1/4;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.nav{display:flex;flex-direction:column;gap:6px}.nav i{font-style:normal;padding:9px 10px;border-radius:var(--r)}
+.main{display:grid;grid-template-columns:2fr 1fr;grid-template-rows:auto 1fr;gap:12px}
+.card{border-radius:var(--r);padding:12px}.card h4{margin:0 0 8px;font-size:11px;letter-spacing:.08em;text-transform:uppercase;opacity:.7}
+.chart{grid-column:1/3;min-height:230px;position:relative;overflow:hidden}
+.chart svg{position:absolute;inset:34px 8px 8px;width:calc(100% - 16px);height:calc(100% - 42px)}
+.row{display:flex;justify-content:space-between;gap:8px;padding:5px 0;border-bottom:1px solid rgba(128,128,128,.18);font-size:13px}
+.xp{height:10px;border-radius:99px;overflow:hidden}.xp i{display:block;height:100%}
+.q{display:flex;gap:8px;align-items:center;padding:5px 0;font-size:13px}.q u{width:16px;height:16px;border-radius:5px;display:inline-block;text-decoration:none}
+.ticker{grid-column:1/4;padding:8px 12px;border-radius:var(--r);font-size:12px;white-space:nowrap;overflow:hidden}
+.badge{display:inline-block;padding:3px 8px;border-radius:99px;font-size:11px;margin:2px 4px 2px 0}
+.gauge{height:12px;border-radius:99px;overflow:hidden;display:flex}.gauge i{display:block;height:100%}
+.cap{padding:8px 20px 0;color:#c4c7cc}.cap b{color:#fff}
+/* A: Arcade */
+#A .frame{background:linear-gradient(160deg,#120a2a,#0b1230);color:#f2eeff}
+#A .card,#A .nav i,#A .ticker{background:#1b1440;border:2px solid #3a2a7a;box-shadow:0 3px 0 #2a1d5c}
+#A .nav i.on{background:#7c4dff;border-color:#a98bff}#A .up{color:#3dffa2}#A .dn{color:#ff5c8a}
+#A .xp{background:#2a1d5c}#A .xp i{background:linear-gradient(90deg,#3dffa2,#ffe14d)}#A .badge{background:#ffe14d;color:#2a1d00;font-weight:700}
+#A .q u{background:#2a1d5c;border:2px solid #7c4dff}#A .q.done u{background:#3dffa2;border-color:#3dffa2}
+#A h1{font:800 18px system-ui;margin:0;color:#ffe14d;text-shadow:0 2px 0 #7c4dff}
+/* B: Cockpit */
+#B .frame{background:#05090c;color:#d7f6ff;border:1px solid #0f3a47;background-image:linear-gradient(#0a1a21 1px,transparent 1px),linear-gradient(90deg,#0a1a21 1px,transparent 1px);background-size:28px 28px}
+#B .card,#B .nav i,#B .ticker{background:rgba(6,20,26,.92);border:1px solid #0f5a6e;border-radius:4px;box-shadow:inset 0 0 18px rgba(0,200,255,.06)}
+#B .nav i.on{border-color:#00d4ff;color:#00d4ff;background:#062a35}#B .up{color:#00ffa6}#B .dn{color:#ffab2e}
+#B .xp{background:#0b2a33}#B .xp i{background:#00d4ff}#B .badge{border:1px solid #ffab2e;color:#ffab2e}
+#B .q u{border:1px solid #00d4ff;border-radius:2px}#B .q.done u{background:#00d4ff}
+#B .card h4{color:#00d4ff;opacity:1;font-family:ui-monospace,Menlo,monospace}#B{font-family:ui-monospace,Menlo,monospace}
+/* C: Daylight quest */
+#C .frame{background:#fbf6ec;color:#23262b}
+#C .card,#C .nav i,#C .ticker{background:#fff;border:1px solid #e6dcc7;box-shadow:0 2px 0 #e6dcc7;border-radius:14px}
+#C .nav i.on{background:#ff7a45;color:#fff;border-color:#ff7a45}#C .up{color:#14935b}#C .dn{color:#d23b4f}
+#C .xp{background:#f0e6d2}#C .xp i{background:linear-gradient(90deg,#ff7a45,#ffc233)}#C .badge{background:#e8f6ef;color:#0d6a42;border:1px solid #bfe5d1}
+#C .q u{border:2px solid #ff7a45;border-radius:50%}#C .q.done u{background:#14935b;border-color:#14935b}
+#C .row{border-color:#efe5d2}
+</style></head><body>
+<header class="top"><b>Trading Desk · look options</b>
+<button class="pill on" data-t="A">A · Arcade</button><button class="pill" data-t="B">B · Cockpit</button><button class="pill" data-t="C">C · Daylight Quest</button></header>
+<div class="note">Layout sketches only. All numbers are placeholders. Gamified parts are tied to things the desk already tracks (rule lights, before-the-open checklist, journal, risk heat), not to trading volume or wins.</div>
+
+<section class="stage on" id="A"><div class="cap"><b>A · Arcade.</b> Deep indigo, neon green / yellow accents, chunky buttons. Level bar and streak up top; “missions” are your own pre-open rules; daily-loss limit shown as a health bar.</div>
+<div class="frame">
+ <div class="bar"><h1>TRADING DESK</h1><span class="badge">LVL 7 · Disciplined</span><div style="flex:1;min-width:160px"><div class="xp"><i style="width:64%"></i></div></div><span>🔥 9-day rule streak</span><span class="up">SPY 5xx.xx +0.4%</span></div>
+ <div class="nav"><i class="on">Home</i><i>Morning</i><i>Scanner</i><i>Journal</i><i>Map</i></div>
+ <div class="main"><div class="card chart"><h4>NVDA · 5m</h4><svg viewBox="0 0 300 100" preserveAspectRatio="none"><polyline fill="none" stroke="#3dffa2" stroke-width="2" points="0,80 30,70 60,74 90,50 120,56 150,36 180,44 210,28 240,34 270,18 300,22"/></svg></div>
+ <div class="card"><h4>Watchlist</h4><div class="row"><span>NVDA</span><b class="up">+1.2%</b></div><div class="row"><span>AMD</span><b class="dn">−0.8%</b></div><div class="row"><span>MU</span><b class="up">+0.3%</b></div></div>
+ <div class="card"><h4>Scanner · top setups</h4><div class="row"><span>TSLA gap-and-go</span><b>A</b></div><div class="row"><span>META flag</span><b>B+</b></div></div></div>
+ <div class="side"><div class="card"><h4>Today’s missions</h4><div class="q done"><u></u>Pre-session check-in</div><div class="q done"><u></u>Plan before every trade</div><div class="q"><u></u>Journal today’s trades</div><h4 style="margin-top:12px">Risk health</h4><div class="gauge"><i style="width:58%;background:#3dffa2"></i><i style="width:42%;background:#2a1d5c"></i></div><div style="font-size:12px;opacity:.8;margin-top:4px">58% of daily loss limit left</div><h4 style="margin-top:12px">Badges</h4><span class="badge">5 green weeks</span><span class="badge">No rule breaks ×9</span></div></div>
+ <div class="ticker">24/7 NEWS · headline one · headline two · headline three</div></div></section>
+
+<section class="stage" id="B"><div class="cap"><b>B · Cockpit.</b> Near-black with a faint grid, cyan + amber instrument colours, monospace. Rank insignia and mission list read like a flight HUD; risk shown as a fuel gauge.</div>
+<div class="frame">
+ <div class="bar"><b style="color:#00d4ff;letter-spacing:.2em">DESK//CONSOLE</b><span class="badge">RANK: SERGEANT</span><div style="flex:1;min-width:160px"><div class="xp"><i style="width:41%"></i></div></div><span>STREAK 9D</span><span class="up">SPY +0.4%</span></div>
+ <div class="nav"><i class="on">HOME</i><i>MORNING</i><i>SCANNER</i><i>JOURNAL</i><i>MAP</i></div>
+ <div class="main"><div class="card chart"><h4>NVDA · 5m</h4><svg viewBox="0 0 300 100" preserveAspectRatio="none"><polyline fill="none" stroke="#00d4ff" stroke-width="1.5" points="0,80 30,70 60,74 90,50 120,56 150,36 180,44 210,28 240,34 270,18 300,22"/></svg></div>
+ <div class="card"><h4>Watchlist</h4><div class="row"><span>NVDA</span><b class="up">+1.2%</b></div><div class="row"><span>AMD</span><b class="dn">−0.8%</b></div><div class="row"><span>MU</span><b class="up">+0.3%</b></div></div>
+ <div class="card"><h4>Scanner</h4><div class="row"><span>TSLA gap-and-go</span><b>A</b></div><div class="row"><span>META flag</span><b>B+</b></div></div></div>
+ <div class="side"><div class="card"><h4>Pre-flight checklist</h4><div class="q done"><u></u>Check-in</div><div class="q done"><u></u>Plan set</div><div class="q"><u></u>Journal</div><h4 style="margin-top:12px">Loss-limit fuel</h4><div class="gauge"><i style="width:58%;background:#00d4ff"></i><i style="width:42%;background:#0b2a33"></i></div><h4 style="margin-top:12px">Commendations</h4><span class="badge">NO BREAKS ×9</span><span class="badge">5 GREEN WKS</span></div></div>
+ <div class="ticker">24/7 NEWS // headline one // headline two // headline three</div></div></section>
+
+<section class="stage" id="C"><div class="cap"><b>C · Daylight Quest.</b> Warm paper background, rounded cards, orange + green. Friendlier and calmer; progress is a journey bar, missions are tick circles. Dark variant would follow the existing theme toggle.</div>
+<div class="frame">
+ <div class="bar"><b style="font-size:18px">Trading Desk</b><span class="badge">Level 7 · Steady hand</span><div style="flex:1;min-width:160px"><div class="xp"><i style="width:64%"></i></div></div><span>🔥 9 days</span><span class="up">SPY +0.4%</span></div>
+ <div class="nav"><i class="on">Home</i><i>Morning</i><i>Scanner</i><i>Journal</i><i>Map</i></div>
+ <div class="main"><div class="card chart"><h4>NVDA · 5m</h4><svg viewBox="0 0 300 100" preserveAspectRatio="none"><polyline fill="none" stroke="#14935b" stroke-width="2" points="0,80 30,70 60,74 90,50 120,56 150,36 180,44 210,28 240,34 270,18 300,22"/></svg></div>
+ <div class="card"><h4>Watchlist</h4><div class="row"><span>NVDA</span><b class="up">+1.2%</b></div><div class="row"><span>AMD</span><b class="dn">−0.8%</b></div><div class="row"><span>MU</span><b class="up">+0.3%</b></div></div>
+ <div class="card"><h4>Scanner</h4><div class="row"><span>TSLA gap-and-go</span><b>A</b></div><div class="row"><span>META flag</span><b>B+</b></div></div></div>
+ <div class="side"><div class="card"><h4>Today’s quests</h4><div class="q done"><u></u>Check in</div><div class="q done"><u></u>Plan every trade</div><div class="q"><u></u>Journal the day</div><h4 style="margin-top:12px">Risk room left</h4><div class="gauge"><i style="width:58%;background:#14935b"></i><i style="width:42%;background:#f0e6d2"></i></div><h4 style="margin-top:12px">Trophies</h4><span class="badge">9 clean days</span><span class="badge">5 green weeks</span></div></div>
+ <div class="ticker">24/7 NEWS · headline one · headline two · headline three</div></div></section>
+<script>document.querySelectorAll('.pill').forEach(b=>b.onclick=()=>{document.querySelectorAll('.pill,.stage').forEach(e=>e.classList.remove('on'));b.classList.add('on');document.getElementById(b.dataset.t).classList.add('on')})</script>
+</body></html>
