@@ -1629,3 +1629,24 @@ body:has(.hw.dragging)::before { animation-play-state: paused; }
 .shell.focus { grid-template-columns: minmax(0, 1fr); }
 .focus-chip { position: fixed; right: 12px; bottom: 12px; z-index: 30; background: var(--panel); border: 1px solid var(--ember, var(--accent)); color: var(--accent); border-radius: 99px; padding: 4px 12px; font-size: 11px; cursor: pointer; opacity: .55; transition: opacity .2s; }
 .focus-chip:hover { opacity: 1; }
+
+/* movement watch: amber = theta is winning (quiet tape), teal = movement is beating theta; no up / down colours */
+.regime.mv.theta { color: var(--warn); } .regime.mv.move { color: #4ecdc4; } .regime.mv.mid { color: var(--muted); }
+.mv-wrap { position: relative; display: inline-flex; }
+.mv-pop { position: absolute; z-index: 40; top: calc(100% + 8px); left: 0; width: min(640px, 92vw); background: var(--panel); border: 1px solid var(--line-2); border-radius: 8px; box-shadow: var(--shadow); padding: 10px 12px; }
+.mv-h { display: flex; flex-direction: column; gap: 2px; margin-bottom: 8px; }
+.mv-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 8px; }
+.mv-cell { display: flex; flex-direction: column; gap: 2px; border: 1px solid var(--line); border-radius: 6px; padding: 7px 9px; background: var(--panel-2); }
+.mv-big { font-size: 17px; font-weight: 500; }
+.mv-theta { color: var(--warn); } .mv-move { color: #4ecdc4; }
+.mv-sec { margin: 10px 0 4px; font: 600 10.5px 'IBM Plex Mono', monospace; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.mv-decay { display: flex; gap: 14px; align-items: baseline; padding: 3px 0; }
+.mv-decay > .muted { width: 36px; }
+.mv-note { margin: 8px 0 0; }
+@media (max-width: 760px) { .regime.mv { display: inline-flex; } }
+
+/* side menu groups */
+.nav-group { display: flex; flex-direction: column; gap: 2px; }
+.nav-gh { display: flex; justify-content: space-between; align-items: center; padding: 8px 8px 2px; font: 600 10px 'IBM Plex Mono', monospace; letter-spacing: .1em; color: var(--faint); text-align: left; }
+.nav-gh:not(.static):hover { color: var(--text); }
+.nav:not(.compact) .nav-group + .nav-group { margin-top: 4px; }
