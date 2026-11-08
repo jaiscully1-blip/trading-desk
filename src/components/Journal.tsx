@@ -142,7 +142,7 @@ function TradeDetail({ v, update, remove, violations, onSelect, onReplay }: { v:
         </div>
         {t.thesis && <p className="td-thesis">{t.thesis}</p>}
         {t.checklist.length > 0 && (
-          <ul className="crit">{t.checklist.map((c, i) => <li key={i} className={`c-${c.auto}`}><span className="c-mark">☑</span><span>{c.label}</span><span className="small muted">{c.auto === 'na' ? 'no data' : `data: ${c.auto}`}</span><span /></li>)}</ul>
+          <ul className="crit">{t.checklist.map((c, i) => <li key={i} className={`c-${c.auto}`}><span className="c-mark">☑</span><span>{c.label}</span><span className="small muted">{c.auto === 'na' ? '' : `data: ${c.auto}`}</span><span /></li>)}</ul>
         )}
         {violations.length > 0 && <ul className="viol">{violations.map((x, i) => <li key={i}><b className="down small">{VIOLATION_LABEL[x.type]}</b><span className="small muted">{x.detail}</span><span className="num down">{usd(-x.cost)}</span></li>)}</ul>}
         <label className="td-notes">Notes<textarea rows={2} defaultValue={t.notes} onBlur={(e) => e.target.value !== (t.notes ?? '') && update((x) => ({ ...x, notes: e.target.value }))} /></label>

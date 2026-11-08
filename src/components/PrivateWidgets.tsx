@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { HomeData } from './HomeWidgets';
 import type { WbBalance, WbClosed, WbDay, WbFill, WbPosition } from '../../shared/webull';
-import type { DcMessage } from '../../shared/discord';
+import { cleanDiscord, type DcMessage } from '../../shared/discord';
 import { getDeskKey, privateFetch, privatePost, setDeskKey, usePrivate } from '../data/private';
 import type { WbOpenOrder } from '../../shared/webull';
 import { useDesk } from '../lib/deskctx';
@@ -284,7 +284,7 @@ export function DiscordW({ d, cfg, set }: P) {
         {msgs.map((m) => (
           <div key={m.id} className={`dc-m ch-${m.ch}`}>
             <div className="dc-mh"><b>{m.tom ? `Tom (${m.author})` : m.author}</b>{m.bot && <span className="tag">bot</span>}<span className="muted small">#{(data?.channels.find((c) => c.key === m.ch)?.name) ?? m.ch} · {new Date(m.t).toLocaleString('en-US', { timeZone: 'America/New_York', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}</span>{m.url && <a className="small" href={m.url} target="_blank" rel="noreferrer noopener">open</a>}</div>
-            <div className="dc-t">{m.text}</div>
+            <div className="dc-t">{cleanDiscord(m.text)}</div>
             {m.tickers.length > 0 && <div className="dc-tk">{m.tickers.map((s) => <button key={s} className="chip" onClick={() => d.onChart(s)}>{s}</button>)}</div>}
           </div>
         ))}

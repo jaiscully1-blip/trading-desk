@@ -278,12 +278,12 @@ export default function Home({ spaces, setSpaces, d, tickers }: { spaces: Worksp
           ))}
         </div>
         </div>
-        <div className="home-mm" title="Map of this workspace. Click to jump; drag empty space or use Shift + arrows to move around." style={{ width: MM_W, height: MM_H }}
+        {(scroll.x > 4 || scroll.y > 4 || layout.main.some((w) => (w.x + w.w) * (colW + GAP) > width + 4 || (w.y + w.h) * (ROW + GAP) > vh + 4)) && <div className="home-mm" title="Map of this workspace. Click to jump; drag empty space or use Shift + arrows to move around." style={{ width: MM_W, height: MM_H }}
           onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); panTo((e.clientX - r.left) / mmScale - width / 2, (e.clientY - r.top) / mmScale - vh / 2); }}>
           {layout.main.map((w) => <i key={w.id} className="home-mm-w" style={{ left: w.x * (colW + GAP) * mmScale, top: w.y * (ROW + GAP) * mmScale, width: Math.max(2, (w.w * colW + (w.w - 1) * GAP) * mmScale), height: Math.max(2, (w.h * ROW + (w.h - 1) * GAP) * mmScale) }} />)}
           <b className="home-mm-v" style={{ left: scroll.x * mmScale, top: scroll.y * mmScale, width: width * mmScale, height: vh * mmScale }} />
           {(scroll.x > 4 || scroll.y > 4) && <button className="home-mm-home" onClick={(e) => { e.stopPropagation(); panTo(0, 0); }} title="Back to the top-left">⌂</button>}
-        </div>
+        </div>}
       </div>
       <aside className="home-side" aria-label="Side bar">
         <div className="home-side-h"><b>SIDE BAR</b><span className="muted small">scroll · ⇤ to move back</span></div>

@@ -177,7 +177,7 @@ export function TradeTicket(p: TicketProps) {
             <label key={i} className={`ck ck-${it.auto}`}>
               <input type="checkbox" checked={!!ticks[i]} onChange={(e) => setTicks((t) => ({ ...t, [i]: e.target.checked }))} />
               <span>{it.label}</span>
-              <span className="ck-auto" title="What the scanner data says">{it.auto === 'pass' ? '✓ data' : it.auto === 'fail' ? '✗ data' : 'no data'}</span>
+              <span className="ck-auto" title="What the scanner data says">{it.auto === 'pass' ? '✓ data' : it.auto === 'fail' ? '✗ data' : ''}</span>
             </label>
           ))}
         </fieldset>
