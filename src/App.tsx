@@ -49,7 +49,7 @@ import { cloudConfigured, signIn, signOut, useCloudItems, useCloudSync, useCloud
 import { DEFAULT_THRESHOLDS, liveRow, rankRs, type ScanRow } from '../shared/scan';
 import { DEFAULT_PLAYBOOKS, gradeRow, type GradeResult, type Playbook, type SavedFilter } from './lib/playbook';
 import { CommandBar, NewsTicker, OverlayView, type Cmd } from './components/Bits';
-import { SideNav, type Page } from './components/SideNav';
+import { SideNav, pageGroup, type Page } from './components/SideNav';
 import { popout, Seg } from './components/common';
 import { PingStack, StarredList } from './components/Pings';
 import { Desk, type Article, type DeskCtx } from './lib/deskctx';
@@ -144,6 +144,7 @@ export default function App() {
   const [companySym, setCompanySym] = usePersisted<string>('companySym', 'NVDA');
   // Half-screen laptop windows: the watchlist folds away (press [ to show it) and the side menu shrinks to keys
   const narrow = useNarrow(1240);
+  const iconRail = useNarrow(1000); // below this the side menu becomes an icon rail; above it every page is named
   const [narrowLeft, setNarrowLeft] = useState(false);
   useLayoutEffect(() => { document.documentElement.dataset.theme = theme; }, [theme]);
   const [focus, setFocus] = useState(false);
@@ -798,9 +799,9 @@ export default function App() {
   }
   return (
     <Desk.Provider value={desk}>
-    <div className={`shell ${focus ? 'focus' : ''}`}>
+    <div className={`shell ${focus ? 'focus' : ''}`} data-group={pageGroup(page)}>
       {focus && <button className="focus-chip" onClick={toggleFocus} title="Bring the side bars back (Z)">Focus mode · Z to exit</button>}
-      <SideNav compact={narrow} page={page} onPage={setPage} onCmd={() => setCmdOpen(true)} onHelp={() => setOverlay('help')} onAccount={() => setDrawer((d) => !d)} />
+      <SideNav compact={iconRail} page={page} onPage={setPage} onCmd={() => setCmdOpen(true)} onHelp={() => setOverlay('help')} onAccount={() => setDrawer((d) => !d)} />
       <div className={`app ${layout.tickerOpen ? '' : 'no-ticker'} ${layout.fearOpen !== false ? 'has-fear' : ''}`}>
         <TopStrip
           movement={movement} vol={vol} moveStats={dayStats}
