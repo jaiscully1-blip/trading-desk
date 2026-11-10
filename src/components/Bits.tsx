@@ -158,6 +158,7 @@ export function OverlayView({ kind, onClose }: { kind: 'map' | 'globe' | 'help';
       ['B', 'Hide/show news ticker'],
       ['F', 'Hide/show fear strip'],
       ['A', 'Account drawer'],
+      ['Shift L', 'Strategy library: ideas by family, free-data verdict, launch buttons'],
       ['Shift J', 'Journal page: trades, stats, violations, CSV import (Replay from any trade)'],
       ['Ctrl K → /recap', 'Daily recap; /replay replays your last trade'],
       ['T', 'Terminal (dark) / paper (light) theme'],

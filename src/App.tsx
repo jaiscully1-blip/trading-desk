@@ -29,6 +29,7 @@ import { buildRecap, journalCsv, type Recap } from './lib/recap';
 import { useIdbState } from './lib/idb';
 import { DEFAULT_SETTINGS, etDay, guard, viewTrade, violations as findViolations, type AccountSettings, type CheckIn, type Trade, type Transfer } from './lib/journal';
 import { Scanner } from './components/Scanner';
+import { Strategies } from './components/Strategies';
 import { PlaybookEditor } from './components/Playbooks';
 import { useMovers, useScan, useUniverse } from './data/scan';
 import { useCalendar, useNews } from './data/news';
@@ -576,6 +577,7 @@ export default function App() {
     { id: 'fed', label: 'Fed meeting countdown and rate odds', run: () => setPage('calendar') },
     { id: 'earnings', label: 'Earnings calendar', run: () => setPage('calendar') },
     { id: 'fear', label: 'Show/hide fear strip', hint: 'F', run: () => setLayout({ fearOpen: layout.fearOpen === false }) },
+    { id: 'strategies', label: 'Strategy library: ideas by family, free-data verdict, launch pad', hint: 'Shift L', run: () => setPage('strategies') },
     { id: 'journal', label: 'Journal page (trades, stats, violations, import)', hint: 'Shift J', run: () => setPage('journal') },
     { id: 'ticket', label: 'Quick journal / trade ticket', hint: 'Q', run: () => setTab('journal') },
     { id: 'import', label: 'Import broker CSV', run: () => setPage('journal') },
@@ -626,6 +628,7 @@ export default function App() {
         l: () => setLayout({ levelsOpen: !layout.levelsOpen }),
         p: () => setPbOpen(true),
         J: () => setPage('journal'),
+        L: () => setPage('strategies'),
         '1': () => setTf('D'), '2': () => setTf('1H'), '3': () => setTf('5m'), '4': () => setTf('W'), '5': () => setTf('M'), '6': () => setTf('15m'),
         o: () => openCompany(sel),
         n: () => { setPage('desk'); setTab('news'); }, q: () => { setPage('desk'); setTab('journal'); }, r: () => { setPage('desk'); setTab('risk'); },
@@ -725,6 +728,8 @@ export default function App() {
   let body: ReactNode;
   if (page === 'scanner') {
     body = <div className="page page-split"><section className="panel rr"><div className="rr-body">{scanner}</div></section><div className="center">{chart()}</div></div>;
+  } else if (page === 'strategies') {
+    body = <div className="page"><Strategies onLaunch={(l) => { if (l.kind === 'scanner') { setFilterId(l.filterId); setPage('scanner'); } else if (l.kind === 'backtest') setPage('home'); else setPage(l.page); }} /></div>;
   } else if (page === 'calendar') {
     body = <div className="page page-split"><section className="panel cal-page"><Calendars cal={cal} now={now} onSelect={setSel} mySyms={new Set([...wlSyms, ...stars])} mode={dataMode} news={news.items} /></section><div className="center">{chart()}</div></div>;
   } else if (page === 'journal') {

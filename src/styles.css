@@ -1677,3 +1677,22 @@ body:has(.hw.dragging)::before { animation-play-state: paused; }
 .ei-when { color: var(--muted); }
 .ei-cap { text-align: right; }
 .ei-sec { margin: 10px 0 2px; font: 600 10.5px 'IBM Plex Mono', monospace; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+
+/* Strategy library page */
+.strat-page { overflow: auto; }
+.strat-body { padding: 10px 14px 20px; display: flex; flex-direction: column; gap: 10px; }
+.strat-warn { margin: 0; }
+.strat-filters { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.strat-free { margin-left: auto; display: inline-flex; gap: 5px; align-items: center; color: var(--muted); }
+.strat-fam h3 { margin: 8px 0 0; font-size: 13px; }
+.strat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 10px; margin-top: 6px; }
+.strat-card { border: 1px solid var(--line); border-radius: 6px; padding: 10px 12px; background: var(--panel-2); display: flex; flex-direction: column; gap: 6px; }
+.strat-card p { margin: 0; font-size: 12px; }
+.strat-top { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
+.strat-card dl { margin: 0; display: grid; grid-template-columns: 90px 1fr; gap: 3px 8px; font-size: 11.5px; }
+.strat-card dt { color: var(--muted); }
+.strat-card dd { margin: 0; }
+.strat-card .btn { align-self: flex-start; margin-top: auto; }
+.tag.strat-yes { color: var(--up); border-color: color-mix(in srgb, var(--up) 35%, transparent); }
+.tag.strat-partly { color: var(--warn); border-color: color-mix(in srgb, var(--warn) 35%, transparent); }
+.tag.strat-no { color: var(--down); border-color: color-mix(in srgb, var(--down) 35%, transparent); }

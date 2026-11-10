@@ -2,18 +2,19 @@
 // (the group holding the page you are on always stays open; the open / closed choice is remembered).
 import { usePersisted } from '../lib/store';
 
-export type Page = 'morning' | 'home' | 'messages' | 'desk' | 'patterns' | 'company' | 'scanner' | 'map' | 'flows' | 'smart' | 'etfs' | 'gamma' | 'odds' | 'journal' | 'calendar';
+export type Page = 'morning' | 'home' | 'messages' | 'desk' | 'patterns' | 'company' | 'scanner' | 'map' | 'flows' | 'smart' | 'etfs' | 'gamma' | 'odds' | 'journal' | 'calendar' | 'strategies';
 
 const P: Record<Page, { label: string; key: string }> = {
   morning: { label: 'MORNING', key: 'W' }, home: { label: 'HOME', key: 'H' }, messages: { label: 'MESSAGES', key: 'E' },
   desk: { label: 'DESK', key: 'D' }, patterns: { label: 'PATTERNS', key: 'X' }, company: { label: 'COMPANY', key: 'O' },
   scanner: { label: 'SCANNER', key: 'S' }, flows: { label: 'ROTATION', key: 'G' }, etfs: { label: 'ETFS & SECTORS', key: 'U' }, smart: { label: 'SMART MONEY', key: 'I' },
   gamma: { label: 'GAMMA & IV', key: 'V' }, map: { label: 'WORLD MAP', key: 'M' }, odds: { label: 'ECON ODDS', key: 'Y' }, calendar: { label: 'CALENDARS', key: 'C' },
+  strategies: { label: 'STRATEGIES', key: '⇧L' },
   journal: { label: 'JOURNAL', key: '⇧J' },
 };
 export const NAV_GROUPS: { id: string; label: string; pages: Page[] }[] = [
   { id: 'today', label: 'TODAY', pages: ['morning', 'home', 'messages'] },
-  { id: 'charts', label: 'CHARTS', pages: ['desk', 'patterns', 'company'] },
+  { id: 'charts', label: 'CHARTS', pages: ['desk', 'patterns', 'company', 'strategies'] },
   { id: 'scan', label: 'SCAN', pages: ['scanner', 'flows', 'etfs', 'smart'] },
   { id: 'flow', label: 'FLOW AND RISK', pages: ['gamma', 'map', 'odds', 'calendar'] },
   { id: 'journal', label: 'JOURNAL', pages: ['journal'] },
