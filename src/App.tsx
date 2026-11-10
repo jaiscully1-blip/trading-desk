@@ -50,7 +50,8 @@ import { cloudConfigured, signIn, signOut, useCloudItems, useCloudSync, useCloud
 import { DEFAULT_THRESHOLDS, liveRow, rankRs, type ScanRow } from '../shared/scan';
 import { DEFAULT_PLAYBOOKS, gradeRow, type GradeResult, type Playbook, type SavedFilter } from './lib/playbook';
 import { CommandBar, NewsTicker, OverlayView, type Cmd } from './components/Bits';
-import { SideNav, type Page } from './components/SideNav';
+import { SideNav, pageGroup, type Page } from './components/SideNav';
+import DataStatus from './components/DataStatus';
 import { popout, Seg } from './components/common';
 import { PingStack, StarredList } from './components/Pings';
 import { Desk, type Article, type DeskCtx } from './lib/deskctx';
@@ -145,6 +146,7 @@ export default function App() {
   const [companySym, setCompanySym] = usePersisted<string>('companySym', 'NVDA');
   // Half-screen laptop windows: the watchlist folds away (press [ to show it) and the side menu shrinks to keys
   const narrow = useNarrow(1240);
+  const iconRail = useNarrow(1000); // below this the side menu becomes an icon rail; above it every page is named
   const [narrowLeft, setNarrowLeft] = useState(false);
   useLayoutEffect(() => { document.documentElement.dataset.theme = theme; }, [theme]);
   const [focus, setFocus] = useState(false);
@@ -596,6 +598,7 @@ export default function App() {
     { id: 'etfs', label: 'ETFs & sectors: heatmap, ETF holdings, baskets', hint: 'U', run: () => setPage('etfs') },
     { id: 'smart', label: 'Smart money: 13F investors, ARK, politicians', hint: 'I', run: () => setPage('smart') },
     { id: 'odds', label: 'Economic odds (Fed, recession, CPI)', hint: 'Y', run: () => setPage('odds') },
+    { id: 'status', label: 'Data status: which sources are working or limited', hint: 'B', run: () => setPage('status') },
     { id: 'd', label: 'Chart: daily', hint: '1', run: () => setTf('D') },
     { id: '1h', label: 'Chart: 1-hour', hint: '2', run: () => setTf('1H') },
     { id: '5m', label: 'Chart: 5-minute', hint: '3', run: () => setTf('5m') },
@@ -620,7 +623,7 @@ export default function App() {
       if (e.key === 'Escape') { if (replayId) { setReplayId(null); return; } setCmdOpen(false); setOverlay(null); setDrawer(false); setPbOpen(false); setSyncOpen(false); setCiOpen(false); setRecapOpen(false); return; }
       if (cmdOpen || pbOpen || syncOpen || ciOpen || replayId || recapOpen || typing(e.target) || e.ctrlKey || e.metaKey || e.altKey) return;
       const map: Record<string, () => void> = {
-        w: () => setPage('morning'), v: () => setPage('gamma'), h: () => setPage('home'), e: () => setPage('messages'), d: () => setPage('desk'), x: () => setPage('patterns'), s: () => setPage('scanner'), m: () => setPage('map'), g: () => setPage('flows'), c: () => setPage('calendar'), u: () => setPage('etfs'), i: () => setPage('smart'), y: () => setPage('odds'),
+        w: () => setPage('morning'), v: () => setPage('gamma'), h: () => setPage('home'), e: () => setPage('messages'), d: () => setPage('desk'), x: () => setPage('patterns'), s: () => setPage('scanner'), m: () => setPage('map'), g: () => setPage('flows'), c: () => setPage('calendar'), u: () => setPage('etfs'), i: () => setPage('smart'), y: () => setPage('odds'), B: () => setPage('status'),
         '?': () => setOverlay((o) => (o === 'help' ? null : 'help')),
         t: toggleTheme,
         z: () => toggleFocus(),
@@ -767,6 +770,8 @@ export default function App() {
         <PatternLab mode={dataMode} theme={theme} symbols={[...wlSyms, ...universe]} demoLast={demoLast} onChart={toDesk} />
       </Suspense>
     );
+  } else if (page === 'status') {
+    body = <div className="page"><DataStatus mode={dataMode} /></div>;
   } else if (page === 'smart' || page === 'etfs' || page === 'odds') {
     body = (
       <div className="page">
@@ -803,9 +808,9 @@ export default function App() {
   }
   return (
     <Desk.Provider value={desk}>
-    <div className={`shell ${focus ? 'focus' : ''}`}>
+    <div className={`shell ${focus ? 'focus' : ''}`} data-group={pageGroup(page)}>
       {focus && <button className="focus-chip" onClick={toggleFocus} title="Bring the side bars back (Z)">Focus mode · Z to exit</button>}
-      <SideNav compact={narrow} page={page} onPage={setPage} onCmd={() => setCmdOpen(true)} onHelp={() => setOverlay('help')} onAccount={() => setDrawer((d) => !d)} />
+      <SideNav compact={iconRail} page={page} onPage={setPage} onCmd={() => setCmdOpen(true)} onHelp={() => setOverlay('help')} onAccount={() => setDrawer((d) => !d)} />
       <div className={`app ${layout.tickerOpen ? '' : 'no-ticker'} ${layout.fearOpen !== false ? 'has-fear' : ''}`}>
         <TopStrip
           movement={movement} vol={vol} moveStats={dayStats}

@@ -138,6 +138,22 @@ export function parseYahooChart(j: any): Bar[] {
   return out;
 }
 
+/** Intraday and multi-day bars from Yahoo's chart JSON; bar times are the exchange wall clock encoded as UTC (same as the other providers). */
+export function parseYahooBars(j: any, daily: boolean): Bar[] {
+  if (daily) return parseYahooChart(j);
+  const r = j?.chart?.result?.[0];
+  if (!r) throw new Error(String(j?.chart?.error?.description ?? 'no chart data'));
+  const ts: number[] = r.timestamp ?? [], q = r.indicators?.quote?.[0] ?? {};
+  const offset = Number(r.meta?.gmtoffset ?? 0);
+  const out: Bar[] = [];
+  ts.forEach((t, i) => {
+    const c = q.close?.[i];
+    if (c == null || !Number.isFinite(c)) return;
+    out.push({ time: t + offset, open: q.open?.[i] ?? c, high: q.high?.[i] ?? c, low: q.low?.[i] ?? c, close: c, volume: q.volume?.[i] ?? 0 });
+  });
+  return out;
+}
+
 /** The quadrant turns worth a ping: a sector starting to turn up, breaking into the lead, or losing steam / slipping. */
 export const PING_TURNS: Record<string, { text: string; tone: 'up' | 'down' }> = {
   'lagging>improving': { text: 'turning up: moved from Lagging to Improving (still behind SPY, gaining)', tone: 'up' },
