@@ -65,11 +65,23 @@ describe('/api/candles', () => {
     expect(j.bars.at(-1).close).toBe(754.35);
   });
 
-  it('has no free fallback for intraday (Alpha Vantage intraday and Finnhub candles are premium)', async () => {
+  it('intraday falls back to Yahoo only (Alpha Vantage intraday and Finnhub candles are premium)', async () => {
     routes.push((u) => (u.host === 'api.twelvedata.com' ? { status: 500, body: {} } : undefined));
     const r = await candles(req('/api/candles?symbol=SPY&tf=5m'));
     expect(r.status).toBe(503);
-    expect(calls.every((c) => c.startsWith('api.twelvedata.com'))).toBe(true);
+    expect(calls.every((c) => c.startsWith('api.twelvedata.com') || c.startsWith('query1.finance.yahoo.com'))).toBe(true);
+    expect(calls.some((c) => c.startsWith('query1.finance.yahoo.com'))).toBe(true);
+  });
+
+  it('uses Yahoo candles, labelled delayed and unofficial, when Twelve Data is rate limited', async () => {
+    const n = 40, t0 = 1_700_000_000, mk = (f: (i: number) => number) => Array.from({ length: n }, (_, i) => f(i));
+    routes.push((u) => (u.host === 'api.twelvedata.com' ? { status: 429, body: { code: 429, message: 'rate limited' } } : undefined));
+    routes.push((u) => (u.hostname === 'query1.finance.yahoo.com' ? { body: { chart: { result: [{ meta: { gmtoffset: -18000 }, timestamp: mk((i) => t0 + i * 300), indicators: { quote: [{ open: mk((i) => 100 + i), high: mk((i) => 101 + i), low: mk((i) => 99 + i), close: mk((i) => 100.5 + i), volume: mk(() => 500) }] } }] } } } : undefined));
+    const j = await (await candles(req('/api/candles?symbol=SPY&tf=5m'))).json();
+    expect(j.source).toBe('Yahoo Finance (unofficial)');
+    expect(j.freshness).toBe('delayed');
+    expect(j.bars).toHaveLength(40);
+    expect(j.bars[0].time).toBe(t0 - 18000); // exchange wall clock, same encoding as the other providers
   });
 
   it('serves the cached series once and does not refetch inside the TTL', async () => {
@@ -95,7 +107,7 @@ describe('/api/candles', () => {
     const syms = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
     const res = await Promise.all(syms.map((s) => candles(req(`/api/candles?symbol=${s}&tf=5m`))));
     expect(res.filter((r) => r.status === 200)).toHaveLength(7);
-    expect(calls).toHaveLength(7);
+    expect(calls.filter((c) => c.startsWith('api.twelvedata.com'))).toHaveLength(7); // the 8th goes to the backup, not to Twelve Data
   });
 });
 
