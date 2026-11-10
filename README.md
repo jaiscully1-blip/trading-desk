@@ -399,3 +399,20 @@ The desk is a public URL, so anything showing your own account is locked behind 
 - **Congress trades widget**: Alpha Vantage `CONGRESS_TRADES` per ticker, cached 12 h.
 - **World map**: when GDELT's GEO endpoint 404s, layers fall back to the DOC endpoint and place each headline by the place it names (`shared/places.ts`).
 - **Deep links**: `/$SPY` or `/nvda` opens that ticker on the desk.
+
+## Kronos forecast (experiment)
+
+An **optional** experiment, off the critical path. A free daily GitHub Action (`.github/workflows/kronos.yml`, weekdays after the close)
+runs the open-source [Kronos](https://github.com/shiyu-coder/Kronos) candlestick foundation model (MIT; weights `NeoQuasar/Kronos-mini`,
+4.1M parameters, MIT) on CPU for SPY, QQQ and the tickers in `agents/tickers.txt` (cap 8), and commits only `published/kronos.json`.
+The Home widget **Kronos forecast (experiment)** (widget library → Poker desk) reads it through `/api/research?fn=kronos`.
+
+- Bars: about a year of daily bars from Yahoo's public chart endpoint (no key). A bar still forming is never used.
+- Output: next 5 trading days as a **range** (10th–90th percentile of 12 sampled paths, median candle) and a **typical move size**,
+  not a bullish/bearish call. Always labelled `MODEL FORECAST, not data, not advice`.
+- **Scorecard:** each run keeps the earlier forecasts and real closes in the same file; the desk compares day-5 closes with what happened
+  (direction hit rate, average miss vs a "no change" guess, share inside the range, expected vs real move size). Under 20 scored days it says
+  "too early to judge". The paper's gains are the authors' own benchmarks; this is how you check them on your data.
+- Run it now: GitHub → Actions → **Kronos forecast** → Run workflow. Code: `agents/kronos/` (`run.py`, pure helpers in `summarize.py`
+  with `test_summarize.py`), shared types and scoring in `shared/kronos.ts`, tests in `tests/kronos.test.ts`.
+- Costs $0 (free Actions minutes, public weights). To remove it: delete the workflow, `agents/kronos/`, and the widget type.
