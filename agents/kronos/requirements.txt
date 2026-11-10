@@ -1,0 +1,7 @@
+# Pinned to what Kronos's own requirements.txt asks for (checked 2026-11-10); torch is installed CPU-only by the workflow.
+numpy
+pandas==2.2.2
+einops==0.8.1
+huggingface_hub==0.33.1
+safetensors==0.6.2
+tqdm==4.67.1

@@ -1,0 +1,59 @@
+# EXPERIMENT: Kronos (github.com/shiyu-coder/Kronos, MIT), an open-source candlestick foundation model, forecasts the next 5
+# trading days for SPY, QQQ and the tickers in agents/tickers.txt. CPU only, no keys, no paid service: free GitHub Actions
+# minutes, Yahoo's public chart data and public Hugging Face weights (Kronos-mini, 4.1M parameters).
+# It commits ONLY published/kronos.json, which the desk shows as "MODEL FORECAST, not data, not advice" with a scorecard.
+# Read-only research: nothing here can trade.
+name: Kronos forecast
+
+on:
+  schedule:
+    - cron: "45 21 * * 1-5"   # 21:45 UTC = 4:45 PM ET in winter (5:45 PM in summer), after the close and after TradingAgents starts
+  workflow_dispatch:
+    inputs:
+      tickers:
+        description: "Tickers (space or comma separated) added after SPY and QQQ. Empty = agents/tickers.txt"
+        required: false
+        default: ""
+
+permissions:
+  contents: write
+
+concurrency:
+  group: kronos
+  cancel-in-progress: false
+
+jobs:
+  forecast:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      TICKERS: ${{ github.event.inputs.tickers }}
+      SAMPLES: "12"
+      # Kronos code pinned to a reviewed commit (last code update Apr 2026); bump it on purpose, not automatically.
+      KRONOS_REV: 67b630e67f6a18c9e9be918d9b4337c960db1e9a
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: agents/kronos/requirements.txt
+      - name: Get Kronos at the pinned commit
+        run: |
+          git clone --quiet https://github.com/shiyu-coder/Kronos.git "$RUNNER_TEMP/Kronos"
+          git -C "$RUNNER_TEMP/Kronos" checkout --quiet "$KRONOS_REV"
+      - name: Install (CPU-only torch)
+        run: |
+          pip install --quiet torch --index-url https://download.pytorch.org/whl/cpu
+          pip install --quiet -r agents/kronos/requirements.txt
+      - name: Unit-test the plain helpers
+        run: python agents/kronos/test_summarize.py
+      - name: Forecast
+        run: KRONOS_DIR="$RUNNER_TEMP/Kronos" python agents/kronos/run.py
+      - name: Save results (only published/kronos.json)
+        run: |
+          git config user.name "kronos-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add published/kronos.json
+          git diff --cached --quiet || git commit -m "Kronos forecast $(date -u +%F)"
+          git pull --rebase --quiet && git push

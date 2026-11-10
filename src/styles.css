@@ -1677,3 +1677,15 @@ body:has(.hw.dragging)::before { animation-play-state: paused; }
 .ei-when { color: var(--muted); }
 .ei-cap { text-align: right; }
 .ei-sec { margin: 10px 0 2px; font: 600 10.5px 'IBM Plex Mono', monospace; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+
+/* Kronos forecast (experiment) */
+.kr { display: flex; flex-direction: column; overflow: auto; }
+.kr-flag { padding: 6px 10px; font-size: 10.5px; color: var(--warn); border-bottom: 1px solid var(--line); letter-spacing: .02em; }
+.kr-r { display: grid; grid-template-columns: 52px 150px minmax(0, 1fr); gap: 8px; align-items: center; padding: 7px 10px; border-bottom: 1px solid var(--line); }
+.kr-path { width: 150px; height: 40px; }
+.kr-band { fill: var(--muted); opacity: .22; }
+.kr-line { fill: none; stroke: var(--text); stroke-width: 1.5; }
+.kr-now { stroke: var(--line-2); stroke-dasharray: 2 2; }
+.kr-score { padding: 8px 10px; border-bottom: 1px solid var(--line); }
+.kr-score ul { margin: 4px 0 0; padding-left: 16px; }
+.kr-err { padding: 4px 10px; }
