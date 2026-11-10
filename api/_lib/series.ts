@@ -26,14 +26,15 @@ export async function loadSeries(symbol: string, tf: TF, opts: LoadOpts = {}) {
         try {
           const bars = await a.fetch(symbol, tf, opts.reserve ?? 0);
           if (!bars.length) throw new ProviderError(a.provider, 'empty series');
-          return { symbol, tf, bars, source: a.name, freshness: a.provider === 'alphavantage' ? 'eod' : 'live', asOf: Date.now() };
+          return { symbol, tf, bars, source: a.name, freshness: a.provider === 'alphavantage' ? 'eod' : a.provider === 'yahoo' ? 'delayed' : 'live', asOf: Date.now() };
         } catch (e) {
           tried.push((e as Error).message);
           if (e instanceof ProviderError) errs.push(e);
           last = e;
         }
       }
-      throw last ?? new Error('no adapter');
+      // name every provider that failed, primary first, so a missing key or a rate limit is never hidden behind the backup's error
+      throw tried.length ? new Error(tried.join(' · ')) : (last ?? new Error('no adapter'));
     });
     return { ok: true as const, ...r, life };
   } catch (e) {

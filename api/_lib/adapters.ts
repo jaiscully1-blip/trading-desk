@@ -1,6 +1,7 @@
 // Provider adapters. Each one fetches + normalizes. Swap or reorder them in the chains below.
 import type { Bar, MacroPoint, QuoteResult, TF } from '../../shared/types.js';
-import { isPlainTicker, parseAlphaMovers, parseFinnhubNews, parseFinnhubProfile, parseFinraShortInterest, type FinraSI, type Mover, type NewsItem } from '../../shared/parse.js';
+import { isPlainTicker, parseAlphaMovers, parseFinnhubNews, parseFinnhubProfile, parseFinraShortInterest, type FinraSI, type Mover, type NewsItem} from '../../shared/parse.js';
+import { parseYahooBars } from '../../shared/rotation.js';
 import { ProviderError, parseAlphaDaily, parseFinnhubQuote, parseFredLatest, parseFredSeries, parseTwelveQuote, parseTwelveSeries } from '../../shared/parse.js';
 import { getJson, key, take, type Provider } from './core.js';
 import { decode, parseFeed } from '../../shared/news.js';
@@ -53,8 +54,29 @@ export const alphaDaily: SeriesAdapter = {
   },
 };
 
-/** Candle chain. Finnhub is not here: its /stock/candle endpoint is not on the free plan. */
-export const SERIES_CHAIN: SeriesAdapter[] = [twelveSeries, alphaDaily];
+/** Yahoo's public chart endpoint as a candle backup (unofficial, no key): used when Twelve Data is limited or down. Regular-session bars only. */
+const YH_RANGE: Record<TF, { range: string; interval: string }> = {
+  '5m': { range: '10d', interval: '5m' }, '15m': { range: '1mo', interval: '15m' }, '1H': { range: '3mo', interval: '60m' },
+  D: { range: '3y', interval: '1d' }, W: { range: '5y', interval: '1wk' }, M: { range: '10y', interval: '1mo' },
+};
+export const yahooSeries: SeriesAdapter = {
+  name: 'Yahoo Finance (unofficial)',
+  provider: 'yahoo',
+  supports: () => true,
+  async fetch(symbol, tf) {
+    need('yahoo');
+    const { range, interval } = YH_RANGE[tf];
+    const y = symbol === 'BTC' || symbol === 'ETH' ? `${symbol}-USD` : symbol.replace('.', '-');
+    const j = await getJson(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(y)}?range=${range}&interval=${interval}`, 'yahoo', 10000, { headers: { 'user-agent': 'Mozilla/5.0 (trading-desk; personal use)' } });
+    const bars = parseYahooBars(j, tf === 'D' || tf === 'W' || tf === 'M');
+    if (bars.length < 5) throw new ProviderError('yahoo', 'short history');
+    return bars;
+  },
+};
+
+/** Candle chain: Twelve Data first, Yahoo second (any timeframe), Alpha Vantage last (daily only, 25 a day, about 100 bars).
+ *  Finnhub is not here: its /stock/candle endpoint is not on the free plan. */
+export const SERIES_CHAIN: SeriesAdapter[] = [twelveSeries, yahooSeries, alphaDaily];
 
 export interface QuoteAdapter {
   name: string;
