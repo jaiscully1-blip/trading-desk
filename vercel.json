@@ -9,7 +9,7 @@
       "destination": "/index.html"
     }
   ],
-  "ignoreCommand": "git diff --quiet HEAD^ HEAD -- . ':(exclude)agents/out'",
+  "ignoreCommand": "git diff --quiet HEAD^ HEAD -- . ':(exclude)agents/out' ':(exclude)published'",
   "headers": [
     {
       "source": "/(.*)",

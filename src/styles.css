@@ -1754,3 +1754,11 @@ body:has(.hw.dragging)::before { animation-play-state: paused; }
 .rc-msg { margin: 8px 0 0; display: flex; gap: 6px; align-items: center; }
 .rc-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .rc-card .card { min-width: 104px; }
+
+/* company page: AI read states, who-the-customers-are note, quoted fallback */
+.co-ai-fail { margin: 6px 0; padding: 8px 10px; border: 1px solid color-mix(in srgb, var(--warn) 45%, transparent); border-radius: 6px; background: var(--warn-bg); display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.co-base { margin: 6px 0; }
+.co-quotes { margin: 8px 0; border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; background: var(--panel-2); }
+.co-quotes-h { font-size: 12px; font-weight: 600; display: flex; gap: 8px; align-items: center; margin-bottom: 6px; }
+.co-quotes blockquote { margin: 6px 0; padding-left: 10px; border-left: 2px solid var(--line-2); font-size: 12.5px; line-height: 1.5; display: flex; flex-direction: column; gap: 2px; }
+.sc-node.nolink text.sc-n2 { font-style: italic; }

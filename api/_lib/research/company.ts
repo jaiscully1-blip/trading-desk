@@ -1,6 +1,6 @@
 // GET /api/company?symbol=NVDA -> company page: profile, peers, latest annual report, and (with a free Gemini key)
 // products / suppliers / customers / competitors read from that report. Each report is read once and cached ~30 days.
-import { GEMINI_SCHEMA, cleanCoName, cleanFacts, geminiPrompt, htmlToText, latestAnnual, latestShares, parseSecTickers, secProfile, tenKExcerpt, type CompanyFacts, type SecTicker } from '../../../shared/company.js';
+import { GEMINI_SCHEMA, cleanCoName, cleanFacts, geminiPrompt, htmlToText, latestAnnual, latestShares, parseSecTickers, secProfile, tenKExcerpt, type CompanyFacts, type SecTicker, filingQuotes } from '../../../shared/company.js';
 import { COMPANIES } from '../../../shared/data/companies.js';
 import { QUOTE_CHAIN, finnhubPeers, finnhubProfile, geminiJson, secJson, secText, wikiSummary } from '../adapters.js';
 import { getCached } from '../core.js';
@@ -43,13 +43,21 @@ export async function GET(req: Request): Promise<Response> {
   let facts: CompanyFacts | null = null, model: string | null = null;
   const factsKey = filing ? `facts:${filing.url}` : '';
   const factsReady = !!(factsKey && getCached(factsKey));
-  if (filing && hasKey('gemini') && (!quick || factsReady)) {
-    const r = await safe('gemini', async () => (await cached(factsKey, 30 * 86400, async () => {
-      const text = htmlToText(await secText(filing.url));
-      const out = await geminiJson(geminiPrompt(name, sym, tenKExcerpt(text)), GEMINI_SCHEMA);
-      return { facts: cleanFacts(out.data, sym, tickers as SecTicker[]), model: out.model };
-    })).val);
-    if (r) { facts = r.facts; model = r.model; }
+  // the filing text is read once and kept (excerpt only), so a failed AI read does not cost another SEC download and the
+  // filing's own sentences about customers and suppliers are available with no AI at all
+  let quotes: { customers: string[]; suppliers: string[] } | null = null;
+  if (filing && (!quick || factsReady || getCached(`excerpt:${filing.url}`))) {
+    const excerpt = await safe('filing', async () => (await cached(`excerpt:${filing.url}`, 30 * 86400, async () => tenKExcerpt(htmlToText(await secText(filing.url))))).val);
+    if (excerpt) {
+      quotes = filingQuotes(excerpt);
+      if (hasKey('gemini')) {
+        const r = await safe('gemini', async () => (await cached(factsKey, 30 * 86400, async () => {
+          const out = await geminiJson(geminiPrompt(name, sym, excerpt), GEMINI_SCHEMA);
+          return { facts: cleanFacts(out.data, sym, tickers as SecTicker[]), model: out.model };
+        })).val);
+        if (r) { facts = r.facts; model = r.model; }
+      }
+    }
   }
   const wiki = !facts?.summary ? await safe('wikipedia', async () => (await cached(`wiki:${name}`, 7 * 86400, () => wikiSummary(name))).val) : null;
   // peers from Finnhub get names from the SEC list so the diagram can label them
@@ -69,7 +77,8 @@ export async function GET(req: Request): Promise<Response> {
   if (errors.profile && /429/.test(errors.profile) && about.industry && about.exchange) delete errors.profile;
   const pending = !!(quick && filing && hasKey('gemini') && !facts);
   return json(
-    { sym, name, profile, about, peers: peerLinks, filing, facts, model, wiki, gemini: hasKey('gemini'), pending, errors, asOf: Date.now() },
-    { sMaxAge: facts ? 86400 : pending ? 0 : 600, swr: 7 * 86400 },
+    { sym, name, profile, about, peers: peerLinks, filing, facts, model, quotes, wiki, gemini: hasKey('gemini'), pending, errors, asOf: Date.now() },
+    // a failed AI read must not sit on the CDN: only a complete answer is cached for long
+    { sMaxAge: facts ? 86400 : pending || errors.gemini || errors.filing ? 0 : 600, swr: facts ? 7 * 86400 : 0 },
   );
 }

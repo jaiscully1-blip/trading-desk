@@ -1,7 +1,7 @@
 // Company page: turn a 10-K into the parts an AI reads (business, MD&A, customer/supplier sentences),
 // and clean the AI's answer into a supply-chain graph with verified tickers. Pure functions (tested).
 
-export interface ChainLink { name: string; sym?: string; what?: string; share?: string }
+export interface ChainLink { name: string; sym?: string; what?: string; share?: string; /** a kind of buyer or supplier (e.g. "consumers"), not a named company */ category?: boolean }
 export interface Product { name: string; share?: string; note?: string }
 export interface CompanyFacts {
   summary: string;
@@ -10,6 +10,10 @@ export interface CompanyFacts {
   customers: ChainLink[];
   competitors: ChainLink[];
   fiscalYear?: string;
+  /** who buys, in the report's words, when it names no customer companies (e.g. sells to consumers) */
+  customerBase?: string;
+  /** where inputs come from, in the report's words, when it names no supplier companies */
+  supplyBase?: string;
 }
 export interface SecTicker { cik: number; ticker: string; title: string }
 
@@ -63,6 +67,8 @@ Return JSON with:
 - suppliers: companies the text names as suppliers, manufacturers, foundries, licensors or key vendors; "what" = what they supply.
 - customers: companies the text names as customers or distributors; "share" = % of revenue if stated. If the report only says "Customer A", use that label.
 - competitors: companies the text names as competitors.
+- customerBase: ONE short phrase, in the report's own words, for who buys from the company (for example "consumers, through company-owned stores and online", "automakers", "government agencies"). Always fill this in if the text says who the buyers are.
+- supplyBase: ONE short phrase, in the report's own words, for where key inputs come from if no supplier is named (for example "multiple suppliers worldwide; some single-source components").
 - fiscalYear: the fiscal year the report covers.
 Use exact company names from the text. Leave a list empty rather than guessing.
 
@@ -74,6 +80,8 @@ export const GEMINI_SCHEMA = {
   properties: {
     summary: { type: 'STRING' },
     fiscalYear: { type: 'STRING' },
+    customerBase: { type: 'STRING' },
+    supplyBase: { type: 'STRING' },
     products: { type: 'ARRAY', items: { type: 'OBJECT', properties: { name: { type: 'STRING' }, share: { type: 'STRING' }, note: { type: 'STRING' } }, required: ['name'] } },
     suppliers: { type: 'ARRAY', items: { type: 'OBJECT', properties: { name: { type: 'STRING' }, what: { type: 'STRING' } }, required: ['name'] } },
     customers: { type: 'ARRAY', items: { type: 'OBJECT', properties: { name: { type: 'STRING' }, what: { type: 'STRING' }, share: { type: 'STRING' } }, required: ['name'] } },
@@ -135,6 +143,8 @@ export function cleanFacts(raw: any, self: string, list: SecTicker[]): CompanyFa
     suppliers: links(raw?.suppliers, 12),
     customers: links(raw?.customers, 12),
     competitors: links(raw?.competitors, 12),
+    customerBase: s(raw?.customerBase, 140),
+    supplyBase: s(raw?.supplyBase, 140),
   };
 }
 
@@ -192,4 +202,19 @@ export function latestShares(j: any): { shares: number; asOf: string } | null {
   let total = 0;
   for (const r of byFrame) { const k = `${r.accn}|${r.val}`; if (seen.has(k)) continue; seen.add(k); total += Number(r.val) || 0; }
   return total > 0 ? { shares: total, asOf: last } : null;
+}
+
+/** Sentences from the 10-K itself about customer concentration and supplier dependence, quoted as written. No AI: a keyword match,
+ *  shown as the fallback when the AI read is unavailable. Returns at most two sentences per side. */
+export function filingQuotes(text: string): { customers: string[]; suppliers: string[] } {
+  const sentences = text.split(/(?<=[.!?])\s+/).map((x) => x.replace(/\s+/g, ' ').trim()).filter((x) => x.length > 40 && x.length < 420 && !/^==/.test(x));
+  const pick = (re: RegExp, not?: RegExp) => {
+    const out: string[] = [];
+    for (const x of sentences) { if (re.test(x) && !(not && not.test(x)) && !out.includes(x)) out.push(x); if (out.length >= 2) break; }
+    return out;
+  };
+  return {
+    customers: pick(/\bno (single )?customer\b[^.]*\b(accounted|represented|comprised)\b|\bcustomers?\b[^.]*\b(accounted for|represented)\b[^.]*\d+(\.\d+)?\s?%|\bsell\b[^.]*\b(directly to|to) (consumers|customers|retailers|distributors|businesses)\b/i),
+    suppliers: pick(/\b(sole|single|limited)[- ]source(d)?\b|\b(rely|depend|dependent) (on|upon)\b[^.]*\b(suppliers?|manufacturers?|foundr(y|ies)|vendors?)\b|\bpurchase[sd]?\b[^.]*\bfrom (a limited number of|third[- ]party) (suppliers|manufacturers)\b/i, /\bcustomers? (rely|depend)/i),
+  };
 }
