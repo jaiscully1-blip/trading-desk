@@ -1,4 +1,6 @@
-import { useState } from 'react';
+import type { DataMode } from '../data/live';
+import type { NewsItem } from '../../shared/news';
+import { EarnIpoPanel } from './EarnIpo';
 import type { CalendarState } from '../data/news';
 import { nextFomc } from '../data/news';
 import { FOMC } from '../../shared/calendar';
@@ -7,8 +9,7 @@ import { Fresh } from './common';
 
 const dow = (d: string) => new Date(`${d}T12:00:00Z`).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' });
 
-export function Calendars({ cal, now, onSelect, mySyms }: { cal: CalendarState | null; now: number; onSelect: (s: string) => void; mySyms: Set<string> }) {
-  const [earnView, setEarnView] = useState<'mine' | 'week'>('mine');
+export function Calendars({ cal, now, onSelect, mySyms, mode, news }: { cal: CalendarState | null; now: number; onSelect: (s: string) => void; mySyms: Set<string>; mode: DataMode; news: NewsItem[] }) {
   const f = nextFomc(now);
   const fomcAt = f ? etToUtc(+f.date.slice(0, 4), +f.date.slice(5, 7), +f.date.slice(8, 10), 14, 0) : null;
   const fr = cal?.freshness ?? 'pending';
@@ -52,32 +53,8 @@ export function Calendars({ cal, now, onSelect, mySyms }: { cal: CalendarState |
       </section>
 
       <section className="cal-sec">
-        <h4>Earnings
-          <span className="chips">
-            <button className={`chip sm ${earnView === 'mine' ? 'on' : ''}`} onClick={() => setEarnView('mine')}>My tickers</button>
-            <button className={`chip sm ${earnView === 'week' ? 'on' : ''}`} onClick={() => setEarnView('week')}>Next 7 days</button>
-          </span>
-          <Fresh kind={cal?.earnings ? fr : errs.earnings ? 'nodata' : fr === 'demo' ? 'demo' : 'pending'} src="Alpha Vantage earnings calendar (3 months)" />
-        </h4>
-        {cal?.earnings?.[earnView].slice(0, 60).map((e) => (
-          <div key={e.sym + e.date} className="econ">
-            <span className="num small">{dow(e.date)}</span>
-            <span className="small muted">{e.when === 'pre-market' ? 'BMO' : e.when === 'post-market' ? 'AMC' : ''}</span>
-            <button className={`wl-sym ${mySyms.has(e.sym) ? 'mine' : ''}`} onClick={() => onSelect(e.sym)}>{e.sym}</button>
-            <span className="small muted econ-u">{e.name}{e.estimate != null ? ` · est ${e.estimate}` : ''}</span>
-          </div>
-        ))}
-        {cal?.earnings && !cal.earnings[earnView].length && <p className="muted small">None.</p>}
-        {!cal?.earnings && <p className="muted small">{errs.earnings ?? 'Loading…'}</p>}
-      </section>
-
-      <section className="cal-sec">
-        <h4>IPOs <Fresh kind={cal?.ipos ? fr : errs.ipos ? 'nodata' : fr === 'demo' ? 'demo' : 'pending'} src="Alpha Vantage IPO calendar" /></h4>
-        {cal?.ipos?.slice(0, 20).map((i) => (
-          <div key={i.sym + i.date} className="econ"><span className="num small">{dow(i.date)}</span><b>{i.sym}</b><span className="small muted econ-u">{i.name} · {i.exchange}{i.low ? ` · $${i.low}${i.high ? `–${i.high}` : ''}` : ''}</span></div>
-        ))}
-        {cal?.ipos && !cal.ipos.length && <p className="muted small">No IPOs scheduled in the next 3 months.</p>}
-        {!cal?.ipos && errs.ipos && <p className="muted small">Unavailable: {errs.ipos}</p>}
+        <h4>Earnings and IPOs</h4>
+        <EarnIpoPanel mode={mode} mySyms={mySyms} news={news} onSelect={onSelect} />
         <h4>Lockup expiries <Fresh kind="unavailable" /></h4>
         <p className="muted small">No free source publishes lockup expiry dates.</p>
       </section>

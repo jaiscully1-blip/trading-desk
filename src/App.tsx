@@ -686,7 +686,7 @@ export default function App() {
   const rightProps = {
     tab: layout.tab, onTab: setTab, quotes, boards, sel, onSelect: setSel, addSym,
     newsFilter, setNewsFilter, scanner, journal: journalSlot, risk: riskSlot, news,
-    calendar: <Calendars cal={cal} now={now} onSelect={setSel} mySyms={new Set(wlSyms)} />,
+    calendar: <Calendars cal={cal} now={now} onSelect={setSel} mySyms={new Set([...wlSyms, ...stars])} mode={dataMode} news={news.items} />,
   };
   const chart = (onPopout?: () => void) => (
     <ChartPanel mode={dataMode}
@@ -726,7 +726,7 @@ export default function App() {
   if (page === 'scanner') {
     body = <div className="page page-split"><section className="panel rr"><div className="rr-body">{scanner}</div></section><div className="center">{chart()}</div></div>;
   } else if (page === 'calendar') {
-    body = <div className="page page-split"><section className="panel cal-page"><Calendars cal={cal} now={now} onSelect={setSel} mySyms={new Set(wlSyms)} /></section><div className="center">{chart()}</div></div>;
+    body = <div className="page page-split"><section className="panel cal-page"><Calendars cal={cal} now={now} onSelect={setSel} mySyms={new Set([...wlSyms, ...stars])} mode={dataMode} news={news.items} /></section><div className="center">{chart()}</div></div>;
   } else if (page === 'journal') {
     body = <div className="page"><JournalOverlay views={views} setTrades={setTrades} transfers={transfers} setTransfers={setTransfers} onAutoStart={(t) => setSettings((s) => (s.startBalance == null ? { ...s, startBalance: 0, startDate: t } : s))} violations={viols} lastPx={lastPx} settings={settings} onClose={() => setPage('desk')} onSelect={toDesk} onReplay={setReplayId} canSample={!live} /></div>;
   } else if (page === 'messages') {

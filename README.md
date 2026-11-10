@@ -130,6 +130,15 @@ for charts) and then refreshes daily bars hourly. Each ticker costs about 8 cred
 - **Alpha Vantage budget (25/day):** movers hourly in session (~7), put/call every 2h (~4), earnings + IPO calendars twice a day,
   leaving room for the daily-candle fallback.
 
+## Earnings and IPO calendar (Calendars page + Home widget "Earnings and IPOs")
+
+`/api/research?fn=eventcal` (no new function). Earnings for the next ~9 trading days and yesterday, by day with the biggest companies first, timing
+(before open / after close), consensus EPS, and actual EPS with beat / miss once Finnhub records it. IPOs: upcoming, priced (last 3 weeks), filed
+(registered, no date yet) and withdrawn. IPO news: fresh SEC EDGAR S-1 and 424B4 filings (needs `SEC_USER_AGENT`) plus IPO headlines from the desk's own news feeds.
+Sources, all free: Nasdaq's public calendar JSON (unofficial, no key, personal use, cached 30 min to 6 h), Finnhub earnings and IPO calendars (`FINNHUB_API_KEY`),
+SEC EDGAR; Alpha Vantage's IPO calendar is a last resort only. A failing source is named at the bottom of the panel instead of hiding the rest.
+Live data only: nothing is shown in demo mode. Lockup expiries have no free source.
+
 ## Replay and daily recap (M6)
 
 - **Replay** (journal → a trade → "Replay with ghost exit", or `/replay` for the last trade): plays the trade bar by bar on the finest

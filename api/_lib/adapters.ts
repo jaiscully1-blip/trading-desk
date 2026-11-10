@@ -507,3 +507,30 @@ export async function xOembed(url: string): Promise<{ html: string; author?: str
   if (!j?.html) throw new ProviderError('wikipedia', 'X returned no embed for this link');
   return { html: String(j.html), author: j.author_name };
 }
+
+
+/* ---------------- earnings and IPO calendars (Nasdaq public JSON, Finnhub, SEC EDGAR) ---------------- */
+const NQ_HEADERS = { 'user-agent': 'Mozilla/5.0 (trading-desk; personal use)', accept: 'application/json, text/plain, */*', origin: 'https://www.nasdaq.com', referer: 'https://www.nasdaq.com/' };
+/** Nasdaq's public earnings calendar for one day (unofficial endpoint, no key). */
+export async function nasdaqEarnings(date: string): Promise<any> {
+  const j = await getJson(`https://api.nasdaq.com/api/calendar/earnings?date=${date}`, 'nasdaq', 10000, { headers: NQ_HEADERS });
+  if (j?.status?.rCode && j.status.rCode !== 200) throw new ProviderError('nasdaq', String(j.status?.bCodeMessage?.[0]?.errorMessage ?? 'unexpected earnings response'));
+  return j;
+}
+/** Nasdaq's public IPO calendar for one month (YYYY-MM): upcoming, priced, filed, withdrawn. */
+export async function nasdaqIpo(month: string): Promise<any> {
+  const j = await getJson(`https://api.nasdaq.com/api/ipo/calendar?date=${month}`, 'nasdaq', 10000, { headers: NQ_HEADERS });
+  if (!j?.data) throw new ProviderError('nasdaq', 'unexpected IPO response');
+  return j;
+}
+/** Finnhub IPO calendar (free). */
+export async function finnhubIpos(from: string, to: string): Promise<any> {
+  need('finnhub');
+  const j = await getJson(`https://finnhub.io/api/v1/calendar/ipo?from=${from}&to=${to}&token=${key('finnhub')}`, 'finnhub', 12000);
+  if (!Array.isArray(j?.ipoCalendar)) throw new ProviderError('finnhub', String(j?.error ?? 'unexpected IPO response'));
+  return j;
+}
+/** SEC EDGAR "current filings" Atom feed for one form type (S-1 = IPO registration, 424B4 = final prospectus after pricing). */
+export async function edgarCurrent(form: string): Promise<string> {
+  return secText(`https://www.sec.gov/cgi-bin/browse-edgar?action=getcurrent&type=${encodeURIComponent(form)}&company=&dateb=&owner=include&count=40&output=atom`, 15000);
+}
