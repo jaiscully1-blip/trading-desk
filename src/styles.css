@@ -1662,3 +1662,18 @@ body:has(.hw.dragging)::before { animation-play-state: paused; }
 .mw-calc { margin-left: 6px; }
 
 .mv-few { opacity: .5; }
+
+/* earnings and IPO calendar */
+.ei-days { display: flex; flex-wrap: wrap; gap: 4px; padding: 4px 10px; align-items: center; }
+.ei-only { margin-left: auto; }
+.ei-list { padding: 0 10px 8px; }
+.ei-row { display: grid; grid-template-columns: 64px minmax(0, 1.6fr) 84px minmax(0, 1.2fr) 74px 64px; gap: 8px; align-items: baseline; padding: 4px 0; border-bottom: 1px solid var(--line); font-size: 12px; }
+.ei-ipo { grid-template-columns: 54px 62px minmax(0, 1.8fr) 90px 80px 76px; }
+.ei-filing { grid-template-columns: 58px minmax(0, 1fr) 56px; }
+.ei.compact .ei-row { grid-template-columns: 56px minmax(0, 1.3fr) 76px minmax(0, 1fr) 64px; }
+.ei.compact .ei-cap, .ei.compact .ei-name.small { display: none; }
+.ei.compact .ei-ipo { grid-template-columns: 48px 56px minmax(0, 1fr) 70px 64px; }
+.ei-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; text-align: left; }
+.ei-when { color: var(--muted); }
+.ei-cap { text-align: right; }
+.ei-sec { margin: 10px 0 2px; font: 600 10.5px 'IBM Plex Mono', monospace; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
