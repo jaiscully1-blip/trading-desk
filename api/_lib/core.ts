@@ -71,6 +71,21 @@ const LIMITS: Record<Provider, { perMin: number; perDay: number }> = {
 const hits: Record<string, number[]> = {};
 const dayCount: Record<string, { day: string; n: number }> = {};
 
+/* ---------- provider health (per serverless instance): what the Data status page shows ---------- */
+const health: Record<string, { lastOk?: number; lastError?: string; lastErrorAt?: number }> = {};
+export const noteOk = (p: Provider) => { (health[p] ??= {}).lastOk = Date.now(); };
+export const noteError = (p: Provider, msg: string) => { const h = (health[p] ??= {}); h.lastError = msg.slice(0, 200); h.lastErrorAt = Date.now(); };
+export const healthOf = (p: Provider) => health[p] ?? {};
+/** requests used in the last minute and today, and the limits this instance enforces */
+export function usageOf(p: Provider, now = Date.now()) {
+  const lim = LIMITS[p];
+  const min = (hits[p] ?? []).filter((t) => now - t < 60_000).length;
+  const day = new Date(now).toISOString().slice(0, 10);
+  return { min: { used: min, limit: lim.perMin }, day: { used: dayCount[p]?.day === day ? dayCount[p].n : 0, limit: lim.perDay } };
+}
+export const allProviders = (): Provider[] => Object.keys(LIMITS) as Provider[];
+
+
 /** @param reserve credits to leave free this minute for higher-priority callers (charts/levels) */
 export function take(p: Provider, cost = 1, now = Date.now(), reserve = 0): boolean {
   const lim = LIMITS[p];
@@ -135,10 +150,14 @@ export async function getJson(url: string, provider: Provider, timeoutMs = 8000,
       throw new ProviderError(provider, `HTTP ${r.status} ${body.slice(0, 120)}`, false, true);
     }
     if (!r.ok) throw new ProviderError(provider, `HTTP ${r.status}`, r.status >= 500);
-    return await r.json();
+    const out = await r.json();
+    noteOk(provider);
+    return out;
   } catch (e) {
-    if (e instanceof ProviderError) throw e;
-    throw new ProviderError(provider, (e as Error).name === 'AbortError' ? 'timeout' : (e as Error).message, true);
+    if (e instanceof ProviderError) { noteError(provider, e.message); throw e; }
+    const pe = new ProviderError(provider, (e as Error).name === 'AbortError' ? 'timeout' : (e as Error).message, true);
+    noteError(provider, pe.message);
+    throw pe;
   } finally {
     clearTimeout(t);
   }
