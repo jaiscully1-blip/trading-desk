@@ -25,7 +25,7 @@ import { AccountDrawer, JournalOverlay } from './components/Journal';
 import { ReplayOverlay } from './components/Replay';
 import { RecapOverlay, download } from './components/Recap';
 import { DEFAULT_RULES, type ExitRules } from './lib/replay';
-import { buildRecap, journalCsv, type Recap } from './lib/recap';
+import { buildRecap, journalCsv, liveRecaps, type Recap } from './lib/recap';
 import { useIdbState } from './lib/idb';
 import { DEFAULT_SETTINGS, etDay, guard, viewTrade, violations as findViolations, type AccountSettings, type CheckIn, type Trade, type Transfer } from './lib/journal';
 import { Scanner } from './components/Scanner';
@@ -429,6 +429,8 @@ export default function App() {
     if (r && et(now).sod < clk.closeSod) setRecaps((x) => [...x.filter((y) => y.day !== today), { ...r, partial: true, lesson: `(Day in progress) ${r.lesson}` }]);
     setRecapOpen(today);
   };
+  // what the recap overlay shows: rebuilt from the journal as it is now, so a CSV added late updates that day's card
+  const shownRecaps = useMemo(() => liveRecaps(recaps, views, viols, today, checkin, et(now).sod < clk.closeSod), [recaps, views, viols, today, checkin, Math.floor(now / 60_000)]); // eslint-disable-line react-hooks/exhaustive-deps
   const replayView = replayId ? views.find((v) => v.t.id === replayId) : undefined;
 
   /* ---------------- level alerts (touch / break) ---------------- */
@@ -826,7 +828,8 @@ export default function App() {
         allowAny={live ? (s) => SYMBOL_RE.test(s) : undefined}
       />
       <AccountDrawer open={drawer} onClose={() => setDrawer(false)} theme={theme} views={views} transfers={liveTransfers} settings={settings} setSettings={setSettings} guard={g} onImport={() => { setDrawer(false); setPage('journal'); }} />
-      {recapOpen !== false && <RecapOverlay recaps={recaps} initialDay={recapOpen || undefined} onClose={() => setRecapOpen(false)} onReplay={setReplayId} csvFor={csvFor} />}
+      {recapOpen !== false && <RecapOverlay recaps={shownRecaps} initialDay={recapOpen || undefined} onClose={() => setRecapOpen(false)} onReplay={setReplayId} csvFor={csvFor}
+        importDeps={{ setTrades, setTransfers, settings, onAutoStart: (t) => setSettings((s) => (s.startBalance == null ? { ...s, startBalance: 0, startDate: t } : s)) }} onOpenImport={() => { setRecapOpen(false); save('journalTab', 'import'); setPage('journal'); }} />}
       {replayView && <ReplayOverlay v={replayView} live={live} theme={theme} rules={exitRules} setRules={setExitRules} onClose={() => setReplayId(null)} />}
       {ciOpen && <CheckInDialog day={today} existing={checkin} onClose={() => setCiOpen(false)} onSave={(c) => { setCheckins((x) => [...x.filter((y) => y.day !== c.day), c]); setCiOpen(false); }} />}
       {pbOpen && <PlaybookEditor playbooks={playbooks} setPlaybooks={setPlaybooks} activeId={activePb?.id ?? ''} setActiveId={(id) => setScanPrefs((x) => ({ ...x, playbookId: id }))} rows={rows} vwap={vwapBy} onClose={() => setPbOpen(false)} />}

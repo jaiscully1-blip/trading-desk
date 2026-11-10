@@ -1748,3 +1748,9 @@ body:has(.hw.dragging)::before { animation-play-state: paused; }
 .ds-pill.ok { color: var(--up); } .ds-pill.limited { color: var(--warn); } .ds-pill.error { color: var(--down); } .ds-pill.no-key, .ds-pill.idle { color: var(--muted); }
 .ds-err { display: block; margin-top: 2px; }
 .ds-limited, .ds-error { background: color-mix(in srgb, var(--warn) 7%, transparent); }
+
+/* daily recap: hint line and action feedback */
+.rc-hint { margin: 0 0 4px; color: var(--muted); }
+.rc-msg { margin: 8px 0 0; display: flex; gap: 6px; align-items: center; }
+.rc-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.rc-card .card { min-width: 104px; }

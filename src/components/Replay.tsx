@@ -57,7 +57,7 @@ export function ReplayOverlay({ v, live, theme, rules, setRules, onClose }: {
     let stop = false;
     (async () => {
       if (!live || t.demo) { setData({ bars: syntheticBars(v), tf: '5m', fresh: 'demo', src: 'Synthetic path through your real fill prices (preview)' }); return; }
-      const get = async (tf: TF) => { const r = await fetch(`/api/candles?symbol=${t.sym}&tf=${tf}`); const j = await r.json(); return r.ok ? (j.bars as Bar[]) : null; };
+      const get = async (tf: TF) => { const r = await fetch(`/api/candles?symbol=${encodeURIComponent(t.opt?.root ?? t.sym)}&tf=${tf}`); const j = await r.json(); return r.ok ? (j.bars as Bar[]) : null; };
       try {
         const b5 = await get('5m');
         const first = (bs: Bar[] | null) => (bs?.length ? bs[0].time : null);

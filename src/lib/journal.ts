@@ -136,10 +136,15 @@ export function unrealized(v: TradeView, last: number | undefined): number {
 
 /** $ at risk to the current stop on what's still open (0 once the stop locks in profit). */
 export function openRisk(v: TradeView, last?: number): number {
-  if (v.status !== 'open' || v.t.stop == null) return v.status === 'open' ? Infinity : 0;
+  if (v.status !== 'open') return 0;
+  const m = v.t.mult ?? 1;
+  if (v.t.stop == null) {
+    // a long option can lose at most the premium paid, so that is its risk when no stop is set; anything else without a stop is unbounded
+    return v.t.opt && v.t.side === 'long' && v.avgEntry != null ? v.avgEntry * v.openQty * m : Infinity;
+  }
   const ref = last != null && Number.isFinite(last) ? last : v.avgEntry ?? v.t.stop;
   const s = sgn(v.t.side);
-  return Math.max(0, s * (ref - v.t.stop)) * v.openQty;
+  return Math.max(0, s * (ref - v.t.stop)) * v.openQty * m;
 }
 
 /* ---------------- stats ---------------- */
@@ -228,7 +233,7 @@ export function guard(views: TradeView[], transfers: Transfer[], s: AccountSetti
   const cooldownUntil = streak >= s.cooldownAfterLosses && lastLoss ? lastLoss + s.cooldownMin * 60_000 : null;
 
   const maxLoss = (s.maxDailyLossPct / 100) * startOfDay;
-  const locked = startOfDay > 0 && -todayRealized >= maxLoss;
+  const locked = startOfDay > 0 && maxLoss > 0 && -todayRealized >= maxLoss; // a limit of 0 means "no limit set", not "locked from the first second"
   const lockout: Guard['lockout'] = locked ? 'Locked' : cooldownUntil && now < cooldownUntil ? 'Cooldown' : 'Clear';
   return {
     equity, startOfDay, todayRealized, todayUnrealized, rToday,

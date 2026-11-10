@@ -160,7 +160,9 @@ export function toFills(rows: string[][], m: Mapping): ParseResult<ParsedFill> {
   rows.slice(1).forEach((r, i) => {
     const get = (k: FillField) => (c[k] != null ? r[c[k]!] ?? '' : '');
     const status = get('status');
-    if (status && !/fill|executed|complete/i.test(status)) return skipped.push({ row: i + 2, why: `status ${status}` });
+    // skip unfilled orders, but keep a cancelled or expired order that was partly filled (its filled quantity is real)
+    const partFilled = /cancel|expire|partial/i.test(status) && Math.abs(money(get('qty'))) > 0 && Math.abs(money(get('price'))) > 0 && c.qty != null && /fill/i.test(String(rows[0]?.[c.qty] ?? ''));
+    if (status && !/fill|executed|complete/i.test(status) && !partFilled) return skipped.push({ row: i + 2, why: `status ${status}` });
     const symRaw = get('symbol'), desc = get('desc');
     const plain = symRaw.toUpperCase().replace(/^[-.]/, '').trim();
     // an option contract code, or a stock ticker whose row describes an option (Robinhood)
@@ -220,7 +222,28 @@ export function mergeFills(trades: Trade[], fills: ParsedFill[], now = Date.now(
   const bySym = new Map<string, ParsedFill[]>();
   for (const f of fresh) bySym.set(f.sym, [...(bySym.get(f.sym) ?? []), f]);
 
-  for (const [sym, fs] of bySym) {
+  for (const [sym, all] of bySym) {
+    // A position that is still open from an earlier file takes the new fills first (the exit usually arrives in a later export).
+    // Without this the exit became its own "short" trade and the original stayed open for ever.
+    let fs = [...all].sort((a, b) => a.t - b.t);
+    const carry = out
+      .filter((t) => !t.deleted && t.sym === sym && t.fills.some((f) => f.src === 'csv'))
+      .map((t) => ({ t, pos: t.fills.reduce((a, f) => a + (f.action === 'buy' ? f.qty : -f.qty), 0), first: Math.min(...t.fills.map((f) => f.t)) }))
+      .filter((x) => Math.abs(x.pos) > 1e-9)
+      .sort((a, b) => a.first - b.first)[0];
+    if (carry) {
+      let p = carry.pos;
+      const take: ParsedFill[] = [], rest: ParsedFill[] = [];
+      for (const f of fs) {
+        if (Math.abs(p) > 1e-9 && f.t >= carry.first) { take.push(f); p += f.action === 'buy' ? f.qty : -f.qty; } else rest.push(f);
+      }
+      if (take.length) {
+        carry.t.fills = [...carry.t.fills, ...take.map(({ sym: _s, mult: _m, opt: _o, ...f }) => f)];
+        carry.t.updated = now;
+        matched++;
+        fs = rest;
+      }
+    }
     // split into round trips
     let pos = 0;
     let cur: ParsedFill[] = [];
