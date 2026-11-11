@@ -405,7 +405,9 @@ export default function App() {
   const chartSeries = useMemo(() => patch(selTf, sel, seriesTf), [patch, selTf, sel, seriesTf]);
 
   /* ---------------- journal + account + guardrails ---------------- */
-  const views = useMemo(() => trades.filter((t) => !t.deleted).map(viewTrade), [trades]);
+  // rebuilt when trades change and once a minute, so an option that has just expired closes at $0 without a reload
+  const nowMin = Math.floor(now / 60_000);
+  const views = useMemo(() => trades.filter((t) => !t.deleted).map((t) => viewTrade(t, { now: nowMin * 60_000 })), [trades, nowMin]);
   const liveTransfers = useMemo(() => transfers.filter((t) => !t.deleted), [transfers]);
   const lastPx = useCallback((s: string) => { const x = quotes[s]?.last; return Number.isFinite(x) ? x : undefined; }, [quotes]);
   const g = useMemo(() => guard(views, liveTransfers, settings, now, lastPx), [views, liveTransfers, settings, now, lastPx]);

@@ -79,12 +79,21 @@ export interface TradeView {
   risk: number | null; // initial $ risk = |avgEntry - initialStop| x maxQty
   r: number | null; // realized / risk (closed trades)
   events: RealizedEvent[];
+  /** an option still open after its expiry was closed at $0 by the desk (no closing fill was logged or imported) */
+  assumedExpired?: boolean;
 }
 
 const sgn = (s: Side) => (s === 'long' ? 1 : -1);
 
-/** Average-cost position math. Fills that would flip the position are clipped at flat. */
-export function viewTrade(t: Trade): TradeView {
+/** Close of an option's expiry day: 16:00 New York, taken as 21:00 UTC (an hour early in summer time, which only makes the close sooner). */
+export const expiryCloseMs = (expiry: string) => Date.parse(`${expiry}T21:00:00Z`);
+
+/** Average-cost position math. Fills that would flip the position are clipped at flat.
+ *  An option still open after its expiry is closed at $0 ("assumed expired worthless"): an in-the-money option may have been
+ *  exercised or sold instead, which only a logged or imported fill can show. */
+export function viewTrade(t: Trade, opts?: { now?: number } | number): TradeView {
+  // an object, so `trades.map(viewTrade)` (which passes the array index second) can never be read as a time
+  const now = typeof opts === 'object' && opts?.now != null ? opts.now : Date.now();
   const s = sgn(t.side), m = t.mult ?? 1;
   const fills = [...t.fills].sort((a, b) => a.t - b.t);
   let pos = 0, cost = 0, maxQty = 0, fees = 0, exitQty = 0, exitVal = 0;
@@ -112,13 +121,21 @@ export function viewTrade(t: Trade): TradeView {
       if (pos === 0) closedAt = f.t;
     }
   }
+  let assumedExpired = false;
+  const expMs = t.opt?.expiry ? expiryCloseMs(t.opt.expiry) : NaN;
+  if (pos > 0 && Number.isFinite(expMs) && now > expMs && fills.length && fills[fills.length - 1].t <= expMs + 3 * 86400_000) {
+    const avg = cost / pos;
+    events.push({ t: expMs, pnl: s * (0 - avg) * pos * m, qty: pos, tradeId: t.id });
+    exitQty += pos; // exit value adds 0
+    pos = 0; cost = 0; closedAt = expMs; assumedExpired = true;
+  }
   const avgEntry = entryQty ? entryVal / entryQty : null;
   const realized = events.reduce((a, e) => a + e.pnl, 0) - fills.filter((f) => (f.action === 'buy') === (s === 1)).reduce((a, f) => a + (f.fee ?? 0), 0);
   const risk = avgEntry != null && t.initialStop != null && maxQty > 0 ? Math.abs(avgEntry - t.initialStop) * maxQty * m : null;
   const status = !fills.length ? 'planned' : pos > 0 ? 'open' : 'closed';
   return {
     t, status, openQty: pos, maxQty, avgEntry, avgExit: exitQty ? exitVal / exitQty : null, openedAt, closedAt: status === 'closed' ? closedAt : null,
-    realized, fees, risk, r: status === 'closed' && risk ? realized / risk : null, events,
+    realized, fees, risk, r: status === 'closed' && risk ? realized / risk : null, events, ...(assumedExpired ? { assumedExpired } : {}),
   };
 }
 
@@ -212,12 +229,14 @@ export function guard(views: TradeView[], transfers: Transfer[], s: AccountSetti
   const start = s.startBalance ?? 0;
   const today = etDay(now);
   let before = 0, todayRealized = 0, rToday = 0;
+  // the starting balance already includes every trade and transfer before its start date, so those are not added again
+  const from = s.startBalance != null && s.startDate != null ? s.startDate : -Infinity;
   for (const v of views) for (const e of v.events) {
-    if (e.t > now) continue;
+    if (e.t > now || e.t < from) continue;
     if (etDay(e.t) === today) { todayRealized += e.pnl; if (v.risk) rToday += e.pnl / v.risk; } else before += e.pnl;
   }
   let tr = 0;
-  for (const t of transfers) if (!t.deleted && t.t <= now) tr += t.amount;
+  for (const t of transfers) if (!t.deleted && t.t <= now && t.t >= from) tr += t.amount;
   const startOfDay = start + before + tr;
   const open = views.filter((v) => v.status === 'open' && (v.openedAt ?? 0) <= now);
   const todayUnrealized = open.reduce((a, v) => a + unrealized(v, lastPx(v.t.sym)), 0);

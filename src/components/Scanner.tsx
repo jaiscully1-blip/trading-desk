@@ -182,16 +182,16 @@ function Detail({ r, g }: { r: ScanRow; g?: GradeResult }) {
       <div className="kv sc-kv">
         <span>Last</span><b className="num">{px(r.last)}</b>
         <span>RS 5/20/60</span><b className="num">{[r.rs5, r.rs20, r.rs60].map((x) => (x == null ? '—' : x.toFixed(1))).join(' / ')}</b>
-        <span>20D / 50D avg</span><b className="num">{b.sma20?.toFixed(2) ?? '—'} / {b.sma50?.toFixed(2) ?? '—'}</b>
-        <span>52W high</span><b className="num">{b.hi252?.toFixed(2) ?? '—'}</b>
-        <span>ATR %</span><b className="num">{r.atrPct?.toFixed(1) ?? '—'}</b>
-        <span>Vol 5D/20D</span><b className="num">{Number.isFinite(r.volTrend) ? `${r.volTrend.toFixed(2)}x` : '—'}</b>
-        <span>Short interest</span>
+        {(b.sma20 != null || b.sma50 != null) && <><span>20D / 50D avg</span><b className="num">{b.sma20?.toFixed(2) ?? '—'} / {b.sma50?.toFixed(2) ?? '—'}</b></>}
+        {b.hi252 != null && <><span>52W high</span><b className="num">{b.hi252.toFixed(2)}</b></>}
+        {r.atrPct != null && <><span>ATR %</span><b className="num">{r.atrPct.toFixed(1)}</b></>}
+        {Number.isFinite(r.volTrend) && <><span>Vol 5D/20D</span><b className="num">{r.volTrend.toFixed(2)}x</b></>}
+        {b.si !== undefined && <><span>Short interest</span>
         <b className="num">
-          {b.si === undefined ? 'n/a' : b.si === null ? 'not reported' : `${(b.si.shares / 1e6).toFixed(1)}M sh · ${b.si.daysToCover.toFixed(1)} days${b.si.pctOut != null ? ` · ${b.si.pctOut.toFixed(1)}% of shares out` : ''}`}
-        </b>
+          {b.si === null ? 'not reported' : `${(b.si.shares / 1e6).toFixed(1)}M sh · ${b.si.daysToCover.toFixed(1)} days${b.si.pctOut != null ? ` · ${b.si.pctOut.toFixed(1)}% of shares out` : ''}`}
+        </b></>}
         {b.si && <><span>SI settled</span><b className="num">{b.si.settlementDate}</b></>}
-        <span>Catalyst</span><b>{b.catalyst === undefined ? 'n/a' : b.catalyst?.count ? `${b.catalyst.latest}${b.catalyst.latestAt ? ` (${etTime(b.catalyst.latestAt)} ET)` : ''}` : 'none in 24h'}</b>
+        {b.catalyst !== undefined && <><span>Catalyst</span><b>{b.catalyst?.count ? `${b.catalyst.latest}${b.catalyst.latestAt ? ` (${etTime(b.catalyst.latestAt)} ET)` : ''}` : 'none in 24h'}</b></>}
         {r.bullFlag.ok && <><span>Bull flag</span><b>{r.bullFlag.detail} · trigger {r.bullFlag.trigger?.toFixed(2)}</b></>}
         {r.cupHandle.ok && <><span>Cup &amp; handle</span><b>{r.cupHandle.detail} · pivot {r.cupHandle.trigger?.toFixed(2)}</b></>}
       </div>

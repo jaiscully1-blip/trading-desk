@@ -69,8 +69,8 @@ function Row({ id, cols }: { id: LevelId; cols: LevelCol[] }) {
       {cols.map((c) => {
         const l = c.levels.find((x) => x.id === id);
         if (!l || l.value == null) {
-          const why = l?.status === 'unavailable' ? 'free tier: n/a' : l?.status === 'forming' ? 'forming' : c.error ? 'no data' : '—';
-          return <div key={c.sym} className="lv-c muted small">{why}</div>;
+          const why = l?.status === 'unavailable' ? 'Not available on the free data tier' : l?.status === 'forming' ? 'forming' : c.error ? 'no data' : '';
+          return <div key={c.sym} className="lv-c muted small" title={why || undefined}>{l?.status === 'forming' ? 'forming' : ''}</div>;
         }
         // nearest level gets highlighted
         const nearest = c.levels.filter((x) => x.value != null).sort((a, b) => Math.abs(c.last - a.value!) - Math.abs(c.last - b.value!))[0]?.id === id;

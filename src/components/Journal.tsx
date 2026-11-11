@@ -99,7 +99,7 @@ function Trades(p: JournalProps) {
                     <td>{t.emotion ?? '—'}</td>
                     <td className="num">{v.maxQty || t.plannedSize || '—'}</td>
                     <td className="num">{v.avgEntry ? px(v.avgEntry) : '—'}</td>
-                    <td className="num">{v.avgExit ? px(v.avgExit) : v.status === 'open' ? <span className="muted">open</span> : '—'}</td>
+                    <td className="num">{v.assumedExpired ? <span className="tag warn" title="Still open after its expiry, so the desk closed it at $0. If it was exercised or sold, import or log that fill and this goes away.">expired $0</span> : v.avgExit ? px(v.avgExit) : v.status === 'open' ? <span className="muted">open</span> : '—'}</td>
                     <td className={`num ${tone(v.realized + u)}`}>{v.status === 'open' && lp == null && !v.realized ? <span className="muted small" title="No live quote for this contract, so the open P&L is not shown">open</span> : sUsd(v.realized + u)}{v.status === 'open' && lp != null && <span className="muted small"> u</span>}</td>
                     <td className={`num ${tone(v.r ?? 0)}`}>{r2(v.r)}</td>
                     <td className="jn-flags">

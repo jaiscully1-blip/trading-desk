@@ -55,8 +55,6 @@ export function Calendars({ cal, now, onSelect, mySyms, mode, news }: { cal: Cal
       <section className="cal-sec">
         <h4>Earnings and IPOs</h4>
         <EarnIpoPanel mode={mode} mySyms={mySyms} news={news} onSelect={onSelect} />
-        <h4>Lockup expiries <Fresh kind="unavailable" /></h4>
-        <p className="muted small">No free source publishes lockup expiry dates.</p>
       </section>
     </div>
   );
