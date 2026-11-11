@@ -1,3 +1,5 @@
+# PAUSED (Nov 11, 2026, owner's choice): the schedule below is commented out, so nothing runs on its own. To turn alerts on,
+# remove the # in front of the two schedule lines, add the NTFY_TOPIC secret, and push. Manual runs (Actions tab) still work.
 # Phone alerts while the desk is closed: every ~10 minutes in US market hours, checks alerts/tickers.txt for big moves and
 # breaks of yesterday's high or low (Yahoo prices, unofficial, delayed) and pushes them to the free ntfy app.
 # Secrets: NTFY_TOPIC (a long random topic name you subscribe to in the ntfy app). Optional: ALERT_MOVE_PCT, DESK_URL.
@@ -5,8 +7,8 @@
 name: Alerts
 
 on:
-  schedule:
-    - cron: "*/10 13-21 * * 1-5"   # UTC; the script itself checks 9:30-16:00 New York time (GitHub may start runs a few minutes late)
+  # schedule:
+  #   - cron: "*/10 13-21 * * 1-5"   # UTC; the script itself checks 9:30-16:00 New York time (GitHub may start runs a few minutes late)
   workflow_dispatch:
     inputs:
       force:

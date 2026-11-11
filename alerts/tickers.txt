@@ -1,3 +1,4 @@
+# PAUSED: phone alerts are switched off for now (see .github/workflows/alerts.yml). This list is kept for when they come back.
 # Tickers for phone alerts while the desk is closed (one per line, # starts a comment).
 # The Alerts Action reads this every ~10 minutes in market hours: a 4% move (and 8%), or a break of yesterday's high or low,
 # sends one push to the ntfy app. Each alert fires at most once a day. Up to 40 tickers. Information only, nothing trades.

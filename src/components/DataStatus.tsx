@@ -12,9 +12,10 @@ function PhoneAlerts({ on }: { on: boolean }) {
   const test = async () => { setMsg('Sending…'); const r = await privatePost({ fn: 'notify-test' }, {}); setMsg(r.ok ? 'Sent. Check your phone.' : String(r.j?.error ?? `HTTP ${r.status}`)); };
   return (
     <div className="pa-card">
-      <h4>Phone alerts while the desk is closed <span className={`ds-pill ${on ? 'ok' : 'no-key'}`}><i />{on ? 'Set up' : 'Not set up'}</span></h4>
+      <h4>Phone alerts while the desk is closed <span className="ds-pill idle"><i />Paused</span></h4>
+      <p className="small muted">Paused for now by choice: the market-hours check is switched off in <code>.github/workflows/alerts.yml</code>. Everything below is ready for when you want it back.</p>
       <p className="small">Every ~10 minutes in market hours a GitHub Action checks the tickers in <code>alerts/tickers.txt</code> and pushes to the free <a href="https://ntfy.sh" target="_blank" rel="noreferrer noopener">ntfy</a> app: a 4% and 8% move, or a break of yesterday's high or low, each once a day. The nightly distress read also pushes when a name on that list changes label. Only tickers and prices are sent. Information only: nothing trades.</p>
-      {!on && <ol className="small"><li>Install ntfy on your phone and subscribe to a long random topic name (it works like a password).</li><li>Add that name as <code>NTFY_TOPIC</code> in Vercel and as a GitHub Actions secret. Optional repo variables: <code>DESK_URL</code>, <code>ALERT_MOVE_PCT</code>.</li><li>Redeploy, then press Send test.</li></ol>}
+      {!on && <ol className="small muted"><li>Install ntfy on your phone and subscribe to a long random topic name (it works like a password).</li><li>Add that name as <code>NTFY_TOPIC</code> in Vercel and as a GitHub Actions secret. Optional repo variables: <code>DESK_URL</code>, <code>ALERT_MOVE_PCT</code>.</li><li>Redeploy, then press Send test.</li></ol>}
       <button className="btn sm" onClick={test}>Send test</button> <span className="small muted">{msg}</span>
     </div>
   );
