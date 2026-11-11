@@ -23,6 +23,7 @@ import { SMART_ROUTES } from './_lib/research/smart.js';
 import { GET as eventcal } from './_lib/research/eventcal.js';
 import { GET as status } from './_lib/research/status.js';
 import { GET as distress } from './_lib/research/distress.js';
+import { POST as notifyTest } from './_lib/research/notify-test.js';
 import { MARKET_ROUTES } from './_lib/research/markets.js';
 import { cached, json } from './_lib/core.js';
 import { finnhubCryptoNews, finnhubMetrics, finnhubRecs, frameCheck, xOembed } from './_lib/adapters.js';
@@ -75,7 +76,7 @@ export async function GET(req: Request): Promise<Response> {
   return h ? h(req) : json({ error: `unknown fn; use one of ${Object.keys(ROUTES).join(', ')}` }, { status: 404 });
 }
 
-const POSTS: Record<string, (req: Request) => Promise<Response>> = { csvmap, 'webull-order': webullOrderPost };
+const POSTS: Record<string, (req: Request) => Promise<Response>> = { csvmap, 'webull-order': webullOrderPost, 'notify-test': notifyTest };
 export async function POST(req: Request): Promise<Response> {
   const fn = new URL(req.url).searchParams.get('fn') ?? '';
   const h = POSTS[fn];

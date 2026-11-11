@@ -1,0 +1,44 @@
+# Phone alerts while the desk is closed: every ~10 minutes in US market hours, checks alerts/tickers.txt for big moves and
+# breaks of yesterday's high or low (Yahoo prices, unofficial, delayed) and pushes them to the free ntfy app.
+# Secrets: NTFY_TOPIC (a long random topic name you subscribe to in the ntfy app). Optional: ALERT_MOVE_PCT, DESK_URL.
+# Commits nothing; what was already sent today is kept in the Actions cache. Information only: nothing here can trade.
+name: Alerts
+
+on:
+  schedule:
+    - cron: "*/10 13-21 * * 1-5"   # UTC; the script itself checks 9:30-16:00 New York time (GitHub may start runs a few minutes late)
+  workflow_dispatch:
+    inputs:
+      force:
+        description: "Run even if the market is closed (for a test)"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+concurrency:
+  group: alerts
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - uses: actions/cache@v4
+        with:
+          path: .alerts-state.json
+          key: alerts-${{ github.run_id }}
+          restore-keys: alerts-
+      - name: Check and send
+        env:
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+          ALERT_MOVE_PCT: ${{ vars.ALERT_MOVE_PCT }}
+          DESK_URL: ${{ vars.DESK_URL }}
+          FORCE: ${{ github.event.inputs.force }}
+        run: npx --yes tsx@4.19.2 scripts/alerts-run.ts

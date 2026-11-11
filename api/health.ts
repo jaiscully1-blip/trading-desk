@@ -14,7 +14,7 @@ export async function GET(): Promise<Response> {
       alpaca: hasKey('alpaca'),
     },
     // private panels (set or not; values never leave the server)
-    private: { password: !!process.env.DESK_PASSWORD, webull: !!(process.env.WEBULL_APP_KEY && process.env.WEBULL_APP_SECRET), discord: !!process.env.DISCORD_BOT_TOKEN, claude: !!process.env.ANTHROPIC_API_KEY },
+    private: { password: !!process.env.DESK_PASSWORD, webull: !!(process.env.WEBULL_APP_KEY && process.env.WEBULL_APP_SECRET), discord: !!process.env.DISCORD_BOT_TOKEN, claude: !!process.env.ANTHROPIC_API_KEY, alerts: !!process.env.NTFY_TOPIC },
     extendedHours: false, // Twelve Data pre/post-market data needs the Pro plan
   }, { sMaxAge: 300, swr: 3600 });
 }

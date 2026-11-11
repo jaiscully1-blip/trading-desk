@@ -11,6 +11,7 @@ export interface Health {
   ok: boolean;
   providers: Record<'twelvedata' | 'finnhub' | 'alphavantage' | 'fred', boolean> & { sec?: boolean; gemini?: boolean; alpaca?: boolean };
   extendedHours: boolean;
+  private?: { password?: boolean; webull?: boolean; discord?: boolean; claude?: boolean; alerts?: boolean };
 }
 export type DataMode = { kind: 'checking' } | { kind: 'demo'; reason: string } | { kind: 'live'; health: Health };
 

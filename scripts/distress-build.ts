@@ -1,7 +1,10 @@
 // Nightly distress read for the S&P 500 + Nasdaq-100 (+ agents/tickers.txt). Writes published/distress.json, which the desk
 // reads through /api/research?fn=distress. Run by .github/workflows/distress.yml, or by hand:
 //   SEC_USER_AGENT="your-app contact@example.com" npx --yes tsx@4.19.2 scripts/distress-build.ts
-// Optional env: FINNHUB_API_KEY (company news; Yahoo RSS is used without it), GEMINI_API_KEY (short summaries for the 20 most-flagged names),
+// Also: state WARN layoff notices (Big Local News consolidated file) and open-job counts from public Greenhouse / Lever / Ashby boards,
+// whose history is kept in published/hiring.json (one point per company per day).
+// Optional env: FINNHUB_API_KEY (company news; Yahoo RSS is used without it), GEMINI_API_KEY (short summaries for the 20 most-flagged names,
+// written by Gemma first, which has a much larger free allowance than Gemini Flash),
 // LIMIT=50 (first N tickers only, for a quick test), INPUTS_OUT=path (save the gathered inputs), INPUTS_IN=path (re-score saved inputs
 // without fetching anything, for tuning the scoring). Free sources only; every part that fails is named in `errors`. Nothing here can trade.
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
@@ -10,6 +13,7 @@ import { COMPANIES } from '../shared/data/companies.js';
 import { parseSecTickers } from '../shared/company.js';
 import { parseForm4, type InsiderTx } from '../shared/insider.js';
 import { priceStats, rollup, scoreCompany, stateOf, type DistressFile, type DistressInput, type DistressRow, type GoingConcern, type NewsHit } from '../shared/distress.js';
+import { EMPTY_HIRING, WARN_CSV, WARN_SRC, boardApi, countJobs, jobsAgg, matchWarn, parseWarn, pushHistory, sameCompany, slugCandidates, warnAgg, warnByState, type Board, type HiringFile, type JobsAgg, type StateLayoffs, type WarnAgg } from '../shared/labor.js';
 import { ANNUAL, GC_PHRASES, INSTANT, QUARTER, eftsUrl, finFromFrames, framePeriods, frameUrl, fromSubmissions, insiderAgg, parseEfts, parseFinraShort, parseFrame, parseSpark, parseYahooRss, tagNews, yahooSym, type FrameMap } from '../shared/distressGather.js';
 
 const UA = process.env.SEC_USER_AGENT;
@@ -25,16 +29,16 @@ let secNext = 0;
 async function sec(url: string, as: 'json' | 'text' = 'json'): Promise<any> {
   const wait = secNext - Date.now(); secNext = Math.max(Date.now(), secNext) + 170; if (wait > 0) await sleep(wait);
   for (let a = 0; a < 3; a++) {
-    const r = await fetch(url, { headers: { 'user-agent': UA!, 'accept-encoding': 'gzip, deflate' } }).catch((e) => e as Error);
+    const r = await fetch(url, { headers: { 'user-agent': UA!, 'accept-encoding': 'gzip, deflate' }, signal: AbortSignal.timeout(25000) }).catch((e) => e as Error);
     if (r instanceof Error) { if (a === 2) throw r; await sleep(1500); continue; }
     if (r.status === 429 || r.status >= 500) { await sleep(2000 * (a + 1)); continue; }
     if (!r.ok) throw new Error(`HTTP ${r.status} ${url.slice(0, 80)}`);
-    return as === 'json' ? r.json() : r.text();
+    try { return await (as === 'json' ? r.json() : r.text()); } catch (e) { if (a === 2) throw e; await sleep(1500); }
   }
   throw new Error(`gave up ${url.slice(0, 80)}`);
 }
 async function web(url: string, as: 'json' | 'text' = 'json'): Promise<any> {
-  const r = await fetch(url, { headers: { 'user-agent': 'Mozilla/5.0 (trading-desk; personal research)' } });
+  const r = await fetch(url, { headers: { 'user-agent': 'Mozilla/5.0 (trading-desk; personal research)' }, signal: AbortSignal.timeout(30000) });
   if (!r.ok) throw new Error(`HTTP ${r.status}`);
   return as === 'json' ? r.json() : r.text();
 }
@@ -50,7 +54,7 @@ const universe = [...COMPANIES.map((c) => ({ sym: c[0], name: c[1], sector: c[2]
   ...extras.filter((s) => !known.has(s)).map((s) => ({ sym: s, name: s, sector: '', industry: '', hq: '', lat: null, lon: null }))].slice(0, LIMIT);
 console.log(`universe ${universe.length}`);
 
-const saved: { inputs: DistressInput[]; errors: Record<string, string>; coverage: Record<string, number>; sources: Record<string, string> } | null = process.env.INPUTS_IN ? JSON.parse(readFileSync(process.env.INPUTS_IN, 'utf8')) : null;
+const saved: { inputs: DistressInput[]; errors: Record<string, string>; coverage: Record<string, number>; sources: Record<string, string>; layoffStates?: Record<string, StateLayoffs> } | null = process.env.INPUTS_IN ? JSON.parse(readFileSync(process.env.INPUTS_IN, 'utf8')) : null;
 const tickers = saved ? [] : parseSecTickers(await sec('https://www.sec.gov/files/company_tickers.json'));
 const cikOf = new Map(tickers.map((t) => [t.ticker.replace(/-/g, '.'), t.cik]));
 
@@ -63,6 +67,11 @@ const closes = new Map<string, number[]>();
 let shortVol = new Map<string, number>();
 const news = new Map<string, NewsHit[]>();
 const fh = process.env.FINNHUB_API_KEY;
+let warnOk = false;
+const warnBy = new Map<string, WarnAgg | null>();
+let layoffStates: Record<string, StateLayoffs> = saved?.layoffStates ?? {};
+const jobsBy = new Map<string, JobsAgg | null>();
+let prevRows: DistressRow[] = [];
 if (!saved) {
 // ---------- XBRL frames ----------
 const jobs: [string, string, string, string][] = [];
@@ -89,6 +98,7 @@ await pool(universe, 4, async (u) => {
     for (const f of s.form4) { try { txs.push(...parseForm4(await sec(f.url, 'text'), f.filed, f.index)); } catch { /* one bad filing is fine */ } }
     ins.set(u.sym, txs);
   } catch (e) { subFail++; note('submissions', e); }
+  if ((subs.size + subFail) % 50 === 0) console.log(`  submissions ${subs.size + subFail}/${universe.length}`);
 });
 if (subFail) errors.submissions = `${subFail} companies failed; first: ${errors.submissions}`;
 console.log(`submissions ${subs.size}`);
@@ -139,6 +149,47 @@ for (const u of universe) {
 if (newsFail) errors.news = `${newsFail} tickers failed; first: ${errors.news}`;
 console.log(`news ${news.size}`);
 
+// ---------- WARN layoff notices (every state Big Local News covers) ----------
+try {
+  const notices = parseWarn(await web(WARN_CSV, 'text'), today, 120);
+  const m = matchWarn(notices, universe);
+  universe.forEach((u) => warnBy.set(u.sym, warnAgg(m.get(u.sym) ?? [], today)));
+  layoffStates = warnByState(notices, today);
+  warnOk = true;
+  console.log(`warn ${notices.length} notices, ${[...warnBy.values()].filter(Boolean).length} listed companies`);
+} catch (e) { note('warn', e); }
+
+// ---------- open jobs on public job boards (Greenhouse, Lever, Ashby) ----------
+try { const p = JSON.parse(readFileSync('published/distress.json', 'utf8')); if (Array.isArray(p?.rows)) prevRows = p.rows; } catch { /* first run */ }
+let hiring: HiringFile = EMPTY_HIRING;
+try { const h = JSON.parse(readFileSync('published/hiring.json', 'utf8')); if (h?.version === 1) hiring = h; } catch { /* first run */ }
+hiring = { ...hiring, boards: { ...hiring.boards }, misses: { ...hiring.misses }, history: { ...hiring.history } };
+const cutoff = new Date(Date.now() - 30 * 86400_000).toISOString().slice(0, 10);
+async function tryBoard(b: Board, name: string): Promise<number | null> {
+  try {
+    if (b.ats === 'greenhouse') { const info = await web(`https://boards-api.greenhouse.io/v1/boards/${b.slug}`); if (!sameCompany(String(info?.name ?? ''), name)) return null; }
+    return countJobs(b.ats, await web(boardApi(b)));
+  } catch { return null; }
+}
+let boardsFound = 0;
+await pool(universe, 6, async (u) => {
+  let b: Board | undefined = hiring.boards[u.sym];
+  let n: number | null = null;
+  if (b) { n = await tryBoard(b, u.name); if (n == null) { delete hiring.boards[u.sym]; b = undefined; } }
+  if (!b && !(hiring.misses[u.sym] >= cutoff)) {
+    search: for (const slug of slugCandidates(u.name)) for (const ats of ['greenhouse', 'lever', 'ashby'] as const) {
+      const c = await tryBoard({ ats, slug }, u.name);
+      if (c != null && (ats === 'greenhouse' || c > 0)) { b = { ats, slug }; n = c; hiring.boards[u.sym] = b; delete hiring.misses[u.sym]; break search; }
+    }
+    if (!b) hiring.misses[u.sym] = today;
+  }
+  if (b && n != null) { boardsFound++; hiring.history[u.sym] = pushHistory(hiring.history[u.sym] ?? [], today, n); jobsBy.set(u.sym, jobsAgg(b, hiring.history[u.sym], today)); }
+});
+hiring.asOf = Date.now();
+mkdirSync('published', { recursive: true });
+writeFileSync('published/hiring.json', JSON.stringify(hiring));
+console.log(`job boards ${boardsFound}`);
+
 }
 
 // ---------- score ----------
@@ -150,6 +201,7 @@ const inputs: DistressInput[] = saved ? saved.inputs : universe.map((u) => {
     ...u, state: s?.state || stateOf(u.hq), fin: cik ? finFromFrames(frames, P, cik) : null,
     events: s?.events ?? null, late: s?.late ?? null, goingConcern: !cik || !gcOk ? undefined : gc.get(cik) ?? null,
     insiders: s ? insiderAgg(ins.get(u.sym) ?? [], today) : null, price: c ? priceStats(c) : null, shortVol: shortVol.get(u.sym) ?? null, news: news.get(u.sym) ?? null,
+    warn: warnOk ? warnBy.get(u.sym) ?? null : undefined, jobs: jobsBy.get(u.sym) ?? null,
   };
   if (!u.hq && s?.city) input.hq = `${s.city[0]}${s.city.slice(1).toLowerCase()}, ${s.state}`;
   return input;
@@ -159,7 +211,7 @@ const rows: DistressRow[] = inputs.map((x) => scoreCompany(x, today));
 
 // ---------- Gemini: short summaries for the most-flagged names (optional) ----------
 if (process.env.GEMINI_API_KEY) {
-  const { geminiJson } = await import('../api/_lib/adapters.js');
+  const { geminiBulkJson } = await import('../api/_lib/adapters.js');
   const pick = [...rows].sort((a, b) => b.weak - a.weak).slice(0, 14).concat([...rows].filter((r) => r.label === 'turnaround').sort((a, b) => b.turn - a.turn).slice(0, 6));
   const schema = { type: 'OBJECT', properties: { summary: { type: 'STRING' }, watch: { type: 'STRING' } }, required: ['summary', 'watch'] };
   for (const r of [...new Set(pick)]) {
@@ -167,25 +219,34 @@ if (process.env.GEMINI_API_KEY) {
 Write "summary": 2 plain sentences on what the signals say about the company's condition. Write "watch": one sentence naming the next public event or number that would confirm or contradict it.
 Signals: ${r.signals.map((s) => `${s.text} [${s.src}${s.date ? `, ${s.date}` : ''}]`).join('; ')}
 Headlines (30 days): ${r.news.map((n) => n.title).join(' | ') || 'none'}`;
-    try { const g = await geminiJson(prompt, schema); r.ai = { summary: String(g.data.summary).slice(0, 400), watch: String(g.data.watch).slice(0, 240), model: g.model, at: Date.now() }; }
+    try { const g = await geminiBulkJson(prompt, schema); r.ai = { summary: String(g.data.summary).slice(0, 400), watch: String(g.data.watch).slice(0, 240), model: g.model, at: Date.now() }; }
     catch (e) { note('gemini', e); }
-    await sleep(8000); // free tier: ~8 a minute
+    await sleep(8000); // stay well inside the free per-minute limits
   }
 } else errors.gemini = 'no GEMINI_API_KEY: no summaries';
 
 const file: DistressFile = {
   version: 1, asOf: Date.now(), today, universe: universe.length, rows,
-  sectors: rollup(rows, (r) => r.sector), industries: rollup(rows, (r) => r.industry).filter((g) => g.n >= 3), states: rollup(rows, (r) => r.state),
+  layoffStates, sectors: rollup(rows, (r) => r.sector), industries: rollup(rows, (r) => r.industry).filter((g) => g.n >= 3), states: rollup(rows, (r) => r.state),
   sources: {
     filings: 'SEC EDGAR submissions (8-K items, NT 10-K / NT 10-Q), SEC full-text search (going-concern wording), SEC Form 4',
     financials: `SEC XBRL frames: balance sheet ${P.inst.join(' / ')}, quarter ${P.q.join(' / ')}, year ${P.year}`,
     prices: 'Yahoo Finance spark (unofficial, delayed)', shortVolume: 'FINRA daily short sale volume (CNMS)',
-    news: fh ? 'Finnhub company news (30 days), keyword rules' : 'Yahoo Finance headline RSS (unofficial), keyword rules', ai: process.env.GEMINI_API_KEY ? 'Gemini summaries for the 20 most-flagged names' : 'none',
+    news: fh ? 'Finnhub company news (30 days), keyword rules' : 'Yahoo Finance headline RSS (unofficial), keyword rules', ai: process.env.GEMINI_API_KEY ? 'Gemma / Gemini summaries for the 20 most-flagged names' : 'none',
+    layoffs: WARN_SRC, hiring: 'Open jobs on public Greenhouse, Lever and Ashby job boards (adverts, not hires)',
   },
   errors,
-  coverage: saved ? saved.coverage : { companies: universe.length, sec: subs.size, financials: rows.filter((r) => r.z != null || r.runwayMo != null || r.shareChgPct != null).length, prices: closes.size, news: news.size, goingConcernHits: gc.size },
+  coverage: saved ? saved.coverage : { companies: universe.length, sec: subs.size, financials: rows.filter((r) => r.z != null || r.runwayMo != null || r.shareChgPct != null).length, prices: closes.size, news: news.size, goingConcernHits: gc.size, warnCompanies: [...warnBy.values()].filter(Boolean).length, jobBoards: jobsBy.size },
 };
-if (process.env.INPUTS_OUT) writeFileSync(process.env.INPUTS_OUT, JSON.stringify({ inputs, errors, coverage: file.coverage, sources: file.sources }));
+if (process.env.INPUTS_OUT) writeFileSync(process.env.INPUTS_OUT, JSON.stringify({ inputs, errors, coverage: file.coverage, sources: file.sources, layoffStates }));
 mkdirSync('published', { recursive: true });
 writeFileSync('published/distress.json', JSON.stringify(file));
+// phone alerts: names on your alert list whose label changed since the last read
+if (process.env.NTFY_TOPIC && prevRows.length) {
+  const { distressAlerts, readTickers } = await import('../shared/alerts.js');
+  const { sendAlert } = await import('../api/_lib/notify.js');
+  let watch = new Set<string>();
+  try { watch = new Set(readTickers(readFileSync('alerts/tickers.txt', 'utf8'))); } catch { /* none */ }
+  for (const a of distressAlerts(prevRows, rows, watch, today).slice(0, 6)) { try { await sendAlert(a); } catch (e) { note('alerts', e); } }
+}
 console.log(`wrote published/distress.json: ${rows.length} rows, ${rows.filter((r) => r.label === 'distressed').length} distressed, ${rows.filter((r) => r.label === 'turnaround').length} turnarounds; errors: ${Object.keys(errors).join(', ') || 'none'}`);

@@ -2,7 +2,9 @@
 // Every point in a score is a named signal with its source and date, so the reader can check it.
 // Inputs (all free): SEC 8-K items, late-filing notices (NT 10-K / NT 10-Q), going-concern wording found by SEC full-text
 // search, SEC XBRL financials (Altman Z'', cash runway, interest cover, share count), Form 4 open-market buys and sells,
-// prices (unofficial Yahoo), FINRA daily short volume, and headline keyword rules (Gemini only writes summaries).
+// prices (unofficial Yahoo), FINRA daily short volume, state WARN layoff notices, open jobs on public job boards, and headline
+// keyword rules (an AI model only writes summaries).
+import { WARN_LINK, WARN_SRC, type JobsAgg, type StateLayoffs, type WarnAgg } from './labor.js';
 
 export interface Fin {
   assets: number | null; liabilities: number | null; curAssets: number | null; curLiab: number | null; retained: number | null; equity: number | null;
@@ -22,6 +24,8 @@ export interface DistressInput {
   sym: string; name: string; sector: string; industry: string; hq: string; state: string; lat: number | null; lon: number | null;
   fin: Fin | null; events: Event8K[] | null; late: LateFiling[] | null; goingConcern: GoingConcern | null | undefined;
   insiders: InsiderAgg | null; price: PriceStats | null; shortVol: number | null; news: NewsHit[] | null;
+  /** undefined = not read; null = read, nothing found */
+  warn?: WarnAgg | null; jobs?: JobsAgg | null;
 }
 export type Side = 'weak' | 'turn';
 export interface Signal { id: string; side: Side; pts: number; text: string; src: string; date?: string; url?: string }
@@ -31,6 +35,7 @@ export interface DistressRow {
   weak: number; turn: number; label: Label; signals: Signal[];
   z: number | null; runwayMo: number | null; cover: number | null; shareChgPct: number | null; revChgPct: number | null;
   price: PriceStats | null; shortVol: number | null; news: NewsHit[]; missing: string[];
+  warn: WarnAgg | null; jobs: JobsAgg | null;
   ai?: { summary: string; watch: string; model: string; at: number };
 }
 
@@ -196,6 +201,21 @@ export function scoreCompany(x: DistressInput, today: string): DistressRow {
   }
   if (x.shortVol != null && x.shortVol >= 0.55) add({ id: 'short', side: 'weak', pts: 3, text: `Short sales were ${(x.shortVol * 100).toFixed(0)}% of volume (5-day average)`, src: 'FINRA daily short volume' });
 
+  // state WARN layoff notices (last 90 days) and open jobs on the company's own job board
+  if (x.warn === undefined) missing.push("WARN notices");
+  if (x.warn) {
+    const w = x.warn;
+    add({ id: 'warn', side: 'weak', pts: (w.jobs >= 500 ? 10 : w.jobs >= 100 ? 6 : 3) + (w.closure ? 3 : 0), text: `WARN layoff notices: ${w.jobs ? `${w.jobs.toLocaleString('en-US')} jobs` : `${w.notices} notice${w.notices === 1 ? '' : 's'}`} in ${w.states.join(', ')} (90 days)${w.closure ? ', including a site closure' : ''}`, src: WARN_SRC, date: w.latest, url: WARN_LINK });
+  }
+  const jb = x.jobs;
+  if (jb) {
+    const chg = (base: number | null) => (base != null && base >= 15 ? (jb.count / base - 1) * 100 : null);
+    const c90 = chg(jb.d90), c30 = chg(jb.d30);
+    if (c90 != null && c90 <= -40) add({ id: 'jobs', side: 'weak', pts: jb.count === 0 ? 8 : 6, text: `Open jobs down ${Math.abs(c90).toFixed(0)}% in 90 days (${jb.d90} to ${jb.count}): hiring slowdown`, src: `${jb.ats} job board`, url: jb.url });
+    else if (c30 != null && c30 <= -35) add({ id: 'jobs', side: 'weak', pts: 4, text: `Open jobs down ${Math.abs(c30).toFixed(0)}% in 30 days (${jb.d30} to ${jb.count})`, src: `${jb.ats} job board`, url: jb.url });
+    else if (c90 != null && c90 >= 30) add({ id: 'jobs', side: 'turn', pts: 5, text: `Open jobs up ${c90.toFixed(0)}% in 90 days (${jb.d90} to ${jb.count}): hiring`, src: `${jb.ats} job board`, url: jb.url });
+  }
+
   // headlines (last 30 days), capped so news can never dominate
   const news = (x.news ?? []).filter((n) => daysAgo(new Date(n.t).toISOString(), today) <= 30);
   if (x.news == null) missing.push('news');
@@ -214,7 +234,7 @@ export function scoreCompany(x: DistressInput, today: string): DistressRow {
   return {
     sym: x.sym, name: x.name, sector: x.sector, industry: x.industry, hq: x.hq, state: x.state, lat: x.lat, lon: x.lon,
     weak, turn, label, signals: s, z, runwayMo: runway, cover, shareChgPct: shareChg, revChgPct: revChg, price: p, shortVol: x.shortVol,
-    news: news.filter((n) => n.side !== 'none').slice(0, 6), missing,
+    news: news.filter((n) => n.side !== 'none').slice(0, 6), missing, warn: x.warn ?? null, jobs: x.jobs ?? null,
   };
 }
 
@@ -245,6 +265,8 @@ export function stateOf(hq: string): string {
 
 export interface DistressFile {
   version: 1; asOf: number; today: string; universe: number; rows: DistressRow[]; sectors: GroupRoll[]; industries: GroupRoll[]; states: GroupRoll[];
+  /** WARN notices per state for every employer (not only listed companies), last 90 days */
+  layoffStates?: Record<string, StateLayoffs>;
   sources: Record<string, string>; errors: Record<string, string>; coverage: Record<string, number>;
 }
 /** Shape check for the published file (it comes from a GitHub Action, so never trust it blindly). */
