@@ -9,7 +9,8 @@ import type { MoversState } from '../data/scan';
 import { useSeries, type DataMode } from '../data/live';
 import { bs, breakeven, plAtExpiry, type OptType } from '../../shared/options';
 import { useDesk } from '../lib/deskctx';
-import { etTime, hms } from '../lib/clock';
+import { clock, etTime, hms } from '../lib/clock';
+import { useTick } from '../lib/useTick';
 import { pct, px, tone } from '../lib/format';
 import type { Ping } from '../lib/pings';
 import { CoName, Fresh, Seg, Star, LeanDot } from './common';
@@ -170,7 +171,8 @@ export function OptionsW({ d, cfg, set }: P) {
 /* ---------------- clocks ---------------- */
 const CITIES: [string, string][] = [['London', 'Europe/London'], ['Tokyo', 'Asia/Tokyo'], ['Hong Kong', 'Asia/Hong_Kong']];
 export function ClockW({ d }: P) {
-  const c = d.clk;
+  const tick = useTick(1000);
+  const c = useMemo(() => ({ ...clock(tick), holiday: d.clk.holiday, earlyClose: d.clk.earlyClose }), [tick, d.clk.holiday, d.clk.earlyClose]);
   const t = (tz: string) => new Date(c.now).toLocaleTimeString('en-US', { timeZone: tz, hour: '2-digit', minute: '2-digit', hour12: false });
   return (
     <div className="hw-clock">

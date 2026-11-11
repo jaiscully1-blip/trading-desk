@@ -9,6 +9,7 @@ import { makeCandles } from '../lib/demo';
 import { pct, px, tone } from '../lib/format';
 import { Seg, Star, LeanDot, Q } from './common';
 import type { HomeData } from './HomeWidgets';
+import { useTick } from '../lib/useTick';
 
 type Cfg = Record<string, any>;
 interface P { d: HomeData; cfg: Cfg; set: (c: Cfg) => void }
@@ -81,7 +82,7 @@ export function RiskW({ cfg, set }: P) {
 
 /* ---------------- session clock: NY / London / Asia ---------------- */
 export function SessionsW({ d }: P) {
-  const now = d.clk.now;
+  const now = useTick(1000);
   const nyClosed = !!d.clk.holiday;
   return (
     <div className="hw-col hw-scroll ss">

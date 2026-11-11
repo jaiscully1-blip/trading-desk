@@ -6,11 +6,13 @@ import { nextFomc } from '../data/news';
 import { FOMC } from '../../shared/calendar';
 import { etToUtc, hms } from '../lib/clock';
 import { Fresh } from './common';
+import { useTick } from '../lib/useTick';
 import { SpecialDaysTable } from './DayCases';
 
 const dow = (d: string) => new Date(`${d}T12:00:00Z`).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' });
 
-export function Calendars({ cal, now, onSelect, mySyms, mode, news }: { cal: CalendarState | null; now: number; onSelect: (s: string) => void; mySyms: Set<string>; mode: DataMode; news: NewsItem[] }) {
+export function Calendars({ cal, now: appNow, onSelect, mySyms, mode, news }: { cal: CalendarState | null; now: number; onSelect: (s: string) => void; mySyms: Set<string>; mode: DataMode; news: NewsItem[] }) {
+  const now = useTick(1000) || appNow; // the Fed countdown shows seconds
   const f = nextFomc(now);
   const fomcAt = f ? etToUtc(+f.date.slice(0, 4), +f.date.slice(5, 7), +f.date.slice(8, 10), 14, 0) : null;
   const fr = cal?.freshness ?? 'pending';

@@ -1,5 +1,5 @@
 // Trade ticket (checklist-gated entry), open positions, risk panel and the pre-session check-in.
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { EMOTIONS, TILT_HIGH, sizeFor, tiltScore, unrealized, type AccountSettings, type CheckIn, type ChecklistItem, type Emotion, type Guard, type Trade, type TradeView, type Violation, VIOLATION_LABEL } from '../lib/journal';
 import type { GradeResult, Playbook } from '../lib/playbook';
 import { critLabel } from './Scanner';
@@ -244,6 +244,22 @@ export function OpenPositions({ views, lastPx, onClose, onStop, onSelect }: {
 }
 
 /* ---------------- Risk panel ---------------- */
+/** Number box that keeps what you type: saves on Enter or when you leave it, and only takes outside changes while you're not in it
+ *  (the old version rebuilt the whole form whenever settings changed, which could swallow keystrokes). */
+function NumField({ value, onCommit, disabled, integer }: { value: number; onCommit: (v: string) => void; disabled?: boolean; integer?: boolean }) {
+  const [draft, setDraft] = useState(String(value));
+  const focused = useRef(false);
+  useEffect(() => { if (!focused.current) setDraft(String(value)); }, [value]);
+  const commit = () => { if (draft !== String(value)) onCommit(draft); };
+  return (
+    <input inputMode={integer ? 'numeric' : 'decimal'} value={draft} disabled={disabled}
+      onFocus={(e) => { focused.current = true; e.currentTarget.select(); }}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={() => { focused.current = false; commit(); }}
+      onKeyDown={(e) => { if (e.key === 'Enter') { commit(); e.currentTarget.blur(); } else if (e.key === 'Escape') { setDraft(String(value)); e.currentTarget.blur(); } }} />
+  );
+}
+
 export function RiskPanel({ guard: g, settings: s, setSettings, checkin, onCheckIn, violations, now, last }: {
   guard: Guard; settings: AccountSettings; setSettings: (s: AccountSettings) => void; checkin?: CheckIn; onCheckIn: () => void;
   violations: Violation[]; now: number; last?: number;
@@ -291,11 +307,11 @@ export function RiskPanel({ guard: g, settings: s, setSettings, checkin, onCheck
       </div>
 
       <h4>Rules {locked && <span className="small muted">(can’t loosen while locked)</span>}</h4>
-      <div className="form" key={JSON.stringify(s)}>
-        <label>Risk / trade %<input inputMode="decimal" defaultValue={s.riskPct} disabled={locked} onBlur={(x) => num('riskPct', x.target.value)} /></label>
-        <label>Max daily loss %<input inputMode="decimal" defaultValue={s.maxDailyLossPct} disabled={locked} onBlur={(x) => num('maxDailyLossPct', x.target.value)} /></label>
-        <label>Max heat %<input inputMode="decimal" defaultValue={s.maxHeatPct} disabled={locked} onBlur={(x) => num('maxHeatPct', x.target.value)} /></label>
-        <label>Cooldown min<input inputMode="numeric" defaultValue={s.cooldownMin} disabled={locked} onBlur={(x) => num('cooldownMin', x.target.value)} /></label>
+      <div className="form">
+        <label>Risk / trade %<NumField value={s.riskPct} disabled={locked} onCommit={(v) => num('riskPct', v)} /></label>
+        <label>Max daily loss %<NumField value={s.maxDailyLossPct} disabled={locked} onCommit={(v) => num('maxDailyLossPct', v)} /></label>
+        <label>Max heat %<NumField value={s.maxHeatPct} disabled={locked} onCommit={(v) => num('maxHeatPct', v)} /></label>
+        <label>Cooldown min<NumField value={s.cooldownMin} disabled={locked} integer onCommit={(v) => num('cooldownMin', v)} /></label>
       </div>
 
       <h4>Rule violations <span className={`num ${cost ? 'down' : ''}`}>{usd(-cost)}</span></h4>
