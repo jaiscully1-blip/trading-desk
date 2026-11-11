@@ -18,7 +18,7 @@ async function classifyPolitical(items: NewsItem[]) {
       if (n && ['left', 'center', 'right'].includes(r.lean)) setCached(`lean:${titleKey(n.title)}`, { lean: r.lean as ArticleLean, why: String(r.why ?? '').slice(0, 120) }, 7 * 86400);
     }
   }).catch(() => { /* labels are optional */ }).finally(() => { leanBusy = false; });
-  await Promise.race([run, new Promise((r) => setTimeout(r, 7000))]);
+  await Promise.race([run, new Promise((r) => setTimeout(r, 2500))]); // labels are optional: late ones show on the next refresh
 }
 
 const MAX_COMPANY = 15; // company-news calls per request (Finnhub free: 60/min, shared with quotes)

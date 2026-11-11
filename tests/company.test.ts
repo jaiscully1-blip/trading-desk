@@ -64,3 +64,19 @@ describe('SEC submissions', () => {
     expect(latestAnnual(j, 1045810)).toEqual({ form: '10-K', date: '2026-02-26', url: 'https://www.sec.gov/Archives/edgar/data/1045810/000104581026000023/nvda-20260125.htm' });
   });
 });
+
+import { filingQuotes as _fq, cleanFacts as _cf } from '../shared/company';
+describe('company page without named customers', () => {
+  it('keeps who the buyers are, in the report\u2019s words, when no customer company is named', () => {
+    const f = _cf({ summary: 'Makes electric vehicles.', products: [], suppliers: [], customers: [], competitors: [], customerBase: 'consumers, through company-owned stores and online' }, 'TSLA', []);
+    expect(f.customers).toEqual([]);
+    expect(f.customerBase).toBe('consumers, through company-owned stores and online');
+  });
+  it('quotes the filing\u2019s own sentences about customer concentration and single-source suppliers, with no AI', () => {
+    const text = 'We design and sell vehicles. No single customer accounted for more than 10% of our total revenues in 2025. We are dependent on our suppliers, many of which are single-source suppliers, and the inability of these suppliers to deliver components could harm us. The weather was fine that year and nothing else of note happened here.';
+    const q = _fq(text);
+    expect(q.customers[0]).toMatch(/No single customer accounted for more than 10%/);
+    expect(q.suppliers[0]).toMatch(/single-source suppliers/);
+    expect(_fq('Nothing relevant in this text at all, only a long sentence about other matters entirely.')).toEqual({ customers: [], suppliers: [] });
+  });
+});

@@ -29,11 +29,12 @@ export function simulateGhost(bars: Bar[], v: TradeView, entryEnc: number, rules
   const R = Math.abs(entry - t.initialStop);
   if (!(R > 0)) return null;
   const qty = v.maxQty;
+  const mult = t.mult ?? 1; // option contracts: 100 shares each, same as the journal's realized P&L
   const target = rules.targetR ? entry + s * rules.targetR * R : null;
   const start = bars.findIndex((b) => b.time + period > entryEnc);
   if (start < 0) return null;
   let best = entry;
-  const out = (i: number, price: number, reason: GhostReason): Ghost => ({ time: bars[i].time, price, reason, r: (s * (price - entry)) / R, pnl: s * (price - entry) * qty, barIndex: i });
+  const out = (i: number, price: number, reason: GhostReason): Ghost => ({ time: bars[i].time, price, reason, r: (s * (price - entry)) / R, pnl: s * (price - entry) * qty * mult, barIndex: i });
 
   for (let i = start + 1; i < bars.length; i++) {
     const b = bars[i];

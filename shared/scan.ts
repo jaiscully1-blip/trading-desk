@@ -48,6 +48,8 @@ export interface ScanBase {
   cupHandle: PatternHit;
   si?: ShortInterest | null; // null = looked up, none found; undefined = not available
   catalyst?: { count: number; latest?: string; latestAt?: number } | null;
+  /** last 30 completed daily closes, 5 significant digits (sparklines) */
+  spark?: number[];
   source: string;
 }
 
@@ -100,7 +102,7 @@ export function computeBase(sym: string, bars: Bar[], nowEnc: number, asOf: numb
   const rvol = todayVol != null && frac > 0.02 && avgVol20 > 0 ? todayVol / (avgVol20 * frac) : null;
 
   return {
-    sym, asOf, source,
+    sym, asOf, source, spark: done.slice(-30).map((b) => +b.close.toPrecision(5)),
     barDay: lastBar ? dayOf(lastBar.time) : 0,
     todayDay,
     formingIsToday,

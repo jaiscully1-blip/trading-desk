@@ -14,22 +14,18 @@ import { px } from './lib/format';
 import { computeLevels, detectLevelEvents, LEVEL_SHORT, type LevelEvent } from './lib/levels';
 import { levelsForHours, toolHours } from '../shared/toolHours';
 import { encodeInstant } from '../shared/parse';
-import { patchWithQuote, useDataMode, useMacro, useQuotes, useSeries, type SeriesState } from './data/live';
+import { patchWithQuote, useDataMode, useLateMode, useMacro, useQuotes, useSeries, type SeriesState } from './data/live';
 import { TopStrip } from './components/TopStrip';
 import { Watchlist, orderedWatchlist } from './components/Watchlist';
-import { ChartPanel } from './components/Chart';
 import { LevelsPanel, type LevelCol } from './components/Levels';
 import { RightRail, type NewsFilter } from './components/RightRail';
 import { CheckInDialog, OpenPositions, RiskPanel, TradeTicket, uid } from './components/Trading';
-import { AccountDrawer, JournalOverlay } from './components/Journal';
-import { ReplayOverlay } from './components/Replay';
-import { RecapOverlay, download } from './components/Recap';
+import { download } from './lib/download';
 import { DEFAULT_RULES, type ExitRules } from './lib/replay';
-import { buildRecap, journalCsv, type Recap } from './lib/recap';
+import { buildRecap, journalCsv, liveRecaps, type Recap } from './lib/recap';
 import { useIdbState } from './lib/idb';
 import { DEFAULT_SETTINGS, etDay, guard, viewTrade, violations as findViolations, type AccountSettings, type CheckIn, type Trade, type Transfer } from './lib/journal';
 import { Scanner } from './components/Scanner';
-import { PlaybookEditor } from './components/Playbooks';
 import { useMovers, useScan, useUniverse } from './data/scan';
 import { useCalendar, useNews } from './data/news';
 import { useMarketStatus } from './data/market';
@@ -41,6 +37,7 @@ const PatternLab = lazy(() => import('./components/PatternLab'));
 const Rotation = lazy(() => import('./components/Rotation'));
 const CompanyMap = lazy(() => import('./components/CompanyMap'));
 const SmartMoney = lazy(() => import('./components/SmartMoney'));
+const DistressPage = lazy(() => import('./components/Distress'));
 const EtfSectors = lazy(() => import('./components/EtfSectors'));
 const EconOdds = lazy(() => import('./components/EconOdds'));
 import { Calendars } from './components/Calendars';
@@ -49,12 +46,14 @@ import { cloudConfigured, signIn, signOut, useCloudItems, useCloudSync, useCloud
 import { DEFAULT_THRESHOLDS, liveRow, rankRs, type ScanRow } from '../shared/scan';
 import { DEFAULT_PLAYBOOKS, gradeRow, type GradeResult, type Playbook, type SavedFilter } from './lib/playbook';
 import { CommandBar, NewsTicker, OverlayView, type Cmd } from './components/Bits';
-import { SideNav, pageGroup, type Page } from './components/SideNav';
+import { SideNav, pageGroup, NAV_GROUPS, type Page } from './components/SideNav';
+const NAV_PAGE_IDS = new Set<string>(NAV_GROUPS.flatMap((g) => g.pages));
+const HoverCard = lazy(() => import('./components/HoverCard'));
 import DataStatus from './components/DataStatus';
-import { popout, Seg } from './components/common';
+const RiverScene = lazy(() => import('./components/RiverScene'));
+import { popout, PageTabs } from './components/common';
 import { PingStack, StarredList } from './components/Pings';
 import { Desk, type Article, type DeskCtx } from './lib/deskctx';
-import { ReaderOverlay } from './components/Poker';
 import TickerInfo from './components/TickerInfo';
 import { OFFLINE_NAMES } from './data/info';
 import { earningsPings, levelPings, movePing, watchLevels, type Ping } from './lib/pings';
@@ -63,10 +62,26 @@ import type { ChartTF } from './types';
 import type { Bar } from '../shared/types';
 const CompanyPage = lazy(() => import('./components/CompanyPage'));
 const Home = lazy(() => import('./components/Home'));
+// The chart, journal, replay, recap, playbook editor, article reader and order ticket carry the charting library and most of the
+// journal code. They load the first time they are shown, which keeps the first paint small.
+const ChartPanel = lazy(() => import('./components/Chart').then((m) => ({ default: m.ChartPanel })));
+const JournalOverlay = lazy(() => import('./components/Journal').then((m) => ({ default: m.JournalOverlay })));
+const AccountDrawer = lazy(() => import('./components/Journal').then((m) => ({ default: m.AccountDrawer })));
+const ReplayOverlay = lazy(() => import('./components/Replay').then((m) => ({ default: m.ReplayOverlay })));
+const RecapOverlay = lazy(() => import('./components/Recap').then((m) => ({ default: m.RecapOverlay })));
+const PlaybookEditor = lazy(() => import('./components/Playbooks').then((m) => ({ default: m.PlaybookEditor })));
+const ReaderOverlay = lazy(() => import('./components/Poker').then((m) => ({ default: m.ReaderOverlay })));
+const OrderTicket = lazy(() => import('./components/OrderTicket').then((m) => ({ default: m.OrderTicket })));
+// start fetching the page you will land on while the app shell is still parsing
+try {
+  const first = JSON.parse(localStorage.getItem('td.page2') ?? '"home"');
+  if (first === 'home') void import('./components/Home');
+  else if (first === 'desk') void import('./components/Chart');
+  else if (first === 'morning') void import('./components/Morning');
+} catch { /* storage unavailable */ }
 const Morning = lazy(() => import('./components/Morning'));
 const Gamma = lazy(() => import('./components/Gamma'));
 import { useMorning } from './data/morning';
-import { OrderTicket } from './components/OrderTicket';
 import type { OrderDraft } from '../shared/orders';
 import { Messages } from './components/Messages';
 import { useFeed } from './data/feed';
@@ -129,6 +144,7 @@ export default function App() {
   const now = useNow();
   const clk = useMemo(() => clock(now), [now]);
   const dataMode = useDataMode();
+  const lateMode = useLateMode(dataMode); // scanner, rotation and calendars start a few seconds after the first paint
   const live = dataMode.kind === 'live';
 
   // Terminal (dark) is the default look; T switches to the light "paper" theme
@@ -148,7 +164,12 @@ export default function App() {
   const iconRail = useNarrow(1000); // below this the side menu becomes an icon rail; above it every page is named
   const [narrowLeft, setNarrowLeft] = useState(false);
   useLayoutEffect(() => { document.documentElement.dataset.theme = theme; }, [theme]);
+  // Riverfront scene behind the dark theme: moving, still, or off (the light paper theme never shows it)
+  const [scene, setScene] = usePersisted<'live' | 'still' | 'off'>('scene', 'live');
+  const river = theme === 'dark' && scene !== 'off';
+  useLayoutEffect(() => { if (river) document.documentElement.dataset.scene = 'river'; else delete document.documentElement.dataset.scene; }, [river]);
   const [focus, setFocus] = useState(false);
+  const [drawerSeen, setDrawerSeen] = useState(false); // the account drawer loads the first time it is opened, then stays mounted
   const prevRails = useRef({ l: true, r: true });
   const toggleTheme = useCallback(() => setTheme((t) => (t === 'dark' ? 'light' : 'dark')), [setTheme]);
 
@@ -174,6 +195,7 @@ export default function App() {
   const [cmdOpen, setCmdOpen] = useState(false);
   const [overlay, setOverlay] = useState<Overlay>(null);
   const [drawer, setDrawer] = useState(false);
+  useEffect(() => { if (drawer) setDrawerSeen(true); }, [drawer]);
   const [newsFilter, setNewsFilter] = usePersisted<NewsFilter>('newsFilter', 'all');
   const [filterId, setFilterId] = usePersisted<string>('scanFilterId', 'all');
   const [filters, setFilters] = usePersisted<SavedFilter[]>('savedFilters', []);
@@ -243,12 +265,12 @@ export default function App() {
   const quoteSyms = useMemo(() => [...new Set([...INDEXES, 'USO', 'UUP', sel, ...stars, ...wlSyms, ...universe])].slice(0, 56), [wlSyms, sel, universe, stars]);
   const qs = useQuotes(quoteSyms, dataMode);
   const feed = useFeed(useMemo(() => [...wlSyms, ...universe].slice(0, 80), [wlSyms, universe]), dataMode, page === 'messages' || (page === 'home' && homeHasMsgs));
-  const scan = useScan(universe, dataMode, (s) => DEMO_QUOTES[s]?.last ?? 100);
+  const scan = useScan(universe, lateMode, (s) => DEMO_QUOTES[s]?.last ?? 100);
   const macro = useMacro(dataMode);
   const market = useMarketStatus(dataMode);
   const worldData = useWorld(dataMode, page === 'map');
   // always loaded (cheap: the server caches it for hours) so sector rotation pings work on every page
-  const flowsData = useFlows(dataMode, true);
+  const flowsData = useFlows(lateMode, true);
   // Hold Alt / Option to see every keyboard shortcut on screen
   useEffect(() => {
     const root = document.documentElement;
@@ -288,15 +310,15 @@ export default function App() {
       const r = rowBy[s];
       if (!live) {
         const d = DEMO_QUOTES[s] ?? blankQuote(s);
-        out[s] = r ? { ...d, last: r.last, chgPct: r.chgPct, rsRank: r.rsRank ?? NaN } : d;
+        out[s] = r ? { ...d, last: r.last, chgPct: r.chgPct, rsRank: r.rsRank ?? NaN, spark: scan.bases[s]?.spark } : d;
         continue;
       }
       const lq = qs?.quotes[s];
-      out[s] = { ...blankQuote(s, DEMO_QUOTES[s]?.name), last: lq?.last ?? NaN, chgPct: lq?.chgPct ?? NaN, rsRank: r?.rsRank ?? NaN };
+      out[s] = { ...blankQuote(s, DEMO_QUOTES[s]?.name), last: lq?.last ?? NaN, chgPct: lq?.chgPct ?? NaN, rsRank: r?.rsRank ?? NaN, spark: scan.bases[s]?.spark };
     }
     if (!out[sel]) out[sel] = blankQuote(sel);
     return out;
-  }, [live, qs, quoteSyms, sel, rowBy]);
+  }, [live, qs, quoteSyms, sel, rowBy, scan.bases]);
   const tickers = useMemo(() => Object.values(quotes).map((q) => ({ sym: q.sym, name: q.name })), [quotes]);
   const morningSyms = useMemo(() => [...new Set([...stars, ...Object.keys(quotes).filter((s) => !INDEXES.includes(s))])].slice(0, 40), [stars, quotes]);
   const morning = useMorning(dataMode, page === 'morning', morningSyms);
@@ -385,7 +407,9 @@ export default function App() {
   const chartSeries = useMemo(() => patch(selTf, sel, seriesTf), [patch, selTf, sel, seriesTf]);
 
   /* ---------------- journal + account + guardrails ---------------- */
-  const views = useMemo(() => trades.filter((t) => !t.deleted).map(viewTrade), [trades]);
+  // rebuilt when trades change and once a minute, so an option that has just expired closes at $0 without a reload
+  const nowMin = Math.floor(now / 60_000);
+  const views = useMemo(() => trades.filter((t) => !t.deleted).map((t) => viewTrade(t, { now: nowMin * 60_000 })), [trades, nowMin]);
   const liveTransfers = useMemo(() => transfers.filter((t) => !t.deleted), [transfers]);
   const lastPx = useCallback((s: string) => { const x = quotes[s]?.last; return Number.isFinite(x) ? x : undefined; }, [quotes]);
   const g = useMemo(() => guard(views, liveTransfers, settings, now, lastPx), [views, liveTransfers, settings, now, lastPx]);
@@ -429,6 +453,8 @@ export default function App() {
     if (r && et(now).sod < clk.closeSod) setRecaps((x) => [...x.filter((y) => y.day !== today), { ...r, partial: true, lesson: `(Day in progress) ${r.lesson}` }]);
     setRecapOpen(today);
   };
+  // what the recap overlay shows: rebuilt from the journal as it is now, so a CSV added late updates that day's card
+  const shownRecaps = useMemo(() => liveRecaps(recaps, views, viols, today, checkin, et(now).sod < clk.closeSod), [recaps, views, viols, today, checkin, Math.floor(now / 60_000)]); // eslint-disable-line react-hooks/exhaustive-deps
   const replayView = replayId ? views.find((v) => v.t.id === replayId) : undefined;
 
   /* ---------------- level alerts (touch / break) ---------------- */
@@ -596,12 +622,16 @@ export default function App() {
     { id: 'etfs', label: 'ETFs & sectors: heatmap, ETF holdings, baskets', hint: 'U', run: () => setPage('etfs') },
     { id: 'smart', label: 'Smart money: 13F investors, ARK, politicians', hint: 'I', run: () => setPage('smart') },
     { id: 'odds', label: 'Economic odds (Fed, recession, CPI)', hint: 'Y', run: () => setPage('odds') },
-    { id: 'status', label: 'Data status: which sources are working or limited', hint: 'B', run: () => setPage('status') },
+    { id: 'status', label: 'Data status: which sources are working or limited', hint: '⇧B', run: () => setPage('status') },
+    { id: 'distress', label: 'Distress: weak companies, turnarounds, sector stress', hint: '⇧R', run: () => setPage('distress') },
     { id: 'd', label: 'Chart: daily', hint: '1', run: () => setTf('D') },
     { id: '1h', label: 'Chart: 1-hour', hint: '2', run: () => setTf('1H') },
     { id: '5m', label: 'Chart: 5-minute', hint: '3', run: () => setTf('5m') },
     { id: '15m', label: 'Chart: 15-minute', hint: '6', run: () => setTf('15m') },
     { id: 'theme', label: 'Toggle light / dark', hint: 'T', run: toggleTheme },
+    { id: 'scene-live', label: 'River scene: moving boats (dark theme)', run: () => { setScene('live'); if (theme !== 'dark') toggleTheme(); } },
+    { id: 'scene-still', label: 'River scene: still picture, nothing moves', run: () => { setScene('still'); if (theme !== 'dark') toggleTheme(); } },
+    { id: 'scene-off', label: 'River scene: off (plain dark desk)', run: () => setScene('off') },
     { id: 'focus', label: 'Focus mode: hide side bars, strips and ticker', hint: 'Z', run: () => toggleFocus() },
     { id: 'popout', label: 'Pop chart out to a new window', run: () => popout('chart', sel) },
     { id: 'layout-reset', label: `Reset layout for ${modeLabel(mode)}`, run: () => { setLayouts((a) => { const b = { ...a }; delete b[mode]; return b; }); flash(`Layout reset for ${modeLabel(mode)}`); } },
@@ -621,7 +651,7 @@ export default function App() {
       if (e.key === 'Escape') { if (replayId) { setReplayId(null); return; } setCmdOpen(false); setOverlay(null); setDrawer(false); setPbOpen(false); setSyncOpen(false); setCiOpen(false); setRecapOpen(false); return; }
       if (cmdOpen || pbOpen || syncOpen || ciOpen || replayId || recapOpen || typing(e.target) || e.ctrlKey || e.metaKey || e.altKey) return;
       const map: Record<string, () => void> = {
-        w: () => setPage('morning'), v: () => setPage('gamma'), h: () => setPage('home'), e: () => setPage('messages'), d: () => setPage('desk'), x: () => setPage('patterns'), s: () => setPage('scanner'), m: () => setPage('map'), g: () => setPage('flows'), c: () => setPage('calendar'), u: () => setPage('etfs'), i: () => setPage('smart'), y: () => setPage('odds'), B: () => setPage('status'),
+        w: () => setPage('morning'), v: () => setPage('gamma'), h: () => setPage('home'), e: () => setPage('messages'), d: () => setPage('desk'), x: () => setPage('patterns'), s: () => setPage('scanner'), m: () => setPage('map'), g: () => setPage('flows'), c: () => setPage('calendar'), u: () => setPage('etfs'), i: () => setPage('smart'), y: () => setPage('odds'), B: () => setPage('status'), R: () => setPage('distress'),
         '?': () => setOverlay((o) => (o === 'help' ? null : 'help')),
         t: toggleTheme,
         z: () => toggleFocus(),
@@ -692,11 +722,13 @@ export default function App() {
     calendar: <Calendars cal={cal} now={now} onSelect={setSel} mySyms={new Set([...wlSyms, ...stars])} mode={dataMode} news={news.items} />,
   };
   const chart = (onPopout?: () => void) => (
+    <Suspense fallback={<section className="panel chart-panel"><div className="ph-body muted small">Loading chart…</div></section>}>
     <ChartPanel mode={dataMode}
       sym={sel} name={q.name} last={live ? q.last : chartSeries.bars.at(-1)?.close ?? q.last} chgPct={q.chgPct}
       tf={layout.tf} onTf={setTf} theme={theme} series={chartSeries} levels={selLevels} onPopout={onPopout}
       news={news.items} onSelect={setSel}
     />
+    </Suspense>
   );
   const levelsPanel = (
     <LevelsPanel cols={cols} orMin={orMin} setOrMin={setOrMin} alertsOn={alertsOn} toggleAlerts={toggleAlerts} onSelect={setSel} sel={sel} onClose={() => setLayout({ levelsOpen: false })} />
@@ -712,7 +744,7 @@ export default function App() {
         {POPOUT === 'right' && <RightRail {...rightProps} />}
         {POPOUT === 'ticker' && <NewsTicker headlines={news.items} fresh={news.freshness} asOf={news.asOf} boards={boards} watchOnly={watchOnly} setWatchOnly={setWatchOnly} onSelect={setSel} />}
         {toast && <div className="toast" role="status">{toast}</div>}
-        {article && <ReaderOverlay a={article} mode={dataMode} onClose={() => setArticle(null)} />}
+        <Suspense fallback={null}>{article && <ReaderOverlay a={article} mode={dataMode} onClose={() => setArticle(null)}  />}</Suspense>
       </div>
       </Desk.Provider>
     );
@@ -724,14 +756,14 @@ export default function App() {
   const cols3 = `${leftShown ? `${Math.min(layout.left, narrow ? 220 : 520)}px 5px` : '0 0'} minmax(0,1fr) ${layout.rightOpen ? `5px ${rightW}px` : '0 0'}`;
   const toDesk = (s: string) => { setSel(s); setPage('desk'); };
   const closedR = views.filter((v) => v.status === 'closed' && !v.t.deleted).map((v) => ({ r: v.r, realized: v.realized }));
-  const flowSwitch = <Seg<'flow' | 'companies'> value={flowView} onChange={setFlowView} options={[{ id: 'flow', label: 'Sector rotation' }, { id: 'companies', label: 'Companies map' }]} />;
+  const flowSwitch = <PageTabs<'flow' | 'companies'> value={flowView} onChange={setFlowView} options={[{ id: 'flow', label: 'Sector rotation' }, { id: 'companies', label: 'Companies map' }]} />;
   let body: ReactNode;
   if (page === 'scanner') {
     body = <div className="page page-split"><section className="panel rr"><div className="rr-body">{scanner}</div></section><div className="center">{chart()}</div></div>;
   } else if (page === 'calendar') {
     body = <div className="page page-split"><section className="panel cal-page"><Calendars cal={cal} now={now} onSelect={setSel} mySyms={new Set([...wlSyms, ...stars])} mode={dataMode} news={news.items} /></section><div className="center">{chart()}</div></div>;
   } else if (page === 'journal') {
-    body = <div className="page"><JournalOverlay views={views} setTrades={setTrades} transfers={transfers} setTransfers={setTransfers} onAutoStart={(t) => setSettings((s) => (s.startBalance == null ? { ...s, startBalance: 0, startDate: t } : s))} violations={viols} lastPx={lastPx} settings={settings} onClose={() => setPage('desk')} onSelect={toDesk} onReplay={setReplayId} canSample={!live} /></div>;
+    body = <div className="page"><Suspense fallback={<section className="panel"><div className="ph-body muted small">Loading journal…</div></section>}><JournalOverlay views={views} setTrades={setTrades} transfers={transfers} setTransfers={setTransfers} onAutoStart={(t) => setSettings((s) => (s.startBalance == null ? { ...s, startBalance: 0, startDate: t } : s))} violations={viols} lastPx={lastPx} settings={settings} onClose={() => setPage('desk')} onSelect={toDesk} onReplay={setReplayId} canSample={!live} /></Suspense></div>;
   } else if (page === 'messages') {
     body = <div className="page"><section className="panel msgs-page"><div className="phead"><div className="phead-title">Messages: earnings, Fed, White House, economy</div></div><Messages feed={feed} cal={cal} nowMs={now} onChart={toDesk} /></section></div>;
   } else if (page === 'gamma') {
@@ -743,14 +775,14 @@ export default function App() {
   } else if (page === 'morning') {
     body = (
       <Suspense fallback={<div className="page"><section className="panel"><div className="ph-body">Loading…</div></section></div>}>
-        <Morning data={morning} cal={cal} pm={pmLv} rules={rulesData} now={now} watch={morningSyms} onChart={toDesk} onCheckIn={() => setCiOpen(true)} />
+        <Morning data={morning} cal={cal} pm={pmLv} rules={rulesData} now={now} watch={morningSyms} onChart={toDesk} onCheckIn={() => setCiOpen(true)} mode={dataMode} />
       </Suspense>
     );
   } else if (page === 'home') {
     body = (
       <Suspense fallback={<div className="page"><section className="panel"><div className="ph-body">Loading…</div></section></div>}>
         <Home spaces={spaces} setSpaces={setSpaces} tickers={tickers.map((t) => ({ sym: t.sym, name: names[t.sym] ?? t.name }))}
-          d={{ mode: dataMode, theme, quotes, news, cal, movers, clk, macro, pingLog, sel, pingAt, setPingAt, onChart: toDesk, demoLast, feed, now, trades: closedR, riskPct: settings.riskPct, equity: settings.startBalance == null ? null : g.equity, playbooks, rules: rulesData }} />
+          d={{ mode: dataMode, theme, quotes, news, cal, movers, clk, macro, pingLog, sel, pingAt, setPingAt, onChart: toDesk, demoLast, feed, now, openPage: (p: string) => setPage(p as Page), trades: closedR, riskPct: settings.riskPct, equity: settings.startBalance == null ? null : g.equity, playbooks, rules: rulesData }} />
       </Suspense>
     );
   } else if (page === 'company') {
@@ -764,6 +796,14 @@ export default function App() {
       <Suspense fallback={<div className="page"><section className="panel"><div className="ph-body">Loading…</div></section></div>}>
         <PatternLab mode={dataMode} theme={theme} symbols={[...wlSyms, ...universe]} demoLast={demoLast} onChart={toDesk} />
       </Suspense>
+    );
+  } else if (page === 'distress') {
+    body = (
+      <div className="page">
+        <Suspense fallback={<section className="panel"><div className="ph-body">Loading…</div></section>}>
+          <DistressPage mode={dataMode} mySyms={[...new Set([...wlSyms, sel])]} onChart={toDesk} />
+        </Suspense>
+      </div>
     );
   } else if (page === 'status') {
     body = <div className="page"><DataStatus mode={dataMode} /></div>;
@@ -804,8 +844,10 @@ export default function App() {
   return (
     <Desk.Provider value={desk}>
     <div className={`shell ${focus ? 'focus' : ''}`} data-group={pageGroup(page)}>
+      {river && <Suspense fallback={null}><RiverScene still={scene === 'still'} /></Suspense>}
+      <Suspense fallback={null}><HoverCard quotes={quotes} names={OFFLINE_NAMES} /></Suspense>
       {focus && <button className="focus-chip" onClick={toggleFocus} title="Bring the side bars back (Z)">Focus mode · Z to exit</button>}
-      <SideNav compact={iconRail} page={page} onPage={setPage} onCmd={() => setCmdOpen(true)} onHelp={() => setOverlay('help')} onAccount={() => setDrawer((d) => !d)} />
+      <SideNav compact={iconRail} page={page} onPage={setPage} dataState={dataMode.kind} onCmd={() => setCmdOpen(true)} onHelp={() => setOverlay('help')} onAccount={() => setDrawer((d) => !d)} />
       <div className={`app ${layout.tickerOpen ? '' : 'no-ticker'} ${layout.fearOpen !== false ? 'has-fear' : ''}`}>
         <TopStrip
           movement={movement} vol={vol} moveStats={dayStats}
@@ -822,19 +864,20 @@ export default function App() {
       </div>
 
       <CommandBar
-        open={cmdOpen} onClose={() => setCmdOpen(false)} commands={commands} tickers={tickers} onTicker={setSel}
+        open={cmdOpen} onClose={() => setCmdOpen(false)} commands={commands} tickers={tickers} onTicker={setSel} quotes={quotes} pages={NAV_PAGE_IDS}
         allowAny={live ? (s) => SYMBOL_RE.test(s) : undefined}
       />
-      <AccountDrawer open={drawer} onClose={() => setDrawer(false)} theme={theme} views={views} transfers={liveTransfers} settings={settings} setSettings={setSettings} guard={g} onImport={() => { setDrawer(false); setPage('journal'); }} />
-      {recapOpen !== false && <RecapOverlay recaps={recaps} initialDay={recapOpen || undefined} onClose={() => setRecapOpen(false)} onReplay={setReplayId} csvFor={csvFor} />}
-      {replayView && <ReplayOverlay v={replayView} live={live} theme={theme} rules={exitRules} setRules={setExitRules} onClose={() => setReplayId(null)} />}
+      {(drawer || drawerSeen) && <Suspense fallback={null}><AccountDrawer open={drawer} onClose={() => setDrawer(false)} theme={theme} views={views} transfers={liveTransfers} settings={settings} setSettings={setSettings} guard={g} onImport={() => { setDrawer(false); setPage('journal'); }} /></Suspense>}
+      <Suspense fallback={null}>{recapOpen !== false && <RecapOverlay recaps={shownRecaps} initialDay={recapOpen || undefined} onClose={() => setRecapOpen(false)} onReplay={setReplayId} csvFor={csvFor}
+        importDeps={{ setTrades, setTransfers, settings, onAutoStart: (t) => setSettings((s) => (s.startBalance == null ? { ...s, startBalance: 0, startDate: t } : s)) }} onOpenImport={() => { setRecapOpen(false); save('journalTab', 'import'); setPage('journal'); }} />}</Suspense>
+      <Suspense fallback={null}>{replayView && <ReplayOverlay v={replayView} live={live} theme={theme} rules={exitRules} setRules={setExitRules} onClose={() => setReplayId(null)} />}</Suspense>
       {ciOpen && <CheckInDialog day={today} existing={checkin} onClose={() => setCiOpen(false)} onSave={(c) => { setCheckins((x) => [...x.filter((y) => y.day !== c.day), c]); setCiOpen(false); }} />}
-      {pbOpen && <PlaybookEditor playbooks={playbooks} setPlaybooks={setPlaybooks} activeId={activePb?.id ?? ''} setActiveId={(id) => setScanPrefs((x) => ({ ...x, playbookId: id }))} rows={rows} vwap={vwapBy} onClose={() => setPbOpen(false)} />}
+      <Suspense fallback={null}>{pbOpen && <PlaybookEditor playbooks={playbooks} setPlaybooks={setPlaybooks} activeId={activePb?.id ?? ''} setActiveId={(id) => setScanPrefs((x) => ({ ...x, playbookId: id }))} rows={rows} vwap={vwapBy} onClose={() => setPbOpen(false)} />}</Suspense>
       {syncOpen && <SyncDialog user={cloudUser?.email ?? null} onClose={() => setSyncOpen(false)} />}
       {overlay === 'help' && <OverlayView kind="help" onClose={() => setOverlay(null)} />}
       {toast && <div className="toast" role="status">{toast}</div>}
-      {article && <ReaderOverlay a={article} mode={dataMode} onClose={() => setArticle(null)} />}
-      {orderReq && <OrderTicket initial={orderReq.initial} last={orderReq.last ?? (orderReq.initial.sym && Number.isFinite(quotes[orderReq.initial.sym]?.last) ? quotes[orderReq.initial.sym].last : null)} live={live} onClose={() => setOrderReq(null)} onPlaced={(t) => flash(`Sent to Webull: ${t}`, 5000)} />}
+      <Suspense fallback={null}>{article && <ReaderOverlay a={article} mode={dataMode} onClose={() => setArticle(null)}  />}</Suspense>
+      <Suspense fallback={null}>{orderReq && <OrderTicket initial={orderReq.initial} last={orderReq.last ?? (orderReq.initial.sym && Number.isFinite(quotes[orderReq.initial.sym]?.last) ? quotes[orderReq.initial.sym].last : null)} live={live} onClose={() => setOrderReq(null)} onPlaced={(t) => flash(`Sent to Webull: ${t}`, 5000)} />}</Suspense>
       {info && <TickerInfo key={info.sym} sym={info.sym} at={info.at} mode={dataMode} onClose={() => setInfo(null)} onChart={toDesk} onCompany={openCompany} />}
       <PingStack pings={pings} onOpen={toDesk} onDismiss={(id) => setPings((x) => x.filter((p) => p.id !== id))} />
     </div>

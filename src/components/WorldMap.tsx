@@ -15,10 +15,12 @@ import { usePersisted } from '../lib/store';
 import { pct } from '../lib/format';
 import { etTime } from '../lib/clock';
 import { Fresh, Seg } from './common';
+import { DistressDots, DistressSide } from './Distress';
+import type { DistressRow } from '../../shared/distress';
 
 const FIT = { scale: MAP_SCALE, tx: MAP_TX, ty: MAP_TY };
-type MapLayer = 'news' | ExtraLayer;
-const LAYERS: MapLayer[] = ['news', 'conflict', 'shipping', 'deals'];
+type MapLayer = 'news' | ExtraLayer | 'distress';
+const LAYERS: MapLayer[] = ['news', 'conflict', 'shipping', 'deals', 'distress'];
 const STEPS = 96; // 24 hours in 15-minute steps
 
 const Base = memo(function Base() {
@@ -57,7 +59,9 @@ export default function WorldMap({ data, symbols, names, onSelect, onClose, mode
   const { openArticle } = useDesk();
   const [saved, setLayer] = usePersisted<string>('mapLayer', 'news');
   const layer: MapLayer = (LAYERS as string[]).includes(saved) ? (saved as MapLayer) : 'news'; // old saved choices (weather, lawsuits) fall back to news
-  const extraLayer = layer === 'news' ? null : layer;
+  const distress = layer === 'distress';
+  const [selCo, setSelCo] = useState<DistressRow | null>(null);
+  const extraLayer = layer === 'news' || layer === 'distress' ? null : layer;
   const lay = useWorldLayer(extraLayer, mode);
   const [selChoke, setSelChoke] = useState<string | null>(null);
   const [selHot, setSelHot] = useState<Hotspot | null>(null);
@@ -114,7 +118,7 @@ export default function WorldMap({ data, symbols, names, onSelect, onClose, mode
         <div className="phead">
           <div className="phead-title">World map</div>
           <div className="phead-ctl">
-            <Seg<MapLayer> value={layer} onChange={(l) => { setLayer(l); setSelHot(null); setSelChoke(null); }} options={[{ id: 'news', label: 'Market news' }, { id: 'conflict', label: 'Conflicts' }, { id: 'shipping', label: 'Shipping & oil' }, { id: 'deals', label: 'Deals' }]} />
+            <Seg<MapLayer> value={layer} onChange={(l) => { setLayer(l); setSelHot(null); setSelChoke(null); }} options={[{ id: 'news', label: 'Market news' }, { id: 'conflict', label: 'Conflicts' }, { id: 'shipping', label: 'Shipping & oil' }, { id: 'deals', label: 'Deals' }, { id: 'distress', label: 'Distressed cos.' }]} />
             {state && <Fresh kind={state.freshness} at={state.asOf}
               src={`${state.cached ? 'Saved copy from your last visit, refreshing. ' : ''}${extraLayer
                 ? `${lay?.via === 'desk' ? 'Desk news feeds (RSS + Finnhub, last 24h)' : 'GDELT GEO 2.0 (last 24h'}, ${LAYER_LABEL[extraLayer]} query)${extraLayer === 'shipping' ? ' + EIA chokepoints + aisstream.io ships' : ''}`
@@ -134,7 +138,8 @@ export default function WorldMap({ data, symbols, names, onSelect, onClose, mode
                   <g key={c.id} className={`choke ${selChoke === c.id ? 'sel' : ''}`} onClick={(e) => { e.stopPropagation(); setSelChoke(c.id); setSelHot(null); }}>
                     <rect x={x - 5} y={y - 5} width={10} height={10} transform={`rotate(45 ${x} ${y})`} /><text x={x + 9} y={y + 4}>{c.name}</text><title>{c.note}</title>
                   </g>); })}
-                <Dots spots={spots} maxCount={maxCount} cls={cls} selId={selHot?.id} hoverId={hoverId} onPick={pick} />
+                {distress ? <DistressDots mode={mode} project={(lon, lat) => project(lon, lat, FIT)} sel={selCo?.sym ?? null} onPick={setSelCo} />
+                  : <Dots spots={spots} maxCount={maxCount} cls={cls} selId={selHot?.id} hoverId={hoverId} onPick={pick} />}
               </svg>
               <div className="wm-open" aria-label="Markets open now">
                 {open.length ? <><i /> Open now: {open.map((m) => m.name).join(', ')}</> : <span className="muted">All six major markets closed</span>}
@@ -142,7 +147,7 @@ export default function WorldMap({ data, symbols, names, onSelect, onClose, mode
               </div>
               {!state && <div className="wm-load">Loading headlines…</div>}
             </div>
-            {timed && (
+            {timed && !distress && (
               <div className="wm-replay" aria-label="24-hour replay">
                 <button className="hw-btn" onClick={() => { if (playing) { setPlaying(false); return; } stepRef.current = 0; setStep(0); setPlaying(true); }} aria-label={playing ? 'Pause replay' : 'Replay the last 24 hours'}>{playing ? '❚❚' : '▶'}</button>
                 <input type="range" min={0} max={STEPS} value={step ?? STEPS} onChange={(e) => { const v = +e.target.value; setPlaying(false); stepRef.current = v; setStep(v >= STEPS ? null : v); }} aria-label="Replay position" />
@@ -150,7 +155,7 @@ export default function WorldMap({ data, symbols, names, onSelect, onClose, mode
                 <span className="small muted">{upto == null ? 'drag back to replay the last 24 hours' : `${Math.round((endAt - upto) / 3600_000)}h ago`}</span>
               </div>
             )}
-            {!extraLayer && tiles.length > 0 && (
+            {!extraLayer && !distress && tiles.length > 0 && (
               <div className="wm-tiles" aria-label="Country ETFs today">
                 {tiles.map((r) => {
                   const v = r.chgPct!, a = Math.min(70, 10 + Math.abs(v) * 28);
@@ -164,7 +169,7 @@ export default function WorldMap({ data, symbols, names, onSelect, onClose, mode
             )}
           </div>
           <aside className="wm-side">
-            {selHot ? (
+            {distress ? <DistressSide mode={mode} sel={selCo} onPick={setSelCo} onChart={onSelect} /> : selHot ? (
               <>
                 <button className="link small" onClick={() => setSelHot(null)}>← All hotspots</button>
                 <h4>{selHot.name}</h4>

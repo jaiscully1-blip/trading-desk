@@ -10,7 +10,7 @@ import { useHistNews } from '../data/company';
 import { useDesk, type Article } from '../lib/deskctx';
 import { makeCandles } from '../lib/demo';
 import { px } from '../lib/format';
-import { CoName, Star } from './common';
+import { CoName, Star, Q } from './common';
 import type { HomeData } from './HomeWidgets';
 
 type Cfg = Record<string, any>;
@@ -57,7 +57,7 @@ export function ClaimsW({ d, cfg, set }: P) {
       <div className="hw-bar">
         <input className="hw-ticker" value={sym} onChange={(e) => set({ ...cfg, sym: e.target.value.toUpperCase() })} aria-label="Ticker" />
         <CoName sym={sym} />
-        <span className="cl-overall">Consensus <Pill lean={c.overall} /></span>
+        <span className="cl-overall"><Q k="calc" src="rule-based reads of financials, technicals and headlines, scored on the desk" />Consensus <Pill lean={c.overall} /></span>
       </div>
       <div className="cl-cats">
         {(['fundamental', 'technical', 'news'] as Cat[]).map((k) => {
@@ -121,7 +121,7 @@ export function BetsW({ d, cfg, set }: P) {
       <div className="hw-bar">
         <span className="small muted">Target</span>
         {[1.5, 2, 3].map((r) => <button key={r} className={`chip sm ${rrv === r ? 'on' : ''}`} onClick={() => set({ ...cfg, rr: r })}>{r}R</button>)}
-        <span className="small muted bets-legend">equity vs pot odds</span>
+        <span className="small muted bets-legend"><Q k="calc" src="win rates from past daily bars; pot odds from your R target" />equity vs pot odds</span>
       </div>
       <div className="bets grow">
         <div className="bets-h"><span>Hand</span><span>Bet</span><span title="How often this stock hit the target before the stop, from the same trend state">Equity</span><span title="Win rate needed to break even at this reward:risk">Pot odds</span><span title="Average result per bet, in units of risk">EV</span><span title="Half Kelly: share of the account to risk">Size</span><span>Call</span></div>

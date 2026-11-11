@@ -1,0 +1,40 @@
+# Daily bull / bear / stagnant cases for SPY, QQQ and IWM (historical base rates) and the special-days calendar.
+# Runs before the open (with the premarket gap) and after the close (grades the day, previews the next session).
+# Commits ONLY published/daycases.json, published/daycases-log.json and published/fomc-dates.json. The desk and the Discord bots
+# read the first one. CALCULATED history, not a forecast, not advice: no calls, puts, entries, stops or targets. Nothing here can trade.
+# Optional secret: FRED_API_KEY (CPI and jobs-report dates).
+name: Day cases
+
+on:
+  schedule:
+    - cron: "10,40 12,13 * * 1-5"   # 8:10 and 8:40 ET in summer or winter (two hours listed because GitHub cron is UTC)
+    - cron: "40 21 * * 1-5"          # after the close: grade today, preview tomorrow
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: daycases
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Build the day cases
+        env:
+          FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
+        run: npx --yes tsx@4.19.2 scripts/daycases-build.ts
+      - name: Save results (only the day-case files)
+        run: |
+          git config user.name "daycases-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add published/daycases.json published/daycases-log.json published/fomc-dates.json
+          git diff --cached --quiet || git commit -m "Day cases $(date -u +%F' '%H:%M)"
+          git pull --rebase --quiet && git push

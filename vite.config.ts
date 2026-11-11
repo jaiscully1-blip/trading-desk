@@ -34,5 +34,8 @@ export default defineConfig(({ mode }) => {
   return {
     plugins: [react(), devApi(), ...(mode === 'single' ? [viteSingleFile()] : [])],
     test: { include: ['tests/**/*.test.ts'] },
+    // The charting library and the big company list get their own files, so the app shell stays small and they load (and cache)
+    // separately, only when a chart or a company name list is needed.
+    ...(mode === 'single' ? {} : { build: { rollupOptions: { output: { manualChunks: (id: string) => (id.includes('node_modules/lightweight-charts') ? 'charts' : id.includes('shared/data/companies') ? 'companies' : undefined) } } } }),
   };
 });

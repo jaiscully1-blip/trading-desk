@@ -143,7 +143,32 @@ export function useFlash(v: number | null | undefined): string {
 /** A number that briefly tints green/red when it ticks up/down. */
 export function FlashNum({ v, children, className = 'num' }: { v: number | null | undefined; children: ReactNode; className?: string }) {
   const f = useFlash(v);
-  return <span className={`${className} ${f}`}>{children}</span>;
+  return <span className={`${className} ${f}`}>{typeof children === 'string' ? <Roll text={children} dir={f === 'flash-up' ? 'up' : f === 'flash-down' ? 'down' : null} /> : children}</span>;
+}
+/** Number text where only the characters that changed roll in (up from below on a rise, down from above on a fall). */
+function Roll({ text, dir }: { text: string; dir: 'up' | 'down' | null }) {
+  const prev = useRef(text);
+  const [old, setOld] = useState(text);
+  useEffect(() => { if (text !== prev.current) { setOld(prev.current); prev.current = text; } }, [text]);
+  if (!dir || old === text || old.length !== text.length) return <>{text}</>;
+  return <>{[...text].map((c, i) => (c === old[i] ? c : <span key={`${i}${c}${text}`} className={`roll roll-${dir}`}>{c}</span>))}</>;
+}
+
+/** Tiny trend line (oldest to newest). Green if it ended higher than it started, red if lower; the last point is a dot. */
+export function Spark({ v, w = 56, h = 16, title }: { v: number[]; w?: number; h?: number; title?: string }) {
+  const pts = v.filter((x) => Number.isFinite(x));
+  if (pts.length < 3) return null;
+  const lo = Math.min(...pts), hi = Math.max(...pts), span = hi - lo || 1;
+  const xy = pts.map((p, i) => [(i / (pts.length - 1)) * (w - 3) + 1.5, h - 1.5 - ((p - lo) / span) * (h - 3)] as const);
+  const up = pts[pts.length - 1] >= pts[0];
+  const [lx, ly] = xy[xy.length - 1];
+  return (
+    <svg className={`spark ${up ? 'up' : 'down'}`} width={w} height={h} viewBox={`0 0 ${w} ${h}`} role="img" aria-label={title ?? `${pts.length}-day trend, ${up ? 'up' : 'down'}`}>
+      {title && <title>{title}</title>}
+      <polyline points={xy.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(' ')} fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" strokeLinecap="round" />
+      <circle cx={lx} cy={ly} r="1.8" fill="currentColor" />
+    </svg>
+  );
 }
 /** Shimmering placeholder block while a panel loads. */
 export function Skel({ w = '100%', h = 12, n = 1 }: { w?: number | string; h?: number; n?: number }) {
@@ -183,3 +208,48 @@ export function Belt({ items, value, onChange, orderKey, size = 3, trailing }: {
     </div>
   );
 }
+
+
+/** Page-level views (the big tabs under a page title). Larger than Seg, with an underline on the active one, a "2 of 3" count,
+ *  arrow buttons, and the , and . keys to flip back and forth. Use Seg for small in-panel toggles, PageTabs for views of a page. */
+export function PageTabs<T extends string>({ value, options, onChange, label = 'Views' }: {
+  value: T; options: { id: T; label: string; hint?: string; count?: number }[]; onChange: (v: T) => void; label?: string;
+}) {
+  const i = Math.max(0, options.findIndex((o) => o.id === value));
+  const go = (d: number) => onChange(options[(i + d + options.length) % options.length].id);
+  const goRef = useRef(go); goRef.current = go;
+  useEffect(() => {
+    const k = (e: KeyboardEvent) => {
+      const t = e.target as HTMLElement | null;
+      if (e.metaKey || e.ctrlKey || e.altKey || t?.closest?.('input, textarea, select, [contenteditable]')) return;
+      if (e.key === ',') { e.preventDefault(); goRef.current(-1); } else if (e.key === '.') { e.preventDefault(); goRef.current(1); }
+    };
+    window.addEventListener('keydown', k);
+    return () => window.removeEventListener('keydown', k);
+  }, []);
+  return (
+    <div className="ptabs" role="tablist" aria-label={label}>
+      <button className="ptabs-arrow" onClick={() => go(-1)} title="Previous view ( , )" aria-label="Previous view">‹</button>
+      {options.map((o) => (
+        <button key={o.id} role="tab" aria-selected={value === o.id} className={`ptab ${value === o.id ? 'on' : ''}`} onClick={() => onChange(o.id)} title={o.hint}>
+          {o.label}{o.count != null && <span className="ptab-n num">{o.count}</span>}
+        </button>
+      ))}
+      <button className="ptabs-arrow" onClick={() => go(1)} title="Next view ( . )" aria-label="Next view">›</button>
+      <span className="ptabs-pos num" title="Press , and . to flip between views">{i + 1}/{options.length}</span>
+    </div>
+  );
+}
+
+
+/** Data-quality dot for a single number or card, where a full badge would be clutter. Colour = kind; hover says the source.
+ *  live = real time · delayed = minutes old · eod = end of day · calc = CALCULATED on the desk from other data · model = a model's
+ *  forecast · unofficial = public data with no official terms · mine = your own journal or settings · demo = sample data. */
+export type QKind = 'live' | 'delayed' | 'eod' | 'calc' | 'model' | 'unofficial' | 'mine' | 'demo';
+const Q_LABEL: Record<QKind, string> = { live: 'Live', delayed: 'Delayed', eod: 'End of day', calc: 'Calculated on the desk', model: 'Model forecast, not data', unofficial: 'Unofficial public source', mine: 'From your own journal / settings', demo: 'Sample data, not real' };
+export function Q({ k, src, at }: { k: QKind; src?: string; at?: number }) {
+  const tip = [Q_LABEL[k], src, at != null ? `as of ${etTime(at)} ET` : ''].filter(Boolean).join(' · ');
+  return <i className={`q q-${k}`} title={tip} aria-label={tip} role="img" />;
+}
+/** Freshness (the panel badge's kinds) -> the dot's kinds. */
+export const qOf = (f: Freshness | undefined): QKind => (f === 'live' ? 'live' : f === 'eod' ? 'eod' : f === 'demo' ? 'demo' : 'delayed');

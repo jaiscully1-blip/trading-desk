@@ -25,7 +25,7 @@ export function ruleRows(r: RulesData, now: number): Row[] {
   return [
     { label: 'Checked in today', ok: r.checkedIn, detail: r.checkedIn ? 'done' : 'open the check-in before your first trade' },
     { label: `Daily loss under ${s.maxDailyLossPct}%`, ok: r.hasAccount ? g.lockout !== 'Locked' : null, detail: r.hasAccount ? `${lossUsed.toFixed(2)}% used${g.lockout === 'Locked' ? ' · LOCKED for today' : ''}` : 'set a starting balance in the account drawer' },
-    { label: `Heat under ${s.maxHeatPct}%`, ok: r.hasAccount ? g.heatPct <= s.maxHeatPct : null, detail: r.hasAccount ? `${g.heatPct.toFixed(2)}% of equity at risk in open trades` : '' },
+    { label: `Heat under ${s.maxHeatPct}%`, ok: r.hasAccount ? g.heatPct <= s.maxHeatPct : null, detail: r.hasAccount ? `${Number.isFinite(g.heatPct) ? `${g.heatPct.toFixed(2)}%` : 'An open trade has no stop, so the amount'} of equity at risk in open trades` : '' },
     { label: 'No loss-streak cooldown', ok: g.lockout !== 'Cooldown', detail: g.lockout === 'Cooldown' && g.cooldownUntil ? `cooldown until ${new Date(g.cooldownUntil).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'America/New_York' })} ET` : `${g.lossStreak} loss${g.lossStreak === 1 ? '' : 'es'} in a row today` },
     { label: 'No rule breaks today', ok: todays.length === 0, detail: todays.length ? todays.map((v) => `${v.sym}: ${VIOLATION_LABEL[v.type]}`).join(' · ') : 'clean' },
   ];

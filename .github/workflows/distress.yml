@@ -1,0 +1,43 @@
+# Nightly distress read for the S&P 500 + Nasdaq-100 (+ agents/tickers.txt): SEC filings, SEC XBRL financials, Form 4 insiders,
+# going-concern wording, prices, FINRA short volume and headline keyword rules. Free sources only.
+# Also: state WARN layoff notices (Big Local News) and open jobs on public Greenhouse / Lever / Ashby boards.
+# Commits ONLY published/distress.json (and published/hiring.json, the job-count history), which the desk shows as CALCULATED, not a rating and not advice. Nothing here can trade.
+# Secrets: SEC_USER_AGENT (required: an app name and a contact email, as SEC asks). Optional: FINNHUB_API_KEY, GEMINI_API_KEY.
+name: Distress read
+
+on:
+  schedule:
+    - cron: "30 23 * * 1-5"   # 23:30 UTC = 6:30 PM ET in winter, after the close and after Kronos
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: distress
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Build the distress read
+        env:
+          SEC_USER_AGENT: ${{ secrets.SEC_USER_AGENT }}
+          FINNHUB_API_KEY: ${{ secrets.FINNHUB_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+          DESK_URL: ${{ vars.DESK_URL }}
+        run: npx --yes tsx@4.19.2 scripts/distress-build.ts
+      - name: Save results (only published/distress.json and published/hiring.json)
+        run: |
+          git config user.name "distress-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add published/distress.json published/hiring.json
+          git diff --cached --quiet || git commit -m "Distress read $(date -u +%F)"
+          git pull --rebase --quiet && git push

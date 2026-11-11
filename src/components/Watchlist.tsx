@@ -2,7 +2,7 @@ import { useState } from 'react';
 import type { Board, Freshness, Quote } from '../types';
 import { DEMO_AT, INDEXES } from '../lib/demo';
 import { pct, px, tone } from '../lib/format';
-import { CoName, FlashNum, Fresh, PanelHead, Star } from './common';
+import { CoName, FlashNum, Fresh, PanelHead, Star, Spark } from './common';
 
 export const BOARDS: { id: Board; label: string }[] = [
   { id: 'setups', label: 'Setups' },
@@ -27,6 +27,7 @@ function Row({ q, sel, onSelect, draggable = true, onRemove }: { q: Quote; sel: 
   return (
     <div
       className={`wl-row ${sel ? 'sel' : ''}`}
+      data-sym={q.sym}
       draggable={draggable}
       onDragStart={(e) => {
         e.dataTransfer.setData('text/plain', q.sym);
@@ -42,6 +43,7 @@ function Row({ q, sel, onSelect, draggable = true, onRemove }: { q: Quote; sel: 
       <span className="num wl-rs" title="Relative strength rank vs SPY (5/20/60d)">
         {INDEXES.includes(q.sym) || !Number.isFinite(q.rsRank) ? '—' : q.rsRank}
       </span>
+      <span className="wl-spark">{q.spark && <Spark v={q.spark} w={48} h={14} title="30 trading days" />}</span>
       <CoName sym={q.sym} className="wl-name" />
       {onRemove && (
         <button className="wl-x" onClick={(e) => { e.stopPropagation(); onRemove(); }} title="Remove from watchlist" aria-label={`Remove ${q.sym}`}>

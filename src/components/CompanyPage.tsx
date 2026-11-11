@@ -6,7 +6,7 @@ import type { ChainLink } from '../../shared/company';
 import { useCompany } from '../data/company';
 import type { DataMode } from '../data/live';
 import { useDesk } from '../lib/deskctx';
-import { Star } from './common';
+import { Star, Q } from './common';
 import { offlineInfo } from '../data/info';
 
 const W = 960, H = 600, CX = W / 2, CY = 270, NW = 200, NH = 42, CW = 168;
@@ -25,7 +25,7 @@ function layout(sup: ChainLink[], cus: ChainLink[], comp: ChainLink[]): Node[] {
   return [...col(sup, 'sup', 120), ...col(cus, 'cus', W - 120), ...row.map((l, i) => ({ key: `comp:${l.name}`, side: 'comp' as Side, link: l, x: gap * (i + 1), y: H - 50 }))];
 }
 
-function Diagram({ sym, name, sup, cus, comp, onOpen }: { sym: string; name: string; sup: ChainLink[]; cus: ChainLink[]; comp: ChainLink[]; onOpen: (s: string) => void }) {
+function Diagram({ sym, name, sup, cus, comp, onOpen, empty }: { sym: string; name: string; sup: ChainLink[]; cus: ChainLink[]; comp: ChainLink[]; onOpen: (s: string) => void; empty: string }) {
   const [hov, setHov] = useState<string | null>(null);
   const nodes = layout(sup, cus, comp);
   const edge = (n: Node) => {
@@ -53,14 +53,14 @@ function Diagram({ sym, name, sup, cus, comp, onOpen }: { sym: string; name: str
         return (
           <g key={n.key} className={`sc-node ${n.side} ${go ? 'link' : 'nolink'} ${hov === n.key ? 'hot' : ''}`} onMouseEnter={() => setHov(n.key)} onMouseLeave={() => setHov(null)}
             onClick={go} role={go ? 'button' : undefined} tabIndex={go ? 0 : undefined} onKeyDown={(e) => { if (go && (e.key === 'Enter' || e.key === ' ')) go(); }}>
-            <title>{`${n.link.name}${n.link.sym ? ` (${n.link.sym})` : ' — not US-listed or not matched to a ticker'}${n.link.what ? ` · ${n.link.what}` : ''}${n.link.share ? ` · ${n.link.share}` : ''}`}</title>
+            <title>{`${n.link.name}${n.link.category ? ' (a kind of buyer or supplier named in the report, not a company)' : n.link.sym ? ` (${n.link.sym})` : ' (not US-listed or not matched to a ticker)'}${n.link.what ? ` · ${n.link.what}` : ''}${n.link.share ? ` · ${n.link.share}` : ''}`}</title>
             <rect x={n.x - (n.side === 'comp' ? CW : NW) / 2} y={n.y - NH / 2} width={n.side === 'comp' ? CW : NW} height={NH} rx={6} />
             <text x={n.x} y={n.y - 3} className="sc-n1">{cut(n.link.name, n.side === 'comp' ? 20 : 24)}</text>
-            <text x={n.x} y={n.y + 13} className="sc-n2">{n.link.sym ?? 'private / unlisted'}</text>
+            <text x={n.x} y={n.y + 13} className="sc-n2">{n.link.category ? 'in the report\u2019s words' : n.link.sym ?? 'private / unlisted'}</text>
           </g>
         );
       })}
-      {!sup.length && !cus.length && <text x={CX} y={CY + 70} className="sc-empty">No suppliers or customers named yet</text>}
+      {!sup.length && !cus.length && <text x={CX} y={CY + 70} className="sc-empty">{empty}</text>}
     </svg>
   );
 }
@@ -99,7 +99,7 @@ function Peers({ named, peers, onOpen }: { named: ChainLink[]; peers: ChainLink[
 export default function CompanyPage({ sym, mode, onOpen, onChart, onPatterns }: { sym: string; mode: DataMode; onOpen: (s: string) => void; onChart: (s: string) => void; onPatterns: (s: string) => void }) {
   const { names } = useDesk();
   const [trail, setTrail] = useState<string[]>([]);
-  const { data, loading, error } = useCompany(sym, names[sym] ?? sym, mode);
+  const { data, loading, error, reading, retry } = useCompany(sym, names[sym] ?? sym, mode);
   const go = (s: string) => { if (s !== sym) { setTrail((t) => [...t.slice(-6), sym]); onOpen(s); } };
   const back = () => { const p = trail.at(-1); if (p) { setTrail((t) => t.slice(0, -1)); onOpen(p); } };
   const f = data?.facts;
@@ -107,6 +107,18 @@ export default function CompanyPage({ sym, mode, onOpen, onChart, onPatterns }: 
   const named: ChainLink[] = f?.competitors ?? [];
   const peerOnly: ChainLink[] = (data?.peers ?? []).filter((p) => p.sym !== sym && !named.some((c) => c.sym === p.sym)).map((p) => ({ name: p.name, sym: p.sym, what: 'same-industry peer' }));
   const comp: ChainLink[] = [...named, ...peerOnly];
+  // When the report names no customer or supplier companies, show who it says they are (for example "consumers") as one labelled box.
+  const cat = (text?: string): ChainLink[] => (text ? [{ name: text.length > 46 ? `${text.slice(0, 45)}…` : text, what: text, category: true }] : []);
+  const sup: ChainLink[] = f?.suppliers.length ? f.suppliers : cat(f?.supplyBase);
+  const cus: ChainLink[] = f?.customers.length ? f.customers : cat(f?.customerBase);
+  const aiErr = data?.errors?.gemini ?? data?.errors?.filing;
+  // one honest line for why the map is empty, instead of the same sentence for four different situations
+  const emptyWhy = reading || data?.pending ? 'Reading the annual report… (about 20 to 40 seconds the first time)'
+    : aiErr ? 'The free AI reader is busy or failed, so nothing was extracted. See below.'
+    : data && !data.filing ? 'No SEC annual report to read (foreign or non-SEC filer)'
+    : data && !data.gemini ? 'Add a free GEMINI_API_KEY in Vercel to read suppliers and customers from the 10-K'
+    : f ? 'The annual report names no supplier or customer companies' : 'No suppliers or customers named yet';
+  const q = data?.quotes;
   const ab = data?.about;
   const pctOf = (s?: string) => { const m = s?.match(/(\d+(\.\d+)?)\s*%/); return m ? +m[1] : null; };
   return (
@@ -140,12 +152,12 @@ export default function CompanyPage({ sym, mode, onOpen, onChart, onPatterns }: 
                   return rows.filter(([, v]) => v != null && v !== '').map(([k, v, t]) => <Fragment key={k}><span>{k}</span><b title={t}>{v}</b></Fragment>);
                 })()}
               </div>
-              <h4>Quant read <span className="muted small">bullish or bearish, and why</span></h4>
+              <h4><Q k="calc" src="a year of daily closes, scored on the desk" />Quant read <span className="muted small">bullish or bearish, and why</span></h4>
               <QuantPanel sym={sym} mode={mode} compact />
-              <h4>What they do</h4>
+              <h4><Q k={f?.summary ? 'model' : 'unofficial'} src={f?.summary ? 'AI read of the company’s 10-K (check the filing)' : 'Wikipedia summary'} />What they do</h4>
               <p className="co-sum">{f?.summary || data.wiki?.extract || 'No description available.'}</p>
               {!f?.summary && data.wiki && <p className="small muted">From Wikipedia: <a href={data.wiki.url} target="_blank" rel="noreferrer noopener">{data.wiki.title}</a></p>}
-              {f && f.products.length > 0 && <><h4>Main products{f.fiscalYear ? ` (FY ${f.fiscalYear})` : ''}</h4>
+              {f && f.products.length > 0 && <><h4><Q k="model" src="AI read of the company’s 10-K (check the filing)" />Main products{f.fiscalYear ? ` (FY ${f.fiscalYear})` : ''}</h4>
                 <ul className="co-prod">{f.products.map((p) => { const v = pctOf(p.share); return (
                   <li key={p.name}><div className="co-prod-h"><span>{p.name}</span><span className="num muted">{p.share ?? ''}</span></div>{v != null && <div className="co-bar"><div style={{ width: `${Math.min(100, v)}%` }} /></div>}{p.note && <div className="small muted">{p.note}</div>}</li>
                 ); })}</ul></>}
@@ -158,7 +170,19 @@ export default function CompanyPage({ sym, mode, onOpen, onChart, onPatterns }: 
             <div className="co-main">
               {(() => { const top = [...(f?.products ?? [])].map((p) => ({ p, v: pctOf(p.share) })).filter((x) => x.v != null).sort((a, b) => b.v! - a.v!)[0]; return top ? (
                 <p className="co-top">Biggest revenue line: <b>{top.p.name}</b> <span className="num">{top.p.share}</span>{f && f.products.length > 1 ? <span className="muted small"> · suppliers and customers below are for the whole company, as the 10-K lists them (10-Ks rarely split them by product)</span> : null}</p>) : null; })()}
-              <Diagram sym={sym} name={name} sup={f?.suppliers ?? []} cus={f?.customers ?? []} comp={comp} onOpen={go} />
+              <Diagram sym={sym} name={name} sup={sup} cus={cus} comp={comp} onOpen={go} empty={emptyWhy} />
+              {aiErr && !reading && (
+                <p className="small co-ai-fail"><b>The AI read did not finish</b> ({aiErr.slice(0, 90)}). The free Gemini tier is often briefly overloaded. <button className="btn sm" onClick={retry}>Try again</button></p>
+              )}
+              {f && !f.customers.length && f.customerBase && <p className="small co-base"><b>Customers:</b> {f.customerBase}. <span className="muted">The report names no customer companies, so there is nothing to click on that side.</span></p>}
+              {f && !f.suppliers.length && f.supplyBase && <p className="small co-base"><b>Suppliers:</b> {f.supplyBase}. <span className="muted">The report names no supplier companies.</span></p>}
+              {q && (q.customers.length > 0 || q.suppliers.length > 0) && (!f || (!f.customers.length && !f.suppliers.length)) && (
+                <div className="co-quotes">
+                  <div className="co-quotes-h">From the annual report, word for word <span className="tag" title="Sentences picked by keyword from the 10-K. No AI, nothing added.">KEYWORD MATCH, NOT AI</span></div>
+                  {q.customers.map((x, i) => <blockquote key={`c${i}`}><span className="muted small">Customers</span>{x}</blockquote>)}
+                  {q.suppliers.map((x, i) => <blockquote key={`s${i}`}><span className="muted small">Suppliers</span>{x}</blockquote>)}
+                </div>
+              )}
               <p className="small muted co-hint">Click any company with a ticker to re-center on it. Gray boxes are private, foreign-only or unmatched names. Arrows show which way products flow.</p>
               <div className="co-lists">
                 <Links title="Suppliers" xs={f?.suppliers ?? []} onOpen={go} />

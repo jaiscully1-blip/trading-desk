@@ -6,7 +6,8 @@ import type { PmRow, Setup } from '../../shared/morning';
 import { RulesStatus, type RulesData } from './RulesW';
 import { et } from '../lib/clock';
 import { pct } from '../lib/format';
-import { Fresh, Skel } from './common';
+import { DayCasesPanel } from './DayCases';
+import { Fresh, Skel, Q, qOf } from './common';
 import { useDesk } from '../lib/deskctx';
 import { tick } from '../../shared/orders';
 import { FOMC } from '../../shared/calendar';
@@ -44,17 +45,24 @@ function DayStrip({ nowMin, isToday, events }: { nowMin: number; isToday: boolea
   );
 }
 
-/** Score as a ring (full at 8). */
+/** Score as a ring (the arc is full at 8; the number is the raw score). Sized so "16.2" or "104" can never spill over the stroke. */
 function Ring({ v, tone }: { v: number; tone: string }) {
-  const r = 11, c = 2 * Math.PI * r, f = Math.max(0.04, Math.min(1, v / 8));
-  return <svg className={`am-ring ${tone}`} width="34" height="34" viewBox="0 0 30 30" role="img" aria-label={`Setup score ${v.toFixed(1)}`}><title>{`Setup score ${v.toFixed(1)} (ring is full at 8)`}</title><circle cx="15" cy="15" r={r} className="bg" /><circle cx="15" cy="15" r={r} className="fg" strokeDasharray={`${c * f} ${c}`} transform="rotate(-90 15 15)" /><text x="15" y="18.5" textAnchor="middle">{v.toFixed(1)}</text></svg>;
+  const r = 15, c = 2 * Math.PI * r, f = Math.max(0.04, Math.min(1, v / 8));
+  const label = v >= 100 ? '99+' : v >= 10 ? v.toFixed(0) : v.toFixed(1);
+  return (
+    <svg className={`am-ring ${tone}`} width="44" height="44" viewBox="0 0 40 40" role="img" aria-label={`Setup score ${v.toFixed(1)}`}>
+      <title>{`Setup score ${v.toFixed(1)} (the ring is full at 8; bigger gaps and volume push the score higher)`}</title>
+      <circle cx="20" cy="20" r={r} className="bg" /><circle cx="20" cy="20" r={r} className="fg" strokeDasharray={`${c * f} ${c}`} transform="rotate(-90 20 20)" />
+      <text x="20" y="24" textAnchor="middle">{label}</text>
+    </svg>
+  );
 }
 
-function MoverTable({ rows, phase, onChart, title }: { rows: PmRow[]; phase: 'premarket' | 'day'; onChart: (s: string) => void; title: string }) {
+function MoverTable({ rows, phase, onChart, title, q }: { rows: PmRow[]; phase: 'premarket' | 'day'; onChart: (s: string) => void; title: string; q?: { k: import('./common').QKind; src?: string; at?: number } }) {
   if (!rows.length) return null;
   return (
     <section className="am-card">
-      <h4>{title}</h4>
+      <h4>{q && <Q {...q} />}{title}</h4>
       <table className="am-tbl"><tbody>
         {rows.map((r) => (
           <tr key={r.sym}>
@@ -96,9 +104,9 @@ function SetupCard({ s, onChart, mine }: { s: Setup; onChart: (x: string) => voi
   );
 }
 
-export default function Morning({ data, cal, pm, rules, now, watch, onChart, onCheckIn }: {
+export default function Morning({ data, cal, pm, rules, now, watch, onChart, onCheckIn, mode }: {
   data: MorningState | null; cal: CalendarState | null; pm: Record<string, { high: number; low: number } | null>; rules: RulesData; now: number; watch: string[];
-  onChart: (s: string) => void; onCheckIn: () => void;
+  onChart: (s: string) => void; onCheckIn: () => void; mode?: import('../data/live').DataMode;
 }) {
   const day = planDay(now);
   const e = et(now);
@@ -146,7 +154,7 @@ export default function Morning({ data, cal, pm, rules, now, watch, onChart, onC
 
       <div className="am-grid">
         <section className="am-col am-setups">
-          <h3>Best setups {phase === 'premarket' ? 'this morning' : 'from the last session'}</h3>
+          <h3><Q k="calc" src="bias = gap direction + the stock's own trend + volume, scored on the desk" />Best setups {phase === 'premarket' ? 'this morning' : 'from the last session'}</h3>
           {!data && <div aria-label="Loading setups"><Skel h={96} n={3} /></div>}
           {data && !data.setups.length && <p className="muted small">No liquid movers yet. Premarket activity shows up after 4:00 ET.</p>}
           {data?.setups.map((s) => <SetupCard key={s.sym} s={s} onChart={onChart} mine={ws.has(s.sym)} />)}
@@ -154,8 +162,9 @@ export default function Morning({ data, cal, pm, rules, now, watch, onChart, onC
         </section>
 
         <section className="am-col">
+          {mode && <section className="am-card"><h4><Q k="calc" src="historical base rates for SPY, QQQ, IWM" />Today’s cases: bull, stagnant, bear</h4><DayCasesPanel mode={mode} compact /></section>}
           <section className="am-card">
-            <h4>Today’s events</h4>
+            <h4><Q k="eod" src="FRED release calendar (scheduled times); Fed odds from Kalshi, last trade" />Today’s events</h4>
             {fomc && <p className="small down">FOMC decision day{fomc.sep ? ' (with projections)' : ''}: 2:00 pm ET statement, 2:30 pm press conference.</p>}
             {econ.length > 0 ? <ul className="am-ev">{econ.map((x) => <li key={x.key + x.date}><b>{x.time}</b> {x.label} <span className="am-imp">{'●'.repeat(x.impact)}</span>{x.note && <em className="small muted"> · {x.note}</em>}</li>)}</ul>
               : <p className="small muted">{cal?.econ ? 'No major economic releases.' : 'Economic calendar needs a FRED key.'}</p>}
@@ -166,7 +175,7 @@ export default function Morning({ data, cal, pm, rules, now, watch, onChart, onC
 
           {sectors.length > 0 && (
             <section className="am-card">
-              <h4>Sectors {phase === 'premarket' ? 'premarket' : 'last session'}</h4>
+              <h4><Q k={qOf(data?.freshness)} src={data?.source} at={data?.asOf} />Sectors {phase === 'premarket' ? 'premarket' : 'last session'}</h4>
               <div className="am-tiles">
                 {sectors.map((x) => { const v = phase === 'premarket' ? x.pmChg : x.chg; return (
                   <button key={x.sym} className="am-tile" style={{ background: heat(v) }} onClick={() => onChart(x.sym)} title={`${x.label} (${x.sym})`}>
@@ -176,9 +185,9 @@ export default function Morning({ data, cal, pm, rules, now, watch, onChart, onC
             </section>
           )}
 
-          <MoverTable rows={data?.watch ?? []} phase={phase} onChart={onChart} title="Your watchlist" />
-          <MoverTable rows={(data?.gainers ?? []).slice(0, 10)} phase={phase} onChart={onChart} title={phase === 'premarket' ? 'Premarket gainers' : 'Top gainers'} />
-          <MoverTable rows={(data?.losers ?? []).slice(0, 10)} phase={phase} onChart={onChart} title={phase === 'premarket' ? 'Premarket losers' : 'Top losers'} />
+          <MoverTable q={{ k: qOf(data?.freshness), src: data?.source, at: data?.asOf }} rows={data?.watch ?? []} phase={phase} onChart={onChart} title="Your watchlist" />
+          <MoverTable q={{ k: qOf(data?.freshness), src: data?.source, at: data?.asOf }} rows={(data?.gainers ?? []).slice(0, 10)} phase={phase} onChart={onChart} title={phase === 'premarket' ? 'Premarket gainers' : 'Top gainers'} />
+          <MoverTable q={{ k: qOf(data?.freshness), src: data?.source, at: data?.asOf }} rows={(data?.losers ?? []).slice(0, 10)} phase={phase} onChart={onChart} title={phase === 'premarket' ? 'Premarket losers' : 'Top losers'} />
           {data && Object.keys(data.errors).length > 0 && <p className="small muted">Not available right now: {Object.entries(data.errors).map(([k, v]) => `${k} (${v})`).join(' · ')}</p>}
         </section>
       </div>

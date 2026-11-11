@@ -33,15 +33,18 @@ export function usePrivate<T>(params: Record<string, string> | null, mode: DataM
   const key = params ? JSON.stringify(params) : '';
   useEffect(() => {
     if (!key || mode.kind !== 'live') return;
-    let stop = false, t: ReturnType<typeof setTimeout>;
+    let stop = false, t: ReturnType<typeof setTimeout>, fails = 0;
+    // a failed refresh used to end the polling for good; now it retries, waiting longer each time (up to 5 minutes).
+    // A missing or wrong desk password is the exception: that needs the user, so it stops until they type it.
+    const again = () => { if (!stop && refreshMs) t = setTimeout(go, Math.min(300_000, refreshMs * 2 ** Math.min(fails, 4))); };
     const go = async () => {
       setSt((s) => ({ ...s, loading: true }));
       try {
         const { ok, j } = await privateFetch(JSON.parse(key));
         if (stop) return;
         setSt((s) => ok ? { data: j, loading: false, at: Date.now() } : { data: j.code === 'bad-password' || j.code === 'no-password-set' ? null : s.data, loading: false, error: j.error, code: j.code, at: s.at });
-        if (ok && refreshMs) t = setTimeout(go, refreshMs);
-      } catch (e) { if (!stop) setSt((s) => ({ ...s, loading: false, error: String(e) })); }
+        if (ok) { fails = 0; again(); } else if (j.code !== 'bad-password' && j.code !== 'no-password-set') { fails++; again(); }
+      } catch (e) { if (!stop) { setSt((s) => ({ ...s, loading: false, error: String(e) })); fails++; again(); } }
     };
     go();
     return () => { stop = true; clearTimeout(t); };

@@ -2,7 +2,7 @@ import type { Freshness, MacroResult, Mode, Quote } from '../types';
 import type { ClockState } from '../lib/clock';
 import type { AccountSettings, Guard } from '../lib/journal';
 import { pct, px, sUsd, tone, usd } from '../lib/format';
-import { Fresh, FlashNum } from './common';
+import { Fresh, FlashNum, Q } from './common';
 import type { MovementRead } from '../../shared/movement';
 import { MovementBadge } from './Movement';
 
@@ -78,6 +78,7 @@ export function TopStrip({
             <span className="muted">Set starting balance →</span>
           ) : (
             <>
+              <Q k={account.demo ? 'demo' : 'mine'} src="your starting balance, journal trades and transfers; open trades at current quotes" />
               <span><span className="tick-l">EQ</span> <span className="num">{usd(account.guard.equity)}</span></span>
               <span><span className="tick-l">DAY</span> <span className={`num ${tone(dayPnl)}`}>{sUsd(dayPnl)}</span></span>
               <span><span className="tick-l">R</span> <span className={`num ${tone(account.guard.rToday)}`}>{account.guard.rToday >= 0 ? '+' : ''}{account.guard.rToday.toFixed(1)}R</span></span>

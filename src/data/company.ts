@@ -95,6 +95,8 @@ export interface CompanyData {
   about?: { sector: string | null; industry: string | null; exchange: string | null; hq: string | null; marketCap: number | null; capNote: string | null; web: string | null; fiscalYearEnd: string | null; incorporated: string | null; sic: string | null };
   /** true while the 10-K is still being read (the quick answer came first) */
   pending?: boolean;
+  /** sentences quoted from the filing about customers and suppliers (keyword match, no AI) */
+  quotes?: { customers: string[]; suppliers: string[] } | null;
 }
 const companyCache = new Map<string, CompanyData>();
 
@@ -118,8 +120,10 @@ function demoCompany(sym: string, name: string): CompanyData {
   };
 }
 
-export function useCompany(sym: string, name: string, mode: DataMode): { data: CompanyData | null; loading: boolean; error?: string } {
+export function useCompany(sym: string, name: string, mode: DataMode): { data: CompanyData | null; loading: boolean; error?: string; reading: boolean; retry: () => void } {
   const [st, setSt] = useState<{ data: CompanyData | null; loading: boolean; error?: string }>({ data: companyCache.get(sym) ?? null, loading: false });
+  const [reading, setReading] = useState(false);
+  const [n, setN] = useState(0);
   useEffect(() => {
     if (!sym) return;
     if (mode.kind === 'demo') { setSt({ data: demoCompany(sym, name), loading: false }); return; }
@@ -139,14 +143,20 @@ export function useCompany(sym: string, name: string, mode: DataMode): { data: C
       try {
         const q = await get(true);
         if (stop) return;
-        if (!q.pending) { companyCache.set(sym, q); setSt({ data: q, loading: false }); return; }
+        const good = (d: CompanyData) => !d.errors?.gemini && !d.errors?.filing; // a failed read is never pinned in memory
+        if (!q.pending && good(q)) { companyCache.set(sym, q); setSt({ data: q, loading: false }); return; }
         setSt({ data: q, loading: false });
-        const full = await get(false);
+        setReading(true);
+        let full = await get(false);
+        // the free AI is often briefly overloaded: one automatic second try after 20 seconds
+        if (!stop && !good(full) && n === 0) { await new Promise((r) => setTimeout(r, 20_000)); if (!stop) full = await get(false); }
         if (stop) return;
-        companyCache.set(sym, full); setSt({ data: full, loading: false });
+        if (good(full)) companyCache.set(sym, full);
+        setSt({ data: full, loading: false });
       } catch (e) { if (!stop) setSt((s) => ({ data: s.data, loading: false, error: (e as Error).message })); }
+      if (!stop) setReading(false);
     })();
-    return () => { stop = true; };
-  }, [sym, mode.kind]); // eslint-disable-line react-hooks/exhaustive-deps
-  return st;
+    return () => { stop = true; setReading(false); };
+  }, [sym, mode.kind, n]); // eslint-disable-line react-hooks/exhaustive-deps
+  return { ...st, reading, retry: () => { companyCache.delete(sym); setN((x) => x + 1); } };
 }

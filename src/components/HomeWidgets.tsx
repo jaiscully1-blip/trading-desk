@@ -28,6 +28,8 @@ export interface HomeData {
   playbooks: import('../lib/playbook').Playbook[];
   /** journal guardrails for the Rules widget */
   rules?: import('./RulesW').RulesData;
+  /** jump to a page (used by widgets that have a full page) */
+  openPage?: (p: string) => void;
 }
 type Cfg = Record<string, any>;
 interface P { d: HomeData; cfg: Cfg; set: (c: Cfg) => void }
@@ -37,6 +39,16 @@ import { BacktestW } from './BacktestW';
 import { MacroW } from './MacroW';
 import { EarnIpoW } from './EarnIpo';
 import { KronosW } from './KronosW';
+import { lazy, Suspense } from 'react';
+const DistressInner = lazy(() => import('./Distress').then((m) => ({ default: m.DistressW })));
+const DayCasesInner = lazy(() => import('./DayCases').then((m) => ({ default: m.DayCasesPanel })));
+function DayCasesHomeW({ d }: P) {
+  return <Suspense fallback={<p className="hw-pad small muted">Loading…</p>}><DayCasesInner mode={d.mode} compact /></Suspense>;
+}
+function DistressHomeW({ d }: P) {
+  const { stars } = useDesk();
+  return <Suspense fallback={<p className="hw-pad small muted">Loading…</p>}><DistressInner mode={d.mode} mySyms={[...stars, d.sel]} onChart={d.onChart} openPage={d.openPage ? () => d.openPage!('distress') : undefined} /></Suspense>;
+}
 import { RulesW as RulesInner } from './RulesW';
 function RulesW({ d, cfg, set }: P) { return <RulesInner r={d.rules} now={d.now} cfg={cfg} set={set} />; }
 const cssVar = (n: string) => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
@@ -246,4 +258,6 @@ export const WIDGETS = {
   macro: { title: 'Macro and liquidity', make: MacroW },
   earnipo: { title: 'Earnings and IPOs', make: EarnIpoW },
   kronos: { title: 'Kronos forecast (experiment)', make: KronosW },
+  distress: { title: 'Distress and turnarounds', make: DistressHomeW },
+  daycases: { title: 'Day cases: bull / stagnant / bear', make: DayCasesHomeW },
 } as const;

@@ -11,6 +11,7 @@ export interface Health {
   ok: boolean;
   providers: Record<'twelvedata' | 'finnhub' | 'alphavantage' | 'fred', boolean> & { sec?: boolean; gemini?: boolean; alpaca?: boolean };
   extendedHours: boolean;
+  private?: { password?: boolean; webull?: boolean; discord?: boolean; claude?: boolean; alerts?: boolean };
 }
 export type DataMode = { kind: 'checking' } | { kind: 'demo'; reason: string } | { kind: 'live'; health: Health };
 
@@ -35,10 +36,24 @@ export function detectMode(): Promise<DataMode> {
   return modePromise;
 }
 
+const MODE_KEY = 'lastHealth';
+/** The last visit's answer is used straight away (so data requests start with the page), then the real check confirms or corrects it. */
 export function useDataMode(): DataMode {
-  const [m, setM] = useState<DataMode>({ kind: 'checking' });
-  useEffect(() => { detectMode().then(setM); }, []);
+  const [m, setM] = useState<DataMode>(() => {
+    if (import.meta.env.MODE === 'single') return { kind: 'checking' };
+    const saved = loadLocal<Health | null>(MODE_KEY, null);
+    return saved?.ok ? { kind: 'live', health: saved } : { kind: 'checking' };
+  });
+  useEffect(() => { detectMode().then((r) => { setM(r); saveLocal(MODE_KEY, r.kind === 'live' ? r.health : null); }); }, []);
   return m;
+}
+
+/** A copy of the mode that stays "checking" for a few seconds after load: used by the heavier background feeds (scanner, rotation,
+ *  calendars) so the first quotes, news and the page you are on get the network first. */
+export function useLateMode(mode: DataMode, delayMs = 3000): DataMode {
+  const [late, setLate] = useState(false);
+  useEffect(() => { const t = setTimeout(() => setLate(true), delayMs); return () => clearTimeout(t); }, [delayMs]);
+  return late ? mode : { kind: 'checking' };
 }
 
 /* ---------------- series store (shared across components, deduped polling) ---------------- */

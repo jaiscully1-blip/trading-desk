@@ -6,6 +6,7 @@ import { nextFomc } from '../data/news';
 import { FOMC } from '../../shared/calendar';
 import { etToUtc, hms } from '../lib/clock';
 import { Fresh } from './common';
+import { SpecialDaysTable } from './DayCases';
 
 const dow = (d: string) => new Date(`${d}T12:00:00Z`).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' });
 
@@ -53,10 +54,13 @@ export function Calendars({ cal, now, onSelect, mySyms, mode, news }: { cal: Cal
       </section>
 
       <section className="cal-sec">
+        <h4>Special days: what history shows</h4>
+        <SpecialDaysTable mode={mode} />
+      </section>
+
+      <section className="cal-sec">
         <h4>Earnings and IPOs</h4>
         <EarnIpoPanel mode={mode} mySyms={mySyms} news={news} onSelect={onSelect} />
-        <h4>Lockup expiries <Fresh kind="unavailable" /></h4>
-        <p className="muted small">No free source publishes lockup expiry dates.</p>
       </section>
     </div>
   );

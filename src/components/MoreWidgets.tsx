@@ -1,5 +1,6 @@
 // Insider trades (SEC Form 4), Polymarket odds, and the Monte Carlo trade simulator.
 import { useEffect, useMemo, useState } from 'react';
+import { ratingTone } from '../lib/rating';
 import type { HomeData } from './HomeWidgets';
 import type { InsiderTx } from '../../shared/insider';
 import { insiderSummary } from '../../shared/insider';
@@ -172,7 +173,7 @@ export function SimW({ d, cfg, set }: P) {
 /* ---------------- TradingAgents (AI analyst team on GitHub Actions) ---------------- */
 interface TaIdx { ticker: string; date: string; ranAt: string; decision?: string; error?: string }
 interface TaRec extends TaIdx { reports?: { id: string; who: string; text: string }[]; models?: { provider?: string; deep?: string; quick?: string } }
-const ratingOf = (d?: string) => /\b(strong\s+)?buy\b|overweight/i.test(d ?? '') ? 'up' : /\bsell\b|underweight/i.test(d ?? '') ? 'down' : '';
+const ratingOf = ratingTone;
 const firstLine = (d?: string) => (d ?? '').split('\n').map((x) => x.replace(/[*#>`]/g, '').trim()).find((x) => x) ?? '';
 export function AgentsW({ d }: P) {
   const live = d.mode.kind === 'live';

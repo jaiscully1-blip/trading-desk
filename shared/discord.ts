@@ -25,12 +25,17 @@ export function messageText(m: any): string {
   return parts.join('\n').trim();
 }
 
+const CURRENCY = new Set(['USD', 'EUR', 'GBP', 'JPY', 'CAD', 'AUD', 'CHF', 'CNY', 'K', 'M', 'B', 'MM']);
 const STOP = new Set(['A', 'I', 'AM', 'PM', 'ET', 'EST', 'EDT', 'CEO', 'CFO', 'USA', 'US', 'IPO', 'ETF', 'EPS', 'GDP', 'CPI', 'PPI', 'FOMC', 'FED', 'SEC', 'ATH', 'ATR', 'RSI', 'EMA', 'SMA', 'VWAP', 'MACD', 'PNL', 'P', 'L', 'R', 'TP', 'SL', 'OK', 'NO', 'YES', 'BUY', 'SELL', 'LONG', 'SHORT', 'CALL', 'CALLS', 'PUT', 'PUTS', 'HOD', 'LOD', 'PDH', 'PDL', 'AI', 'IT', 'ON', 'AT', 'TO', 'BE', 'OR', 'IF', 'IN', 'OF', 'BY', 'UP', 'GO', 'SO', 'DD', 'TA', 'FA', 'NEW', 'ALL', 'NOW', 'DAY', 'THE', 'AND', 'FOR', 'NOT', 'OUT', 'ARE', 'HAS', 'WAS', 'TOP', 'LOW', 'HIGH', 'RISK', 'NOTE', 'NEWS', 'PLAN', 'STOP', 'GAP', 'EOD', 'YTD', 'QTD', 'MTD', 'DTE', 'OTM', 'ITM', 'ATM', 'IV', 'OI', 'API', 'BOT', 'TBD', 'FYI', 'IMO']);
 
-/** $TICKER cashtags always count; bare CAPS words count only when they are real listed tickers. */
+/** $TICKER cashtags and bare CAPS words. With a list of real tickers, both must be on it ($USD, $K or $CALLS are not tickers);
+ *  without one, cashtags count unless they are common trading words. */
 export function tickersIn(text: string, known?: Set<string>): string[] {
   const out = new Set<string>();
-  for (const m of text.matchAll(/\$([A-Za-z]{1,5}(?:\.[A-Za-z])?)\b/g)) out.add(m[1].toUpperCase());
+  for (const m of text.matchAll(/(?<![\w$])\$([A-Za-z]{1,5}(?:\.[A-Za-z])?)(?![\w.])/g)) {
+    const s = m[1].toUpperCase();
+    if (known && known.size ? known.has(s) : !STOP.has(s) && !CURRENCY.has(s)) out.add(s);
+  }
   if (known) for (const m of text.matchAll(/\b([A-Z]{1,5})\b/g)) if (!STOP.has(m[1]) && known.has(m[1])) out.add(m[1]);
   return [...out];
 }
@@ -45,11 +50,12 @@ export function toMessages(raw: any[], ch: ChannelKey, guild: string | undefined
   }).filter((m) => m.text && Number.isFinite(m.t));
 }
 
-/** Tickers the bot named today, most-mentioned first: the desk's "bot watchlist". */
+/** Tickers the bot named today, most-mentioned first: the desk's "bot watchlist". Only bot posts count (people chatting
+ *  in the channel used to inflate it). */
 export function botWatchlist(msgs: DcMessage[], day: string, etDay: (t: number) => string): { sym: string; n: number; first: number }[] {
   const tally = new Map<string, { sym: string; n: number; first: number }>();
   for (const m of msgs) {
-    if (m.ch !== 'before' || etDay(m.t) !== day) continue;
+    if (m.ch !== 'before' || etDay(m.t) !== day || !(m.bot || m.tom)) continue;
     for (const s of m.tickers) { const v = tally.get(s) ?? { sym: s, n: 0, first: m.t }; v.n++; v.first = Math.min(v.first, m.t); tally.set(s, v); }
   }
   return [...tally.values()].sort((a, b) => b.n - a.n || a.first - b.first);

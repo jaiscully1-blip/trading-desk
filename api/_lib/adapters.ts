@@ -432,13 +432,38 @@ export async function wikiSummary(name: string): Promise<{ title: string; extrac
 }
 
 /** Gemini (free tier) structured extraction. Model is configurable; defaults to a stable Flash-Lite. */
+/** Bulk AI jobs (nightly summaries): Gemma 4 first, which has a far larger free daily allowance than Gemini Flash, then Gemini.
+ *  Gemma's JSON mode is not documented, so it is asked for JSON in the prompt and the first {...} in its answer is parsed. */
+export async function geminiBulkJson(prompt: string, schema: object): Promise<{ data: any; model: string }> {
+  need('gemini');
+  const models = [process.env.GEMINI_BULK_MODEL, 'gemma-4-26b-a4b-it', 'gemma-4-31b-it'].filter(Boolean) as string[];
+  const keys = Object.keys((schema as any)?.properties ?? {});
+  for (const model of [...new Set(models)]) {
+    try {
+      const j = await getJson(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, 'gemini', 30000, {
+        method: 'POST', headers: { 'x-goog-api-key': key('gemini') },
+        body: JSON.stringify({ contents: [{ role: 'user', parts: [{ text: `${prompt}\n\nAnswer with ONLY a JSON object with the keys ${keys.map((k) => `"${k}"`).join(', ')} (string values). No other text.` }] }], generationConfig: { temperature: 0.1 } }),
+      });
+      const text: string = j?.candidates?.[0]?.content?.parts?.filter((p: any) => !p.thought).map((p: any) => p.text ?? '').join('') ?? '';
+      const m = /\{[\s\S]*\}/.exec(text);
+      if (!m) continue;
+      const data = JSON.parse(m[0]);
+      if (keys.every((k) => typeof data?.[k] === 'string')) return { data, model };
+    } catch (e) { if (/HTTP 40[13]/.test(String((e as Error).message))) throw e; /* 404 / 429 / bad JSON: next model */ }
+  }
+  return geminiJson(prompt, schema);
+}
+
 export async function geminiJson(prompt: string, schema: object): Promise<{ data: any; model: string }> {
   need('gemini');
   const models = [process.env.GEMINI_MODEL, 'gemini-3.1-flash-lite', 'gemini-3-flash-preview', 'gemini-2.5-flash'].filter(Boolean) as string[];
   let last: unknown;
+  const started = Date.now();
   for (const model of [...new Set(models)]) {
+   for (let attempt = 0; attempt < 2; attempt++) {
+    if (Date.now() - started > 44_000) throw last ?? new ProviderError('gemini', 'timeout', true); // stay inside the 60 s function limit
     try {
-      const j = await getJson(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, 'gemini', 55000, {
+      const j = await getJson(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, 'gemini', 22000, {
         method: 'POST',
         headers: { 'x-goog-api-key': key('gemini') },
         body: JSON.stringify({ contents: [{ role: 'user', parts: [{ text: prompt }] }], generationConfig: { temperature: 0.1, responseMimeType: 'application/json', responseSchema: schema } }),
@@ -448,9 +473,14 @@ export async function geminiJson(prompt: string, schema: object): Promise<{ data
       return { data: JSON.parse(text), model };
     } catch (e) {
       last = e;
-      // 404 = model id retired; try the next one. Anything else (quota, bad key) stops here.
-      if (!(e instanceof ProviderError && /HTTP 404/.test(e.message))) throw e;
+      const msg = e instanceof ProviderError ? e.message : String(e);
+      // a bad key or a bad request will not get better: stop. 404 = model id retired: next model.
+      if (/HTTP 40[013]/.test(msg)) throw e;
+      if (/HTTP 404/.test(msg)) break;
+      // overloaded (503), rate limited (429), timeout or an empty answer: wait a moment and try this model once more, then the next model
+      if (attempt === 0) await new Promise((r) => setTimeout(r, 1500));
     }
+   }
   }
   throw last;
 }

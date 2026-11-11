@@ -2,7 +2,7 @@
 // Below ~1000px wide it turns into an icon rail (same colours, names in tooltips). The group colour also tints the page's panel headers.
 import type { ReactNode } from 'react';
 
-export type Page = 'morning' | 'home' | 'messages' | 'desk' | 'patterns' | 'company' | 'scanner' | 'map' | 'flows' | 'smart' | 'etfs' | 'gamma' | 'odds' | 'journal' | 'calendar' | 'status';
+export type Page = 'morning' | 'home' | 'messages' | 'desk' | 'patterns' | 'company' | 'scanner' | 'map' | 'flows' | 'smart' | 'etfs' | 'gamma' | 'odds' | 'journal' | 'calendar' | 'status' | 'distress';
 export type GroupId = 'today' | 'charts' | 'scan' | 'flow' | 'journal';
 
 /** 24x24 stroke paths (own drawings, simple shapes) */
@@ -22,6 +22,7 @@ const ICON: Record<Page | 'account', string> = {
   odds: 'M19 5L5 19 M7 8m-2 0a2 2 0 1 0 4 0 2 2 0 1 0-4 0 M17 16m-2 0a2 2 0 1 0 4 0 2 2 0 1 0-4 0',
   calendar: 'M4 6h16v14H4z M4 10h16 M8 3v4 M16 3v4',
   journal: 'M5 4h11a3 3 0 0 1 3 3v13H8a3 3 0 0 1-3-3z M5 17a3 3 0 0 1 3-3h11',
+  distress: 'M12 3l9 16H3z M12 9v5 M12 17h.01',
   status: 'M4 5h16v6H4z M4 13h16v6H4z M8 8h.01 M8 16h.01 M12 8h4 M12 16h4',
   account: 'M12 12m-4 0a4 4 0 1 0 8 0 4 4 0 1 0-8 0 M4 21a8 8 0 0 1 16 0',
 };
@@ -36,18 +37,19 @@ const P: Record<Page, { label: string; hint: string; key: string }> = {
   scanner: { label: 'Scanner', hint: 'setups, gappers, RS rank', key: 'S' }, flows: { label: 'Rotation', hint: 'sector and theme rotation', key: 'G' }, etfs: { label: 'ETFs and sectors', hint: 'heatmap and holdings', key: 'U' }, smart: { label: 'Smart money', hint: '13F, ARK, Congress', key: 'I' },
   gamma: { label: 'Gamma and IV', hint: 'dealer gamma, volatility', key: 'V' }, map: { label: 'World map', hint: 'news hotspots, conflicts, shipping', key: 'M' }, odds: { label: 'Econ odds', hint: 'Fed, recession, CPI bets', key: 'Y' }, calendar: { label: 'Calendars', hint: 'economy, earnings, IPOs, Fed', key: 'C' },
   journal: { label: 'Journal', hint: 'trades, rules, review', key: '⇧J' },
-  status: { label: 'Data status', hint: 'which data sources are working or limited', key: 'B' },
+  distress: { label: 'Distress', hint: 'weak companies, turnarounds, sector stress', key: '⇧R' },
+  status: { label: 'Data status', hint: 'which data sources are working or limited', key: '⇧B' },
 };
 export const NAV_GROUPS: { id: GroupId; label: string; pages: Page[] }[] = [
   { id: 'today', label: 'Today', pages: ['morning', 'home', 'messages', 'calendar'] },
   { id: 'charts', label: 'Charts', pages: ['desk', 'patterns', 'company'] },
-  { id: 'scan', label: 'Scan', pages: ['scanner', 'flows', 'etfs', 'smart'] },
+  { id: 'scan', label: 'Scan', pages: ['scanner', 'flows', 'etfs', 'smart', 'distress'] },
   { id: 'flow', label: 'Flow and risk', pages: ['gamma', 'map', 'odds', 'status'] },
   { id: 'journal', label: 'Journal', pages: ['journal'] },
 ];
 export const pageGroup = (p: Page): GroupId => NAV_GROUPS.find((g) => g.pages.includes(p))?.id ?? 'today';
 
-export function SideNav({ compact, page, onPage, onCmd, onHelp, onAccount }: { compact?: boolean; page: Page; onPage: (p: Page) => void; onCmd: () => void; onHelp: () => void; onAccount: () => void }) {
+export function SideNav({ compact, page, onPage, onCmd, onHelp, onAccount, dataState }: { compact?: boolean; page: Page; onPage: (p: Page) => void; onCmd: () => void; onHelp: () => void; onAccount: () => void; dataState?: 'live' | 'demo' | 'checking' }) {
   return (
     <nav className={`nv ${compact ? 'compact' : ''}`} aria-label="Pages">
       <div className="nv-brand"><span className="nv-logo">D</span>{!compact && <span className="nv-name">Desk</span>}</div>
@@ -62,6 +64,7 @@ export function SideNav({ compact, page, onPage, onCmd, onHelp, onAccount }: { c
             {g.pages.map((id) => (
               <button key={id} className={`nv-item ${page === id ? 'on' : ''}`} aria-current={page === id ? 'page' : undefined} onClick={() => onPage(id)} title={`${P[id].label} (${P[id].key}): ${P[id].hint}`} aria-label={P[id].label} data-key={P[id].key}>
                 <Icon id={id} />
+                {id === 'status' && dataState && <i className={`nv-dot ${dataState}`} title={dataState === 'live' ? 'Live data connected' : dataState === 'demo' ? 'Demo data: no live keys' : 'Checking the data connection'} />}
                 {!compact && <><span className="nv-l">{P[id].label}</span><span className="nv-key">{P[id].key}</span></>}
               </button>
             ))}

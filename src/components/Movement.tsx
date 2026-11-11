@@ -7,6 +7,8 @@ import type { MoveStats, DayStat } from '../../shared/movementStats';
 
 const usd = (n: number, d = 2) => `$${n.toFixed(d)}`;
 
+import { Q } from './common';
+
 export function MovementBadge({ m, vol, stats }: { m: MovementRead; vol?: VolRead | null; stats?: MoveStats | null }) {
   const [open, setOpen] = useState(false);
   const box = useRef<HTMLSpanElement>(null);
@@ -26,7 +28,7 @@ export function MovementBadge({ m, vol, stats }: { m: MovementRead; vol?: VolRea
       <button className={`regime mv ${m.tone}`} onClick={() => setOpen(!open)} aria-expanded={open} title="Movement vs theta. Click for the numbers."><i />{m.label}</button>
       {open && (
         <div className="mv-pop" role="dialog" aria-label="Movement watch">
-          <div className="mv-h"><b>Movement watch</b><span className="muted small">big moves either way help long options; quiet days let theta burn them</span></div>
+          <div className="mv-h"><Q k="calc" src="from SPY, VIX and the option premium; estimates, not quotes" /><b>Movement watch</b><span className="muted small">big moves either way help long options; quiet days let theta burn them</span></div>
           <div className="mv-grid">
             <Cell l="Priced-in move" v={`±${usd(m.priced.usd)}`} sub={`${m.priced.pct.toFixed(2)}% from VIX`} />
             <Cell l="Last 10 days avg" v={`${m.recent.avgPct.toFixed(2)}%`} sub={`${m.recent.ratio.toFixed(2)}x priced in`} cls={m.tone === 'theta' ? 'mv-theta' : m.tone === 'move' ? 'mv-move' : ''} />

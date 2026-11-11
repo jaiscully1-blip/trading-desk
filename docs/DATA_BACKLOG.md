@@ -11,6 +11,12 @@ Effort: easy under 1 day, medium 1 to 3, hard 4 to 10. Kind: observed = reported
 
 Fed liquidity and credit widget (`macro`), VIX rank and realized-vol estimators and the weekday / event / gap / overnight tables inside the Movement watch. Data: `api/research?fn=macropack` (FRED only).
 
+## Paused (built, switched off on purpose)
+
+| Item | State | To turn back on |
+|---|---|---|
+| Phone alerts while the desk is closed (ntfy push: 4% / 8% moves, prior-day high / low breaks, distress label changes) | Built Nov 11, 2026; paused the same day by the owner. The market-hours schedule in `.github/workflows/alerts.yml` is commented out; the nightly distress job only pushes when `NTFY_TOPIC` is set, and it isn't. Code: `shared/alerts.ts`, `scripts/alerts-run.ts`, `api/_lib/notify.ts`, test button on the Data status page. | Uncomment the two schedule lines, add `NTFY_TOPIC` in Vercel and as a GitHub secret, list tickers in `alerts/tickers.txt`, press Send test. |
+
 ## Build next (free, fits the desk, high value)
 
 | Item | Kind | Free source or method | Effort | Why |

@@ -19,6 +19,8 @@ export interface Quote {
   gapPct: number;
   pmVol: number;
   flags: string[];
+  /** last 30 daily closes for the trend line (from the scan), when loaded */
+  spark?: number[];
 }
 
 export interface Headline {

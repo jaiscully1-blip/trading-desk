@@ -1,8 +1,10 @@
+import { usePersisted } from '../lib/store';
+import { fuzzyScore } from '../lib/fuzzy';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Board, Freshness, Headline } from '../types';
 import { DEMO_AT } from '../lib/demo';
 import { etTime } from '../lib/clock';
-import { Fresh, Kbd, LeanDot } from './common';
+import { Fresh, Kbd, LeanDot, Spark } from './common';
 import { useDesk } from '../lib/deskctx';
 
 /* ---------------- 24/7 news ticker ---------------- */
@@ -61,10 +63,13 @@ export interface Cmd {
   id: string;
   label: string;
   hint?: string;
+  /** section in the command bar; pages are detected from the side menu */
+  group?: string;
   run: () => void;
 }
 
-export function CommandBar({ open, onClose, commands, tickers, onTicker, allowAny }: { open: boolean; onClose: () => void; commands: Cmd[]; tickers: { sym: string; name: string }[]; onTicker: (s: string) => void; allowAny?: (s: string) => boolean }) {
+export function CommandBar({ open, onClose, commands, tickers, onTicker, allowAny, quotes, pages }: { open: boolean; onClose: () => void; commands: Cmd[]; tickers: { sym: string; name: string }[]; onTicker: (s: string) => void; allowAny?: (s: string) => boolean; quotes?: Record<string, import('../types').Quote>; pages?: Set<string> }) {
+  const [recent, setRecent] = usePersisted<string[]>('cmdRecent', []);
   const [q, setQ] = useState('');
   const [i, setI] = useState(0);
   const [msg, setMsg] = useState('');
@@ -78,17 +83,31 @@ export function CommandBar({ open, onClose, commands, tickers, onTicker, allowAn
     }
   }, [open]);
 
-  const results = useMemo(() => {
-    const s = q.trim().toLowerCase();
-    const cmds = commands.filter((c) => !s || c.id.toLowerCase().includes(s.replace(/^\//, '')) || c.label.toLowerCase().includes(s));
-    if (s.startsWith('/')) return cmds.map((c) => ({ kind: 'cmd' as const, c }));
-    const t = tickers
-      .filter((x) => !s || x.sym.toLowerCase().startsWith(s) || x.name.toLowerCase().includes(s))
-      .sort((a, b) => (a.sym.toLowerCase() === s ? -1 : b.sym.toLowerCase() === s ? 1 : 0))
-      .slice(0, 8)
-      .map((x) => ({ kind: 'sym' as const, x }));
-    return [...t, ...cmds.slice(0, s ? 6 : 12).map((c) => ({ kind: 'cmd' as const, c }))];
-  }, [q, commands, tickers]);
+  type R = { kind: 'sym'; x: { sym: string; name: string }; g: string } | { kind: 'cmd'; c: Cmd; g: string };
+  const results = useMemo((): R[] => {
+    const s = q.trim();
+    const grp = (c: Cmd) => c.group ?? (pages?.has(c.id) ? 'Pages' : 'Actions');
+    const cq = s.replace(/^\//, '');
+    const scored = commands.map((c) => ({ c, sc: Math.max(fuzzyScore(cq, c.label) ?? -1, (fuzzyScore(cq, c.id) ?? -1) + 50) })).filter((r) => r.sc >= 0);
+    if (!s) {
+      // empty: what you picked last, then tickers on your lists, then pages
+      const rec = recent.map((id) => commands.find((c) => c.id === id) ?? (id.startsWith('$') ? null : null)).filter((c): c is Cmd => !!c).slice(0, 4);
+      const recSyms = recent.filter((id) => id.startsWith('$')).map((id) => tickers.find((t) => t.sym === id.slice(1))).filter((t): t is { sym: string; name: string } => !!t).slice(0, 4);
+      return [...recSyms.map((x) => ({ kind: 'sym' as const, x, g: 'Recent' })), ...rec.map((c) => ({ kind: 'cmd' as const, c, g: 'Recent' })),
+        ...commands.filter((c) => grp(c) === 'Pages' && !rec.includes(c)).map((c) => ({ kind: 'cmd' as const, c, g: 'Pages' }))];
+    }
+    const byScore = scored.sort((a, b) => b.sc - a.sc);
+    if (s.startsWith('/')) { const all = byScore.map(({ c }) => ({ kind: 'cmd' as const, c, g: grp(c) })); return [...new Set(all.map((r) => r.g))].flatMap((g) => all.filter((r) => r.g === g)); }
+    const up = s.toUpperCase();
+    const t = tickers.map((x) => ({ x, sc: x.sym === up ? 2000 : x.sym.startsWith(up) ? 1500 - x.sym.length : fuzzyScore(s, x.name) ?? -1 }))
+      .filter((r) => r.sc >= 0).sort((a, b) => b.sc - a.sc).slice(0, 7).map(({ x }) => ({ kind: 'sym' as const, x, g: 'Tickers' }));
+    // best 8 commands, kept together by section (sections in the order of their best match) so each heading shows once
+    const top = byScore.slice(0, 8).map(({ c }) => ({ kind: 'cmd' as const, c, g: grp(c) }));
+    const order = [...new Set(top.map((r) => r.g))];
+    const cs = order.flatMap((g) => top.filter((r) => r.g === g));
+    // a strong command match (e.g. "jour") goes above weak ticker-name matches
+    return (byScore[0]?.sc ?? 0) >= 700 && !tickers.some((x) => x.sym === up) ? [...cs, ...t] : [...t, ...cs];
+  }, [q, commands, tickers, recent, pages]);
 
   if (!open) return null;
   const run = (k: number) => {
@@ -106,6 +125,8 @@ export function CommandBar({ open, onClose, commands, tickers, onTicker, allowAn
     }
     if (r.kind === 'sym') onTicker(r.x.sym);
     else r.c.run();
+    const id = r.kind === 'sym' ? `$${r.x.sym}` : r.c.id;
+    setRecent((x) => [id, ...x.filter((y) => y !== id)].slice(0, 8));
     onClose();
   };
   return (
@@ -125,17 +146,24 @@ export function CommandBar({ open, onClose, commands, tickers, onTicker, allowAn
           aria-label="Search tickers or commands"
         />
         <ul className="cmd-list">
-          {results.map((r, k) => (
-            <li key={r.kind === 'sym' ? r.x.sym : r.c.id} className={k === i ? 'on' : ''} onMouseEnter={() => setI(k)} onMouseDown={() => run(k)}>
-              {r.kind === 'sym' ? (
-                <><b className="wl-sym">{r.x.sym}</b><span className="muted">{r.x.name}</span><span className="cmd-k">ticker</span></>
-              ) : (
-                <><b className="num">/{r.c.id}</b><span className="muted">{r.c.label}</span>{r.c.hint && <Kbd>{r.c.hint}</Kbd>}</>
-              )}
-            </li>
-          ))}
+          {results.map((r, k) => {
+            const head = k === 0 || results[k - 1].g !== r.g ? <li key={`h:${r.g}:${k}`} className="cmd-g" aria-hidden>{r.g}</li> : null;
+            const qt = r.kind === 'sym' ? quotes?.[r.x.sym] : undefined;
+            return [head, (
+              <li key={r.kind === 'sym' ? `s:${r.x.sym}` : r.c.id} className={k === i ? 'on' : ''} onMouseEnter={() => setI(k)} onMouseDown={() => run(k)}>
+                {r.kind === 'sym' ? (
+                  <><b className="wl-sym">{r.x.sym}</b><span className="muted cmd-nm">{r.x.name}</span>
+                    <span className="cmd-q">{qt?.spark && <Spark v={qt.spark} w={44} h={14} />}{qt && Number.isFinite(qt.last) && <span className="num small">{qt.last.toFixed(2)}</span>}{qt && Number.isFinite(qt.chgPct) && <span className={`num small ${qt.chgPct >= 0 ? 'up' : 'down'}`}>{qt.chgPct >= 0 ? '+' : ''}{qt.chgPct.toFixed(1)}%</span>}</span></>
+                ) : (
+                  <><b className="num">/{r.c.id}</b><span className="muted">{r.c.label}</span>{r.c.hint && <Kbd>{r.c.hint}</Kbd>}</>
+                )}
+              </li>
+            )];
+          })}
+          {!results.length && q.trim() && <li className="cmd-g">No match. Enter jumps to the ticker if it exists.</li>}
         </ul>
         {msg && <div className="cmd-msg">{msg}</div>}
+        <div className="cmd-foot"><span><Kbd>↑</Kbd><Kbd>↓</Kbd> move</span><span><Kbd>↵</Kbd> open</span><span><Kbd>/</Kbd> commands only</span><span><Kbd>esc</Kbd> close</span></div>
       </div>
     </div>
   );
@@ -146,7 +174,12 @@ export function OverlayView({ kind, onClose }: { kind: 'map' | 'globe' | 'help';
   if (kind === 'help') {
     const rows: [string, string][] = [
       ['Ctrl K', 'Command bar: jump to ticker or run /command'],
-      ['H  E  D  X  O  S  M  G  C', 'Pages: Home, Messages, Desk, Patterns, Company, Scanner, World map, Money flow, Calendars'],
+      ['W  H  E  C', 'Today: Morning plan, Home, Messages, Calendars'],
+      ['D  X  O', 'Charts: Desk, Patterns, Company'],
+      ['S  G  U  I  ⇧R', 'Scan: Scanner, Rotation, ETFs and sectors, Smart money, Distress'],
+      ['V  M  Y  ⇧B', 'Flow and risk: Gamma and IV, World map, Econ odds, Data status'],
+      ['⇧J', 'Journal'],
+      [',  .', 'Flip between the views of a page (previous / next)'],
       ['4  5  6', 'Chart: Weekly, Monthly, 15-minute'],
       ['Z', 'Focus mode: hide side bars, strips and ticker (Z again to exit)'],
       ['↑ ↓  or  J K', 'Move through watchlist'],

@@ -9,7 +9,8 @@ import { detect, detectAll, fillsReady, mergeFills, parseCsv, toFills, transfers
 import { etTime } from '../lib/clock';
 import { rng } from '../lib/demo';
 import { px, sUsd, tone, usd } from '../lib/format';
-import { Fresh } from './common';
+import { Fresh, PageTabs } from './common';
+import { load, save } from '../lib/store';
 import { ScreenshotInput, uid } from './Trading';
 import { realized } from '../../shared/webull';
 
@@ -34,16 +35,15 @@ export interface JournalProps {
 }
 
 export function JournalOverlay(p: JournalProps) {
-  const [tab, setTab] = useState<Tab>('trades');
+  // the Daily recap's "Import history" link lands here on the Import tab (one-shot hint in the browser store)
+  const [tab, setTab] = useState<Tab>(() => { const t = load<Tab | null>('journalTab', null); if (t) save('journalTab', null); return t ?? 'trades'; });
   const hasDemo = p.views.some((v) => v.t.demo);
   return (
     <div className="overlay" role="dialog" aria-label="Journal">
       <div className="overlay-in jn">
         <div className="phead">
           <div className="phead-title">
-            <div className="tabs">
-              {(['trades', 'stats', 'violations', 'import'] as Tab[]).map((t) => <button key={t} className={tab === t ? 'on' : ''} onClick={() => setTab(t)}>{t[0].toUpperCase() + t.slice(1)}</button>)}
-            </div>
+            <PageTabs<Tab> value={tab} onChange={setTab} options={[{ id: 'trades', label: 'Trades', count: p.views.filter((v) => !v.t.deleted).length || undefined }, { id: 'stats', label: 'Stats' }, { id: 'violations', label: 'Violations', count: p.violations.length || undefined }, { id: 'import', label: 'Import' }]} />
           </div>
           <div className="phead-ctl">
             {hasDemo && <><Fresh kind="demo" /><button className="chip sm" onClick={() => p.setTrades((ts) => ts.map((t) => (t.demo ? { ...t, deleted: true, updated: Date.now() } : t)))}>Remove sample trades</button></>}
@@ -86,7 +86,8 @@ function Trades(p: JournalProps) {
           <tbody>
             {list.map((v) => {
               const t = v.t, isOpen = open === t.id;
-              const u = v.status === 'open' ? unrealized(v, p.lastPx(t.sym)) : 0;
+              const lp = v.status === 'open' ? p.lastPx(t.sym) : undefined;
+              const u = lp != null && Number.isFinite(lp) ? unrealized(v, lp) : 0;
               return (
                 <Fragment key={t.id}>
                   <tr className={isOpen ? 'open' : ''} onClick={() => setOpen(isOpen ? null : t.id)}>
@@ -98,8 +99,8 @@ function Trades(p: JournalProps) {
                     <td>{t.emotion ?? '—'}</td>
                     <td className="num">{v.maxQty || t.plannedSize || '—'}</td>
                     <td className="num">{v.avgEntry ? px(v.avgEntry) : '—'}</td>
-                    <td className="num">{v.avgExit ? px(v.avgExit) : v.status === 'open' ? <span className="muted">open</span> : '—'}</td>
-                    <td className={`num ${tone(v.realized + u)}`}>{sUsd(v.realized + u)}{v.status === 'open' && <span className="muted small"> u</span>}</td>
+                    <td className="num">{v.assumedExpired ? <span className="tag warn" title="Still open after its expiry, so the desk closed it at $0. If it was exercised or sold, import or log that fill and this goes away.">expired $0</span> : v.avgExit ? px(v.avgExit) : v.status === 'open' ? <span className="muted">open</span> : '—'}</td>
+                    <td className={`num ${tone(v.realized + u)}`}>{v.status === 'open' && lp == null && !v.realized ? <span className="muted small" title="No live quote for this contract, so the open P&L is not shown">open</span> : sUsd(v.realized + u)}{v.status === 'open' && lp != null && <span className="muted small"> u</span>}</td>
                     <td className={`num ${tone(v.r ?? 0)}`}>{r2(v.r)}</td>
                     <td className="jn-flags">
                       {t.imported && <span className="tag" title="Imported from the broker with no plan">import</span>}
@@ -287,7 +288,7 @@ function ViolationsTab({ v }: { v: Violation[] }) {
 /* ---------------- import ---------------- */
 interface Pending { name: string; rows: string[][]; map: Mapping }
 /** One file's result. fillIds / transferIds are what this file added, so Undo can take exactly those back out. */
-interface FileResult {
+export interface FileResult {
   id: string; name: string; at: number; ok: boolean; why?: string; via: string;
   added: number; dup: number; options: number; deposits: number; withdrawals: number; depositSum: number; withdrawSum: number; other: number;
   pnl: number; closed: number; wins: number; trades: { sym: string; side: string; pnl: number | null; day: string }[];
@@ -304,78 +305,93 @@ async function aiColumns(headers: string[]): Promise<Partial<Record<FillField | 
 }
 const fid = () => Math.random().toString(36).slice(2, 9);
 
+export interface ImportDeps { setTrades: JournalProps['setTrades']; setTransfers: JournalProps['setTransfers']; settings: AccountSettings; onAutoStart?: (startDate: number) => void }
+export type PendingFile = Pending & { id: string };
+
+/** Add one file's rows to the journal and return what happened. Shared by the Import tab and the Daily recap's "Add CSV". */
+export function applyImport(p: ImportDeps, name: string, rows: string[][], fills: Mapping, transfers: Mapping, via: string): FileResult {
+  const fr = fillsReady(fills) ? toFills(rows, fills) : { items: [], skipped: [] };
+  const tr = transfersReady(transfers) ? toTransfers(rows, transfers) : { items: [], skipped: [] };
+  const res: FileResult = { id: fid(), name, at: Date.now(), ok: true, via, added: 0, dup: 0, options: 0, deposits: 0, withdrawals: 0, depositSum: 0, withdrawSum: 0, other: 0, pnl: 0, closed: 0, wins: 0, trades: [], fillIds: [], transferIds: [] };
+  if (fr.items.length) {
+    p.setTrades((ts) => {
+      const have = new Set(ts.flatMap((t) => t.fills.map((f) => f.id)));
+      const fresh = fr.items.filter((f) => !have.has(f.id));
+      res.fillIds = fresh.map((f) => f.id); res.added = fresh.length; res.dup = fr.items.length - fresh.length;
+      return mergeFills(ts, fr.items).trades;
+    });
+    res.options = fr.items.filter((f) => f.opt).length;
+    const rz = realized(fr.items.map((f) => ({ id: f.id, sym: f.sym, side: f.action === 'buy' ? 'BUY' as const : 'SELL' as const, qty: f.qty, price: f.price, t: f.t, mult: f.mult ?? 1 })));
+    res.pnl = rz.closed.reduce((a, c) => a + c.pnl, 0) - fr.items.reduce((a, f) => a + (f.fee ?? 0), 0);
+    res.closed = rz.closed.length; res.wins = rz.closed.filter((c) => c.pnl > 0).length;
+    res.trades = rz.closed.slice(-40).reverse().map((c) => ({ sym: c.sym, side: c.side, pnl: c.pnl, day: c.day }));
+  }
+  if (tr.items.length) {
+    p.setTransfers((ts) => { const ids = new Set(ts.map((x) => x.id)); const fresh = tr.items.filter((x) => !ids.has(x.id)); res.transferIds = fresh.map((x) => x.id); return [...ts, ...fresh]; });
+    const dep = tr.items.filter((t) => t.amount > 0), wd = tr.items.filter((t) => t.amount < 0);
+    res.deposits = dep.length; res.withdrawals = wd.length;
+    res.depositSum = dep.reduce((a, t) => a + t.amount, 0); res.withdrawSum = wd.reduce((a, t) => a + t.amount, 0);
+  }
+  res.other = Math.max(0, rows.length - 1 - fr.items.length - tr.items.length);
+  const ts = [...fr.items.map((f) => f.t), ...tr.items.map((t) => t.t)];
+  if (ts.length) res.first = Math.min(...ts);
+  if (!fr.items.length && !tr.items.length) { res.ok = false; res.why = fr.skipped[0]?.why ? `no trade, deposit or withdrawal rows (first skipped row: ${fr.skipped[0].why})` : 'no trade, deposit or withdrawal rows found'; }
+  return res;
+}
+
+/** Read broker CSV files into the journal: built-in column rules first, then the free AI column match (header row only). Files that still
+ *  cannot be read come back in `pending` so the Import tab can offer the match-by-hand form. */
+export async function importFiles(p: ImportDeps, list: FileList | File[], onBusy: (s: string) => void = () => {}): Promise<{ out: FileResult[]; pending: PendingFile[] }> {
+  const arr = [...list].filter((f) => /\.(csv|txt)$/i.test(f.name) || /csv|excel|text/i.test(f.type));
+  const out: FileResult[] = [], pending: PendingFile[] = [];
+  for (let i = 0; i < arr.length; i++) {
+    const f = arr[i];
+    onBusy(`Reading ${f.name}${arr.length > 1 ? ` (${i + 1} of ${arr.length})` : ''}…`);
+    const rows = trimToHeader(parseCsv(await f.text()));
+    if (rows.length < 2) { out.push({ ...applyImport(p, f.name, rows, { kind: 'fills', cols: {} }, { kind: 'transfers', cols: {} }, '—'), ok: false, why: 'the file is empty' }); continue; }
+    let { fills, transfers } = detectAll(rows);
+    let via = 'built-in rules';
+    let r = applyImport(p, f.name, rows, fills, transfers, via);
+    if (!r.ok) {
+      onBusy(`Matching the columns of ${f.name} with AI (column names only)…`);
+      const ai = await aiColumns(rows[0]);
+      if (ai) {
+        fills = { kind: 'fills', cols: { ...ai } };
+        transfers = { kind: 'transfers', cols: { time: ai.time, amount: (ai as Record<string, number | undefined>).amount, type: ai.type } };
+        via = 'AI column match';
+        const r2 = applyImport(p, f.name, rows, fills, transfers, via);
+        if (r2.ok) r = r2;
+      }
+    }
+    if (!r.ok) pending.push({ id: r.id, name: f.name, rows, map: fillsReady(fills) || !transfersReady(transfers) ? fills : transfers });
+    out.push(r);
+  }
+  // no starting balance yet: start the account at $0 on the first date in these files
+  const firsts = out.filter((r) => r.ok && r.first != null).map((r) => r.first!);
+  if (p.settings.startBalance == null && firsts.length && p.onAutoStart) {
+    p.onAutoStart(Math.min(...firsts) - 1000);
+    out.forEach((r) => { if (r.ok) r.started = true; });
+  }
+  onBusy('');
+  return { out, pending };
+}
+const IMPORT_LOG = 'td.importLog';
+export const readImportLog = (): FileResult[] => { try { return JSON.parse(localStorage.getItem(IMPORT_LOG) ?? '[]'); } catch { return []; } };
+export const writeImportLog = (l: FileResult[]) => { try { localStorage.setItem(IMPORT_LOG, JSON.stringify(l.slice(0, 15))); } catch { /* storage full */ } };
+
 function ImportTab(p: JournalProps) {
-  const [log, setLog] = useState<FileResult[]>(() => { try { return JSON.parse(localStorage.getItem('td.importLog') ?? '[]'); } catch { return []; } });
-  const saveLog = (f: (l: FileResult[]) => FileResult[]) => setLog((l) => { const n = f(l).slice(0, 15); try { localStorage.setItem('td.importLog', JSON.stringify(n)); } catch { /* full */ } return n; });
-  const [manual, setManual] = useState<(Pending & { id: string })[]>([]);
+  const [log, setLog] = useState<FileResult[]>(readImportLog);
+  const saveLog = (f: (l: FileResult[]) => FileResult[]) => setLog((l) => { const n = f(l).slice(0, 15); writeImportLog(n); return n; });
+  const [manual, setManual] = useState<PendingFile[]>([]);
   const [busy, setBusy] = useState('');
   const [over, setOver] = useState(false);
   const input = useRef<HTMLInputElement>(null);
 
-  /** Add one file's rows to the journal and return what happened. */
-  const apply = (name: string, rows: string[][], fills: Mapping, transfers: Mapping, via: string): FileResult => {
-    const fr = fillsReady(fills) ? toFills(rows, fills) : { items: [], skipped: [] };
-    const tr = transfersReady(transfers) ? toTransfers(rows, transfers) : { items: [], skipped: [] };
-    const res: FileResult = { id: fid(), name, at: Date.now(), ok: true, via, added: 0, dup: 0, options: 0, deposits: 0, withdrawals: 0, depositSum: 0, withdrawSum: 0, other: 0, pnl: 0, closed: 0, wins: 0, trades: [], fillIds: [], transferIds: [] };
-    if (fr.items.length) {
-      p.setTrades((ts) => {
-        const have = new Set(ts.flatMap((t) => t.fills.map((f) => f.id)));
-        const fresh = fr.items.filter((f) => !have.has(f.id));
-        res.fillIds = fresh.map((f) => f.id); res.added = fresh.length; res.dup = fr.items.length - fresh.length;
-        return mergeFills(ts, fr.items).trades;
-      });
-      res.options = fr.items.filter((f) => f.opt).length;
-      const rz = realized(fr.items.map((f) => ({ id: f.id, sym: f.sym, side: f.action === 'buy' ? 'BUY' as const : 'SELL' as const, qty: f.qty, price: f.price, t: f.t, mult: f.mult ?? 1 })));
-      res.pnl = rz.closed.reduce((a, c) => a + c.pnl, 0) - fr.items.reduce((a, f) => a + (f.fee ?? 0), 0);
-      res.closed = rz.closed.length; res.wins = rz.closed.filter((c) => c.pnl > 0).length;
-      res.trades = rz.closed.slice(-40).reverse().map((c) => ({ sym: c.sym, side: c.side, pnl: c.pnl, day: c.day }));
-    }
-    if (tr.items.length) {
-      p.setTransfers((ts) => { const ids = new Set(ts.map((x) => x.id)); const fresh = tr.items.filter((x) => !ids.has(x.id)); res.transferIds = fresh.map((x) => x.id); return [...ts, ...fresh]; });
-      const dep = tr.items.filter((t) => t.amount > 0), wd = tr.items.filter((t) => t.amount < 0);
-      res.deposits = dep.length; res.withdrawals = wd.length;
-      res.depositSum = dep.reduce((a, t) => a + t.amount, 0); res.withdrawSum = wd.reduce((a, t) => a + t.amount, 0);
-    }
-    res.other = Math.max(0, rows.length - 1 - fr.items.length - tr.items.length);
-    const ts = [...fr.items.map((f) => f.t), ...tr.items.map((t) => t.t)];
-    if (ts.length) res.first = Math.min(...ts);
-    if (!fr.items.length && !tr.items.length) { res.ok = false; res.why = fr.skipped[0]?.why ? `no trade, deposit or withdrawal rows (first skipped row: ${fr.skipped[0].why})` : 'no trade, deposit or withdrawal rows found'; }
-    return res;
-  };
-
+  const apply = (name: string, rows: string[][], fills: Mapping, transfers: Mapping, via: string) => applyImport(p, name, rows, fills, transfers, via);
   const read = async (list: FileList | File[]) => {
-    const arr = [...list].filter((f) => /\.(csv|txt)$/i.test(f.name) || /csv|excel|text/i.test(f.type));
-    if (!arr.length) return;
-    const out: FileResult[] = [];
-    for (let i = 0; i < arr.length; i++) {
-      const f = arr[i];
-      setBusy(`Reading ${f.name}${arr.length > 1 ? ` (${i + 1} of ${arr.length})` : ''}…`);
-      const rows = trimToHeader(parseCsv(await f.text()));
-      if (rows.length < 2) { out.push({ ...apply(f.name, rows, { kind: 'fills', cols: {} }, { kind: 'transfers', cols: {} }, '—'), ok: false, why: 'the file is empty' }); continue; }
-      let { fills, transfers } = detectAll(rows);
-      let via = 'built-in rules';
-      let r = apply(f.name, rows, fills, transfers, via);
-      if (!r.ok) {
-        setBusy(`Matching the columns of ${f.name} with AI (column names only)…`);
-        const ai = await aiColumns(rows[0]);
-        if (ai) {
-          fills = { kind: 'fills', cols: { ...ai } };
-          transfers = { kind: 'transfers', cols: { time: ai.time, amount: (ai as Record<string, number | undefined>).amount, type: ai.type } };
-          via = 'AI column match';
-          const r2 = apply(f.name, rows, fills, transfers, via);
-          if (r2.ok) r = r2;
-        }
-      }
-      if (!r.ok) setManual((m) => [...m, { id: r.id, name: f.name, rows, map: fillsReady(fills) || !transfersReady(transfers) ? fills : transfers }]);
-      out.push(r);
-    }
-    // no starting balance yet: start the account at $0 on the first date in these files
-    const firsts = out.filter((r) => r.ok && r.first != null).map((r) => r.first!);
-    if (p.settings.startBalance == null && firsts.length && p.onAutoStart) {
-      p.onAutoStart(Math.min(...firsts) - 1000);
-      out.forEach((r) => { if (r.ok) r.started = true; });
-    }
-    setBusy('');
+    const { out, pending } = await importFiles(p, list, setBusy);
+    if (!out.length) return;
+    setManual((m) => [...m, ...pending]);
     saveLog((l) => [...out.reverse(), ...l]);
   };
 

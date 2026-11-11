@@ -7,7 +7,7 @@ import { MARKETS, sessionState } from '../../shared/sessions';
 import { hms } from '../lib/clock';
 import { makeCandles } from '../lib/demo';
 import { pct, px, tone } from '../lib/format';
-import { Seg, Star, LeanDot } from './common';
+import { Seg, Star, LeanDot, Q } from './common';
 import type { HomeData } from './HomeWidgets';
 
 type Cfg = Record<string, any>;
@@ -157,7 +157,7 @@ export function CryptoW({ d, cfg, set }: P) {
       </div>
       {error ? <p className="small down hw-pad">{error}</p> : <Candles bars={bars} theme={d.theme} timeVisible={tf !== 'D'} />}
       <ul className="hw-news">{[...news.filter((n) => n.title.toUpperCase().includes(base)), ...news.filter((n) => !n.title.toUpperCase().includes(base))].slice(0, 10).map((n) => <li key={n.id}><span className={`sent ${n.sentiment > 0 ? 'up' : n.sentiment < 0 ? 'down' : 'muted'}`}>●</span>{n.url ? <a href={n.url} target="_blank" rel="noreferrer noopener">{n.title}</a> : n.title}<span className="muted small"> · {n.src}</span><LeanDot lean={n.lean} /></li>)}</ul>
-      <p className="note hw-pad">{source || 'Binance'} · 24/7, refreshes every minute · crypto news: Finnhub</p>
+      <p className="note hw-pad"><Q k={d.mode.kind === 'demo' ? 'demo' : 'live'} src={source || 'Binance'} />{source || 'Binance'} · 24/7, refreshes every minute · crypto news: Finnhub</p>
     </div>
   );
 }
@@ -170,7 +170,7 @@ export function CommoditiesW({ d }: P) {
       <ul className="hw-movers">{COMMODITIES.map(([s, n]) => { const q = d.quotes[s]; return (
         <li key={s} onClick={() => d.onChart(s)} className="cm-row"><Star sym={s} /><b>{s}</b><span className="small cm-name">{n}</span><span className="num">{q ? px(q.last) : '—'}</span><span className={`num ${tone(q?.chgPct ?? NaN)}`}>{q ? pct(q.chgPct, 1) : ''}</span></li>
       ); })}</ul>
-      <p className="note hw-pad">Exchange-traded funds that track each commodity (live quotes, free). Futures prices themselves aren’t free in real time. Click to chart.</p>
+      <p className="note hw-pad"><Q k={d.mode.kind === 'demo' ? 'demo' : 'live'} src="ETF quotes (Finnhub / Twelve Data), not futures" />Exchange-traded funds that track each commodity (live quotes, free). Futures prices themselves aren’t free in real time. Click to chart.</p>
     </div>
   );
 }
