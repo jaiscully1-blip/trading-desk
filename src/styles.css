@@ -1811,3 +1811,61 @@ body:has(.hw.dragging)::before { animation-play-state: paused; }
 :root[data-scene='river'] .top { background: rgba(6, 17, 29, .66); }
 :root[data-scene='river'] .main, :root[data-scene='river'] .app { background: transparent; }
 :root[data-scene='river'] .nv-logo { background: #f6b26b; color: #10202f; }
+
+/* ---------- Distress page, widget and map layer ---------- */
+.ds { min-height: 0; }
+.ds .phead { height: auto; min-height: 40px; flex-wrap: wrap; row-gap: 4px; }
+.ds .phead-ctl select { background: var(--panel-2); border: 1px solid var(--line-2); border-radius: 5px; padding: 3px 6px; }
+.ds-kpis { display: flex; gap: 8px; padding: 8px 10px; flex-wrap: wrap; border-bottom: 1px solid var(--line); }
+.ds-kpi { display: flex; flex-direction: column; gap: 1px; padding: 6px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel-2); min-width: 110px; }
+.ds-kpi b { font-size: 18px; }
+.ds-body { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr); }
+.ds-body.has-detail { grid-template-columns: minmax(0, 1fr) 380px; }
+.ds-main { min-height: 0; overflow: auto; }
+.ds-pad { padding: 6px 12px; margin: 0; }
+.ds-row { display: grid; grid-template-columns: 64px minmax(140px, 1.2fr) 86px 120px minmax(0, 2fr) 54px; gap: 10px; align-items: center; width: 100%; text-align: left; padding: 7px 12px; border-bottom: 1px solid var(--line); }
+.ds-row:hover, .ds-row.on { background: var(--sel); }
+.ds-sym { color: var(--accent); }
+.ds-nm { display: flex; flex-direction: column; min-width: 0; }
+.ds-nm span, .ds-nm em, .ds-sig { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ds-tag { font: 600 10px 'IBM Plex Mono', monospace; letter-spacing: .05em; text-transform: uppercase; padding: 2px 6px; border-radius: 99px; text-align: center; white-space: nowrap; }
+.ds-tag.distressed { color: var(--down); background: color-mix(in srgb, var(--down) 16%, transparent); }
+.ds-tag.watch { color: var(--warn); background: color-mix(in srgb, var(--warn) 14%, transparent); }
+.ds-tag.turnaround { color: var(--up); background: color-mix(in srgb, var(--up) 14%, transparent); }
+.ds-tag.healthy { color: var(--muted); background: var(--panel-2); }
+.ds-bars { display: grid; gap: 2px; width: 100%; min-width: 60px; }
+.ds-bars i { display: block; height: 5px; border-radius: 3px; min-width: 2px; }
+.ds-bars i.w { background: var(--down); } .ds-bars i.t { background: var(--up); }
+.ds-detail { border-left: 1px solid var(--line); overflow: auto; padding: 10px 12px; min-height: 0; }
+.ds-detail h4 { margin: 12px 0 4px; font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.ds-dh { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+.ds-dh b { font-size: 18px; color: var(--accent); }
+.ds-scores { display: flex; gap: 16px; align-items: center; margin-top: 8px; }
+.ds-scores div { display: flex; flex-direction: column; } .ds-scores b { font-size: 22px; }
+.ds-scores .btn { margin-left: auto; }
+.ds-ai { margin-top: 10px; padding: 8px 10px; border: 1px solid color-mix(in srgb, var(--demo) 40%, transparent); border-radius: 8px; background: color-mix(in srgb, var(--demo) 8%, transparent); }
+.ds-ai p { margin: 4px 0; }
+.ds-ai-tag { font: 600 10px 'IBM Plex Mono', monospace; color: var(--demo); letter-spacing: .06em; }
+.ds-sigs { list-style: none; margin: 0; padding: 0; display: grid; gap: 5px; }
+.ds-sigs li { display: grid; grid-template-columns: 34px 1fr; gap: 6px; font-size: 12.5px; }
+.ds-sigs li.weak > .num { color: var(--down); } .ds-sigs li.turn > .num { color: var(--up); }
+.ds-tab { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.ds-tab th { text-align: left; font-weight: 500; color: var(--muted); padding: 6px 10px; border-bottom: 1px solid var(--line-2); position: sticky; top: 0; background: var(--panel); }
+.ds-tab td { padding: 6px 10px; border-bottom: 1px solid var(--line); }
+.ds-sec { cursor: pointer; } .ds-sec:hover { background: var(--sel); }
+.ds-ind td:first-child { padding-left: 28px; color: var(--muted); }
+.ds-stress { display: inline-block; width: 90px; height: 6px; background: var(--panel-2); border-radius: 3px; margin-right: 6px; vertical-align: middle; overflow: hidden; }
+.ds-stress i { display: block; height: 100%; background: linear-gradient(90deg, var(--warn), var(--down)); }
+.ds-mapwrap { padding: 8px 12px; }
+.ds-us { width: 100%; max-height: 62vh; display: block; }
+.ds-st { stroke: none; transition: fill .2s; }
+.ds-mesh { fill: none; stroke: var(--line-2); stroke-width: .8; }
+.ds-dot { stroke: var(--panel); stroke-width: 1; cursor: pointer; fill-opacity: .85; }
+.ds-dot.distressed { fill: var(--down); } .ds-dot.watch { fill: var(--warn); } .ds-dot.turnaround { fill: var(--up); }
+.ds-dot:hover, .ds-dot.sel { stroke: var(--text); stroke-width: 2; fill-opacity: 1; }
+.ds-w { display: flex; flex-direction: column; min-height: 0; flex: 1; }
+.ds-wl { flex: 1; overflow: auto; min-height: 0; }
+.ds-wrow { display: grid; grid-template-columns: 56px 70px minmax(0, 1fr); gap: 8px; align-items: center; width: 100%; text-align: left; padding: 5px 10px; border-bottom: 1px solid var(--line); }
+.ds-wrow:hover { background: var(--sel); }
+.ds-wrow .ds-stress { width: 100%; }
+.ds-wrow b { color: var(--accent); }
