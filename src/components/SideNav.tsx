@@ -36,7 +36,7 @@ const P: Record<Page, { label: string; hint: string; key: string }> = {
   scanner: { label: 'Scanner', hint: 'setups, gappers, RS rank', key: 'S' }, flows: { label: 'Rotation', hint: 'sector and theme rotation', key: 'G' }, etfs: { label: 'ETFs and sectors', hint: 'heatmap and holdings', key: 'U' }, smart: { label: 'Smart money', hint: '13F, ARK, Congress', key: 'I' },
   gamma: { label: 'Gamma and IV', hint: 'dealer gamma, volatility', key: 'V' }, map: { label: 'World map', hint: 'news hotspots, conflicts, shipping', key: 'M' }, odds: { label: 'Econ odds', hint: 'Fed, recession, CPI bets', key: 'Y' }, calendar: { label: 'Calendars', hint: 'economy, earnings, IPOs, Fed', key: 'C' },
   journal: { label: 'Journal', hint: 'trades, rules, review', key: '⇧J' },
-  status: { label: 'Data status', hint: 'which data sources are working or limited', key: 'B' },
+  status: { label: 'Data status', hint: 'which data sources are working or limited', key: '⇧B' },
 };
 export const NAV_GROUPS: { id: GroupId; label: string; pages: Page[] }[] = [
   { id: 'today', label: 'Today', pages: ['morning', 'home', 'messages', 'calendar'] },

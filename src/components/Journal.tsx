@@ -9,7 +9,7 @@ import { detect, detectAll, fillsReady, mergeFills, parseCsv, toFills, transfers
 import { etTime } from '../lib/clock';
 import { rng } from '../lib/demo';
 import { px, sUsd, tone, usd } from '../lib/format';
-import { Fresh } from './common';
+import { Fresh, PageTabs } from './common';
 import { load, save } from '../lib/store';
 import { ScreenshotInput, uid } from './Trading';
 import { realized } from '../../shared/webull';
@@ -43,9 +43,7 @@ export function JournalOverlay(p: JournalProps) {
       <div className="overlay-in jn">
         <div className="phead">
           <div className="phead-title">
-            <div className="tabs">
-              {(['trades', 'stats', 'violations', 'import'] as Tab[]).map((t) => <button key={t} className={tab === t ? 'on' : ''} onClick={() => setTab(t)}>{t[0].toUpperCase() + t.slice(1)}</button>)}
-            </div>
+            <PageTabs<Tab> value={tab} onChange={setTab} options={[{ id: 'trades', label: 'Trades', count: p.views.filter((v) => !v.t.deleted).length || undefined }, { id: 'stats', label: 'Stats' }, { id: 'violations', label: 'Violations', count: p.violations.length || undefined }, { id: 'import', label: 'Import' }]} />
           </div>
           <div className="phead-ctl">
             {hasDemo && <><Fresh kind="demo" /><button className="chip sm" onClick={() => p.setTrades((ts) => ts.map((t) => (t.demo ? { ...t, deleted: true, updated: Date.now() } : t)))}>Remove sample trades</button></>}

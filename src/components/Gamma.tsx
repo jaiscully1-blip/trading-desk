@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import type { DataMode } from '../data/live';
 import { MONEYNESS, gammaRead, ivSurface, parseCboe, pcRatios, type GammaRead, type IvRow } from '../../shared/gamma';
 import { usePersisted } from '../lib/store';
-import { Fresh, Seg, Skel } from './common';
+import { Fresh, Seg, Skel, PageTabs } from './common';
 import { DEMO_AT, rng } from '../lib/demo';
 
 type Sym = 'SPY' | 'QQQ' | 'IWM' | 'SPX';
@@ -154,7 +154,7 @@ export default function Gamma({ mode, onChart }: { mode: DataMode; onChart: (s: 
         <div className="phead">
           <div className="phead-title">Gamma & IV</div>
           <div className="phead-ctl">
-            <Seg<Sym> value={sym} onChange={setSym} options={[{ id: 'SPY', label: 'SPY' }, { id: 'QQQ', label: 'QQQ' }, { id: 'IWM', label: 'IWM' }, { id: 'SPX', label: 'SPX' }]} />
+            <PageTabs<Sym> label="Ticker" value={sym} onChange={setSym} options={[{ id: 'SPY', label: 'SPY' }, { id: 'QQQ', label: 'QQQ' }, { id: 'IWM', label: 'IWM' }, { id: 'SPX', label: 'SPX' }]} />
             {d && <Fresh kind={d.demo ? 'demo' : 'delayed'} at={d.chainAsOf ?? d.asOf} src={d.source} />}
           </div>
         </div>

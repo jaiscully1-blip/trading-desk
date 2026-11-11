@@ -183,3 +183,35 @@ export function Belt({ items, value, onChange, orderKey, size = 3, trailing }: {
     </div>
   );
 }
+
+
+/** Page-level views (the big tabs under a page title). Larger than Seg, with an underline on the active one, a "2 of 3" count,
+ *  arrow buttons, and the , and . keys to flip back and forth. Use Seg for small in-panel toggles, PageTabs for views of a page. */
+export function PageTabs<T extends string>({ value, options, onChange, label = 'Views' }: {
+  value: T; options: { id: T; label: string; hint?: string; count?: number }[]; onChange: (v: T) => void; label?: string;
+}) {
+  const i = Math.max(0, options.findIndex((o) => o.id === value));
+  const go = (d: number) => onChange(options[(i + d + options.length) % options.length].id);
+  const goRef = useRef(go); goRef.current = go;
+  useEffect(() => {
+    const k = (e: KeyboardEvent) => {
+      const t = e.target as HTMLElement | null;
+      if (e.metaKey || e.ctrlKey || e.altKey || t?.closest?.('input, textarea, select, [contenteditable]')) return;
+      if (e.key === ',') { e.preventDefault(); goRef.current(-1); } else if (e.key === '.') { e.preventDefault(); goRef.current(1); }
+    };
+    window.addEventListener('keydown', k);
+    return () => window.removeEventListener('keydown', k);
+  }, []);
+  return (
+    <div className="ptabs" role="tablist" aria-label={label}>
+      <button className="ptabs-arrow" onClick={() => go(-1)} title="Previous view ( , )" aria-label="Previous view">‹</button>
+      {options.map((o) => (
+        <button key={o.id} role="tab" aria-selected={value === o.id} className={`ptab ${value === o.id ? 'on' : ''}`} onClick={() => onChange(o.id)} title={o.hint}>
+          {o.label}{o.count != null && <span className="ptab-n num">{o.count}</span>}
+        </button>
+      ))}
+      <button className="ptabs-arrow" onClick={() => go(1)} title="Next view ( . )" aria-label="Next view">›</button>
+      <span className="ptabs-pos num" title="Press , and . to flip between views">{i + 1}/{options.length}</span>
+    </div>
+  );
+}

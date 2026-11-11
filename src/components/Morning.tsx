@@ -44,10 +44,17 @@ function DayStrip({ nowMin, isToday, events }: { nowMin: number; isToday: boolea
   );
 }
 
-/** Score as a ring (full at 8). */
+/** Score as a ring (the arc is full at 8; the number is the raw score). Sized so "16.2" or "104" can never spill over the stroke. */
 function Ring({ v, tone }: { v: number; tone: string }) {
-  const r = 11, c = 2 * Math.PI * r, f = Math.max(0.04, Math.min(1, v / 8));
-  return <svg className={`am-ring ${tone}`} width="34" height="34" viewBox="0 0 30 30" role="img" aria-label={`Setup score ${v.toFixed(1)}`}><title>{`Setup score ${v.toFixed(1)} (ring is full at 8)`}</title><circle cx="15" cy="15" r={r} className="bg" /><circle cx="15" cy="15" r={r} className="fg" strokeDasharray={`${c * f} ${c}`} transform="rotate(-90 15 15)" /><text x="15" y="18.5" textAnchor="middle">{v.toFixed(1)}</text></svg>;
+  const r = 15, c = 2 * Math.PI * r, f = Math.max(0.04, Math.min(1, v / 8));
+  const label = v >= 100 ? '99+' : v >= 10 ? v.toFixed(0) : v.toFixed(1);
+  return (
+    <svg className={`am-ring ${tone}`} width="44" height="44" viewBox="0 0 40 40" role="img" aria-label={`Setup score ${v.toFixed(1)}`}>
+      <title>{`Setup score ${v.toFixed(1)} (the ring is full at 8; bigger gaps and volume push the score higher)`}</title>
+      <circle cx="20" cy="20" r={r} className="bg" /><circle cx="20" cy="20" r={r} className="fg" strokeDasharray={`${c * f} ${c}`} transform="rotate(-90 20 20)" />
+      <text x="20" y="24" textAnchor="middle">{label}</text>
+    </svg>
+  );
 }
 
 function MoverTable({ rows, phase, onChart, title }: { rows: PmRow[]; phase: 'premarket' | 'day'; onChart: (s: string) => void; title: string }) {

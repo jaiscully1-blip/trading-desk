@@ -146,7 +146,12 @@ export function OverlayView({ kind, onClose }: { kind: 'map' | 'globe' | 'help';
   if (kind === 'help') {
     const rows: [string, string][] = [
       ['Ctrl K', 'Command bar: jump to ticker or run /command'],
-      ['H  E  D  X  O  S  M  G  C', 'Pages: Home, Messages, Desk, Patterns, Company, Scanner, World map, Money flow, Calendars'],
+      ['W  H  E  C', 'Today: Morning plan, Home, Messages, Calendars'],
+      ['D  X  O', 'Charts: Desk, Patterns, Company'],
+      ['S  G  U  I', 'Scan: Scanner, Rotation, ETFs and sectors, Smart money'],
+      ['V  M  Y  ⇧B', 'Flow and risk: Gamma and IV, World map, Econ odds, Data status'],
+      ['⇧J', 'Journal'],
+      [',  .', 'Flip between the views of a page (previous / next)'],
       ['4  5  6', 'Chart: Weekly, Monthly, 15-minute'],
       ['Z', 'Focus mode: hide side bars, strips and ticker (Z again to exit)'],
       ['↑ ↓  or  J K', 'Move through watchlist'],

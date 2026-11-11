@@ -6,7 +6,7 @@ import { basketCurve, holdingsMove, squarify, type Basket, type Closes, type Etf
 import { moveColor, pct, useApi, useSnapshot, type SnapshotResp } from '../data/apis';
 import type { DataMode } from '../data/live';
 import { usePersisted } from '../lib/store';
-import { Fresh, Seg, Skel } from './common';
+import { Fresh, Seg, Skel, PageTabs } from './common';
 
 type Tab = 'heat' | 'etf' | 'baskets';
 const capFmt = (v: number) => (v >= 1e12 ? `$${(v / 1e12).toFixed(2)}T` : v >= 1e9 ? `$${(v / 1e9).toFixed(0)}B` : `$${(v / 1e6).toFixed(0)}M`);
@@ -257,7 +257,7 @@ export default function EtfSectors({ mode, onChart, extra }: { mode: DataMode; o
           <div className="phead-title">ETFs & sectors</div>
           <div className="phead-ctl">
             {extra}
-            <Seg value={tab} onChange={setTab} options={[{ id: 'heat', label: 'Sector heatmap' }, { id: 'etf', label: 'Inside an ETF' }, { id: 'baskets', label: 'My baskets' }]} />
+            <PageTabs value={tab} onChange={setTab} options={[{ id: 'heat', label: 'Sector heatmap' }, { id: 'etf', label: 'Inside an ETF' }, { id: 'baskets', label: 'My baskets' }]} />
             {live && snap.data && <Fresh kind="delayed" at={snap.data.asOf} src={snap.data.source} />}
           </div>
         </div>

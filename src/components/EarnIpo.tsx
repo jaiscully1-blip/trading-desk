@@ -7,7 +7,7 @@ import { useEventCal } from '../data/eventcal';
 import { useDesk } from '../lib/deskctx';
 import type { NewsItem } from '../../shared/news';
 import { isIpoHeadline, surprisePct, type EarnItem, type IpoItem } from '../../shared/eventsCal';
-import { Fresh } from './common';
+import { Fresh, PageTabs } from './common';
 import type { HomeData } from './HomeWidgets';
 import { etTime } from '../lib/clock';
 
@@ -75,11 +75,7 @@ export function EarnIpoPanel({ mode, mySyms, news, onSelect, compact = false }: 
   return (
     <div className={`ei ${compact ? 'compact' : ''}`}>
       <div className="hw-bar">
-        <span className="chips">
-          <button className={`chip sm ${tab === 'earn' ? 'on' : ''}`} onClick={() => setTab('earn')}>Earnings</button>
-          <button className={`chip sm ${tab === 'ipo' ? 'on' : ''}`} onClick={() => setTab('ipo')}>IPOs{upcoming.length ? ` ${upcoming.length}` : ''}</button>
-          <button className={`chip sm ${tab === 'news' ? 'on' : ''}`} onClick={() => setTab('news')}>IPO news</button>
-        </span>
+        <PageTabs<'earn' | 'ipo' | 'news'> value={tab} onChange={setTab} options={[{ id: 'earn', label: 'Earnings' }, { id: 'ipo', label: 'IPOs', count: upcoming.length || undefined }, { id: 'news', label: 'IPO news' }]} />
         <Fresh kind="delayed" at={cal.asOf} src={`Earnings: ${cal.sources.earnings}. IPOs: ${cal.sources.ipos}. Filings: ${cal.sources.filings}. Nasdaq's calendar is unofficial; estimates come from analyst consensus and can change.`} />
       </div>
 

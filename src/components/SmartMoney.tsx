@@ -5,7 +5,7 @@ import { MEMBERS } from '../../shared/data/congress';
 import { useApi } from '../data/apis';
 import type { DataMode } from '../data/live';
 import { usePersisted } from '../lib/store';
-import { Fresh, Seg } from './common';
+import { Fresh, Seg, PageTabs } from './common';
 
 type Tab = 'funds' | 'ark' | 'pols';
 const CHG_LABEL: Record<Change, string> = { new: 'NEW', added: 'ADDED', trimmed: 'TRIMMED', sold: 'SOLD OUT', same: 'HELD' };
@@ -196,7 +196,7 @@ export default function SmartMoney({ mode, onChart, extra }: { mode: DataMode; o
       <div className="overlay-in sm">
         <div className="phead">
           <div className="phead-title">Smart money</div>
-          <div className="phead-ctl">{extra}<Seg value={tab} onChange={setTab} options={[{ id: 'funds', label: 'Big investors (13F)' }, { id: 'ark', label: 'ARK daily' }, { id: 'pols', label: 'Politicians' }]} /></div>
+          <div className="phead-ctl">{extra}<PageTabs value={tab} onChange={setTab} options={[{ id: 'funds', label: 'Big investors (13F)' }, { id: 'ark', label: 'ARK daily' }, { id: 'pols', label: 'Politicians' }]} /></div>
         </div>
         <div className="sm-body">
           {!live ? <p className="hw-pad muted"><Fresh kind="demo" /> These trackers read real filings only, so they need the live desk (the deployed site with its server).</p>

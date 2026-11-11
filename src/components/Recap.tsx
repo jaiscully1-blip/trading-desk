@@ -4,19 +4,12 @@ import { useMemo, useRef, useState } from 'react';
 import type { Recap } from '../lib/recap';
 import { sUsd, tone } from '../lib/format';
 import { importFiles, readImportLog, writeImportLog, type ImportDeps } from './Journal';
+import { download } from '../lib/download';
 
 const dayLabel = (d: string) => new Date(`${d}T12:00:00Z`).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
 const cssVar = (n: string, fallback: string) => getComputedStyle(document.documentElement).getPropertyValue(n).trim() || fallback;
 
-export function download(name: string, data: string | Blob, type = 'text/csv') {
-  const blob = typeof data === 'string' ? new Blob([data], { type }) : data;
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = name;
-  document.body.appendChild(a);
-  a.click();
-  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
-}
+export { download };
 
 const rulesLine = (r: Recap) => (r.violations.n ? `${r.violations.n} · cost ${r.violations.cost ? sUsd(-r.violations.cost) : '$0'}${r.violations.top ? ` · ${r.violations.top}` : ''}` : 'none');
 const openLine = (r: Recap) => (r.open?.length ? `${r.open.length} still open: ${r.open.slice(0, 4).map((o) => o.sym).join(', ')}${r.open.length > 4 ? '…' : ''}` : '');
@@ -41,7 +34,7 @@ export function recapPng(r: Recap): Promise<Blob> {
   g.fillStyle = muted; g.font = `500 14px ${sans}`; g.fillText(`process ${r.score}/100`, 1060, 200); g.textAlign = 'left';
   // metrics
   const cells: [string, string, string?][] = [
-    ['P&L', sUsd(r.pnl), r.pnl > 0 ? up : r.pnl < 0 ? down : ink], ['R', `${r.r >= 0 ? '+' : ''}${r.r.toFixed(2)}R`, r.r > 0 ? up : r.r < 0 ? down : ink],
+    ['P&L', sUsd(r.pnl), r.pnl > 0 ? up : r.pnl < 0 ? down : ink], ...(r.r !== 0 ? [['R', `${r.r >= 0 ? '+' : ''}${r.r.toFixed(2)}R`, r.r > 0 ? up : down] as [string, string, string]] : []),
     ...(r.winRate == null ? [] : [['Win rate', `${r.winRate.toFixed(0)}%`] as [string, string]]), ['Closed', String(r.trades)], ['Opened', String(r.opened ?? 0)],
   ];
   const cw = (W - 112) / cells.length;
@@ -124,7 +117,7 @@ export function RecapOverlay({ recaps, initialDay, onClose, onReplay, csvFor, im
               </div>
               <div className="cards">
                 <div className="card"><span className="muted small">P&amp;L</span><b className={`num ${tone(r.pnl)}`}>{sUsd(r.pnl)}</b></div>
-                <div className="card"><span className="muted small">R</span><b className={`num ${tone(r.r)}`}>{r.r >= 0 ? '+' : ''}{r.r.toFixed(2)}R</b></div>
+                {r.r !== 0 && <div className="card" title="R = profit divided by the risk you planned. Trades imported with no stop have no R."><span className="muted small">R</span><b className={`num ${tone(r.r)}`}>{r.r >= 0 ? '+' : ''}{r.r.toFixed(2)}R</b></div>}
                 {r.winRate != null && <div className="card"><span className="muted small">Win rate</span><b className="num">{r.winRate.toFixed(0)}%</b></div>}
                 <div className="card" title="Trades closed this day: P&L, R and win rate are about these"><span className="muted small">Closed</span><b className="num">{r.trades}</b></div>
                 <div className="card" title="Trades opened this day"><span className="muted small">Opened</span><b className="num">{r.opened ?? 0}</b></div>
