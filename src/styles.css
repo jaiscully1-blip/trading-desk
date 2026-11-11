@@ -1873,3 +1873,31 @@ body:has(.hw.dragging)::before { animation-play-state: paused; }
 /* the 30-day trend line sits on the name line, right side, so the price columns don't move */
 .wl-row .wl-name { grid-column: 1 / 3; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .wl-row .wl-spark { grid-column: 3 / -1; grid-row: 2; justify-self: end; align-self: center; }
+
+/* ---------- day cases ---------- */
+.dc { display: flex; flex-direction: column; min-height: 0; }
+.dc .hw-bar { flex-wrap: wrap; gap: 8px; }
+.dc-ix { padding: 6px 10px; }
+.dc-ix-h { display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; margin-bottom: 6px; }
+.dc-ix-h b { font-size: 16px; color: var(--accent); }
+.dc-bar { display: flex; height: 8px; border-radius: 4px; overflow: hidden; background: var(--panel-2); margin-bottom: 8px; }
+.dc-bar i { display: block; height: 100%; transition: width .4s ease; }
+.dc-bar i.up { background: var(--up); } .dc-bar i.flat { background: var(--muted); opacity: .6; } .dc-bar i.down { background: var(--down); }
+.dc-cases { list-style: none; margin: 0 0 4px; padding: 0; display: grid; gap: 6px; font-size: 12.5px; }
+.dc-cases li { display: grid; grid-template-columns: 44px 1fr; gap: 8px; align-items: baseline; }
+.dc-p { font-size: 15px; font-weight: 600; }
+.dc-cases li.up .dc-p { color: var(--up); } .dc-cases li.down .dc-p { color: var(--down); } .dc-cases li.flat .dc-p { color: var(--muted); }
+.dc-f { width: 100%; border-collapse: collapse; font-size: 12px; margin: 6px 0; }
+.dc-f th { text-align: left; font-weight: 500; color: var(--muted); padding: 4px 6px; border-bottom: 1px solid var(--line-2); }
+.dc-f td { padding: 4px 6px; border-bottom: 1px solid var(--line); }
+.dc-f tr.dc-blend td { font-weight: 600; border-top: 1px solid var(--line-2); }
+.dc-h { margin: 10px 10px 4px; }
+.dc-up { padding: 0 10px; display: grid; gap: 5px; }
+.dc-up-r { display: grid; grid-template-columns: 82px 1fr; gap: 8px; align-items: baseline; }
+.dc-up-k { display: flex; flex-wrap: wrap; gap: 5px; }
+.dc-ev { font-size: 11.5px; padding: 2px 8px; border-radius: 99px; border: 1px solid var(--line-2); color: var(--muted); }
+.dc-ev.m { color: var(--text); border-color: color-mix(in srgb, var(--accent) 60%, transparent); background: color-mix(in srgb, var(--accent) 10%, transparent); }
+.dc-ev em { font-style: normal; color: var(--muted); }
+.dc-ev.c-religious { border-style: dashed; }
+.dc-rec { padding: 0 10px; }
+.dc-tab { display: grid; gap: 4px; }

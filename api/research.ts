@@ -23,6 +23,7 @@ import { SMART_ROUTES } from './_lib/research/smart.js';
 import { GET as eventcal } from './_lib/research/eventcal.js';
 import { GET as status } from './_lib/research/status.js';
 import { GET as distress } from './_lib/research/distress.js';
+import { GET as daycases } from './_lib/research/daycases.js';
 import { POST as notifyTest } from './_lib/research/notify-test.js';
 import { MARKET_ROUTES } from './_lib/research/markets.js';
 import { cached, json } from './_lib/core.js';
@@ -69,7 +70,7 @@ async function frame(req: Request): Promise<Response> {
 // Reading a 10-K + one Gemini call can take ~20-40 s the first time (cached after that)
 export const maxDuration = 60;
 
-const ROUTES: Record<string, (req: Request) => Promise<Response>> = { names, earnings, 'company-news': companyNews, company, feed, 'crypto-news': () => cryptoNews(), frame, fundamentals, x: xEmbed, webull, discord, info, congress, premarket: () => premarket(), morning, gamma, 'webull-orders': webullOrdersGet, insider, polymarket, agents, kronos, 'econ-odds': () => econOdds(), eventcal, status, distress, ...SMART_ROUTES, ...MARKET_ROUTES };
+const ROUTES: Record<string, (req: Request) => Promise<Response>> = { names, earnings, 'company-news': companyNews, company, feed, 'crypto-news': () => cryptoNews(), frame, fundamentals, x: xEmbed, webull, discord, info, congress, premarket: () => premarket(), morning, gamma, 'webull-orders': webullOrdersGet, insider, polymarket, agents, kronos, 'econ-odds': () => econOdds(), eventcal, status, distress, daycases: () => daycases(), ...SMART_ROUTES, ...MARKET_ROUTES };
 export async function GET(req: Request): Promise<Response> {
   const fn = new URL(req.url).searchParams.get('fn') ?? '';
   const h = ROUTES[fn];

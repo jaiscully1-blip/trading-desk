@@ -41,6 +41,10 @@ import { EarnIpoW } from './EarnIpo';
 import { KronosW } from './KronosW';
 import { lazy, Suspense } from 'react';
 const DistressInner = lazy(() => import('./Distress').then((m) => ({ default: m.DistressW })));
+const DayCasesInner = lazy(() => import('./DayCases').then((m) => ({ default: m.DayCasesPanel })));
+function DayCasesHomeW({ d }: P) {
+  return <Suspense fallback={<p className="hw-pad small muted">Loading…</p>}><DayCasesInner mode={d.mode} compact /></Suspense>;
+}
 function DistressHomeW({ d }: P) {
   const { stars } = useDesk();
   return <Suspense fallback={<p className="hw-pad small muted">Loading…</p>}><DistressInner mode={d.mode} mySyms={[...stars, d.sel]} onChart={d.onChart} openPage={d.openPage ? () => d.openPage!('distress') : undefined} /></Suspense>;
@@ -255,4 +259,5 @@ export const WIDGETS = {
   earnipo: { title: 'Earnings and IPOs', make: EarnIpoW },
   kronos: { title: 'Kronos forecast (experiment)', make: KronosW },
   distress: { title: 'Distress and turnarounds', make: DistressHomeW },
+  daycases: { title: 'Day cases: bull / stagnant / bear', make: DayCasesHomeW },
 } as const;

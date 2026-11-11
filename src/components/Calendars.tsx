@@ -6,6 +6,7 @@ import { nextFomc } from '../data/news';
 import { FOMC } from '../../shared/calendar';
 import { etToUtc, hms } from '../lib/clock';
 import { Fresh } from './common';
+import { SpecialDaysTable } from './DayCases';
 
 const dow = (d: string) => new Date(`${d}T12:00:00Z`).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' });
 
@@ -50,6 +51,11 @@ export function Calendars({ cal, now, onSelect, mySyms, mode, news }: { cal: Cal
         ))}
         {cal?.econ && !cal.econ.length && <p className="muted small">Nothing scheduled in the next 60 days.</p>}
         {!cal?.econ && <p className="muted small">{errs.econ ?? (fr === 'pending' ? 'Loading…' : 'Set FRED_API_KEY for the economic calendar.')}</p>}
+      </section>
+
+      <section className="cal-sec">
+        <h4>Special days: what history shows</h4>
+        <SpecialDaysTable mode={mode} />
       </section>
 
       <section className="cal-sec">

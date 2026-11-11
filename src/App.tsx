@@ -775,7 +775,7 @@ export default function App() {
   } else if (page === 'morning') {
     body = (
       <Suspense fallback={<div className="page"><section className="panel"><div className="ph-body">Loading…</div></section></div>}>
-        <Morning data={morning} cal={cal} pm={pmLv} rules={rulesData} now={now} watch={morningSyms} onChart={toDesk} onCheckIn={() => setCiOpen(true)} />
+        <Morning data={morning} cal={cal} pm={pmLv} rules={rulesData} now={now} watch={morningSyms} onChart={toDesk} onCheckIn={() => setCiOpen(true)} mode={dataMode} />
       </Suspense>
     );
   } else if (page === 'home') {

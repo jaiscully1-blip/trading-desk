@@ -6,6 +6,7 @@ import type { PmRow, Setup } from '../../shared/morning';
 import { RulesStatus, type RulesData } from './RulesW';
 import { et } from '../lib/clock';
 import { pct } from '../lib/format';
+import { DayCasesPanel } from './DayCases';
 import { Fresh, Skel, Q, qOf } from './common';
 import { useDesk } from '../lib/deskctx';
 import { tick } from '../../shared/orders';
@@ -103,9 +104,9 @@ function SetupCard({ s, onChart, mine }: { s: Setup; onChart: (x: string) => voi
   );
 }
 
-export default function Morning({ data, cal, pm, rules, now, watch, onChart, onCheckIn }: {
+export default function Morning({ data, cal, pm, rules, now, watch, onChart, onCheckIn, mode }: {
   data: MorningState | null; cal: CalendarState | null; pm: Record<string, { high: number; low: number } | null>; rules: RulesData; now: number; watch: string[];
-  onChart: (s: string) => void; onCheckIn: () => void;
+  onChart: (s: string) => void; onCheckIn: () => void; mode?: import('../data/live').DataMode;
 }) {
   const day = planDay(now);
   const e = et(now);
@@ -161,6 +162,7 @@ export default function Morning({ data, cal, pm, rules, now, watch, onChart, onC
         </section>
 
         <section className="am-col">
+          {mode && <section className="am-card"><h4><Q k="calc" src="historical base rates for SPY, QQQ, IWM" />Today’s cases: bull, stagnant, bear</h4><DayCasesPanel mode={mode} compact /></section>}
           <section className="am-card">
             <h4><Q k="eod" src="FRED release calendar (scheduled times); Fed odds from Kalshi, last trade" />Today’s events</h4>
             {fomc && <p className="small down">FOMC decision day{fomc.sep ? ' (with projections)' : ''}: 2:00 pm ET statement, 2:30 pm press conference.</p>}
