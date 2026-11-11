@@ -69,7 +69,8 @@ describe('phone alerts', () => {
   });
   it('fires moves and level breaks, once per day id', () => {
     const a = priceAlerts('NVDA', { last: 109, prevClose: 100, prevHigh: 105, prevLow: 98, at: 0 }, TODAY);
-    expect(a.map((x) => x.id)).toEqual([`${TODAY}:NVDA:move+4`, `${TODAY}:NVDA:move+8`, `${TODAY}:NVDA:pdh`]);
+    expect(a.map((x) => x.id)).toEqual([`${TODAY}:NVDA:move+8`, `${TODAY}:NVDA:pdh`]);
+    expect(priceAlerts('NVDA', { last: 105, prevClose: 100, prevHigh: 110, prevLow: 98, at: 0 }, TODAY, 4, new Set([`${TODAY}:NVDA:move+8`]))).toEqual([]); // no 4% alert after the 8% one
     expect(priceAlerts('X', { last: 100.5, prevClose: 100, prevHigh: 101, prevLow: 99, at: 0 }, TODAY)).toEqual([]);
   });
   it('label changes only for the alert list', () => {

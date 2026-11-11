@@ -23,12 +23,15 @@ export function parseDayBars(j: any): DayBar | null {
 }
 
 /** Alerts for one ticker today. Each id includes the day, so an alert fires once a day. */
-export function priceAlerts(sym: string, b: DayBar, day: string, movePct = 4): Alert[] {
+export function priceAlerts(sym: string, b: DayBar, day: string, movePct = 4, sent: Set<string> = new Set()): Alert[] {
   const out: Alert[] = [];
   const chg = (b.last / b.prevClose - 1) * 100;
   const px = (v: number) => `$${v.toFixed(2)}`;
-  for (const step of [movePct, movePct * 2]) {
-    if (Math.abs(chg) >= step) out.push({ id: `${day}:${sym}:move${chg > 0 ? '+' : '-'}${step}`, title: `${sym} ${chg > 0 ? 'up' : 'down'} ${Math.abs(chg).toFixed(1)}%`, message: `${sym} ${px(b.last)} vs ${px(b.prevClose)} yesterday.`, tags: [chg > 0 ? 'chart_with_upwards_trend' : 'chart_with_downwards_trend'], priority: step > movePct ? 4 : 3 });
+  const steps = [movePct * 2, movePct]; // biggest first: one move alert per step, never a smaller one after a bigger one
+  const id = (step: number) => `${day}:${sym}:move${chg > 0 ? '+' : '-'}${step}`;
+  const hit = steps.find((st) => Math.abs(chg) >= st);
+  if (hit != null && !steps.filter((st) => st >= hit).some((st) => sent.has(id(st)))) {
+    out.push({ id: id(hit), title: `${sym} ${chg > 0 ? 'up' : 'down'} ${Math.abs(chg).toFixed(1)}%`, message: `${sym} ${px(b.last)} vs ${px(b.prevClose)} yesterday.`, tags: [chg > 0 ? 'chart_with_upwards_trend' : 'chart_with_downwards_trend'], priority: hit > movePct ? 4 : 3 });
   }
   if (b.last > b.prevHigh) out.push({ id: `${day}:${sym}:pdh`, title: `${sym} above yesterday's high`, message: `${sym} ${px(b.last)}, yesterday's high was ${px(b.prevHigh)}.`, tags: ['arrow_up'], priority: 3 });
   if (b.last < b.prevLow) out.push({ id: `${day}:${sym}:pdl`, title: `${sym} below yesterday's low`, message: `${sym} ${px(b.last)}, yesterday's low was ${px(b.prevLow)}.`, tags: ['arrow_down'], priority: 3 });

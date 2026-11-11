@@ -8,7 +8,8 @@ import { marketOpen, parseDayBars, priceAlerts, readTickers, type Alert } from '
 import { sendAlert } from '../api/_lib/notify.js';
 
 const now = Date.now();
-if (!process.env.NTFY_TOPIC) { console.log('NTFY_TOPIC not set: nothing to send.'); process.exit(0); }
+const DRY = !!process.env.DRY; // DRY=1 prints alerts instead of sending (for a test)
+if (!process.env.NTFY_TOPIC && !DRY) { console.log('NTFY_TOPIC not set: nothing to send.'); process.exit(0); }
 if (!marketOpen(now) && !process.env.FORCE) { console.log('Market closed.'); process.exit(0); }
 const day = new Date(now).toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
 const file = process.env.ALERT_STATE || '.alerts-state.json';
@@ -23,12 +24,13 @@ for (const sym of list) {
   try {
     const r = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym.replace(/\./g, '-'))}?range=5d&interval=1d`, { headers: { 'user-agent': 'Mozilla/5.0 (trading-desk; personal alerts)' }, signal: AbortSignal.timeout(10000) });
     const b = r.ok ? parseDayBars(await r.json()) : null;
-    if (b && now - b.at < 30 * 60_000) fresh.push(...priceAlerts(sym, b, day, move).filter((a) => !sent.includes(a.id)));
+    if (b && (DRY || now - b.at < 30 * 60_000)) fresh.push(...priceAlerts(sym, b, day, move, new Set(sent)).filter((a) => !sent.includes(a.id)));
   } catch (e) { console.log(`${sym}: ${(e as Error).message}`); }
   await new Promise((res) => setTimeout(res, 250));
 }
 for (const a of fresh.slice(0, 8)) { // never flood the phone: at most 8 per run
+  if (DRY) { console.log(`[dry] ${a.title}: ${a.message}`); continue; }
   try { await sendAlert(a); sent.push(a.id); console.log(`sent ${a.title}`); } catch (e) { console.log(`send failed: ${(e as Error).message}`); }
 }
-writeFileSync(file, JSON.stringify({ day, sent }));
+if (!DRY) writeFileSync(file, JSON.stringify({ day, sent }));
 console.log(`${list.length} tickers, ${fresh.length} new alerts`);
