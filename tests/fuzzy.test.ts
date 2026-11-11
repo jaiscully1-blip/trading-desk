@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { fuzzyScore } from '../src/lib/fuzzy';
+import { fuzzyScore } from '../shared/fuzzy';
 import { computeBase } from '../shared/scan';
 
 describe('command bar matching', () => {

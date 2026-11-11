@@ -8,6 +8,7 @@ import type { DataMode } from '../data/live';
 import { useDesk } from '../lib/deskctx';
 import { Star, Q } from './common';
 import { offlineInfo } from '../data/info';
+import { CompanySearch } from './CompanySearch';
 
 const W = 960, H = 600, CX = W / 2, CY = 270, NW = 200, NH = 42, CW = 168;
 const cut = (s: string, n = 24) => (s.length > n ? `${s.slice(0, n - 1)}…` : s);
@@ -129,6 +130,7 @@ export default function CompanyPage({ sym, mode, onOpen, onChart, onPatterns }: 
           <Star sym={sym} size="md" />
           <span className="co-sym">{sym}</span><span className="co-name">{name}</span>
           {data?.demo && <span className="fresh fresh-demo">DEMO DATA</span>}
+          <CompanySearch mode={mode} onOpen={go} current={sym} />
           <span className="phead-ctl">
             <button className="btn" onClick={() => onPatterns(sym)}>Patterns</button>
             <button className="btn primary" onClick={() => onChart(sym)}>Open on desk</button>
