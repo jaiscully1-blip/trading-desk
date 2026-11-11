@@ -47,6 +47,7 @@ import { DEFAULT_PLAYBOOKS, gradeRow, type GradeResult, type Playbook, type Save
 import { CommandBar, NewsTicker, OverlayView, type Cmd } from './components/Bits';
 import { SideNav, pageGroup, type Page } from './components/SideNav';
 import DataStatus from './components/DataStatus';
+const RiverScene = lazy(() => import('./components/RiverScene'));
 import { popout, PageTabs } from './components/common';
 import { PingStack, StarredList } from './components/Pings';
 import { Desk, type Article, type DeskCtx } from './lib/deskctx';
@@ -160,6 +161,10 @@ export default function App() {
   const iconRail = useNarrow(1000); // below this the side menu becomes an icon rail; above it every page is named
   const [narrowLeft, setNarrowLeft] = useState(false);
   useLayoutEffect(() => { document.documentElement.dataset.theme = theme; }, [theme]);
+  // Riverfront scene behind the dark theme: moving, still, or off (the light paper theme never shows it)
+  const [scene, setScene] = usePersisted<'live' | 'still' | 'off'>('scene', 'live');
+  const river = theme === 'dark' && scene !== 'off';
+  useLayoutEffect(() => { if (river) document.documentElement.dataset.scene = 'river'; else delete document.documentElement.dataset.scene; }, [river]);
   const [focus, setFocus] = useState(false);
   const [drawerSeen, setDrawerSeen] = useState(false); // the account drawer loads the first time it is opened, then stays mounted
   const prevRails = useRef({ l: true, r: true });
@@ -618,6 +623,9 @@ export default function App() {
     { id: '5m', label: 'Chart: 5-minute', hint: '3', run: () => setTf('5m') },
     { id: '15m', label: 'Chart: 15-minute', hint: '6', run: () => setTf('15m') },
     { id: 'theme', label: 'Toggle light / dark', hint: 'T', run: toggleTheme },
+    { id: 'scene-live', label: 'River scene: moving boats (dark theme)', run: () => { setScene('live'); if (theme !== 'dark') toggleTheme(); } },
+    { id: 'scene-still', label: 'River scene: still picture, nothing moves', run: () => { setScene('still'); if (theme !== 'dark') toggleTheme(); } },
+    { id: 'scene-off', label: 'River scene: off (plain dark desk)', run: () => setScene('off') },
     { id: 'focus', label: 'Focus mode: hide side bars, strips and ticker', hint: 'Z', run: () => toggleFocus() },
     { id: 'popout', label: 'Pop chart out to a new window', run: () => popout('chart', sel) },
     { id: 'layout-reset', label: `Reset layout for ${modeLabel(mode)}`, run: () => { setLayouts((a) => { const b = { ...a }; delete b[mode]; return b; }); flash(`Layout reset for ${modeLabel(mode)}`); } },
@@ -822,6 +830,7 @@ export default function App() {
   return (
     <Desk.Provider value={desk}>
     <div className={`shell ${focus ? 'focus' : ''}`} data-group={pageGroup(page)}>
+      {river && <Suspense fallback={null}><RiverScene still={scene === 'still'} /></Suspense>}
       {focus && <button className="focus-chip" onClick={toggleFocus} title="Bring the side bars back (Z)">Focus mode · Z to exit</button>}
       <SideNav compact={iconRail} page={page} onPage={setPage} onCmd={() => setCmdOpen(true)} onHelp={() => setOverlay('help')} onAccount={() => setDrawer((d) => !d)} />
       <div className={`app ${layout.tickerOpen ? '' : 'no-ticker'} ${layout.fearOpen !== false ? 'has-fear' : ''}`}>

@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Trading Desk: five looks (static mockups)</title>
+<!-- Design exploration only. Not part of the app and not served by Vercel (the app builds from index.html).
+     Every number is a placeholder to show layout, not data. The riverfront scene is an original drawing: no logos or official marks. -->
+<style>
+*{box-sizing:border-box}html,body{margin:0}
+body{background:#0c0d10;color:#e9e6e1;font:14px/1.45 "IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif}
+.bar{position:sticky;top:0;z-index:9;display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:12px 18px;background:#0c0d10ee;border-bottom:1px solid #26282e}
+.bar b{margin-right:8px}.pick{border:1px solid #3a3d45;background:none;color:inherit;border-radius:99px;padding:6px 14px;cursor:pointer;font:inherit}
+.pick.on{background:#e9e6e1;color:#111}.note{padding:8px 18px;color:#9a9ca3;font-size:12.5px}
+.look{padding:14px 18px 26px;display:none}.look.on,body.all .look{display:block}
+.look h2{font-size:17px;margin:0 0 2px}.look p.cap{margin:0 0 10px;color:#a9abb2;max-width:900px}
+.frame{position:relative;height:560px;border-radius:16px;overflow:hidden;isolation:isolate}
+.ui{position:absolute;inset:0;display:grid;grid-template-columns:170px 1fr 250px;grid-template-rows:44px 1fr 34px;gap:10px;padding:12px}
+.ui>*{min-width:0;min-height:0}
+.top{grid-column:1/4;display:flex;align-items:center;gap:14px;padding:0 12px}
+.top .logo{width:26px;height:26px;border-radius:8px;display:grid;place-items:center;font-weight:700}
+.tick b{font-weight:600}.sp{flex:1}
+.nav{display:flex;flex-direction:column;gap:3px;padding:8px}.nav i{font-style:normal;padding:7px 10px;border-radius:9px;display:flex;gap:8px;align-items:center}
+.nav i::before{content:"";width:8px;height:8px;border-radius:3px;background:currentColor;opacity:.7}
+.nav small{font-size:10.5px;letter-spacing:.09em;text-transform:uppercase;opacity:.6;padding:8px 10px 2px}
+.main{display:grid;grid-template-columns:1.9fr 1fr;grid-template-rows:1.5fr 1fr;gap:10px}
+.c{padding:12px;position:relative;overflow:hidden}.c h4{margin:0 0 8px;font-size:11px;letter-spacing:.08em;text-transform:uppercase;opacity:.72;font-weight:600}
+.chart{grid-row:1/2}.chart svg{position:absolute;left:10px;right:10px;bottom:10px;top:44px;width:calc(100% - 20px);height:calc(100% - 54px)}
+.big{font:600 26px "IBM Plex Mono",ui-monospace,monospace}.row{display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--ln);font-size:13px}
+.num{font-family:"IBM Plex Mono",ui-monospace,monospace}.side{display:flex;flex-direction:column;gap:10px}
+.pill{display:inline-flex;align-items:center;gap:6px;border-radius:99px;padding:3px 10px;font-size:11.5px}
+.pill::before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor}
+.foot{grid-column:1/4;display:flex;align-items:center;gap:14px;padding:0 12px;font-size:12px;white-space:nowrap;overflow:hidden}
+.spark{display:inline-block;width:54px;height:16px;vertical-align:middle}
+.meter{height:8px;border-radius:99px;overflow:hidden;background:var(--ln)}.meter i{display:block;height:100%;border-radius:99px}
+.sample{position:absolute;right:14px;top:10px;font-size:10.5px;letter-spacing:.08em;opacity:.55}
+
+/* 1. Riverfront: animated dusk river scene, glass widgets */
+#L1 .frame{background:#0a1626;height:640px}
+#L1 .ui{grid-template-rows:44px 200px 1fr 34px}#L1 .nav{grid-row:2/4}#L1 .main{grid-row:2;grid-template-columns:1.7fr 1fr 1fr 1fr;grid-template-rows:1fr}#L1 .side{grid-row:2}#L1 .side .c:last-child{display:none}#L1 .foot{grid-row:4}
+#L1 .view{grid-row:3;grid-column:2/4;align-self:end;justify-self:end;font-size:11px;letter-spacing:.08em;opacity:.7;padding:0 6px 2px}
+#L1 .scene{position:absolute;inset:0;width:100%;height:100%;z-index:-1}
+#L1 .top,#L1 .nav,#L1 .c,#L1 .foot{background:rgba(9,22,38,.46);border:1px solid rgba(160,214,224,.24);border-radius:14px;backdrop-filter:blur(5px) saturate(1.2);-webkit-backdrop-filter:blur(5px) saturate(1.2)}
+#L1{--ln:rgba(160,214,224,.16)}#L1 .logo{background:#f6b26b;color:#10202f}#L1 .nav i.on{background:rgba(246,178,107,.2);color:#ffd9a8}
+#L1 .up{color:#7fe3c4}#L1 .dn{color:#ff9d8a}#L1 .acc{color:#f6b26b}#L1 .pill{background:rgba(127,227,196,.14);color:#7fe3c4}
+#L1 .meter i{background:linear-gradient(90deg,#3bb6c4,#f6b26b)}
+.drift{animation:drift linear infinite}@keyframes drift{from{transform:translateX(-18%)}to{transform:translateX(118%)}}
+.driftR{animation:driftR linear infinite}@keyframes driftR{from{transform:translateX(118%)}to{transform:translateX(-18%)}}
+.wave{animation:wave 9s linear infinite}@keyframes wave{to{transform:translateX(-120px)}}
+.bob{animation:bob 3.4s ease-in-out infinite;transform-box:fill-box;transform-origin:center}@keyframes bob{50%{transform:translateY(2.5px) rotate(-1.2deg)}}
+.glint{animation:glint 4s ease-in-out infinite}@keyframes glint{50%{opacity:.25}}
+
+/* 2. Ember glass */
+#L2 .frame{background:radial-gradient(700px 380px at 12% 0%,rgba(238,154,69,.22),transparent 70%),radial-gradient(600px 400px at 100% 100%,rgba(200,60,40,.16),transparent 70%),#0b0908}
+#L2{--ln:rgba(255,200,150,.12)}#L2 .top,#L2 .nav,#L2 .c,#L2 .foot{background:rgba(28,21,16,.62);border:1px solid rgba(255,190,130,.16);border-radius:16px;backdrop-filter:blur(12px)}
+#L2 .logo{background:linear-gradient(135deg,#ee9a45,#ff7a2f);color:#1a0f06}#L2 .nav i.on{background:rgba(238,154,69,.18);color:#ffcf99;box-shadow:inset 3px 0 0 #ee9a45}
+#L2 .up{color:#46d69a}#L2 .dn{color:#ff6a5c}#L2 .acc{color:#ee9a45}#L2 .pill{background:rgba(238,154,69,.14);color:#ffb866}#L2 .meter i{background:linear-gradient(90deg,#ee9a45,#ff5a4d)}
+
+/* 3. Bento */
+#L3 .frame{background:#101114}#L3{--ln:#2a2c33}
+#L3 .ui{gap:12px}#L3 .top,#L3 .foot{background:none}#L3 .nav{background:#17181d;border-radius:22px}
+#L3 .c{border-radius:22px;background:#17181d}#L3 .c.a{background:#f4d35e;color:#1b1a12}#L3 .c.b{background:#7bdff2;color:#0e2126}#L3 .c.d{background:#b8f2a0;color:#11240c}
+#L3 .c.a h4,#L3 .c.b h4,#L3 .c.d h4{opacity:.75}#L3 .logo{background:#f4d35e;color:#1b1a12;border-radius:50%}#L3 .nav i.on{background:#fff;color:#111}
+#L3 .up{color:#7ee0a1}#L3 .dn{color:#ff8a80}#L3 .acc{color:#f4d35e}#L3 .pill{background:#24262d;color:#b8f2a0}#L3 .meter i{background:#111}#L3 .c.a .row,#L3 .c.b .row{border-color:rgba(0,0,0,.14)}
+
+/* 4. Aurora */
+#L4 .frame{background:#070b14}
+#L4 .frame::before{content:"";position:absolute;inset:-30%;z-index:-1;background:conic-gradient(from 200deg at 40% 40%,#0b1a3a,#19d3a2 18%,#0b1a3a 36%,#6c5ce7 55%,#0b1a3a 72%,#19d3a2 90%,#0b1a3a);filter:blur(70px);opacity:.55;animation:spin 40s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+#L4{--ln:rgba(140,220,255,.14)}#L4 .top,#L4 .nav,#L4 .c,#L4 .foot{background:rgba(8,14,28,.66);border:1px solid rgba(120,210,255,.18);border-radius:12px;backdrop-filter:blur(14px)}
+#L4 .logo{background:#19d3a2;color:#04130f}#L4 .nav i.on{background:rgba(25,211,162,.16);color:#8ff5d8}
+#L4 .up{color:#19d3a2}#L4 .dn{color:#ff7eb6}#L4 .acc{color:#9db4ff}#L4 .pill{background:rgba(108,92,231,.22);color:#c9c2ff}#L4 .meter i{background:linear-gradient(90deg,#19d3a2,#6c5ce7)}
+
+/* 5. Mono */
+#L5 .frame{background:#000}#L5{--ln:#2b2b2b;font-family:"IBM Plex Mono",ui-monospace,monospace}
+#L5 .top,#L5 .nav,#L5 .c,#L5 .foot{background:#000;border:1px solid #3a3a3a;border-radius:0}
+#L5 .c h4{color:#d7ff3f;opacity:1}#L5 .logo{background:#d7ff3f;color:#000;border-radius:0}#L5 .nav i.on{background:#d7ff3f;color:#000}
+#L5 .up{color:#d7ff3f}#L5 .dn{color:#ff4d4d}#L5 .acc{color:#d7ff3f}#L5 .pill{border:1px solid #d7ff3f;color:#d7ff3f;border-radius:0}#L5 .meter{border-radius:0}#L5 .meter i{background:#d7ff3f;border-radius:0}
+@media (prefers-reduced-motion:reduce){.drift,.driftR,.wave,.bob,.glint,#L4 .frame::before{animation:none}}
+</style></head><body>
+<div class="bar"><b>Trading Desk · five looks</b>
+<button class="pick on" data-t="L1">1 · Riverfront</button><button class="pick" data-t="L2">2 · Ember glass</button><button class="pick" data-t="L3">3 · Bento</button><button class="pick" data-t="L4">4 · Aurora</button><button class="pick" data-t="L5">5 · Mono</button><button class="pick" data-t="all">Show all</button></div>
+<div class="note">Static sketches of the same Desk page in five styles. Numbers are placeholders. Nothing here is in the app yet.</div>
+
+<section class="look on" id="L1"><h2>1 · Riverfront</h2><p class="cap">A dusk river scene behind everything: minaret skyline and palms on the far bank, water that moves, a sailboat, a small motorboat and a rowing shell drifting by. Widgets are frosted glass in the scene's colours (river teal, dusk navy, sunset gold, coral). The scene could sit behind Home and widgets, and stay still on the chart page.</p>
+<div class="frame">
+<svg class="scene" viewBox="0 0 1200 600" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+<defs>
+<linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0d1b33"/><stop offset=".45" stop-color="#27456b"/><stop offset=".72" stop-color="#c9695a"/><stop offset=".86" stop-color="#f3a660"/><stop offset="1" stop-color="#f8cf8a"/></linearGradient>
+<linearGradient id="riv" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#e59a62"/><stop offset=".18" stop-color="#3c7f8f"/><stop offset=".6" stop-color="#16465a"/><stop offset="1" stop-color="#0a2233"/></linearGradient>
+<radialGradient id="sun" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#ffe9b0"/><stop offset=".4" stop-color="#ffd08a" stop-opacity=".7"/><stop offset="1" stop-color="#ffd08a" stop-opacity="0"/></radialGradient>
+<g id="minaret"><rect x="-5" y="0" width="10" height="70"/><rect x="-8" y="-6" width="16" height="8"/><path d="M0,-44 C-16,-30 -15,-12 -9,-6 L9,-6 C15,-12 16,-30 0,-44 Z"/><rect x="-1" y="-58" width="2" height="16"/><circle cx="0" cy="-60" r="2.4"/></g>
+<g id="palm"><path d="M0,0 C2,-30 -3,-60 2,-92" fill="none" stroke="#0c1622" stroke-width="5" stroke-linecap="round"/><g fill="none" stroke="#0c1622" stroke-width="4" stroke-linecap="round"><path d="M2,-92 C-18,-108 -38,-102 -50,-88"/><path d="M2,-92 C-12,-116 -30,-122 -46,-116"/><path d="M2,-92 C4,-118 16,-128 32,-128"/><path d="M2,-92 C24,-110 42,-106 54,-92"/><path d="M2,-92 C20,-96 36,-88 44,-74"/><path d="M2,-92 C-16,-94 -30,-84 -36,-70"/></g></g>
+</defs>
+<rect width="1200" height="600" fill="url(#sky)"/>
+<circle cx="860" cy="432" r="150" fill="url(#sun)"/>
+<g fill="#fff" opacity=".7"><circle cx="110" cy="60" r="1.2"/><circle cx="260" cy="110" r="1"/><circle cx="420" cy="48" r="1.3"/><circle cx="590" cy="90" r="1"/><circle cx="720" cy="40" r="1.1"/><circle cx="1010" cy="72" r="1.2"/><circle cx="1120" cy="130" r="1"/></g>
+<g transform="translate(0 60)">
+<g fill="#16263d" opacity=".75"><rect x="0" y="330" width="90" height="60"/><rect x="92" y="300" width="46" height="90"/><rect x="980" y="310" width="60" height="80"/><rect x="1044" y="280" width="50" height="110"/><rect x="1098" y="322" width="102" height="68"/></g>
+<g fill="#0c1622">
+<rect x="250" y="318" width="640" height="72"/><rect x="250" y="306" width="640" height="14"/>
+<g fill="#f3a660" opacity=".55" class="glint"><rect x="280" y="340" width="6" height="14"/><rect x="330" y="340" width="6" height="14"/><rect x="380" y="340" width="6" height="14"/><rect x="470" y="340" width="6" height="14"/><rect x="520" y="340" width="6" height="14"/><rect x="620" y="340" width="6" height="14"/><rect x="670" y="340" width="6" height="14"/><rect x="760" y="340" width="6" height="14"/><rect x="820" y="340" width="6" height="14"/></g>
+<use href="#minaret" x="268" y="250"/><use href="#minaret" x="388" y="232" transform="translate(388 232) scale(1.25) translate(-388 -232)"/><use href="#minaret" x="500" y="246"/><use href="#minaret" x="640" y="246"/><use href="#minaret" x="752" y="232" transform="translate(752 232) scale(1.25) translate(-752 -232)"/><use href="#minaret" x="872" y="250"/>
+<rect x="0" y="384" width="1200" height="10"/>
+</g>
+<use href="#palm" x="170" y="392"/><use href="#palm" x="214" y="394" transform="translate(214 394) scale(.8) translate(-214 -394)"/><use href="#palm" x="930" y="392"/><use href="#palm" x="968" y="394" transform="translate(968 394) scale(.75) translate(-968 -394)"/>
+<rect x="0" y="392" width="1200" height="208" fill="url(#riv)"/>
+<g fill="#0c1622" opacity=".28" transform="translate(0 786) scale(1 -1)"><rect x="250" y="318" width="640" height="72"/><use href="#minaret" x="388" y="232" transform="translate(388 232) scale(1.25) translate(-388 -232)"/><use href="#minaret" x="752" y="232" transform="translate(752 232) scale(1.25) translate(-752 -232)"/><use href="#minaret" x="500" y="246"/><use href="#minaret" x="640" y="246"/></g>
+<rect x="780" y="394" width="160" height="150" fill="#ffd9a0" opacity=".16"/>
+<g class="wave" stroke="#bfe9ee" stroke-width="1.6" stroke-linecap="round" opacity=".38" fill="none"><path d="M-120,430 h60 m60,0 h40 m80,0 h70 m90,0 h50 m110,0 h60 m70,0 h40 m120,0 h70 m80,0 h50 m110,0 h60 m90,0 h40 m100,0 h70"/><path d="M-60,470 h50 m90,0 h70 m70,0 h40 m130,0 h60 m60,0 h50 m110,0 h70 m90,0 h40 m120,0 h60 m80,0 h50 m110,0 h70"/><path d="M-100,520 h70 m80,0 h50 m120,0 h60 m70,0 h40 m110,0 h70 m90,0 h60 m60,0 h40 m130,0 h70 m80,0 h50 m90,0 h60"/><path d="M-40,566 h60 m110,0 h40 m80,0 h70 m100,0 h50 m90,0 h60 m120,0 h40 m70,0 h70 m110,0 h50 m90,0 h60"/></g>
+<g class="drift" style="animation-duration:70s"><g class="bob" transform="translate(0 440)"><path d="M-34,0 h68 l-10,12 h-48 z" fill="#0c1622"/><path d="M0,-2 v-58 l34,54 z" fill="#f8e7c9" opacity=".92"/><path d="M-3,-2 v-44 l-22,42 z" fill="#f6b26b" opacity=".9"/><rect x="-1" y="-62" width="2" height="62" fill="#0c1622"/></g></g>
+<g class="driftR" style="animation-duration:38s;animation-delay:-9s"><g class="bob" transform="translate(0 468)"><path d="M-40,0 h74 l12,-10 h-30 l-8,-12 h-22 l-4,12 h-20 z" fill="#f4f1ea"/><rect x="-10" y="-20" width="16" height="8" fill="#3c7f8f"/><path d="M-60,4 h18 M-74,9 h24" stroke="#e8f6f8" stroke-width="2" opacity=".6"/></g></g>
+<g class="drift" style="animation-duration:52s;animation-delay:-20s"><g transform="translate(0 484)"><path d="M-70,0 h140 l8,-3 l-8,-3 h-140 l-8,3 z" fill="#f4f1ea"/><g stroke="#f4f1ea" stroke-width="2"><path d="M-44,-3 l-10,-16 M-22,-3 l-10,-16 M0,-3 l-10,-16 M22,-3 l-10,-16"/><path d="M-44,-3 l14,20 M-22,-3 l14,20 M0,-3 l14,20 M22,-3 l14,20" opacity=".7"/></g><g fill="#ffd9a0"><circle cx="-50" cy="-12" r="3"/><circle cx="-28" cy="-12" r="3"/><circle cx="-6" cy="-12" r="3"/><circle cx="16" cy="-12" r="3"/></g></g></g>
+</g>
+</svg>
+<div class="ui" data-ui="river"></div></div></section>
+
+<section class="look" id="L2"><h2>2 · Ember glass</h2><p class="cap">What you have now, taken further: warm glow behind soft translucent cards, rounder corners, bigger numbers, more space. The smallest change from today.</p><div class="frame"><div class="ui" data-ui></div></div></section>
+<section class="look" id="L3"><h2>3 · Bento</h2><p class="cap">Rounded tiles of different sizes; the most important tile on each page gets a solid colour and a big headline number. Friendly and very scannable, less "terminal".</p><div class="frame"><div class="ui" data-ui="bento"></div></div></section>
+<section class="look" id="L4"><h2>4 · Aurora</h2><p class="cap">Deep navy with a slow moving aurora (teal and violet) behind dark glass. Cooler and more mysterious than Ember; movement is in the background only.</p><div class="frame"><div class="ui" data-ui></div></div></section>
+<section class="look" id="L5"><h2>5 · Mono</h2><p class="cap">Pure black, square corners, monospace everything, one acid accent. The densest and fastest to read; no decoration at all.</p><div class="frame"><div class="ui" data-ui></div></div></section>
+
+<script>
+const spark=(c)=>`<svg class="spark" viewBox="0 0 54 16"><polyline fill="none" stroke="${c}" stroke-width="1.6" points="0,12 8,9 16,11 24,6 32,8 40,3 54,5"/></svg>`;
+const ui=(bento)=>`
+<div class="top"><span class="logo">D</span><b>Desk</b><span class="tick num">SPY <b>000.00</b> <span class="up">+0.4%</span></span><span class="tick num">QQQ <b>000.00</b> <span class="dn">−0.2%</span></span><span class="pill">Movement beating theta</span><span class="sp"></span><span class="num" style="opacity:.75">VIX 00.0</span></div>
+<div class="nav"><small>Today</small><i>Morning</i><i>Home</i><small>Charts</small><i class="on">Desk</i><i>Patterns</i><small>Scan</small><i>Scanner</i><i>Rotation</i><small>Flow</small><i>Gamma</i></div>
+<div class="main">
+ <div class="c chart ${bento?'':''}"><span class="sample">SAMPLE</span><h4>NVDA · 5m</h4><span class="big">000.00 <span class="up" style="font-size:15px">+1.2%</span></span>
+  <svg viewBox="0 0 300 100" preserveAspectRatio="none"><polyline fill="none" stroke="currentColor" class="acc" stroke-width="2" points="0,82 25,74 50,78 75,58 100,62 125,44 150,50 175,34 200,40 225,24 250,30 275,16 300,20"/><polyline fill="none" stroke="currentColor" opacity=".25" stroke-dasharray="3 4" points="0,60 300,60"/></svg></div>
+ <div class="c ${bento?'a':''}"><h4>Theta burn today</h4><span class="big">−32%</span><div style="font-size:12px;opacity:.8;margin:2px 0 8px">of an at-the-money 0DTE by 1:00</div><div class="meter"><i style="width:32%"></i></div></div>
+ <div class="c ${bento?'b':''}"><h4>Watchlist</h4><div class="row"><span>NVDA ${spark('currentColor')}</span><b class="num up">+1.2%</b></div><div class="row"><span>AMD ${spark('currentColor')}</span><b class="num dn">−0.8%</b></div><div class="row"><span>TSLA ${spark('currentColor')}</span><b class="num up">+0.3%</b></div></div>
+ <div class="c ${bento?'d':''}"><h4>Earnings today</h4><div class="row"><span>AAA</span><span class="num">after close</span></div><div class="row"><span>BBB</span><span class="num">before open</span></div></div>
+</div>
+<div class="side"><div class="c" style="flex:1"><h4>News</h4><div class="row"><span>Headline one, clickable</span></div><div class="row"><span>Headline two, clickable</span></div><div class="row"><span>Headline three</span></div></div><div class="c"><h4>Data</h4><span class="pill">all sources fine</span></div></div>
+<div class="foot"><span class="acc num">24/7 NEWS</span><span>headline · headline · headline · headline</span></div>`;
+document.querySelectorAll('[data-ui]').forEach(e=>{e.innerHTML=ui(e.dataset.ui==='bento');if(e.dataset.ui==='river')e.insertAdjacentHTML('beforeend','<div class="view">THE SCENE STAYS VISIBLE BELOW YOUR WIDGETS</div>')});
+document.querySelectorAll('.pick').forEach(b=>b.onclick=()=>{document.querySelectorAll('.pick').forEach(x=>x.classList.remove('on'));b.classList.add('on');
+ if(b.dataset.t==='all'){document.body.classList.add('all');return}document.body.classList.remove('all');document.querySelectorAll('.look').forEach(l=>l.classList.toggle('on',l.id===b.dataset.t))});
+</script></body></html>

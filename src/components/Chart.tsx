@@ -69,7 +69,7 @@ export function ChartPanel({
     const up = cssVar('--up'), down = cssVar('--down'), line = cssVar('--line');
     const c = createChart(el.current, {
       autoSize: true,
-      layout: { background: { type: ColorType.Solid, color: cssVar('--panel') }, textColor: cssVar('--muted'), fontFamily: 'IBM Plex Mono, ui-monospace, monospace', fontSize: 11, attributionLogo: false },
+      layout: { background: { type: ColorType.Solid, color: cssVar('--chart-bg') || cssVar('--panel') }, textColor: cssVar('--muted'), fontFamily: 'IBM Plex Mono, ui-monospace, monospace', fontSize: 11, attributionLogo: false },
       grid: { vertLines: { color: line }, horzLines: { color: line } },
       rightPriceScale: { borderColor: line },
       timeScale: { borderColor: line, timeVisible: tf !== 'D', secondsVisible: false, rightOffset: 4 },

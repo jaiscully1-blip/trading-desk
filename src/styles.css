@@ -1776,3 +1776,38 @@ body:has(.hw.dragging)::before { animation-play-state: paused; }
 .ptabs-arrow:hover { color: var(--text); background: var(--panel-2); }
 .ptabs-pos { align-self: center; margin-left: 4px; font-size: 10.5px; color: var(--faint); }
 .phead:has(.ptabs) { height: auto; min-height: 36px; }
+
+/* ---------- Riverfront: the dusk river scene behind the dark desk ---------- */
+/* panels are plain translucent (no live blur) so the moving boats cost little; only the side menu, top strip and Home side bar blur */
+.river-bg { position: fixed; inset: 0; z-index: 0; pointer-events: none; background: #071a28; }
+.river-bg > svg { width: 100%; height: 100%; display: block; }
+:root[data-scene='river'] {
+  --bg: rgba(5, 14, 24, .72);
+  --panel: rgba(8, 21, 35, .84);
+  --panel-2: rgba(18, 38, 56, .72);
+  --line: rgba(160, 214, 224, .14);
+  --line-2: rgba(160, 214, 224, .26);
+  --text: #eaf2f4;
+  --muted: #a4bcc6;
+  --faint: #829ba6;
+  --accent: #f6b26b;
+  --accent-bg: rgba(246, 178, 107, .16);
+  --accent-ink: #10202f;
+  --up: #7fe3c4;
+  --down: #ff9d8a;
+  --sel: rgba(246, 178, 107, .12);
+  --ember: #f6b26b;
+  --chart-bg: #0a1a2a;
+  --shadow: 0 12px 32px rgba(0, 8, 16, .55);
+}
+:root[data-scene='river'] body { background: #071a28; }
+:root[data-scene='river'] .shell { position: relative; }
+:root[data-scene='river'] .shell > .nv, :root[data-scene='river'] .shell > .app { position: relative; z-index: 1; }
+:root[data-scene='river'] .home-side,
+:root[data-scene='river'] .nv,
+:root[data-scene='river'] .top { backdrop-filter: blur(8px) saturate(1.25); -webkit-backdrop-filter: blur(8px) saturate(1.25); }
+:root[data-scene='river'] .panel, :root[data-scene='river'] .home-side { border-radius: 10px; }
+:root[data-scene='river'] .nv { background: rgba(6, 17, 29, .7); border-right-color: rgba(160, 214, 224, .14); }
+:root[data-scene='river'] .top { background: rgba(6, 17, 29, .66); }
+:root[data-scene='river'] .main, :root[data-scene='river'] .app { background: transparent; }
+:root[data-scene='river'] .nv-logo { background: #f6b26b; color: #10202f; }
