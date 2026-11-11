@@ -49,7 +49,7 @@ export const NAV_GROUPS: { id: GroupId; label: string; pages: Page[] }[] = [
 ];
 export const pageGroup = (p: Page): GroupId => NAV_GROUPS.find((g) => g.pages.includes(p))?.id ?? 'today';
 
-export function SideNav({ compact, page, onPage, onCmd, onHelp, onAccount }: { compact?: boolean; page: Page; onPage: (p: Page) => void; onCmd: () => void; onHelp: () => void; onAccount: () => void }) {
+export function SideNav({ compact, page, onPage, onCmd, onHelp, onAccount, dataState }: { compact?: boolean; page: Page; onPage: (p: Page) => void; onCmd: () => void; onHelp: () => void; onAccount: () => void; dataState?: 'live' | 'demo' | 'checking' }) {
   return (
     <nav className={`nv ${compact ? 'compact' : ''}`} aria-label="Pages">
       <div className="nv-brand"><span className="nv-logo">D</span>{!compact && <span className="nv-name">Desk</span>}</div>
@@ -64,6 +64,7 @@ export function SideNav({ compact, page, onPage, onCmd, onHelp, onAccount }: { c
             {g.pages.map((id) => (
               <button key={id} className={`nv-item ${page === id ? 'on' : ''}`} aria-current={page === id ? 'page' : undefined} onClick={() => onPage(id)} title={`${P[id].label} (${P[id].key}): ${P[id].hint}`} aria-label={P[id].label} data-key={P[id].key}>
                 <Icon id={id} />
+                {id === 'status' && dataState && <i className={`nv-dot ${dataState}`} title={dataState === 'live' ? 'Live data connected' : dataState === 'demo' ? 'Demo data: no live keys' : 'Checking the data connection'} />}
                 {!compact && <><span className="nv-l">{P[id].label}</span><span className="nv-key">{P[id].key}</span></>}
               </button>
             ))}

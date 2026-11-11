@@ -46,7 +46,9 @@ import { cloudConfigured, signIn, signOut, useCloudItems, useCloudSync, useCloud
 import { DEFAULT_THRESHOLDS, liveRow, rankRs, type ScanRow } from '../shared/scan';
 import { DEFAULT_PLAYBOOKS, gradeRow, type GradeResult, type Playbook, type SavedFilter } from './lib/playbook';
 import { CommandBar, NewsTicker, OverlayView, type Cmd } from './components/Bits';
-import { SideNav, pageGroup, type Page } from './components/SideNav';
+import { SideNav, pageGroup, NAV_GROUPS, type Page } from './components/SideNav';
+const NAV_PAGE_IDS = new Set<string>(NAV_GROUPS.flatMap((g) => g.pages));
+const HoverCard = lazy(() => import('./components/HoverCard'));
 import DataStatus from './components/DataStatus';
 const RiverScene = lazy(() => import('./components/RiverScene'));
 import { popout, PageTabs } from './components/common';
@@ -308,15 +310,15 @@ export default function App() {
       const r = rowBy[s];
       if (!live) {
         const d = DEMO_QUOTES[s] ?? blankQuote(s);
-        out[s] = r ? { ...d, last: r.last, chgPct: r.chgPct, rsRank: r.rsRank ?? NaN } : d;
+        out[s] = r ? { ...d, last: r.last, chgPct: r.chgPct, rsRank: r.rsRank ?? NaN, spark: scan.bases[s]?.spark } : d;
         continue;
       }
       const lq = qs?.quotes[s];
-      out[s] = { ...blankQuote(s, DEMO_QUOTES[s]?.name), last: lq?.last ?? NaN, chgPct: lq?.chgPct ?? NaN, rsRank: r?.rsRank ?? NaN };
+      out[s] = { ...blankQuote(s, DEMO_QUOTES[s]?.name), last: lq?.last ?? NaN, chgPct: lq?.chgPct ?? NaN, rsRank: r?.rsRank ?? NaN, spark: scan.bases[s]?.spark };
     }
     if (!out[sel]) out[sel] = blankQuote(sel);
     return out;
-  }, [live, qs, quoteSyms, sel, rowBy]);
+  }, [live, qs, quoteSyms, sel, rowBy, scan.bases]);
   const tickers = useMemo(() => Object.values(quotes).map((q) => ({ sym: q.sym, name: q.name })), [quotes]);
   const morningSyms = useMemo(() => [...new Set([...stars, ...Object.keys(quotes).filter((s) => !INDEXES.includes(s))])].slice(0, 40), [stars, quotes]);
   const morning = useMorning(dataMode, page === 'morning', morningSyms);
@@ -843,8 +845,9 @@ export default function App() {
     <Desk.Provider value={desk}>
     <div className={`shell ${focus ? 'focus' : ''}`} data-group={pageGroup(page)}>
       {river && <Suspense fallback={null}><RiverScene still={scene === 'still'} /></Suspense>}
+      <Suspense fallback={null}><HoverCard quotes={quotes} names={OFFLINE_NAMES} /></Suspense>
       {focus && <button className="focus-chip" onClick={toggleFocus} title="Bring the side bars back (Z)">Focus mode · Z to exit</button>}
-      <SideNav compact={iconRail} page={page} onPage={setPage} onCmd={() => setCmdOpen(true)} onHelp={() => setOverlay('help')} onAccount={() => setDrawer((d) => !d)} />
+      <SideNav compact={iconRail} page={page} onPage={setPage} dataState={dataMode.kind} onCmd={() => setCmdOpen(true)} onHelp={() => setOverlay('help')} onAccount={() => setDrawer((d) => !d)} />
       <div className={`app ${layout.tickerOpen ? '' : 'no-ticker'} ${layout.fearOpen !== false ? 'has-fear' : ''}`}>
         <TopStrip
           movement={movement} vol={vol} moveStats={dayStats}
@@ -861,7 +864,7 @@ export default function App() {
       </div>
 
       <CommandBar
-        open={cmdOpen} onClose={() => setCmdOpen(false)} commands={commands} tickers={tickers} onTicker={setSel}
+        open={cmdOpen} onClose={() => setCmdOpen(false)} commands={commands} tickers={tickers} onTicker={setSel} quotes={quotes} pages={NAV_PAGE_IDS}
         allowAny={live ? (s) => SYMBOL_RE.test(s) : undefined}
       />
       {(drawer || drawerSeen) && <Suspense fallback={null}><AccountDrawer open={drawer} onClose={() => setDrawer(false)} theme={theme} views={views} transfers={liveTransfers} settings={settings} setSettings={setSettings} guard={g} onImport={() => { setDrawer(false); setPage('journal'); }} /></Suspense>}

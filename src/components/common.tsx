@@ -143,7 +143,32 @@ export function useFlash(v: number | null | undefined): string {
 /** A number that briefly tints green/red when it ticks up/down. */
 export function FlashNum({ v, children, className = 'num' }: { v: number | null | undefined; children: ReactNode; className?: string }) {
   const f = useFlash(v);
-  return <span className={`${className} ${f}`}>{children}</span>;
+  return <span className={`${className} ${f}`}>{typeof children === 'string' ? <Roll text={children} dir={f === 'flash-up' ? 'up' : f === 'flash-down' ? 'down' : null} /> : children}</span>;
+}
+/** Number text where only the characters that changed roll in (up from below on a rise, down from above on a fall). */
+function Roll({ text, dir }: { text: string; dir: 'up' | 'down' | null }) {
+  const prev = useRef(text);
+  const [old, setOld] = useState(text);
+  useEffect(() => { if (text !== prev.current) { setOld(prev.current); prev.current = text; } }, [text]);
+  if (!dir || old === text || old.length !== text.length) return <>{text}</>;
+  return <>{[...text].map((c, i) => (c === old[i] ? c : <span key={`${i}${c}${text}`} className={`roll roll-${dir}`}>{c}</span>))}</>;
+}
+
+/** Tiny trend line (oldest to newest). Green if it ended higher than it started, red if lower; the last point is a dot. */
+export function Spark({ v, w = 56, h = 16, title }: { v: number[]; w?: number; h?: number; title?: string }) {
+  const pts = v.filter((x) => Number.isFinite(x));
+  if (pts.length < 3) return null;
+  const lo = Math.min(...pts), hi = Math.max(...pts), span = hi - lo || 1;
+  const xy = pts.map((p, i) => [(i / (pts.length - 1)) * (w - 3) + 1.5, h - 1.5 - ((p - lo) / span) * (h - 3)] as const);
+  const up = pts[pts.length - 1] >= pts[0];
+  const [lx, ly] = xy[xy.length - 1];
+  return (
+    <svg className={`spark ${up ? 'up' : 'down'}`} width={w} height={h} viewBox={`0 0 ${w} ${h}`} role="img" aria-label={title ?? `${pts.length}-day trend, ${up ? 'up' : 'down'}`}>
+      {title && <title>{title}</title>}
+      <polyline points={xy.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(' ')} fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" strokeLinecap="round" />
+      <circle cx={lx} cy={ly} r="1.8" fill="currentColor" />
+    </svg>
+  );
 }
 /** Shimmering placeholder block while a panel loads. */
 export function Skel({ w = '100%', h = 12, n = 1 }: { w?: number | string; h?: number; n?: number }) {

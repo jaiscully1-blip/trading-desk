@@ -1836,3 +1836,40 @@ body:has(.hw.dragging)::before { animation-play-state: paused; }
 .q-unofficial { background: transparent; border: 1.5px dotted var(--muted); }
 .q-mine { background: var(--text); opacity: .7; }
 .q-demo { background: var(--demo); }
+
+/* ---------- design touches: rolling digits, trend lines, hover cards, command bar, live dots ---------- */
+.roll { display: inline-block; animation: roll-in .35s cubic-bezier(.2,.8,.2,1); }
+.roll-up { --from: 55%; } .roll-down { --from: -55%; }
+@keyframes roll-in { from { transform: translateY(var(--from)); opacity: 0; } to { transform: none; opacity: 1; } }
+.spark { display: inline-block; vertical-align: middle; overflow: visible; }
+.spark.up { color: var(--up); } .spark.down { color: var(--down); }
+.wl-spark { display: inline-flex; align-items: center; opacity: .85; }
+.hc { position: fixed; z-index: 70; width: 240px; padding: 9px 11px; border-radius: 10px; background: color-mix(in srgb, var(--panel) 94%, transparent); border: 1px solid var(--line-2); box-shadow: var(--shadow); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); pointer-events: none; animation: hc-in .16s ease-out; }
+@keyframes hc-in { from { opacity: 0; transform: translateY(4px) scale(.98); } to { opacity: 1; transform: none; } }
+.hc-h { display: flex; gap: 8px; align-items: baseline; min-width: 0; }
+.hc-h b { color: var(--accent); font-size: 14px; }
+.hc-n { color: var(--muted); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hc-px { display: flex; align-items: center; gap: 8px; margin: 6px 0 4px; }
+.hc-last { font-size: 18px; font-weight: 600; }
+.hc-px .spark { margin-left: auto; }
+.hc-f { display: flex; gap: 10px; flex-wrap: wrap; }
+.cmd { animation: hc-in .14s ease-out; }
+.cmd-list li.cmd-g { display: block; padding: 8px 10px 3px; font: 600 10.5px 'IBM Plex Mono', monospace; letter-spacing: .08em; text-transform: uppercase; color: var(--faint); cursor: default; }
+.cmd-list li.cmd-g:hover { background: none; }
+.cmd-list li { transition: background .08s; }
+.cmd-q { display: inline-flex; gap: 8px; align-items: center; justify-self: end; }
+.cmd-nm { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cmd-foot { display: flex; gap: 14px; padding: 7px 14px; border-top: 1px solid var(--line); font-size: 11px; color: var(--faint); }
+.cmd-foot span { display: inline-flex; gap: 3px; align-items: center; }
+.nv-item { position: relative; }
+.nv-dot { position: absolute; left: 22px; top: 6px; width: 7px; height: 7px; border-radius: 50%; border: 1.5px solid var(--panel); }
+.nv-dot.live { background: var(--up); animation: dot-pulse 2.4s ease-out infinite; }
+.nv-dot.demo { background: var(--demo); } .nv-dot.checking { background: var(--warn); }
+@keyframes dot-pulse { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--up) 60%, transparent); } 70% { box-shadow: 0 0 0 6px transparent; } 100% { box-shadow: 0 0 0 0 transparent; } }
+.q-live { animation: dot-pulse 2.4s ease-out infinite; }
+.ptab { transition: background .15s, color .15s, box-shadow .2s; }
+.wl-row, .dx-row, .dx-wrow, .hw { transition: background .12s; }
+@media (prefers-reduced-motion: reduce) { .roll, .hc, .cmd, .nv-dot.live, .q-live { animation: none; } }
+/* the 30-day trend line sits on the name line, right side, so the price columns don't move */
+.wl-row .wl-name { grid-column: 1 / 3; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wl-row .wl-spark { grid-column: 3 / -1; grid-row: 2; justify-self: end; align-self: center; }
