@@ -137,3 +137,23 @@ describe('gather parsers', () => {
     expect(n[0]).toMatchObject({ side: 'weak', tags: ['layoffs'] });
   });
 });
+
+describe('fixes from the first full run', () => {
+  const b = (over: Partial<DistressInput> = {}): DistressInput => ({ sym: 'X', name: 'X', sector: 'Industrials', industry: '', hq: '', state: '', lat: null, lon: null, fin: null, events: [], late: [], goingConcern: null, insiders: null, price: null, shortVol: null, news: [], ...over });
+  const px = (last: number, dd: number) => ({ last, hi52: last / (1 + dd / 100), lo52: last, ddPct: dd, offLowPct: 0, r3m: null, rv20: null, above50: null });
+  it('a listing notice from a healthy stock (a transfer) counts little; from a collapsed one, a lot', () => {
+    const ev = [{ date: '2026-10-01', items: ['3.01'], url: 'u' }];
+    expect(scoreCompany(b({ events: ev, price: px(150, -10) }), TODAY).signals.find((s) => s.id === '8k-3.01')!.pts).toBe(4);
+    expect(scoreCompany(b({ events: ev, price: px(3, -70) }), TODAY).signals.find((s) => s.id === '8k-3.01')!.pts).toBe(18);
+  });
+  it('shares up after a completed acquisition are not called dilution', () => {
+    const fin = { ...EMPTY_FIN, assets: 100, sharesNow: 137, sharesYearAgo: 100 };
+    const s = scoreCompany(b({ fin, events: [{ date: '2026-09-01', items: ['2.01'], url: 'u' }] }), TODAY).signals.find((x) => x.id === 'dilution')!;
+    expect(s.pts).toBe(2);
+    expect(s.text).toContain('acquisition');
+  });
+  it('small insider buys print in thousands, not $0M', () => {
+    const s = scoreCompany(b({ insiders: { buys: 1, sells: 0, buyValue: 85_000, sellValue: 0, buyers: 1 } }), TODAY).signals.find((x) => x.id === 'ins-buy')!;
+    expect(s.text).toContain('$85K');
+  });
+});

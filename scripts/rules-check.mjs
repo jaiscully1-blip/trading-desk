@@ -22,6 +22,15 @@ scan([...src, ...api, ...shared], /(sk-[A-Za-z0-9]{20,}|AKIA[0-9A-Z]{16}|ghp_[A-
 
 // 2. Every provider call goes through /api (adapters, rate limits, cache): browser code never calls data APIs directly
 scan(src, /fetch\(\s*[`'"]https?:\/\//, 'R2 browser code fetches a third-party URL directly (go through /api)');
+// R7 labels: every component that draws a panel or a Home widget shows a source / freshness label (<Fresh> badge or <Q> dot).
+// Panels that only show your own records or settings, or no data at all, are listed here on purpose.
+const OWN_OR_NO_DATA = new Set(['Journal', 'Recap', 'Playbooks', 'Trading', 'RulesW', 'DataStatus', 'OrderTicket', 'SideNav', 'Home', 'common', 'DrawLayer', 'RiverScene', 'Pings', 'Ladder', 'Bits', 'Replay', 'Messages', 'TickerInfo', 'PatternLab']);
+for (const f of code('src/components')) {
+  const name = f.split('/').pop().replace(/\.tsx?$/, '');
+  if (OWN_OR_NO_DATA.has(name)) continue;
+  const t = readFileSync(f, 'utf8');
+  if (/className=\{?["`][^"`]*\b(panel|hw-bar|hw-col)\b/.test(t) && !/<Fresh\b|<Q\b/.test(t)) fail('R7 data panel without a source label (add <Fresh> or <Q>)', relative(root, f));
+}
 // 3. Browser code never imports server code
 scan(src, /from ['"](\.\.\/)+api\//, 'R3 browser code imports from api/');
 

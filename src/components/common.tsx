@@ -215,3 +215,16 @@ export function PageTabs<T extends string>({ value, options, onChange, label = '
     </div>
   );
 }
+
+
+/** Data-quality dot for a single number or card, where a full badge would be clutter. Colour = kind; hover says the source.
+ *  live = real time · delayed = minutes old · eod = end of day · calc = CALCULATED on the desk from other data · model = a model's
+ *  forecast · unofficial = public data with no official terms · mine = your own journal or settings · demo = sample data. */
+export type QKind = 'live' | 'delayed' | 'eod' | 'calc' | 'model' | 'unofficial' | 'mine' | 'demo';
+const Q_LABEL: Record<QKind, string> = { live: 'Live', delayed: 'Delayed', eod: 'End of day', calc: 'Calculated on the desk', model: 'Model forecast, not data', unofficial: 'Unofficial public source', mine: 'From your own journal / settings', demo: 'Sample data, not real' };
+export function Q({ k, src, at }: { k: QKind; src?: string; at?: number }) {
+  const tip = [Q_LABEL[k], src, at != null ? `as of ${etTime(at)} ET` : ''].filter(Boolean).join(' · ');
+  return <i className={`q q-${k}`} title={tip} aria-label={tip} role="img" />;
+}
+/** Freshness (the panel badge's kinds) -> the dot's kinds. */
+export const qOf = (f: Freshness | undefined): QKind => (f === 'live' ? 'live' : f === 'eod' ? 'eod' : f === 'demo' ? 'demo' : 'delayed');

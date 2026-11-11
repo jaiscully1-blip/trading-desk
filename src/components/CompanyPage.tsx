@@ -6,7 +6,7 @@ import type { ChainLink } from '../../shared/company';
 import { useCompany } from '../data/company';
 import type { DataMode } from '../data/live';
 import { useDesk } from '../lib/deskctx';
-import { Star } from './common';
+import { Star, Q } from './common';
 import { offlineInfo } from '../data/info';
 
 const W = 960, H = 600, CX = W / 2, CY = 270, NW = 200, NH = 42, CW = 168;
@@ -152,12 +152,12 @@ export default function CompanyPage({ sym, mode, onOpen, onChart, onPatterns }: 
                   return rows.filter(([, v]) => v != null && v !== '').map(([k, v, t]) => <Fragment key={k}><span>{k}</span><b title={t}>{v}</b></Fragment>);
                 })()}
               </div>
-              <h4>Quant read <span className="muted small">bullish or bearish, and why</span></h4>
+              <h4><Q k="calc" src="a year of daily closes, scored on the desk" />Quant read <span className="muted small">bullish or bearish, and why</span></h4>
               <QuantPanel sym={sym} mode={mode} compact />
-              <h4>What they do</h4>
+              <h4><Q k={f?.summary ? 'model' : 'unofficial'} src={f?.summary ? 'AI read of the company’s 10-K (check the filing)' : 'Wikipedia summary'} />What they do</h4>
               <p className="co-sum">{f?.summary || data.wiki?.extract || 'No description available.'}</p>
               {!f?.summary && data.wiki && <p className="small muted">From Wikipedia: <a href={data.wiki.url} target="_blank" rel="noreferrer noopener">{data.wiki.title}</a></p>}
-              {f && f.products.length > 0 && <><h4>Main products{f.fiscalYear ? ` (FY ${f.fiscalYear})` : ''}</h4>
+              {f && f.products.length > 0 && <><h4><Q k="model" src="AI read of the company’s 10-K (check the filing)" />Main products{f.fiscalYear ? ` (FY ${f.fiscalYear})` : ''}</h4>
                 <ul className="co-prod">{f.products.map((p) => { const v = pctOf(p.share); return (
                   <li key={p.name}><div className="co-prod-h"><span>{p.name}</span><span className="num muted">{p.share ?? ''}</span></div>{v != null && <div className="co-bar"><div style={{ width: `${Math.min(100, v)}%` }} /></div>}{p.note && <div className="small muted">{p.note}</div>}</li>
                 ); })}</ul></>}

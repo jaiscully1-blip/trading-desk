@@ -1825,3 +1825,14 @@ body:has(.hw.dragging)::before { animation-play-state: paused; }
 .pa-card { border: 1px solid var(--line-2); border-radius: 8px; padding: 8px 12px; margin: 8px 0; background: var(--panel-2); }
 .pa-card h4 { margin: 0 0 4px; display: flex; gap: 8px; align-items: center; }
 .pa-card ol { margin: 4px 0 8px; padding-left: 18px; }
+
+/* data-quality dot (common.tsx Q) */
+.q { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin: 0 5px 1px 0; vertical-align: middle; flex: none; cursor: help; background: var(--muted); }
+.q-live { background: var(--up); box-shadow: 0 0 0 2px color-mix(in srgb, var(--up) 22%, transparent); }
+.q-delayed { background: var(--warn); }
+.q-eod { background: var(--vwap); }
+.q-calc { background: transparent; border: 1.5px solid var(--accent); }
+.q-model { background: transparent; border: 1.5px dashed var(--demo); }
+.q-unofficial { background: transparent; border: 1.5px dotted var(--muted); }
+.q-mine { background: var(--text); opacity: .7; }
+.q-demo { background: var(--demo); }

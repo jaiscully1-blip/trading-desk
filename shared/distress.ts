@@ -42,7 +42,7 @@ export interface DistressRow {
 /** What each 8-K item number means (the ones that matter here). */
 export const ITEM_TEXT: Record<string, string> = {
   '1.02': 'ended a material contract', '1.03': 'bankruptcy or receivership', '2.04': 'debt acceleration triggered', '2.05': 'exit / layoff / restructuring costs',
-  '2.06': 'asset write-down (impairment)', '3.01': 'delisting notice or listing rule breach', '4.01': 'changed auditor', '4.02': 'past financials can no longer be relied on',
+  '2.06': 'asset write-down (impairment)', '3.01': 'listing notice (a rule breach, or just a move to another exchange)', '4.01': 'changed auditor', '4.02': 'past financials can no longer be relied on',
   '5.02': 'director or officer left / joined', '1.01': 'new material agreement', '2.01': 'bought or sold a business', '8.01': 'other news',
 };
 const ITEM_PTS: Record<string, number> = { '1.03': 40, '2.04': 20, '3.01': 18, '4.02': 15, '2.05': 10, '2.06': 8, '4.01': 5, '1.02': 4 };
@@ -124,7 +124,7 @@ export function priceStats(closes: number[]): PriceStats | null {
 }
 
 const daysAgo = (d: string, today: string) => (Date.parse(`${today}T00:00:00Z`) - Date.parse(`${d.slice(0, 10)}T00:00:00Z`)) / 86400_000;
-const fmtB = (v: number) => (Math.abs(v) >= 1e9 ? `$${(v / 1e9).toFixed(1)}B` : `$${(v / 1e6).toFixed(0)}M`);
+const fmtB = (v: number) => (Math.abs(v) >= 1e9 ? `$${(v / 1e9).toFixed(1)}B` : Math.abs(v) >= 1e6 ? `$${(v / 1e6).toFixed(0)}M` : Math.abs(v) >= 1e3 ? `$${(v / 1e3).toFixed(0)}K` : `$${v.toFixed(0)}`);
 
 /** Score one company. weak = signs of distress (0-100), turn = signs of strength or recovery (0-100). */
 export function scoreCompany(x: DistressInput, today: string): DistressRow {
@@ -136,8 +136,10 @@ export function scoreCompany(x: DistressInput, today: string): DistressRow {
   if (x.events == null) missing.push('8-K filings');
   else {
     const recent = x.events.filter((e) => daysAgo(e.date, today) <= 180);
-    for (const [item, pts] of Object.entries(ITEM_PTS)) {
+    const lowPrice = !!x.price && (x.price.last < 5 || x.price.ddPct <= -50);
+    for (const [item, base] of Object.entries(ITEM_PTS)) {
       const hits = recent.filter((e) => e.items.includes(item));
+      const pts = item === '3.01' && !lowPrice ? 4 : base;
       if (hits.length) add({ id: `8k-${item}`, side: 'weak', pts: Math.min(pts * hits.length, pts * 2), text: `8-K item ${item}: ${ITEM_TEXT[item]}${hits.length > 1 ? ` (${hits.length} times)` : ''}`, src: 'SEC 8-K', date: hits[0].date, url: hits[0].url });
     }
     const exec = recent.filter((e) => e.items.includes('5.02') && daysAgo(e.date, today) <= 120);
@@ -175,7 +177,8 @@ export function scoreCompany(x: DistressInput, today: string): DistressRow {
     if (cover != null && cover < 1.5) add({ id: 'cover', side: 'weak', pts: cover < 1 ? 12 : 7, text: cover < 0 ? 'Operating loss: no profit to cover interest' : `Operating profit covers interest only ${cover.toFixed(1)}x`, src: 'SEC XBRL, calculated' });
     const sp = splitRatio(f);
     if (sp != null && sp < 1) add({ id: 'rsplit', side: 'weak', pts: 8, text: `Reverse stock split (about 1-for-${Math.round(1 / sp)}) in the last year, often done to keep a listing`, src: 'SEC XBRL share count' });
-    if (shareChg != null && shareChg > 5) add({ id: 'dilution', side: 'weak', pts: shareChg > 15 ? 10 : 6, text: `Share count up ${shareChg.toFixed(1)}% in a year (dilution)`, src: 'SEC XBRL' });
+    const acquired = (x.events ?? []).some((e) => e.items.includes('2.01'));
+    if (shareChg != null && shareChg > 5) add({ id: 'dilution', side: 'weak', pts: acquired ? 2 : shareChg > 15 ? 10 : 6, text: acquired ? `Share count up ${shareChg.toFixed(1)}% in a year, with a completed acquisition (8-K 2.01): likely paid in stock` : `Share count up ${shareChg.toFixed(1)}% in a year (dilution)`, src: 'SEC XBRL' });
     if (shareChg != null && shareChg < -2) add({ id: 'shrink', side: 'turn', pts: shareChg < -4 ? 10 : 6, text: `Share count down ${Math.abs(shareChg).toFixed(1)}% in a year (buybacks)`, src: 'SEC XBRL' });
     else if (ok(f.buybackY) && f.buybackY > 0 && (!ok(f.assets) || f.buybackY > f.assets * 0.005)) add({ id: 'buyback', side: 'turn', pts: 3, text: `Bought back ${fmtB(f.buybackY)} of stock last year`, src: 'SEC XBRL' });
     if (revChg != null && revChg < -15) add({ id: 'rev', side: 'weak', pts: 6, text: `Quarterly revenue down ${Math.abs(revChg).toFixed(0)}% from a year earlier`, src: 'SEC XBRL' });
@@ -186,7 +189,7 @@ export function scoreCompany(x: DistressInput, today: string): DistressRow {
   if (x.insiders == null) missing.push('insider filings');
   else {
     const i = x.insiders;
-    if (i.buys > 0) add({ id: 'ins-buy', side: 'turn', pts: i.buyers >= 2 ? 22 : 14, text: `${i.buyers} insider${i.buyers === 1 ? '' : 's'} bought ${fmtB(i.buyValue)} on the open market (90 days)`, src: 'SEC Form 4' });
+    if (i.buys > 0) add({ id: 'ins-buy', side: 'turn', pts: i.buyers >= 2 ? 22 : 14, text: `${i.buyers} insider${i.buyers === 1 ? '' : 's'} bought${i.buyValue > 0 ? ` ${fmtB(i.buyValue)}` : ''} on the open market (90 days)${i.buyValue > 0 ? '' : ', price not stated in the filing'}`, src: 'SEC Form 4' });
     if (i.sells > 0 && i.buys === 0 && i.sellValue >= 5e6) add({ id: 'ins-sell', side: 'weak', pts: 3, text: `Insiders sold ${fmtB(i.sellValue)}, no open-market buys (90 days). Often routine.`, src: 'SEC Form 4' });
   }
 
