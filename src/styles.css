@@ -1901,3 +1901,14 @@ body:has(.hw.dragging)::before { animation-play-state: paused; }
 .dc-ev.c-religious { border-style: dashed; }
 .dc-rec { padding: 0 10px; }
 .dc-tab { display: grid; gap: 4px; }
+
+/* Company page search */
+.co-search { position: relative; display: flex; align-items: center; gap: 6px; flex: 1 1 260px; max-width: 420px; margin-left: 12px; padding: 0 10px; height: 32px; border: 1px solid var(--line-2); border-radius: 8px; background: var(--panel-2); color: var(--muted); }
+.co-search:focus-within { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-bg); }
+.co-search input { flex: 1; min-width: 0; background: none; border: 0; outline: none; color: var(--text); font-size: 13px; }
+.co-search-list { position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 60; list-style: none; margin: 0; padding: 4px; background: var(--chart-bg, var(--panel)); border: 1px solid var(--line-2); border-radius: 8px; box-shadow: var(--shadow); max-height: 360px; overflow-y: auto; }
+.co-search-list li { display: grid; grid-template-columns: 64px 1fr; column-gap: 8px; padding: 6px 8px; border-radius: 6px; cursor: pointer; }
+.co-search-list li b { color: var(--accent); }
+.co-search-list li em { grid-column: 2; font-style: normal; }
+.co-search-list li.on { background: var(--sel); }
+.co-search-none { display: block !important; cursor: default !important; }
