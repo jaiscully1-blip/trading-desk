@@ -12,8 +12,13 @@ function devApi(): Plugin {
         if (!name) return next();
         try {
           const mod = await server.ssrLoadModule(`/api/${name}.ts`);
-          if (typeof mod.GET !== 'function') return next();
-          const r: Response = await mod.GET(new Request(`http://localhost${req.originalUrl}`));
+          const post = req.method === 'POST';
+          const fn = post ? mod.POST : mod.GET;
+          if (typeof fn !== 'function') return next();
+          let body: string | undefined;
+          if (post) { const chunks: Buffer[] = []; for await (const c of req) chunks.push(c as Buffer); body = Buffer.concat(chunks).toString('utf8'); }
+          const headers = Object.fromEntries(Object.entries(req.headers).filter(([, v]) => typeof v === 'string')) as Record<string, string>;
+          const r: Response = await fn(new Request(`http://localhost${req.originalUrl}`, { method: req.method, headers, body }));
           res.statusCode = r.status;
           r.headers.forEach((v, k) => res.setHeader(k, v));
           res.end(await r.text());
