@@ -40,6 +40,7 @@ const Rotation = lazy(() => import('./components/Rotation'));
 const CompanyMap = lazy(() => import('./components/CompanyMap'));
 const SmartMoney = lazy(() => import('./components/SmartMoney'));
 const DistressPage = lazy(() => import('./components/Distress'));
+const GlobalPage = lazy(() => import('./components/GlobalPage'));
 const MtfPage = lazy(() => import('./components/MtfPage'));
 const EtfSectors = lazy(() => import('./components/EtfSectors'));
 const EconOdds = lazy(() => import('./components/EconOdds'));
@@ -653,7 +654,7 @@ export default function App() {
     ['kelly', 'KELLY · Odds of your next trades (simulator)', () => openWidget('sim')], ['calc', 'CALC · Risk and position calculator', () => openWidget('risk')],
     ['note', 'NOTE · Sticky notes', () => openWidget('notes')], ['al', 'AL · Keyword alerts (Messages)', () => setPage('messages')],
     ['qm', 'QM · Quote monitor (watchlist on the desk)', () => setPage('desk')], ['shrt', 'SHRT · Most-shorted stocks', () => openWidget('hisi')],
-    ['hous', 'HOUS · Housing (Zillow)', () => openWidget('housing')],
+    ['hous', 'HOUS · Housing (Zillow)', () => openWidget('housing')], ['glob', 'GLOB · Global → US', () => setPage('global')], ['wn', 'WN · World business news', () => setPage('global')],
   ].map(([id, label, run]) => ({ id: id as string, label: label as string, run: run as () => void, code: true, group: 'Codes' }));
   // codes that take a ticker ("NVDA DES", "AAPL BETA")
   const withSym: Record<string, (s: string) => void> = {
@@ -706,6 +707,7 @@ export default function App() {
     { id: 'status', label: 'Data status: which sources are working or limited', hint: '⇧B', run: () => setPage('status') },
     { id: 'mtf', label: 'Multi-timeframe: 4 linked charts (3m, 15m, 1h, daily)', hint: '⇧M', run: () => setPage('mtf') },
     { id: 'distress', label: 'Distress: weak companies, turnarounds, sector stress', hint: '⇧R', run: () => setPage('distress') },
+    { id: 'global', label: 'Global → US: world markets, world news and how they carry into US stocks', hint: '⇧G', run: () => setPage('global') },
     { id: 'd', label: 'Chart: daily', hint: '1', run: () => setTf('D') },
     { id: '1h', label: 'Chart: 1-hour', hint: '2', run: () => setTf('1H') },
     { id: '5m', label: 'Chart: 5-minute', hint: '3', run: () => setTf('5m') },
@@ -733,7 +735,7 @@ export default function App() {
       if (e.key === 'Escape') { if (replayId) { setReplayId(null); return; } setCmdOpen(false); setOverlay(null); setDrawer(false); setPbOpen(false); setSyncOpen(false); setCiOpen(false); setRecapOpen(false); return; }
       if (cmdOpen || pbOpen || syncOpen || ciOpen || replayId || recapOpen || typing(e.target) || e.ctrlKey || e.metaKey || e.altKey) return;
       const map: Record<string, () => void> = {
-        w: () => setPage('morning'), v: () => setPage('gamma'), h: () => setPage('home'), e: () => setPage('messages'), d: () => setPage('desk'), x: () => setPage('patterns'), s: () => setPage('scanner'), m: () => setPage('map'), g: () => setPage('flows'), c: () => setPage('calendar'), u: () => setPage('etfs'), i: () => setPage('smart'), y: () => setPage('odds'), B: () => setPage('status'), R: () => setPage('distress'), M: () => setPage('mtf'),
+        w: () => setPage('morning'), v: () => setPage('gamma'), h: () => setPage('home'), e: () => setPage('messages'), d: () => setPage('desk'), x: () => setPage('patterns'), s: () => setPage('scanner'), m: () => setPage('map'), g: () => setPage('flows'), c: () => setPage('calendar'), u: () => setPage('etfs'), i: () => setPage('smart'), y: () => setPage('odds'), B: () => setPage('status'), R: () => setPage('distress'), M: () => setPage('mtf'), G: () => setPage('global'),
         '?': () => setOverlay((o) => (o === 'help' ? null : 'help')),
         t: toggleTheme,
         z: () => toggleFocus(),
@@ -895,6 +897,8 @@ export default function App() {
         </Suspense>
       </div>
     );
+  } else if (page === 'global') {
+    body = <Suspense fallback={<section className="panel"><div className="ph-body">Loading…</div></section>}><GlobalPage mode={dataMode} onChart={toDesk} /></Suspense>;
   } else if (page === 'status') {
     body = <div className="page"><DataStatus mode={dataMode} /></div>;
   } else if (page === 'smart' || page === 'etfs' || page === 'odds') {

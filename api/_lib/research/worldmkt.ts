@@ -15,7 +15,7 @@ import { snapshot } from './markets.js';
 const SETS = { indices: WORLD_INDICES, futures: FUTURES, fx: FX_PAIRS };
 const ymd = (ms: number) => new Date(ms).toISOString().slice(0, 10);
 
-async function yahooPx(syms: string[]): Promise<Record<string, Px>> {
+export async function yahooPx(syms: string[]): Promise<Record<string, Px>> {
   const out: Record<string, Px> = {};
   for (let i = 0; i < syms.length; i += 20) {
     if (!take('yahoo')) break;

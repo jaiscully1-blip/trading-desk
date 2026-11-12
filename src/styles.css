@@ -2079,3 +2079,24 @@ body:has(.hw.dragging)::before { animation-play-state: paused; }
 .an-beta, .an-ret { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px; padding: 0 10px; align-items: start; } .an-beta .note, .an-ret .note { grid-column: 1 / -1; }
 .an-ret { grid-template-columns: 1fr; }
 .tr-row { display: grid; grid-template-columns: 26px 1fr 0.8fr 0.6fr 0.5fr; gap: 6px; align-items: center; padding: 2px 10px; font-size: 12px; }
+
+/* Global → US */
+.gl-over { padding: 4px 12px 10px; font-size: 13.5px; }
+.gl-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 10px; }
+.gl-card { padding: 8px 12px; } .gl-card.on { box-shadow: inset 0 0 0 1px var(--accent); }
+.gl-h { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+.gl-idx { padding: 4px 0; border-bottom: 1px solid color-mix(in srgb, var(--line) 50%, transparent); }
+.gl-idx-h { display: flex; justify-content: space-between; font-size: 12.5px; }
+.gl-link { margin-top: 2px; line-height: 1.4; }
+.gl-us { display: flex; flex-wrap: wrap; gap: 4px 10px; padding-top: 6px; }
+.gl-tk { display: inline-flex; align-items: center; gap: 3px; }
+.gl-news { margin-top: 10px; } .gl-list { max-height: 560px; overflow: auto; }
+.gl-row { display: grid; grid-template-columns: 34px 1fr auto; gap: 8px; padding: 5px 12px; border-bottom: 1px solid color-mix(in srgb, var(--line) 50%, transparent); align-items: baseline; }
+.gl-t { text-align: left; font-size: 12.5px; } .gl-tags { display: flex; gap: 3px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
+.page.gl { display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(320px, 1fr); gap: 10px; align-items: start; overflow: auto; }
+.page.gl > section:first-child { grid-column: 1 / -1; }
+.page.gl .gl-grid { grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); align-content: start; }
+.page.gl .gl-news { margin-top: 0; position: sticky; top: 0; }
+.page.gl .gl-list { max-height: calc(100vh - 230px); }
+.page.gl { grid-template-rows: max-content max-content; grid-auto-rows: max-content; align-content: start; }
+.page.gl > section:first-child { height: auto; min-height: max-content; contain: none; flex: none; }
