@@ -26,6 +26,11 @@ export const PROVIDER_INFO: Record<string, ProviderInfo> = {
   alpaca: { label: 'Alpaca', feeds: 'Real-time IEX quotes and news (when configured)', fallback: 'Finnhub / Twelve Data', },
   nasdaq: { label: 'Nasdaq calendars', feeds: 'Earnings and IPO calendars', fallback: 'Finnhub calendars, Alpha Vantage IPOs', unofficial: true },
   cboe: { label: 'Cboe delayed options', feeds: 'Gamma levels, option chains (15 min delayed)', fallback: 'Gamma page shows nothing' },
+  earningsapi: { label: 'Earnings API', feeds: 'Earnings actuals, beat / miss and the moves after reports', fallback: 'Finnhub actuals, Nasdaq estimates' },
+  tradetime: { label: 'Trade Time', feeds: 'World exchange hours, open / closed status and holidays', fallback: 'Built-in session table' },
+  zillow: { label: 'Zillow Research', feeds: 'Home values, rents, listings and sales (monthly)', fallback: 'Housing panel left out' },
+  mempool: { label: 'mempool.space', feeds: 'Bitcoin network: fees, hash rate, difficulty', fallback: 'Section left out' },
+  dataroma: { label: 'Dataroma', feeds: 'Superinvestor 13F portfolio updates', fallback: 'Section left out', unofficial: true },
 };
 
 export interface ProviderUsage { used: number; limit: number }

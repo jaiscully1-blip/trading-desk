@@ -91,6 +91,14 @@ export function Scanner(p: ScannerProps) {
       {panel === 'filter' && <FilterBuilder filters={p.filters} setFilters={p.setFilters} onSaved={(id) => { p.setFilterId(id); setPanel('none'); }} />}
       {panel === 'universe' && <UniverseEditor {...p} />}
 
+      {(() => {
+        // breadth of your scan universe (not the whole S&P 500): share of names above their 50- and 200-day averages
+        const rs = p.rows.filter((r) => r.sym !== 'SPY' && r.sym !== 'QQQ');
+        const a50 = rs.filter((r) => r.above50 != null), a200 = rs.filter((r) => r.above200 != null);
+        if (a50.length < 5) return null;
+        const pc = (xs: typeof rs, k: 'above50' | 'above200') => Math.round((xs.filter((r) => r[k]).length / xs.length) * 100);
+        return <p className="small muted sc-breadth" title="Share of the stocks in this scan universe trading above their 50-day and 200-day averages">Breadth: <b className="num">{pc(a50, 'above50')}%</b> above the 50-day{a200.length >= 5 ? <> · <b className="num">{pc(a200, 'above200')}%</b> above the 200-day</> : null} <span>({a50.length} stocks in this scan)</span></p>;
+      })()}
       <table className="grid sc">
         <thead>
           <tr>
@@ -187,6 +195,9 @@ function Detail({ r, g }: { r: ScanRow; g?: GradeResult }) {
         {(b.sma20 != null || b.sma50 != null) && <><span>20D / 50D avg</span><b className="num">{b.sma20?.toFixed(2) ?? '—'} / {b.sma50?.toFixed(2) ?? '—'}</b></>}
         {b.hi252 != null && <><span>52W high</span><b className="num">{b.hi252.toFixed(2)}</b></>}
         {r.atrPct != null && <><span>ATR %</span><b className="num">{r.atrPct.toFixed(1)}</b></>}
+        {r.adr != null && <><span title="Average of (high ÷ low − 1) over 20 sessions">Avg daily range</span><b className="num">{r.adr.toFixed(1)}%</b></>}
+        {r.maStack != null && <><span>10 / 20 / 50 / 200D</span><b className="num">{[b.sma10, b.sma20, b.sma50, b.sma200].map((m, i) => <span key={i} className={m == null ? 'muted' : r.last > m ? 'up' : 'down'}>{m == null ? '·' : r.last > m ? '▲' : '▼'}</span>)} <span className="muted small">price above {r.maStack} of 4</span></b></>}
+        {r.off5yLow != null && <><span>5-year low</span><b className="num">{b.lo5y?.toFixed(2)} <span className="muted small">· price is {r.off5yLow.toFixed(0)}% above it</span></b></>}
         {Number.isFinite(r.volTrend) && <><span>Vol 5D/20D</span><b className="num">{r.volTrend.toFixed(2)}x</b></>}
         {b.si !== undefined && <><span>Short interest</span>
         <b className="num">

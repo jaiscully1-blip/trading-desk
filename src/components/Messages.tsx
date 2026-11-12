@@ -12,8 +12,8 @@ import { keywordHits } from '../../shared/catalysts';
 import { MacroClock } from './MacroClock';
 
 type Filter = 'all' | 'earn' | 'cat' | 'gov';
-const CAT = ['catalyst', 'stake', 'insider', 'wire'];
-const LABEL: Record<FeedItem['kind'], string> = { filing: 'FILED', earnings: 'EARNINGS', result: 'RESULT', fed: 'FED', whitehouse: 'WHITE HOUSE', econ: 'ECONOMY', live: 'LIVE', catalyst: '8-K', stake: 'STAKE', insider: 'INSIDER', wire: 'PRESS' };
+const CAT = ['catalyst', 'stake', 'insider', 'wire', 'fund'];
+const LABEL: Record<FeedItem['kind'], string> = { filing: 'FILED', earnings: 'EARNINGS', result: 'RESULT', fed: 'FED', whitehouse: 'WHITE HOUSE', econ: 'ECONOMY', live: 'LIVE', catalyst: '8-K', stake: 'STAKE', insider: 'INSIDER', wire: 'PRESS', fund: '13F' };
 
 export function Messages({ feed, cal, nowMs, onChart, compact = false }: { feed: FeedState | null; cal: CalendarState | null; nowMs: number; onChart: (s: string) => void; compact?: boolean }) {
   const { stars, openArticle, alertWords = [], setAlertWords } = useDesk();

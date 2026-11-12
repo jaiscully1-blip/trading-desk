@@ -8,6 +8,7 @@ import { SYMBOL_RE, cached, hasKey, json, ttl } from '../core.js';
 import { et as etOf } from '../../../shared/clock.js';
 import { catalyst8k, insiderMessage, pairFilings, parseEdgarCurrent, stakeMessage, wireMessages } from '../../../shared/catalysts.js';
 import { parseForm4 } from '../../../shared/insider.js';
+import { fundMessages, parseDataroma } from '../../../shared/extras.js';
 
 /** Press-release wires with a free RSS feed (GlobeNewswire and Accesswire refuse automated requests). */
 const WIRES = [
@@ -118,6 +119,8 @@ export async function GET(req: Request): Promise<Response> {
     }));
     return out.flat();
   }));
+  // superinvestor 13F updates (Dataroma's public RSS): what well-known funds bought, added, trimmed and sold
+  jobs.push(run('Dataroma 13F updates', async () => fundMessages((await cached('dataroma:rss', 3 * 3600, async () => parseDataroma(await getText('https://feeds.feedburner.com/dataroma')))).val.filter((m) => now - m.t < 14 * 86400_000), mine)));
   for (const w of WIRES) jobs.push(run(w.name, async () => wireMessages((await cached(`wire:${w.name}`, 300, () => rssFeed(w.name, w.url))).val.filter((x) => now - x.t < 2 * 86400_000), w.name)));
   jobs.push(run('Nasdaq earnings calendar', async () => {
     const e = etOf(now), et = `${e.y}-${String(e.mo).padStart(2, '0')}-${String(e.d).padStart(2, '0')}`;

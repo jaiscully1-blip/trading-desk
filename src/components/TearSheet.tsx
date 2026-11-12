@@ -7,7 +7,7 @@ import type { Tear } from '../../shared/tearsheet';
 import { Q } from './common';
 
 interface TearData {
-  sym: string; price: number | null; priceAt: number | null; marketCap: number | null; facts: Tear | null; floatShares: number | null; floatClose: number | null;
+  sym: string; name: string | null; price: number | null; priceAt: number | null; marketCap: number | null; facts: Tear | null; floatShares: number | null; floatClose: number | null;
   shortInterest: { shares: number; daysToCover: number; changePct: number; settlementDate: string; pctFloat: number | null } | null;
   nextEarnings: { date: string; hour: string; epsEst: number | null } | null; errors: Record<string, string>; sources: Record<string, string>;
 }
@@ -15,6 +15,33 @@ interface TearData {
 const usd = (v: number) => { const a = Math.abs(v), s = v < 0 ? '−' : ''; return a >= 1e12 ? `${s}$${(a / 1e12).toFixed(2)}T` : a >= 1e9 ? `${s}$${(a / 1e9).toFixed(1)}B` : a >= 1e6 ? `${s}$${(a / 1e6).toFixed(0)}M` : `${s}$${Math.round(a).toLocaleString('en-US')}`; };
 const cnt = (v: number) => (v >= 1e9 ? `${(v / 1e9).toFixed(2)}B` : v >= 1e6 ? `${(v / 1e6).toFixed(1)}M` : Math.round(v).toLocaleString('en-US'));
 const mdy = (d: string) => new Date(`${d}T12:00:00Z`).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
+
+interface ReactionRow { date: string; epsSurprise: number | null; epsBeat: boolean | null; revSurprise: number | null; revBeat: boolean | null; day1: { date: string; pct: number } | null; day3: number | null }
+/** The last few earnings reports: beat / miss and how the stock moved the next day (earningsapi.com, when its key is set). */
+function Reactions({ sym }: { sym: string }) {
+  const [rows, setRows] = useState<ReactionRow[] | null>(null);
+  useEffect(() => {
+    let stop = false;
+    setRows(null);
+    fetch(`/api/research?fn=reactions&symbol=${encodeURIComponent(sym)}`).then((r) => (r.ok ? r.json() : null)).then((j) => { if (!stop) setRows(j?.reports ?? []); }).catch(() => !stop && setRows([]));
+    return () => { stop = true; };
+  }, [sym]);
+  if (!rows?.length) return null; // no key or no reports: hidden, not a row of dashes
+  const p = (v: number | null) => (v == null ? '' : `${v >= 0 ? '+' : ''}${v.toFixed(1)}%`);
+  return (
+    <div className="ts-react">
+      <div className="small muted">Last earnings reactions <span title="Earnings API (earningsapi.com)">ⓘ</span></div>
+      {rows.map((r) => (
+        <div key={r.date} className="ts-react-r small">
+          <span className="num muted">{mdy(r.date)}</span>
+          <span className={r.epsBeat == null ? 'muted' : r.epsBeat ? 'up' : 'down'}>EPS {r.epsBeat == null ? '—' : r.epsBeat ? 'beat' : 'miss'} {p(r.epsSurprise)}</span>
+          <span className={`num ${r.day1 == null ? 'muted' : r.day1.pct >= 0 ? 'up' : 'down'}`} title="Move on the first trading day after the report">next day {r.day1 ? p(r.day1.pct) : '—'}</span>
+          {r.day3 != null && <span className={`num ${r.day3 >= 0 ? 'up' : 'down'}`}>3 days {p(r.day3)}</span>}
+        </div>
+      ))}
+    </div>
+  );
+}
 
 export function TearSheet({ sym, mode }: { sym: string; mode: DataMode }) {
   const [d, setD] = useState<TearData | null>(null);
@@ -54,6 +81,8 @@ export function TearSheet({ sym, mode }: { sym: string; mode: DataMode }) {
         {shown.map(([k, v, src]) => <Fragment key={k}><span title={src}>{k}</span><b className="num" title={src}>{v}</b></Fragment>)}
       </div>
       {!shown.length && <p className="small muted">No SEC or price data for {sym}.</p>}
+      <Reactions sym={sym} />
+      <p className="small ts-links"><a href="https://www.foiasearch.com/" target="_blank" rel="noreferrer noopener" title="Records requests filed with the SEC. A B7A exemption can hint at an undisclosed SEC investigation.">SEC FOIA requests ↗</a> <span className="muted">search “{d.name ?? sym}” there</span></p>
       <p className="note small">Institutional ownership isn't here: it needs 13F totals that no free source keeps current.{Object.keys(d.errors).length ? ` Missing: ${Object.keys(d.errors).join(', ')}.` : ''}</p>
     </div>
   );

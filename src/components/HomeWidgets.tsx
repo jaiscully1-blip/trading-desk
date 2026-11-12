@@ -1,4 +1,5 @@
 // Home page widgets. Each gets its saved config (cfg) and a setter, plus the shared desk data.
+import { HighSiW, HousingW } from './ExtrasW';
 import { TapeW } from './TapeW';
 import { MacroClock } from './MacroClock';
 import { useEffect, useMemo, useRef } from 'react';
@@ -227,6 +228,13 @@ export function CalendarW({ d }: P) {
   );
 }
 
+export function HousingHomeW({ d }: P) {
+  return <HousingW mode={d.mode} />;
+}
+export function HighSiHomeW({ d }: P) {
+  return <HighSiW mode={d.mode} onChart={d.onChart} mine={new Set(Object.keys(d.quotes))} />;
+}
+
 export function TapeHomeW({ d, cfg, set }: P) {
   return <TapeW mode={d.mode} sym={cfg.sym ?? d.sel ?? 'SPY'} onSym={(sym) => set({ ...cfg, sym })} onChart={d.onChart} />;
 }
@@ -244,6 +252,8 @@ export const WIDGETS = {
   messages: { title: 'Messages', make: MessagesW },
   macroclock: { title: 'Macro countdowns', make: MacroClockW },
   tape: { title: 'Time & sales (IEX)', make: TapeHomeW },
+  housing: { title: 'Housing (Zillow)', make: HousingHomeW },
+  hisi: { title: 'Most-shorted stocks', make: HighSiHomeW },
   crypto: { title: 'Crypto', make: CryptoW },
   commodities: { title: 'Commodities', make: CommoditiesW },
   risk: { title: 'Risk calculator', make: RiskW },

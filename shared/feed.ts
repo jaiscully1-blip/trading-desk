@@ -1,7 +1,7 @@
 // Messages feed: earnings results as companies file them (SEC 8-K item 2.02), estimates vs actuals, Fed and White House
 // releases, and live-stream detection. Pure parsers (tested); fetching lives in /api.
 
-export type FeedKind = 'filing' | 'earnings' | 'result' | 'fed' | 'whitehouse' | 'econ' | 'live' | 'catalyst' | 'stake' | 'insider' | 'wire';
+export type FeedKind = 'filing' | 'earnings' | 'result' | 'fed' | 'whitehouse' | 'econ' | 'live' | 'catalyst' | 'stake' | 'insider' | 'wire' | 'fund';
 export interface FeedItem { id: string; t: number; kind: FeedKind; sym?: string; title: string; text?: string; url?: string; tone?: 'up' | 'down' }
 
 /** EDGAR "getcurrent" Atom feed -> 8-K filings that include Item 2.02 (Results of Operations), with CIK. */

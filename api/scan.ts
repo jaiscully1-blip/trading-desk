@@ -8,9 +8,9 @@ import { finnhubNews, finnhubProfile, finraShortInterest, secJson } from './_lib
 import { parseSecTickers } from '../shared/company.js';
 import { closeOn, floatShares, latestByCik, recentInstantPeriods } from '../shared/tearsheet.js';
 import { frameUrl } from '../shared/distressGather.js';
-import { SYMBOL_RE, cached, getCached, hasKey, json, setCached, ttl } from './_lib/core.js';
+import { SYMBOL_RE, cached, getCached, getJson, hasKey, json, setCached, ttl } from './_lib/core.js';
 import { loadSeries } from './_lib/series.js';
-import { longDaily, yahooDaily } from './_lib/yahoo.js';
+import { YH_HEADERS, longDaily, yahooDaily } from './_lib/yahoo.js';
 
 const MAX = 40;
 
@@ -95,6 +95,19 @@ export async function GET(req: Request): Promise<Response> {
     } catch { /* optional */ }
   }
 
+  // 5-year low from weekly bars (one small call per ticker a day)
+  const lo5 = new Map<string, number | null>();
+  await Promise.all(names.slice(0, 80).map(async (s) => {
+    try {
+      const { val } = await cached(`yh:5ylow:${s}`, 86400, async () => {
+        const j = await getJson(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(s.replace('.', '-'))}?range=5y&interval=1wk`, 'yahoo', 8000, { headers: YH_HEADERS });
+        const lows: number[] = (j?.chart?.result?.[0]?.indicators?.quote?.[0]?.low ?? []).filter((x: unknown) => typeof x === 'number' && x > 0);
+        return lows.length >= 52 ? Math.min(...lows) : null;
+      });
+      lo5.set(s, val);
+    } catch { /* optional */ }
+  }));
+
   // Catalyst: any company news in the last 24h (Finnhub)
   const catalysts = new Map<string, ScanBase['catalyst']>();
   if (hasKey('finnhub')) {
@@ -116,6 +129,7 @@ export async function GET(req: Request): Promise<Response> {
     }
     if (catalysts.has(b.sym)) b.catalyst = catalysts.get(b.sym);
     if (floats.has(b.sym)) b.float = floats.get(b.sym);
+    if (lo5.has(b.sym)) b.lo5y = lo5.get(b.sym);
   }
 
   const complete = pending.length === 0;
