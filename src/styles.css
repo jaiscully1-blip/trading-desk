@@ -2227,3 +2227,13 @@ body:has(.hw.dragging)::before { animation-play-state: paused; }
 .home.lib-on.side-off { grid-template-columns: 230px minmax(0, 1fr); }
 .home-side-h { align-items: center; gap: 6px; }
 .home-side-h .muted { margin-left: auto; }
+
+/* live video size in Messages: off / S / M / L */
+.vid-size { display: flex; align-items: center; gap: 4px; margin-left: auto; }
+.msgs-live iframe { display: block; }
+.msgs-live.vs-s iframe { max-width: 320px; max-height: none; }
+.msgs-live.vs-m iframe { max-width: 640px; max-height: none; }
+.msgs-live.vs-l iframe { max-width: 100%; max-height: 70vh; }
+.msgs.compact .msgs-live.vs-s iframe { max-width: 240px; }
+.msgs.compact .msgs-live.vs-m iframe { max-width: 420px; }
+.msgs.compact .msgs-live.vs-l iframe { max-height: 60%; }
