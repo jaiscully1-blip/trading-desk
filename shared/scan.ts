@@ -48,6 +48,8 @@ export interface ScanBase {
   cupHandle: PatternHit;
   si?: ShortInterest | null; // null = looked up, none found; undefined = not available
   catalyst?: { count: number; latest?: string; latestAt?: number } | null;
+  /** estimated float shares (SEC public float ÷ close on its date); null = looked up, none found */
+  float?: { shares: number; asOf: string } | null;
   /** last 30 completed daily closes, 5 significant digits (sparklines) */
   spark?: number[];
   source: string;
@@ -225,6 +227,10 @@ export interface ScanRow {
   squeeze: boolean | null; // null = short interest or catalyst unknown
   siHigh: boolean | null;
   catalyst: boolean | null;
+  /** estimated float, millions of shares (SEC public float ÷ close on its date) */
+  floatM: number | null;
+  /** short interest as % of the estimated float */
+  siFloatPct: number | null;
   bullFlag: PatternHit;
   cupHandle: PatternHit;
   base: ScanBase;
@@ -273,6 +279,8 @@ export function liveRow(b: ScanBase, q: LiveQuote | undefined, spy: { base: Scan
     gapAndGo: gapPct == null || open == null ? null : gapPct >= th.gapGo && last > open && (b.rvol ?? 0) >= th.gapGoRvol,
     siHigh,
     catalyst,
+    floatM: b.float ? b.float.shares / 1e6 : null,
+    siFloatPct: b.float && b.si ? (b.si.shares / b.float.shares) * 100 : null,
     squeeze: siHigh === false || catalyst === false || b.volTrend < th.volRising ? false : siHigh && catalyst ? true : null,
     bullFlag: b.bullFlag,
     cupHandle: b.cupHandle,

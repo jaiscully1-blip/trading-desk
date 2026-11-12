@@ -7,7 +7,7 @@ import { etTime } from '../lib/clock';
 import { pct, px, tone } from '../lib/format';
 import { Belt, CoName, Fresh, Star } from './common';
 
-type SortKey = 'sym' | 'chgPct' | 'gapPct' | 'rvol' | 'rsRank' | 'grade';
+type SortKey = 'sym' | 'chgPct' | 'gapPct' | 'rvol' | 'floatM' | 'rsRank' | 'grade';
 
 export interface ScannerProps {
   rows: ScanRow[];
@@ -98,6 +98,7 @@ export function Scanner(p: ScannerProps) {
             <H k="chgPct">Chg</H>
             <H k="gapPct">Gap</H>
             <H k="rvol" title="Relative volume, time-of-day adjusted">RVOL</H>
+            <H k="floatM" title="Estimated float, millions of shares: SEC public float (value held by non-insiders on one date) ÷ that day's close">Float</H>
             <H k="rsRank" title="RS percentile vs SPY over 5/20/60 days, within the universe">RS</H>
             <H k="grade" title="Playbook grade">Gr</H>
             <th aria-label="Add" />
@@ -114,6 +115,7 @@ export function Scanner(p: ScannerProps) {
                   <td className={`num ${tone(r.chgPct)}`}>{pct(r.chgPct, 1)}</td>
                   <td className={`num ${tone(r.gapPct ?? 0)}`}>{r.gapPct == null ? '—' : pct(r.gapPct, 1)}</td>
                   <td className="num">{r.rvol == null ? '—' : r.rvol.toFixed(1)}</td>
+                  <td className="num" title={r.siFloatPct != null ? `Short ${r.siFloatPct.toFixed(1)}% of float` : undefined}>{r.floatM == null ? '—' : r.floatM >= 1000 ? `${(r.floatM / 1000).toFixed(1)}B` : r.floatM >= 100 ? r.floatM.toFixed(0) : r.floatM.toFixed(1)}</td>
                   <td className="num">{r.rsRank ?? '—'}</td>
                   <td>{g ? <span className={`grade g-${g.grade.replace('+', 'p')}`} title={`${g.score.toFixed(0)}%${g.partial ? ' (under half the criteria had data)' : ''}`}>{g.grade}{g.partial ? '*' : ''}</span> : '—'}</td>
                   <td>
@@ -123,13 +125,13 @@ export function Scanner(p: ScannerProps) {
                   </td>
                 </tr>
                 {isOpen && (
-                  <tr className="sc-detail"><td colSpan={7}><Detail r={r} g={g} /></td></tr>
+                  <tr className="sc-detail"><td colSpan={8}><Detail r={r} g={g} /></td></tr>
                 )}
               </Fragment>
             );
           })}
           {!shown.length && (
-            <tr><td colSpan={7} className="muted sc-empty">{p.scan.loading ? 'Scanning…' : p.rows.length ? 'Nothing matches this filter right now.' : 'No scan data yet.'}</td></tr>
+            <tr><td colSpan={8} className="muted sc-empty">{p.scan.loading ? 'Scanning…' : p.rows.length ? 'Nothing matches this filter right now.' : 'No scan data yet.'}</td></tr>
           )}
         </tbody>
       </table>
@@ -191,6 +193,7 @@ function Detail({ r, g }: { r: ScanRow; g?: GradeResult }) {
           {b.si === null ? 'not reported' : `${(b.si.shares / 1e6).toFixed(1)}M sh · ${b.si.daysToCover.toFixed(1)} days${b.si.pctOut != null ? ` · ${b.si.pctOut.toFixed(1)}% of shares out` : ''}`}
         </b></>}
         {b.si && <><span>SI settled</span><b className="num">{b.si.settlementDate}</b></>}
+        {b.float && <><span title="Estimated: SEC public float (value held by non-insiders on one date) ÷ that day's close">Float (est.)</span><b className="num">{b.float.shares >= 1e9 ? `${(b.float.shares / 1e9).toFixed(2)}B` : `${(b.float.shares / 1e6).toFixed(1)}M`} sh{b.si ? ` · short ${((b.si.shares / b.float.shares) * 100).toFixed(1)}% of float` : ''} <span className="muted small">as of {b.float.asOf}</span></b></>}
         {b.catalyst !== undefined && <><span>Catalyst</span><b>{b.catalyst?.count ? `${b.catalyst.latest}${b.catalyst.latestAt ? ` (${etTime(b.catalyst.latestAt)} ET)` : ''}` : 'none in 24h'}</b></>}
         {r.bullFlag.ok && <><span>Bull flag</span><b>{r.bullFlag.detail} · trigger {r.bullFlag.trigger?.toFixed(2)}</b></>}
         {r.cupHandle.ok && <><span>Cup &amp; handle</span><b>{r.cupHandle.detail} · pivot {r.cupHandle.trigger?.toFixed(2)}</b></>}

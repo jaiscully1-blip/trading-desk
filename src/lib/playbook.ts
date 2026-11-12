@@ -100,7 +100,7 @@ export const gradeRank = (g: Grade) => ['C', 'B', 'A', 'A+'].indexOf(g);
 /* ---------------- saved filters ---------------- */
 export type FilterField =
   | 'absGap' | 'gapPct' | 'rvol' | 'rsRank' | 'chgPct' | 'atrPct' | 'last'
-  | 'above20' | 'above50' | 'brk20' | 'brk50' | 'brk52' | 'gapAndGo' | 'squeeze' | 'bullFlag' | 'cupHandle' | 'catalyst' | 'grade';
+  | 'above20' | 'above50' | 'brk20' | 'brk50' | 'brk52' | 'gapAndGo' | 'squeeze' | 'bullFlag' | 'cupHandle' | 'catalyst' | 'grade' | 'floatM' | 'siFloatPct';
 export interface Cond { field: FilterField; op: '>=' | '<=' | 'is'; value: number }
 export interface SavedFilter { id: string; name: string; conds: Cond[]; builtin?: boolean }
 
@@ -111,6 +111,7 @@ export const FIELD_META: Record<FilterField, { label: string; kind: 'num' | 'boo
   brk20: { label: '20-day breakout', kind: 'bool' }, brk50: { label: '50-day breakout', kind: 'bool' }, brk52: { label: '52-week breakout', kind: 'bool' },
   gapAndGo: { label: 'Gap-and-go', kind: 'bool' }, squeeze: { label: 'Squeeze', kind: 'bool' }, bullFlag: { label: 'Bull flag', kind: 'bool' },
   cupHandle: { label: 'Cup & handle', kind: 'bool' }, catalyst: { label: 'Catalyst', kind: 'bool' }, grade: { label: 'Grade ≥', kind: 'grade' },
+  floatM: { label: 'Float (M shares, est.)', kind: 'num' }, siFloatPct: { label: 'Short % of float', kind: 'num' },
 };
 
 export const PRESET_FILTERS: SavedFilter[] = [
@@ -121,6 +122,7 @@ export const PRESET_FILTERS: SavedFilter[] = [
   { id: 'hi52', name: '52W high', conds: [{ field: 'brk52', op: 'is', value: 1 }], builtin: true },
   { id: 'gapgo', name: 'Gap-and-go', conds: [{ field: 'gapAndGo', op: 'is', value: 1 }], builtin: true },
   { id: 'squeeze', name: 'Squeeze', conds: [{ field: 'squeeze', op: 'is', value: 1 }], builtin: true },
+  { id: 'lowfloat', name: 'Float ≤50M', conds: [{ field: 'floatM', op: '<=', value: 50 }], builtin: true },
   { id: 'patterns', name: 'Flag / cup', conds: [], builtin: true },
   { id: 'aplus', name: 'Grade A+', conds: [{ field: 'grade', op: '>=', value: 3 }], builtin: true },
 ];

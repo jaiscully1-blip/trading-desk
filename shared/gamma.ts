@@ -6,7 +6,7 @@
 // GEX per contract = gamma × open interest × 100 × spot² × 1% = dollars of hedging per 1% move.
 // It is an estimate: nobody outside the dealers knows their real positions.
 
-export interface Contract { exp: string; dte: number; T: number; K: number; cp: 'C' | 'P'; iv: number; oi: number; vol: number }
+export interface Contract { exp: string; dte: number; T: number; K: number; cp: 'C' | 'P'; iv: number; oi: number; vol: number; last?: number; bid?: number; ask?: number; delta?: number }
 export interface Chain { sym: string; spot: number; asOf: number | null; contracts: Contract[] }
 
 const OSI = /^([A-Z^_.]+?)(\d{2})(\d{2})(\d{2})([CP])(\d{8})$/;
@@ -40,6 +40,7 @@ export function parseCboe(j: any, sym: string, now = Date.now()): Chain {
     contracts.push({
       exp: `${y}-${m[3]}-${m[4]}`, dte: Math.max(0, Math.round((close - now) / DAY)), T: Math.max(close - now, 30 * 60_000) / (365 * DAY),
       K: +m[6] / 1000, cp: m[5] as 'C' | 'P', iv: Number.isFinite(iv) ? iv : 0, oi, vol: Number(o.volume) || 0,
+      last: Number(o.last_trade_price) || 0, bid: Number(o.bid) || 0, ask: Number(o.ask) || 0, delta: Number.isFinite(Number(o.delta)) ? Number(o.delta) : undefined,
     });
   }
   return { sym, spot, asOf: Number.isFinite(ts) ? ts : null, contracts };

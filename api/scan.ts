@@ -4,10 +4,13 @@
 import type { ApiError } from '../shared/types.js';
 import { encodeInstant, type FinraSI } from '../shared/parse.js';
 import { computeBase, type ScanBase } from '../shared/scan.js';
-import { finnhubNews, finnhubProfile, finraShortInterest } from './_lib/adapters.js';
+import { finnhubNews, finnhubProfile, finraShortInterest, secJson } from './_lib/adapters.js';
+import { parseSecTickers } from '../shared/company.js';
+import { closeOn, floatShares, latestByCik, recentInstantPeriods } from '../shared/tearsheet.js';
+import { frameUrl } from '../shared/distressGather.js';
 import { SYMBOL_RE, cached, getCached, hasKey, json, setCached, ttl } from './_lib/core.js';
 import { loadSeries } from './_lib/series.js';
-import { yahooDaily } from './_lib/yahoo.js';
+import { longDaily, yahooDaily } from './_lib/yahoo.js';
 
 const MAX = 40;
 
@@ -70,6 +73,28 @@ export async function GET(req: Request): Promise<Response> {
     }));
   }
 
+  // Float (estimated): SEC public float (dollar value held by non-affiliates on one date, from 10-K covers) ÷ that day's close.
+  const floats = new Map<string, { shares: number; asOf: string } | null>();
+  if (hasKey('sec')) {
+    try {
+      const [tick, pf] = await Promise.all([
+        cached('sec:tickers', 86400, async () => parseSecTickers(await secJson('https://www.sec.gov/files/company_tickers.json'))),
+        cached('sec:pfloat', 86400, async () => [...latestByCik(await Promise.all(recentInstantPeriods(new Date().toISOString().slice(0, 10), 7)
+          .map((p) => secJson(frameUrl('dei', 'EntityPublicFloat', 'USD', p)).catch(() => null)))).entries()]),
+      ]);
+      const cikOf = new Map(tick.val.map((t) => [t.ticker, t.cik] as const));
+      const pfBy = new Map(pf.val);
+      await Promise.all(names.slice(0, 60).map(async (s) => {
+        const p = pfBy.get(cikOf.get(s) ?? cikOf.get(s.replace('.', '-')) ?? -1);
+        if (!p) { floats.set(s, null); return; }
+        let close = closeOn(yh.get(s) ?? [], p.end);
+        if (close == null) close = closeOn(await longDaily(s, '2y').catch(() => []), p.end); // float dates can be over a year old
+        const sh = floatShares(p.val, close, shares.get(s) ?? null);
+        floats.set(s, sh ? { shares: sh, asOf: p.end } : null);
+      }));
+    } catch { /* optional */ }
+  }
+
   // Catalyst: any company news in the last 24h (Finnhub)
   const catalysts = new Map<string, ScanBase['catalyst']>();
   if (hasKey('finnhub')) {
@@ -90,11 +115,12 @@ export async function GET(req: Request): Promise<Response> {
       b.si = x ? { shares: x.shares, daysToCover: x.daysToCover, changePct: x.changePct, settlementDate: x.settlementDate, pctOut: so ? (x.shares / so) * 100 : null } : x === null ? null : undefined;
     }
     if (catalysts.has(b.sym)) b.catalyst = catalysts.get(b.sym);
+    if (floats.has(b.sym)) b.float = floats.get(b.sym);
   }
 
   const complete = pending.length === 0;
   return json(
-    { rows: bases, pending, errors, asOf: Date.now(), siSource: si ? 'FINRA consolidated short interest' : null, catalystSource: hasKey('finnhub') ? 'Finnhub company news' : null },
+    { rows: bases, pending, errors, asOf: Date.now(), siSource: si ? 'FINRA consolidated short interest' : null, floatSource: floats.size ? 'Estimated: SEC public float ÷ close on that date' : null, catalystSource: hasKey('finnhub') ? 'Finnhub company news' : null },
     { sMaxAge: complete ? 120 : 0 },
   );
 }

@@ -1965,3 +1965,28 @@ body:has(.hw.dragging)::before { animation-play-state: paused; }
 .mc-t { font-size: 14px; }
 .mc-w { font-size: 10px; white-space: nowrap; }
 .mc.compact .mc-item { min-width: 100px; padding: 3px 6px; } .mc.compact .mc-t { font-size: 12.5px; } .mc.compact .mc-w { display: none; }
+
+/* gamma page: any ticker, options activity, readings */
+.gx-other { width: 110px; background: transparent; border: 1px solid var(--line); border-radius: 5px; padding: 3px 7px; font: 500 12px 'IBM Plex Mono', monospace; color: var(--fg); text-transform: uppercase; }
+.gx-grid2 { grid-template-columns: 1.15fr 1fr; }
+.of { padding: 0 10px 8px; }
+.of-sum { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center; margin: 4px 0 8px; }
+.of-split { display: inline-flex; align-items: center; gap: 5px; }
+.of-bar { width: 70px; height: 6px; border-radius: 3px; background: color-mix(in srgb, var(--down) 55%, transparent); overflow: hidden; display: inline-block; }
+.of-bar .up-bg { display: block; height: 100%; background: var(--up); }
+.of-scroll { max-height: 360px; overflow: auto; }
+.of-t { width: 100%; border-collapse: collapse; font-size: 11.5px; }
+.of-t th { text-align: right; font-weight: 500; color: var(--muted); padding: 3px 6px; position: sticky; top: 0; background: var(--panel); border-bottom: 1px solid var(--line); }
+.of-t th:first-child, .of-t td:first-child { text-align: left; }
+.of-t td { text-align: right; padding: 3px 6px; border-bottom: 1px solid color-mix(in srgb, var(--line) 50%, transparent); white-space: nowrap; }
+.of-mp { display: flex; flex-wrap: wrap; gap: 4px 12px; margin: 8px 0 2px; }
+.rd-list { display: grid; gap: 2px; padding: 0 10px 8px; }
+.rd-row { display: grid; grid-template-columns: 170px 1fr 1fr; gap: 8px; padding: 5px 0; border-bottom: 1px solid color-mix(in srgb, var(--line) 50%, transparent); align-items: start; }
+.rd-n { display: grid; gap: 1px; } .rd-n .num { color: var(--muted); }
+.rd-g, .rd-b { opacity: .55; line-height: 1.35; padding: 2px 5px; border-radius: 4px; }
+.rd-g span, .rd-b span { font: 600 9.5px 'IBM Plex Mono', monospace; letter-spacing: .05em; text-transform: uppercase; margin-right: 3px; }
+.rd-g.on { opacity: 1; background: color-mix(in srgb, var(--up) 10%, transparent); }
+.rd-b.on { opacity: 1; background: color-mix(in srgb, var(--down) 10%, transparent); }
+.ot-risk { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin: 6px 0; padding: 6px 8px; border: 1px dashed var(--line); border-radius: 6px; }
+.ot-risk label { display: inline-flex; align-items: center; gap: 5px; }
+.ot-risk input { width: 80px; }
