@@ -2,6 +2,7 @@
 // Below ~1000px wide it turns into an icon rail (same colours, names in tooltips). The group colour also tints the page's panel headers.
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
+import { downloadDesk, exportDesk, importDesk, parseDeskFile, type DeskFile } from '../lib/deskfile';
 import { currentAccount, initials, isOwner, leave, makeOwner, verifyDeskPassword } from '../lib/accounts';
 
 export type Page = 'morning' | 'home' | 'messages' | 'desk' | 'patterns' | 'company' | 'scanner' | 'map' | 'flows' | 'smart' | 'etfs' | 'gamma' | 'odds' | 'journal' | 'calendar' | 'status' | 'distress' | 'mtf' | 'global' | 'news';
@@ -64,6 +65,9 @@ function AccountMenu({ compact }: { compact?: boolean }) {
   const [unlock, setUnlock] = useState(false);
   const [pw, setPw] = useState('');
   const [msg, setMsg] = useState('');
+  const [pending, setPending] = useState<DeskFile | null>(null);
+  const [fileMsg, setFileMsg] = useState('');
+  const fileIn = useRef<HTMLInputElement>(null);
   const box = useRef<HTMLDivElement>(null);
   const menu = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState({ left: 0, bottom: 0 });
@@ -75,6 +79,10 @@ function AccountMenu({ compact }: { compact?: boolean }) {
     return () => { window.removeEventListener('pointerdown', off); window.removeEventListener('keydown', esc); };
   }, [open]);
   if (!a) return null;
+  const pick = async (f: File | undefined) => {
+    if (!f) return;
+    try { setPending(parseDeskFile(await f.text())); setFileMsg(''); } catch (e) { setFileMsg((e as Error).message); }
+  };
   const tryUnlock = async (e: React.FormEvent) => {
     e.preventDefault(); setMsg('Checking…');
     if (await verifyDeskPassword(pw)) { makeOwner(a, pw); location.reload(); } else setMsg('Not accepted.');
@@ -90,6 +98,17 @@ function AccountMenu({ compact }: { compact?: boolean }) {
           <div className="nv-menu-h"><b>{a.name}</b><span className="small muted">{isOwner() ? 'Owner account' : 'Desk account'} · this device</span></div>
           <button role="menuitem" onClick={() => leave('pick')}>Switch account</button>
           <button role="menuitem" onClick={() => leave('new')}>New account</button>
+          <div className="nv-menu-sep" />
+          <button role="menuitem" onClick={async () => { setFileMsg('Packing…'); downloadDesk(await exportDesk()); setFileMsg('Saved to your Downloads. Load it on the other link or device.'); }} title="Your layout, watchlists, journal, alerts and notes in one file (no desk password)">Download my desk</button>
+          <button role="menuitem" onClick={() => fileIn.current?.click()} title="Bring in a desk you downloaded on another link, browser or computer">Load a desk file…</button>
+          <input ref={fileIn} type="file" accept="application/json,.json" hidden onChange={(e) => { void pick(e.target.files?.[0]); e.target.value = ''; }} />
+          {pending && (
+            <div className="nv-confirm">
+              <span className="small">Replace this desk with {pending.name ? `${pending.name}'s` : 'the'} desk from {pending.from || 'another link'} ({new Date(pending.at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })})? Your PIN stays the same.</span>
+              <span className="nv-confirm-b"><button className="btn sm primary" onClick={async () => { await importDesk(pending); location.reload(); }}>Replace</button><button className="btn sm" onClick={() => setPending(null)}>Cancel</button></span>
+            </div>
+          )}
+          {fileMsg && <span className="small muted nv-filemsg">{fileMsg}</span>}
           {!isOwner() && (unlock
             ? <form className="nv-unlock" onSubmit={tryUnlock}><input type="password" value={pw} onChange={(e) => setPw(e.target.value)} placeholder="Desk password" aria-label="Desk password" autoFocus /><button className="btn sm primary" type="submit" disabled={!pw}>Unlock</button>{msg && <span className="small muted">{msg}</span>}</form>
             : <button role="menuitem" className="muted" onClick={() => setUnlock(true)}>Desk owner? Unlock private panels</button>)}

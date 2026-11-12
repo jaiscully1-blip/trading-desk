@@ -2379,3 +2379,8 @@ body:has(.hw.dragging)::before { animation-play-state: paused; }
 @media (max-width: 900px) { .cm-panel { width: auto; left: 10px; top: auto; height: 45%; } }
 
 .cm-hov { display: flex; flex-direction: column; gap: 2px; margin: 8px 0 4px; padding: 7px 9px; border-radius: 8px; background: var(--panel-2); border: 1px solid var(--line); }
+
+.nv-menu-sep { height: 1px; background: var(--line); margin: 4px 0; }
+.nv-confirm { display: flex; flex-direction: column; gap: 6px; padding: 8px; margin: 4px; border: 1px solid var(--accent); border-radius: 8px; background: var(--accent-bg); max-width: 260px; }
+.nv-confirm-b { display: flex; gap: 6px; }
+.nv-filemsg { padding: 4px 8px; max-width: 260px; }

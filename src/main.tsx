@@ -8,13 +8,32 @@ import { reportError, startTelemetry } from './lib/telemetry';
 
 startTelemetry();
 
+// After a new version is deployed, a tab that was already open asks for old file names that no longer exist
+// ("Failed to fetch dynamically imported module"). Reload once to pick up the new version instead of showing an error.
+const STALE = /dynamically imported module|Importing a module script failed|error loading dynamically imported module|Unable to preload CSS/i;
+function reloadForNewVersion(): boolean {
+  try {
+    const last = Number(sessionStorage.getItem('td.verReload') || 0);
+    if (Date.now() - last < 30_000) return false; // already tried: show the error rather than loop
+    sessionStorage.setItem('td.verReload', String(Date.now()));
+  } catch { /* storage blocked: still reload */ }
+  location.reload();
+  return true;
+}
+window.addEventListener('vite:preloadError', (e) => { e.preventDefault(); reloadForNewVersion(); });
+window.addEventListener('unhandledrejection', (e) => { if (STALE.test(String((e.reason as Error | undefined)?.message ?? e.reason))) reloadForNewVersion(); });
+
 /** A crash in one page shows a reload button instead of a blank screen, and is reported. */
 class Boundary extends Component<{ children: ReactNode }, { err: Error | null }> {
   state = { err: null as Error | null };
   static getDerivedStateFromError(err: Error) { return { err }; }
-  componentDidCatch(err: Error, info: { componentStack?: string | null }) { reportError(err, { where: 'react', stack: info.componentStack?.slice(0, 2000) }); }
+  componentDidCatch(err: Error, info: { componentStack?: string | null }) {
+    if (STALE.test(err.message) && reloadForNewVersion()) return;
+    reportError(err, { where: 'react', stack: info.componentStack?.slice(0, 2000) });
+  }
   render() {
     if (!this.state.err) return this.props.children;
+    if (STALE.test(this.state.err.message)) return <div className="crash"><b>The desk was just updated.</b><p className="muted">Reload to open the new version.</p><button className="btn primary" onClick={() => location.reload()}>Reload</button></div>;
     return <div className="crash"><b>Something broke on this page.</b><p className="muted">{this.state.err.message}</p><button className="btn primary" onClick={() => location.reload()}>Reload</button></div>;
   }
 }
