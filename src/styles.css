@@ -1938,3 +1938,7 @@ body:has(.hw.dragging)::before { animation-play-state: paused; }
 .mtf-msg { position: absolute; inset: 40px 0 0; display: grid; place-items: center; pointer-events: none; }
 /* the four charts are fixed: tabs can be dragged and split, not closed */
 .mtf-dv .dv-default-tab .dv-default-tab-action { display: none !important; }
+
+/* earnings: tonight & tomorrow */
+.et-bar { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 6px 0 2px; flex-wrap: wrap; }
+.et-move { font-weight: 600; }

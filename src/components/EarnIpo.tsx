@@ -8,6 +8,7 @@ import { useDesk } from '../lib/deskctx';
 import type { NewsItem } from '../../shared/news';
 import { isIpoHeadline, surprisePct, type EarnItem, type IpoItem } from '../../shared/eventsCal';
 import { Fresh, PageTabs } from './common';
+import { EarnTonight } from './EarnTonight';
 import type { HomeData } from './HomeWidgets';
 import { etTime } from '../lib/clock';
 
@@ -28,7 +29,7 @@ const shortDate = (d: string) => (d ? new Date(`${d}T12:00:00Z`).toLocaleDateStr
 export function EarnIpoPanel({ mode, mySyms, news, onSelect, compact = false }: { mode: DataMode; mySyms: Set<string>; news: NewsItem[]; onSelect: (s: string) => void; compact?: boolean }) {
   const { cal, error, loading } = useEventCal(mode, [...mySyms]);
   const { openArticle } = useDesk();
-  const [tab, setTab] = useState<'earn' | 'ipo' | 'news'>('earn');
+  const [tab, setTab] = useState<'tonight' | 'earn' | 'ipo' | 'news'>('tonight');
   const [day, setDay] = useState<string | null>(null);
   const [only, setOnly] = useState<'all' | 'mine'>('all');
   const today = new Date().toISOString().slice(0, 10);
@@ -75,9 +76,11 @@ export function EarnIpoPanel({ mode, mySyms, news, onSelect, compact = false }: 
   return (
     <div className={`ei ${compact ? 'compact' : ''}`}>
       <div className="hw-bar">
-        <PageTabs<'earn' | 'ipo' | 'news'> value={tab} onChange={setTab} options={[{ id: 'earn', label: 'Earnings' }, { id: 'ipo', label: 'IPOs', count: upcoming.length || undefined }, { id: 'news', label: 'IPO news' }]} />
+        <PageTabs<'tonight' | 'earn' | 'ipo' | 'news'> value={tab} onChange={setTab} options={[{ id: 'tonight', label: 'Tonight & tomorrow', hint: 'After-close and before-open reports with after-hours / premarket moves' }, { id: 'earn', label: 'Earnings' }, { id: 'ipo', label: 'IPOs', count: upcoming.length || undefined }, { id: 'news', label: 'IPO news' }]} />
         <Fresh kind="delayed" at={cal.asOf} src={`Earnings: ${cal.sources.earnings}. IPOs: ${cal.sources.ipos}. Filings: ${cal.sources.filings}. Nasdaq's calendar is unofficial; estimates come from analyst consensus and can change.`} />
       </div>
+
+      {tab === 'tonight' && <EarnTonight earnings={cal.earnings} days={cal.days} mySyms={mySyms} onSelect={onSelect} compact={compact} />}
 
       {tab === 'earn' && (
         <>
