@@ -2143,3 +2143,22 @@ body:has(.hw.dragging)::before { animation-play-state: paused; }
 
 .mc-miss { flex: 1 1 220px; min-width: 0; align-self: center; }
 .tr-row > span:nth-child(2) { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* Journal → Calendar */
+.jc { display: grid; grid-template-columns: minmax(0, 1fr) minmax(260px, 320px); gap: 14px; align-items: start; padding: 4px 2px; }
+.jc-head { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; } .jc-month { min-width: 140px; text-align: center; } .jc-by { margin-left: auto; }
+.jc-sum { display: flex; flex-wrap: wrap; gap: 4px 16px; padding: 6px 0; }
+.jc-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)) 70px; gap: 4px; }
+.jc-dow { font-size: 10.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); padding: 2px 4px; } .jc-wkh { text-align: right; }
+.jc-day { border: 1px solid var(--line); border-radius: 6px; min-height: 70px; padding: 4px 6px; display: flex; flex-direction: column; gap: 2px; background: var(--panel); text-align: left; color: var(--text); cursor: pointer; }
+.jc-day.out { opacity: .4; } .jc-day.today { box-shadow: inset 0 0 0 1px var(--accent); } .jc-day.sel { outline: 2px solid var(--accent); outline-offset: -1px; }
+.jc-day.up { background: color-mix(in srgb, var(--up) 12%, var(--panel)); } .jc-day.down { background: color-mix(in srgb, var(--down) 12%, var(--panel)); }
+.jc-d { font-size: 11.5px; color: var(--muted); } .jc-p { font-size: 13px; } .jc-m { font-size: 10.5px; color: var(--muted); display: flex; gap: 4px; flex-wrap: wrap; }
+.jc-wk { display: flex; align-items: center; justify-content: flex-end; font-size: 12px; padding-right: 4px; }
+.jc-side { border: 1px solid var(--line); border-radius: 8px; padding: 12px; display: flex; flex-direction: column; gap: 8px; min-width: 0; background: var(--panel); }
+.jc-side textarea, .jc-side input, .jc-side select { width: 100%; background: var(--panel-2); border: 1px solid var(--line); border-radius: 5px; padding: 6px 8px; color: var(--text); font: inherit; font-size: 12.5px; }
+.jc-side label { display: flex; flex-direction: column; gap: 3px; }
+.jc-opts { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.jc-list { display: flex; flex-direction: column; gap: 3px; }
+.jc-row { display: grid; grid-template-columns: 54px 1fr auto; gap: 6px; align-items: center; padding: 3px 0; border-bottom: 1px solid color-mix(in srgb, var(--line) 60%, transparent); }
+.jc-tot { border-bottom: 0; padding-top: 6px; }

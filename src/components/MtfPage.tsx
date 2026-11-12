@@ -5,7 +5,8 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { DockviewReact, type DockviewReadyEvent, type IDockviewPanelProps } from 'dockview-react';
 import 'dockview-react/dist/styles/dockview.css';
-import { CandlestickSeries, ColorType, CrosshairMode, HistogramSeries, LineSeries, createChart, type IChartApi, type ISeriesApi, type UTCTimestamp } from 'lightweight-charts';
+import { CandlestickSeries, ColorType, CrosshairMode, HistogramSeries, LineSeries, LineStyle, createChart, type IChartApi, type IPriceLine, type ISeriesApi, type UTCTimestamp } from 'lightweight-charts';
+import { dayFibs, priorDayHL } from '../../shared/dayfib';
 import type { DataMode } from '../data/live';
 import type { Bar } from '../../shared/types';
 import { MTF_LABEL, MTF_TFS, type MtfTF } from '../../shared/mtf';
@@ -21,7 +22,7 @@ const TOP = ['NVDA', 'AAPL', 'MSFT', 'AMZN', 'META', 'TSLA', 'AMD', 'GOOGL'];
 const REFRESH: Record<MtfTF, number> = { '1m': 30_000, '3m': 45_000, '5m': 60_000, '15m': 90_000, '1h': 180_000, '4h': 300_000, '1d': 600_000, '1w': 1_800_000 };
 const cssVar = (n: string) => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
 
-interface Ctx { slots: Slot[]; active: string; setActive: (id: string) => void; setSlot: (id: string, p: Partial<Slot>) => void; linked: boolean; mode: DataMode }
+interface Ctx { slots: Slot[]; active: string; setActive: (id: string) => void; setSlot: (id: string, p: Partial<Slot>) => void; linked: boolean; mode: DataMode; fib: boolean }
 const MtfCtx = createContext<Ctx | null>(null);
 
 /** EMA of closes */
@@ -96,6 +97,25 @@ function MtfChart({ slot }: { slot: Slot }) {
     }
   }, [bars, intraday, slot.sym, slot.tf]);
 
+  // today's Fibonacci levels from yesterday's high and low (not on weekly bars)
+  const fibLines = useRef<IPriceLine[]>([]);
+  useEffect(() => {
+    const x = ser.current;
+    if (!x) return;
+    for (const l of fibLines.current) x.c.removePriceLine(l);
+    fibLines.current = [];
+    if (!ctx.fib || slot.tf === '1w') return;
+    const pd = priorDayHL(bars);
+    if (!pd) return;
+    const gold = cssVar('--warn'), faint = cssVar('--muted');
+    fibLines.current.push(x.c.createPriceLine({ price: pd.high, color: cssVar('--up'), lineWidth: 1, lineStyle: LineStyle.Dashed, axisLabelVisible: false, title: 'PDH' }));
+    fibLines.current.push(x.c.createPriceLine({ price: pd.low, color: cssVar('--down'), lineWidth: 1, lineStyle: LineStyle.Dashed, axisLabelVisible: false, title: 'PDL' }));
+    for (const f of dayFibs(pd.high, pd.low)) {
+      const key = f.ratio === 0.5 || f.ratio === 0.618;
+      fibLines.current.push(x.c.createPriceLine({ price: f.price, color: key ? gold : faint, lineWidth: 1, lineStyle: f.kind === 'ext' ? LineStyle.SparseDotted : LineStyle.Dotted, axisLabelVisible: key, title: f.label }));
+    }
+  }, [bars, ctx.fib, slot.tf]);
+
   const last = bars.at(-1), prev = bars.at(-2);
   const chg = last && prev ? (last.close / prev.close - 1) * 100 : null;
   const on = ctx.active === slot.id;
@@ -166,7 +186,8 @@ export default function MtfPage({ mode, mySyms }: { mode: DataMode; mySyms: stri
   };
   const resetLayout = () => { setLayout(null); const a = api.current; if (!a) return; a.clear(); onReady({ api: a } as DockviewReadyEvent); };
 
-  const ctx = useMemo<Ctx>(() => ({ slots, active, setActive, setSlot, linked, mode }), [slots, active, setSlot, linked, mode]);
+  const [fib, setFib] = usePersisted<boolean>('mtfFib', true);
+  const ctx = useMemo<Ctx>(() => ({ slots, active, setActive, setSlot, linked, mode, fib }), [slots, active, setSlot, linked, mode, fib]);
   const mine = [...new Set(mySyms)].filter((s) => !INDEXES.includes(s) && !TOP.includes(s)).slice(0, 10);
   const cur = slots.find((s) => s.id === active)?.sym ?? slots[0].sym;
   const chip = (s: string) => <button key={s} className={`chip sm ${slots.some((x) => x.sym === s) && (linked || cur === s) ? 'on' : ''}`} onClick={() => pick(s)}>{s}</button>;
@@ -180,6 +201,7 @@ export default function MtfPage({ mode, mySyms }: { mode: DataMode; mySyms: stri
           <button className={`btn ${linked ? 'primary' : ''}`} onClick={toggleLink} title={linked ? 'Linked: one ticker on 3m, 15m, 1h and daily. Click to give each chart its own ticker.' : 'Unlinked: search changes only the chart you last clicked. Click to link all four.'}>
             {linked ? '🔗 Linked' : 'Unlinked'}
           </button>
+          <button className={`chip sm ${fib ? 'on' : ''}`} onClick={() => setFib(!fib)} aria-pressed={fib} title="Fibonacci levels for today from yesterday's high and low (50% and 61.8% highlighted)">Fib</button>
           <button className="btn" onClick={resetLayout} title="Put the four charts back in a 2 x 2 grid">Reset layout</button>
         </div>
         <div className="mtf-chips">

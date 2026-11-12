@@ -1,4 +1,5 @@
 // Full journal (trades, stats, violations, import) and the account drawer.
+import { JournalCalendar } from './JournalCalendar';
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { ColorType, LineSeries, createChart, type UTCTimestamp } from 'lightweight-charts';
 import {
@@ -14,7 +15,7 @@ import { load, save } from '../lib/store';
 import { ScreenshotInput, uid } from './Trading';
 import { realized } from '../../shared/webull';
 
-type Tab = 'trades' | 'stats' | 'violations' | 'import';
+type Tab = 'trades' | 'calendar' | 'stats' | 'violations' | 'import';
 const fmtDate = (ms: number) => { const d = etDay(ms); return `${d.slice(5, 7)}/${d.slice(8)} ${etTime(ms)}`; };
 const r2 = (x: number | null) => (x == null ? '—' : `${x >= 0 ? '+' : ''}${x.toFixed(2)}R`);
 
@@ -43,7 +44,7 @@ export function JournalOverlay(p: JournalProps) {
       <div className="overlay-in jn">
         <div className="phead">
           <div className="phead-title">
-            <PageTabs<Tab> value={tab} onChange={setTab} options={[{ id: 'trades', label: 'Trades', count: p.views.filter((v) => !v.t.deleted).length || undefined }, { id: 'stats', label: 'Stats' }, { id: 'violations', label: 'Violations', count: p.violations.length || undefined }, { id: 'import', label: 'Import' }]} />
+            <PageTabs<Tab> value={tab} onChange={setTab} options={[{ id: 'trades', label: 'Trades', count: p.views.filter((v) => !v.t.deleted).length || undefined }, { id: 'calendar', label: 'Calendar', hint: 'trades on their close or expiration day, with your notes' }, { id: 'stats', label: 'Stats' }, { id: 'violations', label: 'Violations', count: p.violations.length || undefined }, { id: 'import', label: 'Import' }]} />
           </div>
           <div className="phead-ctl">
             {hasDemo && <><Fresh kind="demo" /><button className="chip sm" onClick={() => p.setTrades((ts) => ts.map((t) => (t.demo ? { ...t, deleted: true, updated: Date.now() } : t)))}>Remove sample trades</button></>}
@@ -52,6 +53,7 @@ export function JournalOverlay(p: JournalProps) {
         </div>
         <div className="jn-body">
           {tab === 'trades' && <Trades {...p} />}
+          {tab === 'calendar' && <JournalCalendar views={p.views} onSelect={p.onSelect} />}
           {tab === 'stats' && <StatsTab views={p.views} />}
           {tab === 'violations' && <ViolationsTab v={p.violations} />}
           {tab === 'import' && <ImportTab {...p} />}
