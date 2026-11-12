@@ -104,3 +104,18 @@ export async function perps(): Promise<Response> {
     return json({ perps: val, asOf: Date.now(), source: 'Hyperliquid public API (a crypto derivatives exchange); funding is paid hourly between longs and shorts' }, { sMaxAge: 60 });
   } catch (e) { return json({ error: (e as Error).message.slice(0, 160) }, { status: 502 }); }
 }
+
+/** fn=pulse  SPY / QQQ / IWM intraday lines plus breadth (how many of the ~500 big US stocks are up, down or flat today). */
+export async function pulse(): Promise<Response> {
+  const syms = ['SPY', 'QQQ', 'IWM'];
+  let px: Record<string, Px> = {}, breadth: { up: number; down: number; flat: number; total: number } | null = null, err = '';
+  try { px = (await cached('pulse:px', ttl(60, 600), () => yahooPx(syms))).val; } catch (e) { err = (e as Error).message.slice(0, 120); }
+  try {
+    const { snap } = await snapshot();
+    const ch = Object.values(snap).map((x) => x.c).filter((c) => Number.isFinite(c));
+    if (ch.length > 50) breadth = { up: ch.filter((c) => c > 0.05).length, down: ch.filter((c) => c < -0.05).length, flat: ch.filter((c) => Math.abs(c) <= 0.05).length, total: ch.length };
+  } catch { /* breadth is optional */ }
+  const rows = syms.map((s) => px[s]).filter(Boolean);
+  if (!rows.length && !breadth) return json({ error: err || 'no data' }, { status: 502 });
+  return json({ rows, breadth, asOf: Date.now(), source: 'Yahoo Finance (unofficial, ~15 min delayed); breadth from the TradingView screener' }, { sMaxAge: ttl(60, 600) });
+}

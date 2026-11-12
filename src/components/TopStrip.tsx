@@ -1,4 +1,5 @@
 import type { Freshness, MacroResult, Mode, Quote } from '../types';
+import { MarketPulse } from './MarketPulse';
 import type { ClockState } from '../lib/clock';
 import type { AccountSettings, Guard } from '../lib/journal';
 import { pct, px, sUsd, tone, usd } from '../lib/format';
@@ -33,6 +34,7 @@ export function TopStrip({
   vol,
   moveStats,
   onWorld,
+  live,
 }: {
   account: { guard: Guard; settings: AccountSettings; demo: boolean; demoPrices: boolean };
   marketSource?: string;
@@ -67,6 +69,7 @@ export function TopStrip({
         <Fresh kind={quoteFresh} at={quoteAsOf} src={quoteSource} />
         {movement && <MovementBadge m={movement} vol={vol} stats={moveStats} />}
       </div>
+      <MarketPulse live={live} onSelect={onSelect} />
 
       {(clk.holiday || clk.earlyClose) && (
         <div className="top-group">

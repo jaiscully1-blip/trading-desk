@@ -64,7 +64,7 @@ import { Desk, type Article, type DeskCtx } from './lib/deskctx';
 import { isOwner, storagePrefix } from './lib/accounts';
 import TickerInfo from './components/TickerInfo';
 import { OFFLINE_NAMES } from './data/info';
-import { earningsPings, levelPings, movePing, watchLevels, type Ping } from './lib/pings';
+import { earningsPings, levelPings, movePing, toneOf, watchLevels, type Ping } from './lib/pings';
 import { useEarnings, useNames } from './data/company';
 import type { ChartTF } from './types';
 import type { Bar } from '../shared/types';
@@ -235,7 +235,11 @@ export default function App() {
   const [, setAlertLog] = usePersisted<AlertItem[]>('alertLog', []);
   const [toast, setToast] = useState('');
   const toastT = useRef<ReturnType<typeof setTimeout>>(undefined);
-  const flash = useCallback((m: string, ms = 2200) => { setToast(m); clearTimeout(toastT.current); toastT.current = setTimeout(() => setToast(''), ms); }, []);
+  // desk messages join the corner stack (newest in front, older ones folded behind); pop-out windows keep the simple toast
+  const flash = useCallback((m: string, ms = 2200, extra?: Partial<Ping>) => {
+    if (POPOUT) { setToast(m); clearTimeout(toastT.current); toastT.current = setTimeout(() => setToast(''), ms); return; }
+    setPings((x) => [{ id: `desk:${Date.now()}:${Math.random().toString(36).slice(2, 6)}`, t: Date.now(), sym: '', kind: 'desk' as const, text: m, tone: toneOf(m), ms: Math.max(ms, 3500), ...extra }, ...x].slice(0, 20));
+  }, []);
 
   // Sync the selected ticker across popped-out windows
   const bc = useRef<BroadcastChannel | null>(null);
@@ -512,7 +516,7 @@ export default function App() {
     if (!fired.length) return;
     const items = fired.map((ev) => ({ t: Date.now(), sym: ev.sym, text: `${ev.sym} ${ev.kind === 'break' ? `broke ${ev.dir === 'up' ? 'above' : 'below'}` : 'touched'} ${LEVEL_SHORT[ev.id]} ${px(ev.level)} (last ${px(ev.price)})` }));
     setAlertLog((l) => [...items, ...l].slice(0, 100));
-    flash(items[0].text, 6000);
+    flash(items[0].text, 8000, { kind: 'level', sym: items[0].sym });
     beep();
     try {
       if (Notification.permission === 'granted') for (const it of items) new Notification(it.text, { tag: it.text });
@@ -995,7 +999,6 @@ export default function App() {
       <Suspense fallback={null}>{pbOpen && <PlaybookEditor playbooks={playbooks} setPlaybooks={setPlaybooks} activeId={activePb?.id ?? ''} setActiveId={(id) => setScanPrefs((x) => ({ ...x, playbookId: id }))} rows={rows} vwap={vwapBy} onClose={() => setPbOpen(false)} />}</Suspense>
       {syncOpen && <SyncDialog user={cloudUser?.email ?? null} onClose={() => setSyncOpen(false)} />}
       {overlay === 'help' && <OverlayView kind="help" onClose={() => setOverlay(null)} />}
-      {toast && <div className="toast" role="status">{toast}</div>}
       <Suspense fallback={null}>{article && <ReaderOverlay a={article} mode={dataMode} onClose={() => setArticle(null)}  />}</Suspense>
       <Suspense fallback={null}>{orderReq && isOwner() && <OrderTicket initial={orderReq.initial} last={orderReq.last ?? (orderReq.initial.sym && Number.isFinite(quotes[orderReq.initial.sym]?.last) ? quotes[orderReq.initial.sym].last : null)} live={live} onClose={() => setOrderReq(null)} onPlaced={(t) => flash(`Sent to Webull: ${t}`, 5000)} />}</Suspense>
       {info && <TickerInfo key={info.sym} sym={info.sym} at={info.at} mode={dataMode} onClose={() => setInfo(null)} onChart={toDesk} onCompany={openCompany} />}

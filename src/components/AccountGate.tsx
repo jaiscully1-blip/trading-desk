@@ -139,7 +139,7 @@ export function AccountGate() {
   return (
     <main className="ag">
       <div className="ag-card">
-        <div className="ag-brand"><span className="nv-logo">D</span><b>Desk</b></div>
+        <div className="ag-brand"><img className="nv-logo nv-logo-img" src="/logo.jpg" alt="" width="34" height="34" /><b>Trade Desk</b></div>
         {mode === 'new' || !has ? <Create onBack={has ? () => setMode('pick') : undefined} /> : <Pick onNew={() => setMode('new')} />}
       </div>
     </main>

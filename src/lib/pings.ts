@@ -2,8 +2,12 @@
 import type { Bar } from '../types';
 import { analyze } from '../../shared/patterns';
 
-export type PingKind = 'news' | 'earnings' | 'move' | 'level' | 'rotation' | 'keyword' | 'alert';
-export interface Ping { id: string; t: number; sym: string; kind: PingKind; text: string; url?: string; tone?: 'up' | 'down' }
+export type PingKind = 'news' | 'earnings' | 'move' | 'level' | 'rotation' | 'keyword' | 'alert' | 'desk';
+export interface Ping { id: string; t: number; sym: string; kind: PingKind; text: string; url?: string; tone?: 'up' | 'down'; /** how long it stays (desk messages are short) */ ms?: number }
+
+/** Direction of a desk message from its wording, for the colored edge of the pop-up. */
+export const toneOf = (text: string): 'up' | 'down' | undefined =>
+  /\b(below|down|lost|fell|drops?|broke below|under)\b|▼/i.test(text) ? 'down' : /\b(above|up|new high|rallied|broke above|over)\b|▲/i.test(text) ? 'up' : undefined;
 
 /** Move pings fire once per day each time the day's change crosses another multiple of the threshold (3%, 6%, 9%…). */
 export function movePing(sym: string, chgPct: number, threshold: number, day: string, fired: Set<string>): Ping | null {

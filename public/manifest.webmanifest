@@ -1,6 +1,6 @@
 {
-  "name": "Trading Desk",
-  "short_name": "Desk",
+  "name": "Trade Desk",
+  "short_name": "Trade Desk",
   "description": "Personal trading desk: swing momentum and SPY/QQQ intraday.",
   "start_url": "/",
   "scope": "/",
