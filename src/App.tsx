@@ -732,7 +732,7 @@ export default function App() {
     { id: 'map', label: 'World map page', hint: 'M', run: () => setPage('map') },
     { id: 'globe', label: 'Sector rotation page', hint: 'G', run: () => setPage('flows') },
     { id: 'etfs', label: 'ETFs & sectors: heatmap, ETF holdings, baskets', hint: 'U', run: () => setPage('etfs') },
-    { id: 'smart', label: 'Institutional Holdings: 13F investors, ARK, politicians', hint: 'I', run: () => setPage('smart') },
+    { id: 'smart', label: '13F Tracker: big investors, ARK, politicians', hint: 'I', run: () => setPage('smart') },
     { id: 'odds', label: 'Economic odds (Fed, recession, CPI)', hint: 'Y', run: () => setPage('odds') },
     { id: 'status', label: 'Data status: which sources are working or limited', hint: '⇧B', run: () => setPage('status') },
     { id: 'mtf', label: 'Multi-timeframe: 4 linked charts (3m, 15m, 1h, daily)', hint: '⇧M', run: () => setPage('mtf') },

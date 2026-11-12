@@ -196,7 +196,7 @@ export default function EssayPage({ mode, onChart }: { mode: DataMode; onChart: 
             {sym && tab === 'hold' && (
               <>
                 <InsiderW d={{ mode, sel: sym } as never} cfg={{ sym }} set={() => {}} />
-                <p className="note">Insider buys and sells from SEC Form 4. Big funds' holdings (13F) are on the Institutional Holdings page, by fund.</p>
+                <p className="note">Insider buys and sells from SEC Form 4. Big funds' holdings (13F) are on the 13F Tracker page, by fund.</p>
               </>
             )}
             {sym && tab === 'peers' && <PeersTab sym={sym} mode={mode} onChart={onChart} />}
