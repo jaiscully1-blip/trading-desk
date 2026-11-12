@@ -1,5 +1,6 @@
 // Company page: what they do, main products, and a clickable supply chain (suppliers -> company -> customers, competitors below).
 // Click any company with a ticker to re-center the diagram on it. Facts come from the latest 10-K, read by free Gemini.
+import { FundCharts } from './FundCharts';
 import { TranscriptView } from './Transcript';
 import { TearSheet } from './TearSheet';
 import { QuantPanel } from './QuantRead';
@@ -197,6 +198,8 @@ export default function CompanyPage({ sym, mode, onOpen, onChart, onPatterns }: 
                 <Links title="Customers" xs={f?.customers ?? []} onOpen={go} />
               </div>
               <Peers named={named} peers={peerOnly} onOpen={go} />
+              <h4>Fundamentals over time <span className="muted small">· from SEC filings</span></h4>
+              <FundCharts mode={mode} sym={sym} />
             </div>
           </div>
         )}

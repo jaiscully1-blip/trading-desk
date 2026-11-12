@@ -654,11 +654,11 @@ export default function App() {
     ['kelly', 'KELLY · Odds of your next trades (simulator)', () => openWidget('sim')], ['calc', 'CALC · Risk and position calculator', () => openWidget('risk')],
     ['note', 'NOTE · Sticky notes', () => openWidget('notes')], ['al', 'AL · Keyword alerts (Messages)', () => setPage('messages')],
     ['qm', 'QM · Quote monitor (watchlist on the desk)', () => setPage('desk')], ['shrt', 'SHRT · Most-shorted stocks', () => openWidget('hisi')],
-    ['hous', 'HOUS · Housing (Zillow)', () => openWidget('housing')], ['glob', 'GLOB · Global → US', () => setPage('global')], ['wn', 'WN · World business news', () => setPage('global')],
+    ['hous', 'HOUS · Housing (Zillow)', () => openWidget('housing')], ['glob', 'GLOB · Global → US', () => setPage('global')], ['gf', 'GF · Fundamentals charts', () => openWidget('fund', { sym: sel })], ['wn', 'WN · World business news', () => setPage('global')],
   ].map(([id, label, run]) => ({ id: id as string, label: label as string, run: run as () => void, code: true, group: 'Codes' }));
   // codes that take a ticker ("NVDA DES", "AAPL BETA")
   const withSym: Record<string, (s: string) => void> = {
-    des: (s) => { setCompanySym(s); setPage('company'); }, tas: (s) => openWidget('tape', { sym: s }),
+    des: (s) => { setCompanySym(s); setPage('company'); }, tas: (s) => openWidget('tape', { sym: s }), gf: (s) => openWidget('fund', { sym: s }),
     hms: (s) => openWidget('analysis', { tab: 'compare', syms: [s, 'SPY'] }), beta: (s) => openWidget('analysis', { tab: 'beta', syms: [s] }), hrh: (s) => openWidget('analysis', { tab: 'returns', syms: [s] }),
   };
   for (const c of codes) if (withSym[c.id]) c.runSym = withSym[c.id];

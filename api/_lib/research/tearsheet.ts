@@ -4,6 +4,7 @@
 import { parseSecTickers } from '../../../shared/company.js';
 import { parseYahooBars } from '../../../shared/rotation.js';
 import { closeOn, floatShares, tearFromFacts } from '../../../shared/tearsheet.js';
+import { fundSeries } from '../../../shared/fundseries.js';
 import { finnhubEarnings, finnhubMetrics, finraShortInterest, secJson } from '../adapters.js';
 import { pickWikidata, valuation, wikidataQuery } from '../../../shared/analysis.js';
 import { SYMBOL_RE, cached, getJson, hasKey, json } from '../core.js';
@@ -57,4 +58,20 @@ export async function GET(req: Request): Promise<Response> {
     errors, asOf: now,
     sources: { prices: 'Yahoo Finance (unofficial, delayed)', facts: 'SEC XBRL company facts (from 10-K / 10-Q filings)', float: 'Estimated: SEC public float (non-affiliate value) ÷ close on that date', shortInterest: 'FINRA consolidated short interest (twice a month)', earnings: 'Finnhub earnings calendar', profile: 'Wikidata (community-edited; check the company site)', valuation: 'Finnhub basic financials', dividend: 'Nasdaq dividend history (unofficial)' },
   }, { sMaxAge: 900 });
+}
+
+/** fn=fundseries&symbol=NVDA -> revenue, profit, EPS, margins, free cash flow, shares, cash, debt by fiscal year and by
+ *  quarter (SEC XBRL company facts; quarters worked out from year-to-date totals where filers report those). */
+export async function fundseriesRoute(req: Request): Promise<Response> {
+  const sym = (new URL(req.url).searchParams.get('symbol') ?? '').toUpperCase();
+  if (!SYMBOL_RE.test(sym)) return json({ error: 'bad symbol' }, { status: 400 });
+  if (!hasKey('sec')) return json({ error: 'SEC_USER_AGENT is not set' }, { status: 503 });
+  try {
+    const tick = (await cached('sec:tickers', 86400, async () => parseSecTickers(await secJson('https://www.sec.gov/files/company_tickers.json')))).val;
+    const t = tick.find((x) => x.ticker === sym || x.ticker === sym.replace('.', '-'));
+    if (!t) return json({ sym, error: `${sym} doesn't file with the SEC (fund, foreign or not listed), so there are no XBRL facts.` }, { status: 404 });
+    const { val } = await cached(`fundseries:${t.cik}`, 86400, async () => fundSeries(await secJson(`https://data.sec.gov/api/xbrl/companyfacts/CIK${String(t.cik).padStart(10, '0')}.json`)));
+    if (!val.annual.length && !val.quarterly.length) return json({ sym, error: 'No revenue or profit lines found in the filings.' }, { status: 404 });
+    return json({ sym, name: t.title, ...val, asOf: Date.now(), source: 'SEC XBRL company facts (10-K and 10-Q filings). Quarter labels are the calendar quarter of each period end.' }, { sMaxAge: 6 * 3600 });
+  } catch (e) { const m = (e as Error).message; return json({ sym, error: /404/.test(m) ? `${sym} has no financial statements on file with the SEC (funds and trusts don't report these).` : m.slice(0, 160) }, { status: /404/.test(m) ? 404 : 502 }); }
 }

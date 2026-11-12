@@ -2100,3 +2100,11 @@ body:has(.hw.dragging)::before { animation-play-state: paused; }
 .page.gl .gl-list { max-height: calc(100vh - 230px); }
 .page.gl { grid-template-rows: max-content max-content; grid-auto-rows: max-content; align-content: start; }
 .page.gl > section:first-child { height: auto; min-height: max-content; contain: none; flex: none; }
+
+/* fundamentals charts */
+.fc-bar { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding: 4px 10px; }
+.fc-chip { border: 1px solid var(--line); display: inline-flex; gap: 3px; } .fc-chip button { opacity: .7; padding: 0 2px; color: inherit; }
+.fc-svg { width: 100%; height: auto; display: block; padding: 0 6px; }
+.fc-x { font: 9.5px 'IBM Plex Mono', monospace; fill: var(--muted); text-anchor: middle; }
+.fc-g { font: 9px 'IBM Plex Mono', monospace; text-anchor: middle; } .fc-g.up { fill: var(--up); } .fc-g.down { fill: var(--down); }
+.fc-last { display: flex; flex-wrap: wrap; gap: 4px 14px; padding: 2px 10px; }
