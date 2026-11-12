@@ -6,10 +6,11 @@
 //   fn=reactions the last few earnings reports with the next-day move (earningsapi.com, needs EARNINGSAPI_KEY)
 import { highShortInterest, parseHolidays, parseMempool, parseReactions, parseTradeTime, parseZillowHead } from '../../../shared/extras.js';
 import { parseSecTickers } from '../../../shared/company.js';
+import { parseTranscript, quarterCandidates, transcriptSummary } from '../../../shared/transcript.js';
 import { latestByCik, recentInstantPeriods } from '../../../shared/tearsheet.js';
 import { frameUrl } from '../../../shared/distressGather.js';
 import { secJson } from '../adapters.js';
-import { SYMBOL_RE, cached, getJson, hasKey, json, key, take } from '../core.js';
+import { SYMBOL_RE, cached, getCached, getJson, hasKey, json, key, setCached, take } from '../core.js';
 
 const ymd = (ms: number) => new Date(ms).toISOString().slice(0, 10);
 const fail = (e: unknown, status = 502) => json({ error: (e as Error).message.slice(0, 160) }, { status });
@@ -97,5 +98,34 @@ export async function reactions(req: Request): Promise<Response> {
   try {
     const { val } = await cached(`eapi:react:${sym}`, 24 * 3600, async () => parseReactions(await getJson(`https://api.earningsapi.com/v1/earnings-reactions?symbol=${encodeURIComponent(sym)}&apikey=${key('earningsapi')}`, 'earningsapi', 10000)));
     return json({ sym, reports: val, asOf: Date.now(), source: 'Earnings API (earningsapi.com), free plan' }, { sMaxAge: 6 * 3600 });
+  } catch (e) { return fail(e); }
+}
+
+/** fn=transcript&symbol=AAPL[&quarter=2026Q3] -> an earnings call transcript (Alpha Vantage, free key, 25 calls a day for
+ *  the whole desk). Without a quarter it tries the newest fiscal quarters until one has a transcript; found ones are kept 30 days. */
+export async function transcript(req: Request): Promise<Response> {
+  const u = new URL(req.url);
+  const sym = (u.searchParams.get('symbol') ?? '').toUpperCase(), want = u.searchParams.get('quarter') ?? '';
+  if (!SYMBOL_RE.test(sym) || (want && !/^\d{4}Q[1-4]$/.test(want))) return json({ error: 'bad symbol or quarter' }, { status: 400 });
+  if (!hasKey('alphavantage')) return json({ needsKey: true, error: 'Transcripts need ALPHAVANTAGE_API_KEY (free).' }, { status: 503 });
+  // a found transcript is kept 30 days; "not out yet" only 12 hours, so a new call shows up the next day
+  const one = async (q: string) => {
+    if (getCached<boolean>(`tr:none:${sym}:${q}`)?.fresh) return null;
+    const hit = getCached<ReturnType<typeof parseTranscript>>(`tr:${sym}:${q}`);
+    if (hit?.fresh) return hit.val;
+    if (!take('alphavantage')) throw new Error('Alpha Vantage daily budget (25 calls) used up; try again tomorrow');
+    const j = await getJson(`https://www.alphavantage.co/query?function=EARNINGS_CALL_TRANSCRIPT&symbol=${encodeURIComponent(sym)}&quarter=${q}&apikey=${key('alphavantage')}`, 'alphavantage', 20000);
+    if (j?.Information || j?.Note) throw new Error(String(j.Information ?? j.Note).slice(0, 140));
+    const t = parseTranscript(j, sym, q);
+    if (t) setCached(`tr:${sym}:${q}`, t, 30 * 86400); else setCached(`tr:none:${sym}:${q}`, true, 12 * 3600);
+    return t;
+  };
+  try {
+    const tries = want ? [want] : quarterCandidates(Date.now(), 3);
+    for (const q of tries) {
+      const t = await one(q);
+      if (t) return json({ ...t, summary: transcriptSummary(t), tried: tries, asOf: Date.now(), source: 'Alpha Vantage earnings call transcripts (sentiment per turn is their model, −1 to 1)' }, { sMaxAge: 86400 });
+    }
+    return json({ sym, error: `No transcript yet for ${tries.join(', ')}.`, tried: tries }, { status: 404 });
   } catch (e) { return fail(e); }
 }

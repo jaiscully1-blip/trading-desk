@@ -2042,3 +2042,18 @@ body:has(.hw.dragging)::before { animation-play-state: paused; }
 .im-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 0 10px; }
 .im-h { padding: 2px 0 4px; }
 .im-row { display: grid; grid-template-columns: 1fr 0.8fr 0.6fr 0.6fr; gap: 4px; align-items: center; padding: 2px 0; }
+
+/* earnings call transcripts */
+.trv { width: min(920px, 94vw); max-height: 88vh; display: flex; flex-direction: column; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; }
+.trv-h { display: flex; gap: 8px; align-items: center; padding: 10px 14px; border-bottom: 1px solid var(--line); } .trv-h .icon-btn { margin-left: auto; }
+.trv-sum { display: flex; flex-wrap: wrap; gap: 4px 14px; padding: 8px 14px 2px; }
+.trv-an { padding: 2px 14px 6px; }
+.trv-bar { display: flex; gap: 8px; align-items: center; padding: 6px 14px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+.trv-bar input { flex: 1; min-width: 200px; background: transparent; border: 1px solid var(--line); border-radius: 5px; padding: 4px 8px; color: var(--fg); }
+.trv-list { overflow: auto; padding: 6px 14px 14px; }
+.trv-turn { padding: 8px 0; border-bottom: 1px solid color-mix(in srgb, var(--line) 50%, transparent); }
+.trv-turn p { margin: 4px 0 0; line-height: 1.5; font-size: 13px; }
+.trv-turn.r-analyst { padding-left: 10px; border-left: 2px solid var(--accent); }
+.trv-turn.r-operator { opacity: .6; }
+.trv-turn mark { background: color-mix(in srgb, var(--warn) 40%, transparent); color: inherit; }
+.cl-row { grid-template-columns: 60px 1.4fr 1.1fr 0.6fr 0.6fr; }

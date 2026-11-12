@@ -1,5 +1,6 @@
 // Company page: what they do, main products, and a clickable supply chain (suppliers -> company -> customers, competitors below).
 // Click any company with a ticker to re-center the diagram on it. Facts come from the latest 10-K, read by free Gemini.
+import { TranscriptView } from './Transcript';
 import { TearSheet } from './TearSheet';
 import { QuantPanel } from './QuantRead';
 import { Fragment, useState, type ReactNode } from 'react';
@@ -101,6 +102,7 @@ function Peers({ named, peers, onOpen }: { named: ChainLink[]; peers: ChainLink[
 export default function CompanyPage({ sym, mode, onOpen, onChart, onPatterns }: { sym: string; mode: DataMode; onOpen: (s: string) => void; onChart: (s: string) => void; onPatterns: (s: string) => void }) {
   const { names } = useDesk();
   const [trail, setTrail] = useState<string[]>([]);
+  const [call, setCall] = useState(false);
   const { data, loading, error, reading, retry } = useCompany(sym, names[sym] ?? sym, mode);
   const go = (s: string) => { if (s !== sym) { setTrail((t) => [...t.slice(-6), sym]); onOpen(s); } };
   const back = () => { const p = trail.at(-1); if (p) { setTrail((t) => t.slice(0, -1)); onOpen(p); } };
@@ -125,6 +127,7 @@ export default function CompanyPage({ sym, mode, onOpen, onChart, onPatterns }: 
   const pctOf = (s?: string) => { const m = s?.match(/(\d+(\.\d+)?)\s*%/); return m ? +m[1] : null; };
   return (
     <div className="page co-page">
+      {call && <TranscriptView sym={sym} onClose={() => setCall(false)} />}
       <section className="panel co">
         <div className="phead co-head">
           {trail.length > 0 && <button className="btn" onClick={back} title={`Back to ${trail.at(-1)}`}>← {trail.at(-1)}</button>}
@@ -133,6 +136,7 @@ export default function CompanyPage({ sym, mode, onOpen, onChart, onPatterns }: 
           {data?.demo && <span className="fresh fresh-demo">DEMO DATA</span>}
           <CompanySearch mode={mode} onOpen={go} current={sym} />
           <span className="phead-ctl">
+            <button className="btn" onClick={() => setCall(true)} title="Latest earnings call transcript (Alpha Vantage)">Earnings call</button>
             <button className="btn" onClick={() => onPatterns(sym)}>Patterns</button>
             <button className="btn primary" onClick={() => onChart(sym)}>Open on desk</button>
           </span>
