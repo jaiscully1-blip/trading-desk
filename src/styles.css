@@ -1912,3 +1912,29 @@ body:has(.hw.dragging)::before { animation-play-state: paused; }
 .co-search-list li em { grid-column: 2; font-style: normal; }
 .co-search-list li.on { background: var(--sel); }
 .co-search-none { display: block !important; cursor: default !important; }
+
+/* ---------- multi-timeframe page ---------- */
+.mtf { display: flex; flex-direction: column; min-height: 0; height: 100%; }
+.mtf-top { height: auto; min-height: 44px; gap: 10px; flex-wrap: wrap; }
+.mtf-top .co-search { margin-left: 4px; }
+.mtf-chips { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; padding: 6px 10px; border-bottom: 1px solid var(--line); }
+.mtf-chips > .small { margin: 0 2px 0 8px; }
+.mtf-chips > .small:first-child { margin-left: 0; }
+.mtf-dock { flex: 1; min-height: 420px; position: relative; }
+.mtf-dv { position: absolute; inset: 0;
+  --dv-background-color: transparent; --dv-group-view-background-color: var(--chart-bg, var(--panel));
+  --dv-tabs-and-actions-container-background-color: var(--panel-2); --dv-activegroup-visiblepanel-tab-background-color: var(--chart-bg, var(--panel));
+  --dv-inactivegroup-visiblepanel-tab-background-color: var(--panel-2); --dv-tab-divider-color: var(--line); --dv-separator-border: var(--line-2);
+  --dv-activegroup-visiblepanel-tab-color: var(--text); --dv-inactivegroup-visiblepanel-tab-color: var(--muted); --dv-paneview-active-outline-color: var(--accent);
+  --dv-drag-over-background-color: color-mix(in srgb, var(--accent) 20%, transparent); --dv-drag-over-border-color: var(--accent); }
+.mtf-cell { position: relative; display: flex; flex-direction: column; height: 100%; min-height: 0; border: 1px solid transparent; }
+.mtf-cell.on { border-color: color-mix(in srgb, var(--accent) 55%, transparent); }
+.mtf-h { display: flex; align-items: center; gap: 8px; padding: 4px 8px; flex-wrap: wrap; border-bottom: 1px solid var(--line); }
+.mtf-h b { color: var(--accent); }
+.mtf-h select { background: var(--panel-2); color: var(--text); border: 1px solid var(--line-2); border-radius: 4px; font-size: 11.5px; padding: 1px 4px; }
+.mtf-n { max-width: 160px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mtf-legend { margin-left: auto; }
+.mtf-chart { flex: 1; min-height: 0; }
+.mtf-msg { position: absolute; inset: 40px 0 0; display: grid; place-items: center; pointer-events: none; }
+/* the four charts are fixed: tabs can be dragged and split, not closed */
+.mtf-dv .dv-default-tab .dv-default-tab-action { display: none !important; }
