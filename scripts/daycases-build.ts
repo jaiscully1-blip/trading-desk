@@ -1,4 +1,4 @@
-// Daily bull / bear / stagnant cases for SPY, QQQ and IWM, plus the special-days calendar with each day type's measured effect.
+// Daily bull / bear / stagnant cases for SPY, QQQ, IWM and DIA, plus the special-days calendar with each day type's measured effect.
 // Writes published/daycases.json (the desk and the Discord bots read it) and published/daycases-log.json (every morning's cases
 // and, once the day is over, which case played out: the running record of how well the base rates do).
 // Run by .github/workflows/daycases.yml before the open (with the premarket gap) and after the close (grades the day, previews
@@ -11,7 +11,7 @@ import { NYSE_HOLIDAYS } from '../shared/marketCalendar.js';
 import { KINDS, calendarEvents, dayRows, firstFridays, fomcFromFedHtml, kindOf, measureEvents, tradingCalendarEvents, type EventDay, type EventStat } from '../shared/eventDays.js';
 import { caseOf, dayCases, type Bar, type Premarket, type SymCases } from '../shared/dayCases.js';
 
-const SYMS = ['SPY', 'QQQ', 'IWM'];
+const SYMS = ['SPY', 'QQQ', 'IWM', 'DIA'];
 const errors: Record<string, string> = {};
 const ua = { 'user-agent': 'Mozilla/5.0 (trading-desk; personal research)' };
 const get = async (url: string, as: 'json' | 'text' = 'json') => { const r = await fetch(url, { headers: ua, signal: AbortSignal.timeout(30000) }); if (!r.ok) throw new Error(`HTTP ${r.status}`); return as === 'json' ? r.json() : r.text(); };

@@ -194,10 +194,10 @@ export default function SmartMoney({ mode, onChart, extra }: { mode: DataMode; o
   const [tab, setTab] = usePersisted<Tab>('smTab', 'funds');
   const live = mode.kind === 'live';
   return (
-    <div className="overlay" role="dialog" aria-label="Smart money">
+    <div className="overlay" role="dialog" aria-label="Institutional Holdings">
       <div className="overlay-in sm">
         <div className="phead">
-          <div className="phead-title">Smart money</div>
+          <div className="phead-title">Institutional Holdings</div>
           <div className="phead-ctl">{extra}<PageTabs value={tab} onChange={setTab} options={[{ id: 'funds', label: 'Big investors (13F)' }, { id: 'ark', label: 'ARK daily' }, { id: 'pols', label: 'Politicians' }]} /></div>
         </div>
         <div className="sm-body">

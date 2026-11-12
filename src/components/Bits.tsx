@@ -195,7 +195,7 @@ export function OverlayView({ kind, onClose }: { kind: 'map' | 'globe' | 'help';
       ['Ctrl K', 'Command bar: jump to ticker or run /command'],
       ['W  H  E  C', 'Today: Morning plan, Home, Messages, Calendars'],
       ['D  ⇧M  X  O', 'Charts: Desk, Multi-timeframe, Patterns, Company'],
-      ['S  G  U  I  ⇧R', 'Scan: Scanner, Rotation, ETFs and sectors, Smart money, Distress'],
+      ['S  G  U  I  ⇧R', 'Scan: Scanner, Rotation, ETFs and sectors, Institutional Holdings, Distress'],
       ['V  M  Y  ⇧B', 'Flow and risk: Gamma and IV, World map, Econ odds, Data status'],
       ['⇧J', 'Journal'],
       [',  .', 'Flip between the views of a page (previous / next)'],

@@ -45,13 +45,35 @@ function DayStrip({ nowMin, isToday, events }: { nowMin: number; isToday: boolea
   );
 }
 
+/** Hover / focus card that explains the setup score: what it is, and the pieces that add up to it. */
+function ScoreCard({ s, tone }: { s: Setup; tone: string }) {
+  const boost = s.pmVolPct != null ? Math.min(3, 1 + s.pmVolPct / 10) : 1;
+  const gap = Math.abs(s.move) * boost, trend = Math.abs(s.quant?.score ?? 0), news = s.catalyst ? 1 : 0;
+  const level = s.score >= 8 ? 'Strong' : s.score >= 4 ? 'Worth a look' : 'Quiet';
+  return (
+    <span className="sc-wrap" tabIndex={0} aria-label={`Setup strength ${s.score.toFixed(1)}: ${level}. Hover for how it's worked out.`}>
+      <Ring v={s.score} tone={tone} />
+      <span className="sc-card" role="tooltip">
+        <span className="sc-h"><b>Setup strength {s.score.toFixed(1)}</b><span className={`sc-lvl ${s.score >= 8 ? 'hi' : s.score >= 4 ? 'mid' : 'lo'}`}>{level}</span></span>
+        <span className="sc-p">How loud today's signals are for {s.sym}. It ranks this list: it is not a chance of winning.</span>
+        <span className="sc-rows">
+          <span className="sc-r"><span>Gap {Math.abs(s.move).toFixed(1)}%{boost > 1 ? <> × {boost.toFixed(1)} volume boost <em>({s.pmVolPct!.toFixed(0)}% of a normal day already traded)</em></> : ''}</span><b>{gap.toFixed(1)}</b></span>
+          <span className="sc-r"><span>Trend read{s.quant ? <em> ({s.quant.label})</em> : <em> (none)</em>}</span><b>+{trend.toFixed(1)}</b></span>
+          <span className="sc-r"><span>News catalyst{s.catalyst ? '' : <em> (none)</em>}</span><b>+{news}</b></span>
+          <span className="sc-r tot"><span>Total</span><b>{s.score.toFixed(1)}</b></span>
+        </span>
+        <span className="sc-scale"><i className="lo">under 4 quiet</i><i className="mid">4 to 8 worth a look</i><i className="hi">8+ strong (ring full)</i></span>
+      </span>
+    </span>
+  );
+}
+
 /** Score as a ring (the arc is full at 8; the number is the raw score). Sized so "16.2" or "104" can never spill over the stroke. */
 function Ring({ v, tone }: { v: number; tone: string }) {
   const r = 15, c = 2 * Math.PI * r, f = Math.max(0.04, Math.min(1, v / 8));
   const label = v >= 100 ? '99+' : v >= 10 ? v.toFixed(0) : v.toFixed(1);
   return (
     <svg className={`am-ring ${tone}`} width="44" height="44" viewBox="0 0 40 40" role="img" aria-label={`Setup score ${v.toFixed(1)}`}>
-      <title>{`Setup score ${v.toFixed(1)} (the ring is full at 8; bigger gaps and volume push the score higher)`}</title>
       <circle cx="20" cy="20" r={r} className="bg" /><circle cx="20" cy="20" r={r} className="fg" strokeDasharray={`${c * f} ${c}`} transform="rotate(-90 20 20)" />
       <text x="20" y="24" textAnchor="middle">{label}</text>
     </svg>
@@ -89,7 +111,7 @@ function SetupCard({ s, onChart, mine }: { s: Setup; onChart: (x: string) => voi
         <span className={`am-bias ${cls}`}>{s.bias}</span>
         <Move v={s.move} />
         <span className="small muted">{s.moveKind === 'premarket' ? 'premarket' : 'last session'}</span>
-        <span className="am-sp" /><Ring v={s.score} tone={cls} />
+        <span className="am-sp" /><ScoreCard s={s} tone={cls} />
         {openOrder && s.bias === 'Buy bias' && <button className="link small am-order" onClick={() => openOrder({ sym: s.sym, side: 'BUY', type: 'LIMIT', limit: tick(entry), stopLoss: s.prevClose < entry ? tick(s.prevClose) : null }, entry)} title="Opens the Webull ticket prefilled; nothing is sent until you preview, type your PIN and confirm">Order…</button>}
       </header>
       <div className="am-sname">{s.name}</div>

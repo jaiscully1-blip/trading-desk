@@ -1,22 +1,12 @@
 import type { Freshness, MacroResult, Mode, Quote } from '../types';
-import { MarketPulse } from './MarketPulse';
+import { MarketChips } from './MarketPulse';
 import type { ClockState } from '../lib/clock';
 import type { AccountSettings, Guard } from '../lib/journal';
-import { pct, px, sUsd, tone, usd } from '../lib/format';
-import { Fresh, FlashNum, Q } from './common';
+import { sUsd, tone, usd } from '../lib/format';
+import { Fresh, Q } from './common';
 import type { MovementRead } from '../../shared/movement';
 import { MovementBadge } from './Movement';
 import { WorldClock } from './WorldClock';
-
-function Tick({ label, value, raw, chg, chgFmt, onClick, minor }: { label: string; value: string; raw?: number; chg: number; chgFmt: string; onClick?: () => void; minor?: boolean }) {
-  return (
-    <button className="tick" onClick={onClick} disabled={!onClick}>
-      <span className="tick-l">{label}</span>
-      <FlashNum v={raw}>{value}</FlashNum>
-      <span className={`num ${tone(chg)} ${minor ? 'wide-only' : ''}`}>{chgFmt}</span>
-    </button>
-  );
-}
 
 export function TopStrip({
   quotes,
@@ -35,6 +25,7 @@ export function TopStrip({
   moveStats,
   onWorld,
   live,
+  onCmd,
 }: {
   account: { guard: Guard; settings: AccountSettings; demo: boolean; demoPrices: boolean };
   marketSource?: string;
@@ -60,16 +51,18 @@ export function TopStrip({
   onWorld?: () => void;
 }) {
   const dayPnl = account.guard.todayRealized + account.guard.todayUnrealized;
-  const spy = quotes.SPY, qqq = quotes.QQQ;
   return (
-    <header className="top">
-      <div className="top-group">
-        <Tick label="SPY" raw={spy.last} value={px(spy.last)} chg={spy.chgPct} chgFmt={pct(spy.chgPct)} onClick={() => onSelect('SPY')} />
-        <Tick label="QQQ" raw={qqq.last} value={px(qqq.last)} chg={qqq.chgPct} chgFmt={pct(qqq.chgPct)} onClick={() => onSelect('QQQ')} />
-        <Fresh kind={quoteFresh} at={quoteAsOf} src={quoteSource} />
-        {movement && <MovementBadge m={movement} vol={vol} stats={moveStats} />}
+    <header className="top top3">
+      {/* zone 1: markets */}
+      <div className="top-zone tz-markets">
+        <MarketChips live={live} quotes={quotes} onSelect={onSelect} />
+        <span className="tz-status"><Fresh kind={quoteFresh} at={quoteAsOf} src={quoteSource} />{movement && <MovementBadge m={movement} vol={vol} stats={moveStats} />}</span>
       </div>
-      <MarketPulse live={live} onSelect={onSelect} />
+      {/* zone 2: search */}
+      <button className="top-search" onClick={onCmd} title="Search tickers, companies, pages and commands (/ or Cmd K)">
+        <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true"><path d="M11 11m-6 0a6 6 0 1 0 12 0 6 6 0 1 0-12 0 M20 20l-4-4" /></svg>
+        <span>Search tickers, pages, commands</span><kbd>/</kbd>
+      </button>
 
       {(clk.holiday || clk.earlyClose) && (
         <div className="top-group">
@@ -78,7 +71,8 @@ export function TopStrip({
         </div>
       )}
 
-      <div className="top-group right">
+      {/* zone 3: you */}
+      <div className="top-group right tz-you">
         <WorldClock nyClosed={!!clk.holiday} onOpen={onWorld ?? (() => {})} />
         <button className={`acct ${accountOpen ? 'on' : ''}`} onClick={onAccount} title="Account drawer (A)" data-key="A">
           {account.settings.startBalance == null ? (

@@ -44,6 +44,7 @@ const SmartMoney = lazy(() => import('./components/SmartMoney'));
 const DistressPage = lazy(() => import('./components/Distress'));
 const GlobalPage = lazy(() => import('./components/GlobalPage'));
 const NewsPage = lazy(() => import('./components/NewsPage'));
+const EssayPage = lazy(() => import('./components/EssayPage'));
 const MtfPage = lazy(() => import('./components/MtfPage'));
 const EtfSectors = lazy(() => import('./components/EtfSectors'));
 const EconOdds = lazy(() => import('./components/EconOdds'));
@@ -714,6 +715,7 @@ export default function App() {
     { id: 'fed', label: 'Fed meeting countdown and rate odds', run: () => setPage('calendar') },
     { id: 'earnings', label: 'Earnings calendar', run: () => setPage('calendar') },
     { id: 'fear', label: 'Show/hide fear strip', hint: 'F', run: () => setLayout({ fearOpen: layout.fearOpen === false }) },
+    { id: 'essay', label: 'Essays: write up a stock with a linked chart, news and data', hint: 'Shift W', run: () => setPage('essay') },
     { id: 'journal', label: 'Journal page (trades, stats, violations, import)', hint: 'Shift J', run: () => setPage('journal') },
     { id: 'ticket', label: 'Quick journal / trade ticket', hint: 'Q', run: () => setTab('journal') },
     { id: 'import', label: 'Import broker CSV', run: () => setPage('journal') },
@@ -730,7 +732,7 @@ export default function App() {
     { id: 'map', label: 'World map page', hint: 'M', run: () => setPage('map') },
     { id: 'globe', label: 'Sector rotation page', hint: 'G', run: () => setPage('flows') },
     { id: 'etfs', label: 'ETFs & sectors: heatmap, ETF holdings, baskets', hint: 'U', run: () => setPage('etfs') },
-    { id: 'smart', label: 'Smart money: 13F investors, ARK, politicians', hint: 'I', run: () => setPage('smart') },
+    { id: 'smart', label: 'Institutional Holdings: 13F investors, ARK, politicians', hint: 'I', run: () => setPage('smart') },
     { id: 'odds', label: 'Economic odds (Fed, recession, CPI)', hint: 'Y', run: () => setPage('odds') },
     { id: 'status', label: 'Data status: which sources are working or limited', hint: '⇧B', run: () => setPage('status') },
     { id: 'mtf', label: 'Multi-timeframe: 4 linked charts (3m, 15m, 1h, daily)', hint: '⇧M', run: () => setPage('mtf') },
@@ -765,12 +767,14 @@ export default function App() {
       const map: Record<string, () => void> = {
         w: () => setPage('morning'), v: () => setPage('gamma'), h: () => setPage('home'), e: () => setPage('messages'), d: () => setPage('desk'), x: () => setPage('patterns'), s: () => setPage('scanner'), m: () => setPage('map'), g: () => setPage('flows'), c: () => setPage('calendar'), u: () => setPage('etfs'), i: () => setPage('smart'), y: () => setPage('odds'), B: () => setPage('status'), R: () => setPage('distress'), M: () => setPage('mtf'), G: () => setPage('global'), N: () => setPage('news'),
         '?': () => setOverlay((o) => (o === 'help' ? null : 'help')),
+        '/': () => setCmdOpen(true),
         t: toggleTheme,
         z: () => toggleFocus(),
         a: () => setDrawer((d) => !d),
         l: () => setLayout({ levelsOpen: !layout.levelsOpen }),
         p: () => setPbOpen(true),
         J: () => setPage('journal'),
+        W: () => setPage('essay'),
         '1': () => setTf('D'), '2': () => setTf('1H'), '3': () => setTf('5m'), '4': () => setTf('W'), '5': () => setTf('M'), '6': () => setTf('15m'),
         o: () => openCompany(sel),
         n: () => { setPage('desk'); setTab('news'); }, q: () => { setPage('desk'); setTab('journal'); }, r: () => { setPage('desk'); setTab('risk'); },
@@ -927,6 +931,8 @@ export default function App() {
     );
   } else if (page === 'news') {
     body = <Suspense fallback={<section className="panel"><div className="ph-body">Loading…</div></section>}><NewsPage mode={dataMode} news={news.items} sel={sel} onChart={toDesk} /></Suspense>;
+  } else if (page === 'essay') {
+    body = <Suspense fallback={<section className="panel"><div className="ph-body">Loading…</div></section>}><EssayPage mode={dataMode} onChart={toDesk} /></Suspense>;
   } else if (page === 'global') {
     body = <Suspense fallback={<section className="panel"><div className="ph-body">Loading…</div></section>}><GlobalPage mode={dataMode} onChart={toDesk} /></Suspense>;
   } else if (page === 'status') {
