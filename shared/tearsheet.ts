@@ -18,7 +18,9 @@ export interface Tear {
 export function tearFromFacts(j: any): Tear {
   const g = j?.facts?.['us-gaap'] ?? {}, dei = j?.facts?.dei ?? {};
   const units = (src: any, c: string, u = 'USD'): F[] => (src?.[c]?.units?.[u] ?? []).filter((r: F) => Number.isFinite(r.val));
-  const sh = units(dei, 'EntityCommonStockSharesOutstanding', 'shares');
+  // the cover-page count; some filers (Alphabet) only report the balance-sheet total of all classes, so fall back to that
+  const coverSh = units(dei, 'EntityCommonStockSharesOutstanding', 'shares');
+  const sh = coverSh.length ? coverSh : units(g, 'CommonStockSharesOutstanding', 'shares').filter((r) => !r.start);
   // companies with several share classes report one row per class on the same date: add them up
   const shNow = latest(sh);
   const sharesOut = shNow ? sh.filter((r) => r.end === shNow.end && r.filed === shNow.filed).reduce((a, r) => a + r.val, 0) : null;

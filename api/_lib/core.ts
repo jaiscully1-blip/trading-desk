@@ -3,7 +3,7 @@
 import { ProviderError } from '../../shared/parse.js';
 import { clock } from '../../shared/clock.js';
 
-export type Provider = 'twelvedata' | 'finnhub' | 'alphavantage' | 'fred' | 'finra' | 'kalshi' | 'gdelt' | 'binance' | 'coingecko' | 'sec' | 'gemini' | 'wikipedia' | 'aisstream' | 'polymarket' | 'github' | 'yahoo' | 'openfigi' | 'ark' | 'tradingview' | 'alpaca' | 'cboe' | 'nasdaq' | 'earningsapi' | 'tradetime' | 'zillow' | 'mempool' | 'dataroma';
+export type Provider = 'twelvedata' | 'finnhub' | 'alphavantage' | 'fred' | 'finra' | 'kalshi' | 'gdelt' | 'binance' | 'coingecko' | 'sec' | 'gemini' | 'wikipedia' | 'aisstream' | 'polymarket' | 'github' | 'yahoo' | 'openfigi' | 'ark' | 'tradingview' | 'alpaca' | 'cboe' | 'nasdaq' | 'earningsapi' | 'tradetime' | 'zillow' | 'mempool' | 'dataroma' | 'apewisdom';
 
 export const KEY_ENV: Record<Provider, string> = {
   twelvedata: 'TWELVEDATA_API_KEY',
@@ -33,6 +33,7 @@ export const KEY_ENV: Record<Provider, string> = {
   zillow: '', // Zillow Research public CSVs (monthly)
   mempool: '', // mempool.space public API (bitcoin network stats)
   dataroma: '', // Dataroma's public superinvestor updates RSS feed
+  apewisdom: '', // apewisdom.io: Reddit ticker mentions, free, no key
 };
 
 export function key(p: Provider): string {
@@ -76,7 +77,8 @@ const LIMITS: Record<Provider, { perMin: number; perDay: number }> = {
   tradetime: { perMin: 10, perDay: 1000 }, // asks clients to cache: 30 s for status, 24 h for holidays
   zillow: { perMin: 6, perDay: 60 },
   mempool: { perMin: 20, perDay: 2000 },
-  dataroma: { perMin: 4, perDay: 100 }, // no published limit; each chain is cached 15 min in session
+  dataroma: { perMin: 4, perDay: 100 },
+  apewisdom: { perMin: 6, perDay: 300 }, // no published limit; each chain is cached 15 min in session
 };
 const hits: Record<string, number[]> = {};
 const dayCount: Record<string, { day: string; n: number }> = {};

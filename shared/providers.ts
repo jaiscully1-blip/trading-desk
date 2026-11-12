@@ -30,6 +30,7 @@ export const PROVIDER_INFO: Record<string, ProviderInfo> = {
   tradetime: { label: 'Trade Time', feeds: 'World exchange hours, open / closed status and holidays', fallback: 'Built-in session table' },
   zillow: { label: 'Zillow Research', feeds: 'Home values, rents, listings and sales (monthly)', fallback: 'Housing panel left out' },
   mempool: { label: 'mempool.space', feeds: 'Bitcoin network: fees, hash rate, difficulty', fallback: 'Section left out' },
+  apewisdom: { label: 'ApeWisdom', feeds: 'Trending tickers on Reddit', fallback: 'Section left out', unofficial: true },
   dataroma: { label: 'Dataroma', feeds: 'Superinvestor 13F portfolio updates', fallback: 'Section left out', unofficial: true },
 };
 

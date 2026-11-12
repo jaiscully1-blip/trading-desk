@@ -10,6 +10,9 @@ interface TearData {
   sym: string; name: string | null; price: number | null; priceAt: number | null; marketCap: number | null; facts: Tear | null; floatShares: number | null; floatClose: number | null;
   shortInterest: { shares: number; daysToCover: number; changePct: number; settlementDate: string; pctFloat: number | null } | null;
   nextEarnings: { date: string; hour: string; epsEst: number | null } | null; errors: Record<string, string>; sources: Record<string, string>;
+  profile: { label: string; ceo: string | null; employees: number | null; hq: string | null; founded: string | null } | null;
+  valuation: Record<'pe' | 'fwdPe' | 'ps' | 'pb' | 'evEbitda' | 'beta' | 'divYield' | 'payout' | 'roe' | 'grossMargin' | 'netMargin' | 'hi52' | 'lo52', number | null> | null;
+  dividend: { exDate: string | null; payDate: string | null; amount: number | null } | null;
 }
 
 const usd = (v: number) => { const a = Math.abs(v), s = v < 0 ? '−' : ''; return a >= 1e12 ? `${s}$${(a / 1e12).toFixed(2)}T` : a >= 1e9 ? `${s}$${(a / 1e9).toFixed(1)}B` : a >= 1e6 ? `${s}$${(a / 1e6).toFixed(0)}M` : `${s}$${Math.round(a).toLocaleString('en-US')}`; };
@@ -73,7 +76,22 @@ export function TearSheet({ sym, mode }: { sym: string; mode: DataMode }) {
     ['Free cash flow', f?.fcfFY != null ? <span className={f.fcfFY >= 0 ? '' : 'down'}>{usd(f.fcfFY)}</span> : null, 'Operating cash flow − capital spending, last fiscal year (calculated)'],
     ['Next earnings', d.nextEarnings ? `${mdy(d.nextEarnings.date)}${d.nextEarnings.hour === 'amc' ? ' after close' : d.nextEarnings.hour === 'bmo' ? ' before open' : ''}${d.nextEarnings.epsEst != null ? ` · EPS est $${d.nextEarnings.epsEst.toFixed(2)}` : ''}` : null, d.sources.earnings],
   ];
-  const shown = rows.filter(([, v]) => v != null);
+  const p = d.profile, v = d.valuation, dv = d.dividend;
+  const x = (n: number | null | undefined) => (n == null ? null : `${n.toFixed(1)}x`);
+  const pc = (n: number | null | undefined) => (n == null ? null : `${n.toFixed(n < 10 ? 2 : 1)}%`);
+  // company facts first (like a DES page), then valuation and dividends
+  rows.unshift(
+    ['CEO', p?.ceo ?? null, d.sources.profile], ['Employees', p?.employees ? p.employees.toLocaleString('en-US') : null, d.sources.profile],
+    ['HQ', p?.hq ?? null, d.sources.profile], ['Founded', p?.founded ? p.founded.slice(0, 4) : null, d.sources.profile],
+  );
+  rows.push(
+    ['P/E (trailing)', x(v?.pe), d.sources.valuation], ['P/E (forward)', x(v?.fwdPe), d.sources.valuation], ['P/Sales', x(v?.ps), d.sources.valuation], ['P/Book', x(v?.pb), d.sources.valuation],
+    ['EV/EBITDA', x(v?.evEbitda), d.sources.valuation], ['Beta', v?.beta != null ? v.beta.toFixed(2) : null, `${d.sources.valuation} (vs the market)`],
+    ['ROE', pc(v?.roe), d.sources.valuation], ['Gross margin', pc(v?.grossMargin), d.sources.valuation], ['Net margin', pc(v?.netMargin), d.sources.valuation],
+    ['Dividend yield', pc(v?.divYield), d.sources.valuation], ['Payout ratio', pc(v?.payout), d.sources.valuation],
+    ['Ex-dividend', dv?.exDate ? `${mdy(dv.exDate)}${dv.amount ? ` · $${dv.amount.toFixed(2)}` : ''}` : null, d.sources.dividend], ['Dividend paid', dv?.payDate ? mdy(dv.payDate) : null, d.sources.dividend],
+  );
+  const shown = rows.filter(([, val]) => val != null);
   return (
     <div className="ts">
       <h4><Q k="calc" src="SEC filings (official), FINRA short interest, Yahoo prices (unofficial, delayed). Float, market cap and net cash are calculated. Hover a row for its source and date." />Tear sheet</h4>

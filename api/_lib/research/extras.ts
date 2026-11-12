@@ -7,6 +7,7 @@
 import { highShortInterest, parseHolidays, parseMempool, parseReactions, parseTradeTime, parseZillowHead } from '../../../shared/extras.js';
 import { parseSecTickers } from '../../../shared/company.js';
 import { parseTranscript, quarterCandidates, transcriptSummary } from '../../../shared/transcript.js';
+import { parseApeWisdom } from '../../../shared/analysis.js';
 import { latestByCik, recentInstantPeriods } from '../../../shared/tearsheet.js';
 import { frameUrl } from '../../../shared/distressGather.js';
 import { secJson } from '../adapters.js';
@@ -127,5 +128,13 @@ export async function transcript(req: Request): Promise<Response> {
       if (t) return json({ ...t, summary: transcriptSummary(t), tried: tries, asOf: Date.now(), source: 'Alpha Vantage earnings call transcripts (sentiment per turn is their model, −1 to 1)' }, { sMaxAge: 86400 });
     }
     return json({ sym, error: `No transcript yet for ${tries.join(', ')}.`, tried: tries }, { status: 404 });
+  } catch (e) { return fail(e); }
+}
+
+/** fn=trending -> the most-mentioned tickers on Reddit's investing boards in the last 24 hours (ApeWisdom, free, no key). */
+export async function trending(): Promise<Response> {
+  try {
+    const { val } = await cached('ape:all', 900, async () => parseApeWisdom(await getJson('https://apewisdom.io/api/v1.0/filter/all-stocks/page/1', 'apewisdom', 10000)));
+    return json({ rows: val, asOf: Date.now(), source: 'ApeWisdom: ticker mentions across Reddit investing boards, last 24 hours' }, { sMaxAge: 900 });
   } catch (e) { return fail(e); }
 }

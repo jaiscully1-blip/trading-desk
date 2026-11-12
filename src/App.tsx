@@ -1,4 +1,5 @@
 import { useGammaLv } from './data/gamma';
+import { DEFAULT_SIZE, addTop, type WidgetType } from './lib/grid';
 import { movementRead } from '../shared/movement';
 import { volRead } from '../shared/volatility';
 import { moveStats } from '../shared/movementStats';
@@ -617,7 +618,51 @@ export default function App() {
   const setTab = (t: RightTab) => setLayout({ tab: t, rightOpen: true });
   const setTf = (tf: ChartTF) => setLayout({ tf });
 
+  // open a widget on the current Home workspace (add it if missing, else update its settings), then go Home
+  const openWidget = (type: WidgetType, cfg: Record<string, any> = {}) => {
+    setSpaces((s) => ({ ...s, list: s.list.map((w) => {
+      if (w.id !== s.active) return w;
+      const l = w.layout, ex = [...l.main, ...l.side].find((x) => x.type === type);
+      if (ex) { const up = (xs: typeof l.main) => xs.map((x) => (x.id === ex.id ? { ...x, cfg: { ...x.cfg, ...cfg } } : x)); return { ...w, layout: { main: up(l.main), side: up(l.side) } }; }
+      const sz = DEFAULT_SIZE[type];
+      return { ...w, layout: { ...l, main: addTop(l.main, { id: `${type}-${Date.now().toString(36)}`, type, x: 0, y: 0, w: sz.w, h: sz.h, cfg }) } };
+    }) }));
+    setPage('home');
+  };
+  // short codes, like a terminal: type the code in the command bar (Ctrl/Cmd K)
+  const codes: Cmd[] = [
+    ['des', 'DES · Company tear sheet', () => { setCompanySym(sel); setPage('company'); }],
+    ['cf', 'CF · SEC filings, stakes, insider trades, press releases', () => setPage('messages')],
+    ['ecal', 'ECAL · Earnings calendar', () => setPage('calendar')], ['ipo', 'IPO · IPO calendar', () => setPage('calendar')],
+    ['tran', 'TRAN · Call transcripts (Earnings calls tab)', () => setPage('calendar')], ['live', 'LIVE · Today\'s earnings calls and webcasts', () => setPage('calendar')],
+    ['eco', 'ECO · Economic calendar and countdowns', () => setPage('calendar')], ['wirp', 'WIRP · Fed rate odds', () => setPage('calendar')],
+    ['most', 'MOST · Most active, gainers, losers', () => openWidget('movers', { list: 'active' })],
+    ['hmap', 'HMAP · Index heatmap (ETFs & sectors)', () => setPage('etfs')],
+    ['halt', 'HALT · Trading halts', () => openWidget('halts')], ['moso', 'MOSO · Most active options', () => openWidget('optactive')],
+    ['imov', 'IMOV · Index movers (S&P 500 / Nasdaq-100)', () => openWidget('idxmovers')],
+    ['wei', 'WEI · World equity indices', () => openWidget('world', { tab: 'indices' })], ['weif', 'WEIF · World index futures', () => openWidget('world', { tab: 'futures' })],
+    ['fx', 'FX · FX pairs', () => openWidget('world', { tab: 'fx' })], ['fxip', 'FXIP · Currency strength', () => openWidget('world', { tab: 'fx' })],
+    ['tas', 'TAS · Time & sales (IEX)', () => openWidget('tape', { sym: sel })], ['perp', 'PERP · Crypto perpetuals and funding', () => openWidget('perps')],
+    ['gc', 'GC · Yield curve', () => openWidget('rates')], ['gtmm', 'GTMM · Rates dashboard', () => openWidget('rates')],
+    ['glco', 'GLCO · Commodities', () => openWidget('commodities')], ['pmi', 'PMI · Prediction markets', () => setPage('odds')],
+    ['hldr', 'HLDR · 13F holdings (smart money)', () => setPage('smart')], ['hfnd', 'HFND · Hedge funds and long-only managers', () => setPage('smart')],
+    ['eqs', 'EQS · Equity screener', () => setPage('scanner')], ['trend', 'TREND · Trending tickers (Reddit)', () => openWidget('trending')],
+    ['hms', 'HMS · Compare securities', () => openWidget('analysis', { tab: 'compare', syms: [sel, 'SPY'] })],
+    ['beta', 'BETA · Beta regression', () => openWidget('analysis', { tab: 'beta', syms: [sel] })], ['hrh', 'HRH · Return distribution', () => openWidget('analysis', { tab: 'returns', syms: [sel] })],
+    ['ovdv', 'OVDV · Volatility surface (Gamma & IV)', () => setPage('gamma')], ['gv', 'GV · Gamma levels and IV', () => setPage('gamma')],
+    ['kelly', 'KELLY · Odds of your next trades (simulator)', () => openWidget('sim')], ['calc', 'CALC · Risk and position calculator', () => openWidget('risk')],
+    ['note', 'NOTE · Sticky notes', () => openWidget('notes')], ['al', 'AL · Keyword alerts (Messages)', () => setPage('messages')],
+    ['qm', 'QM · Quote monitor (watchlist on the desk)', () => setPage('desk')], ['shrt', 'SHRT · Most-shorted stocks', () => openWidget('hisi')],
+    ['hous', 'HOUS · Housing (Zillow)', () => openWidget('housing')],
+  ].map(([id, label, run]) => ({ id: id as string, label: label as string, run: run as () => void, code: true, group: 'Codes' }));
+  // codes that take a ticker ("NVDA DES", "AAPL BETA")
+  const withSym: Record<string, (s: string) => void> = {
+    des: (s) => { setCompanySym(s); setPage('company'); }, tas: (s) => openWidget('tape', { sym: s }),
+    hms: (s) => openWidget('analysis', { tab: 'compare', syms: [s, 'SPY'] }), beta: (s) => openWidget('analysis', { tab: 'beta', syms: [s] }), hrh: (s) => openWidget('analysis', { tab: 'returns', syms: [s] }),
+  };
+  for (const c of codes) if (withSym[c.id]) c.runSym = withSym[c.id];
   const commands: Cmd[] = [
+    ...codes,
     { id: 'gappers', label: 'Scanner: gappers ≥3%', run: () => { setFilterId('gappers'); setTab('scanner'); } },
     { id: 'scanner', label: 'Scanner page', hint: 'S', run: () => setPage('scanner') }, { id: 'desk', label: 'Desk page', hint: 'D', run: () => setPage('desk') }, { id: 'patterns', label: 'Pattern lookup: candlesticks + chart patterns for any ticker', hint: 'X', run: () => setPage('patterns') },
     { id: 'rvol', label: 'Scanner: relative volume ≥2', run: () => { setFilterId('rvol'); setTab('scanner'); } },
