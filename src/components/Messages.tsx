@@ -22,6 +22,8 @@ export function Messages({ feed, cal, nowMs, onChart, compact = false }: { feed:
   const [f, setF] = useState<Filter>('all');
   const [watch, setWatch] = useState<string | null>(null);
   const [chan, setChan] = usePersisted<string>('liveChan', 'Bloomberg TV');
+  // live video size, remembered separately for the page and the home widget: off hides the player (and stops loading it)
+  const [vsize, setVsize] = usePersisted<'off' | 's' | 'm' | 'l'>(compact ? 'liveSizeWidget' : 'liveSize', compact ? 's' : 'm');
   const box = useRef<HTMLDivElement>(null);
   const e0 = et(nowMs);
   const today = `${e0.y}-${String(e0.mo).padStart(2, '0')}-${String(e0.d).padStart(2, '0')}`;
@@ -43,7 +45,13 @@ export function Messages({ feed, cal, nowMs, onChart, compact = false }: { feed:
     <div className={`msgs ${compact ? 'compact' : ''}`}>
       <div className="msgs-bar">
         <Seg value={f} onChange={setF} options={[{ id: 'all', label: 'All' }, { id: 'earn', label: 'Earnings' }, { id: 'cat', label: 'Filings & press' }, { id: 'gov', label: 'Fed · Gov · Econ' }]} />
-        {lives.length > 0 && <div className="live-chips">{lives.map((l) => <button key={l.id} className={`live-chip ${vid(l.url) === active ? 'on' : ''}`} onClick={() => { setWatch(vid(l.url) ?? null); setChan(l.text ?? ''); }}>● {l.text}</button>)}</div>}
+        {lives.length > 0 && <div className="live-chips">{lives.map((l) => <button key={l.id} className={`live-chip ${vid(l.url) === active && vsize !== 'off' ? 'on' : ''}`} onClick={() => { setWatch(vid(l.url) ?? null); setChan(l.text ?? ''); if (vsize === 'off') setVsize(compact ? 's' : 'm'); }}>● {l.text}</button>)}</div>}
+        {lives.length > 0 && (
+          <div className="vid-size" role="group" aria-label="Live video size">
+            <span className="small muted">Video</span>
+            {(['off', 's', 'm', 'l'] as const).map((z) => <button key={z} className={`chip sm ${vsize === z ? 'on' : ''}`} onClick={() => setVsize(z)} aria-pressed={vsize === z} title={z === 'off' ? 'Hide the live video' : `${{ s: 'Small', m: 'Medium', l: 'Large' }[z]} video`}>{z === 'off' ? 'Off' : z.toUpperCase()}</button>)}
+          </div>
+        )}
         {feed?.demo && <span className="fresh fresh-demo">DEMO DATA</span>}
       </div>
       <MacroClock cal={cal} compact={compact} max={compact ? 4 : 8} />
@@ -54,8 +62,8 @@ export function Messages({ feed, cal, nowMs, onChart, compact = false }: { feed:
           <input className="kw-in" value={word} placeholder={alertWords.length ? 'add…' : 'e.g. acquisition, FDA, buyback, NVDA'} onChange={(e) => setWord(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') addWord(); }} onBlur={addWord} maxLength={40} />
         </div>
       )}
-      {active && (
-        <div className="msgs-live">
+      {active && vsize !== 'off' && (
+        <div className={`msgs-live vs-${vsize}`}>
           <iframe src={`https://www.youtube-nocookie.com/embed/${active}?autoplay=0`} title="Live stream" allow="encrypted-media; picture-in-picture" allowFullScreen loading="lazy" />
         </div>
       )}
