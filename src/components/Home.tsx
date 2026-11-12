@@ -6,6 +6,7 @@ import { CANVAS_COLS, COLS, DEFAULT_SIZE, addTop, settle, type Widget, type Widg
 import { WIDGETS, type HomeData } from './HomeWidgets';
 import { useDesk } from '../lib/deskctx';
 import { usePersisted } from '../lib/store';
+import { isOwner } from '../lib/accounts';
 
 export interface HomeLayout { main: Widget[]; side: Widget[] }
 export interface Workspace { id: string; name: string; layout: HomeLayout; saved?: HomeLayout; savedAt?: number }
@@ -15,7 +16,9 @@ const ROW = 36, GAP = 8;
 const SYM_RE = /^[A-Z][A-Z0-9.\-]{0,9}$/;
 const uid = () => Math.random().toString(36).slice(2, 9);
 
-const GROUPS: { name: string; items: { type: WidgetType; blurb: string }[] }[] = [
+const OwnerOnly = () => <div className="hw-pad small muted">This panel belongs to the desk owner's account. Remove it with ✕.</div>;
+const OWNER_ONLY = new Set<WidgetType>(['webull', 'discord']);
+const ALL_GROUPS: { name: string; items: { type: WidgetType; blurb: string }[] }[] = [
   { name: 'Market', items: [{ type: 'stock', blurb: 'price, chart, its news' }, { type: 'crypto', blurb: 'BTC, ETH… 24/7 + crypto news' }, { type: 'commodities', blurb: 'oil, gas, gold, copper, grains' }, { type: 'movers', blurb: 'top gainers / losers' }, { type: 'calendar', blurb: 'economy + earnings' }, { type: 'earnipo', blurb: 'earnings by day, IPO dates and filings (free)' }, { type: 'congress', blurb: 'what members of Congress bought / sold' }, { type: 'insider', blurb: 'CEO / director buys and sells (SEC Form 4)' }, { type: 'daycases', blurb: 'bull / stagnant / bear base rates for SPY, QQQ, IWM + special days' }, { type: 'distress', blurb: 'weak companies, turnarounds, sector stress (calculated nightly)' }, { type: 'polymarket', blurb: 'crowd odds: Fed, economy, geopolitics' }, { type: 'macro', blurb: 'Fed liquidity, reverse repo, credit spread, real yield' }] },
   { name: 'World & rates', items: [{ type: 'world', blurb: 'world indices, index futures, FX pairs + currency strength' }, { type: 'idxmovers', blurb: 'which stocks pushed the S&P 500 / Nasdaq-100 today' }, { type: 'halts', blurb: 'trading halts and volatility pauses (Nasdaq Trader)' }, { type: 'rates', blurb: 'Treasury yield curve, spreads, fed funds, mortgage' }, { type: 'macroclock', blurb: 'countdowns to CPI, jobs, PCE, Fed' }, { type: 'housing', blurb: 'home values, rents, listings, sales (Zillow)' }] },
   { name: 'Flow & options', items: [{ type: 'optactive', blurb: 'most traded option contracts (Cboe, delayed)' }, { type: 'tape', blurb: 'time & sales, IEX only (Alpaca key)' }, { type: 'hisi', blurb: 'most-shorted Nasdaq / NYSE stocks (FINRA)' }, { type: 'trending', blurb: 'most-mentioned tickers on Reddit' }, { type: 'perps', blurb: 'crypto perpetuals: funding, open interest' }] },
@@ -27,6 +30,8 @@ const GROUPS: { name: string; items: { type: WidgetType; blurb: string }[] }[] =
   { name: 'Time & notes', items: [{ type: 'sessions', blurb: 'NY / London / Asia open-close' }, { type: 'clock', blurb: 'ET clock + countdown' }, { type: 'notes', blurb: 'sticky notes' }] },
   { name: 'Media', items: [{ type: 'spotify', blurb: 'playlists, podcasts' }, { type: 'x', blurb: 'embed a post' }] },
 ];
+// the owner's private panels (Webull account, Discord bots) never show in another account's library
+const GROUPS = isOwner() ? ALL_GROUPS : ALL_GROUPS.map((g) => ({ ...g, items: g.items.filter((i) => !OWNER_ONLY.has(i.type)) })).filter((g) => g.items.length);
 const symFor = (t: WidgetType) => t === 'stock' || t === 'options' || t === 'claims' || t === 'congress' || t === 'insider';
 
 type Drag = { id: string; kind: 'move' | 'size'; x0: number; y0: number; sl0: number; st0: number; start: Widget; area: 'main' | 'side'; before: HomeLayout; moved: boolean };
@@ -191,7 +196,7 @@ export default function Home({ spaces, setSpaces, d, tickers }: { spaces: Worksp
 
   const chrome = (w: Widget, where: 'main' | 'side') => {
     const W = WIDGETS[w.type];
-    const Body = W.make;
+    const Body = OWNER_ONLY.has(w.type) && !isOwner() ? OwnerOnly : W.make;
     const title = symFor(w.type) ? `${W.title}${w.cfg.sym ? ` · ${w.cfg.sym}` : ''}${w.cfg.sym && names[w.cfg.sym] ? ` · ${names[w.cfg.sym]}` : ''}` : W.title;
     return (
       <>

@@ -5,6 +5,7 @@ import type { DataMode } from '../data/live';
 import { STATE_LABEL, type ProviderState } from '../../shared/providers';
 import { etTime } from '../lib/clock';
 import { privatePost } from '../data/private';
+import { isOwner } from '../lib/accounts';
 
 /** Phone alerts card: how to switch them on, and a test button (desk password required on the server). */
 function PhoneAlerts({ on }: { on: boolean }) {
@@ -53,7 +54,7 @@ export default function DataStatus({ mode }: { mode: DataMode }) {
         <div className="phead-ctl"><span className="muted small">{rows ? (bad ? `${bad} source${bad > 1 ? 's' : ''} need attention` : 'all sources fine') : 'checking…'}{at ? ` · updated ${etTime(at)} ET` : ''}</span></div>
       </div>
       <div className="ds-body">
-        <PhoneAlerts on={!!mode.health.private?.alerts} />
+        {isOwner() && <PhoneAlerts on={!!mode.health.private?.alerts} />}
         <p className="note">Why a chart or table can be empty: a free source ran out of its limit, so the desk switched to the backup listed here. Candles try <b>Twelve Data</b>, then <b>Yahoo Finance</b>, then <b>Alpha Vantage</b> (daily only). Counts are per server instance, so they show what this server has seen recently.</p>
         {err && <p className="down small hw-pad">{err}</p>}
         <div className="ds-t">

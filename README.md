@@ -416,3 +416,18 @@ The Home widget **Kronos forecast (experiment)** (widget library → Poker desk)
 - Run it now: GitHub → Actions → **Kronos forecast** → Run workflow. Code: `agents/kronos/` (`run.py`, pure helpers in `summarize.py`
   with `test_summarize.py`), shared types and scoring in `shared/kronos.ts`, tests in `tests/kronos.test.ts`.
 - Costs $0 (free Actions minutes, public weights). To remove it: delete the workflow, `agents/kronos/`, and the widget type.
+
+## Desk accounts (PIN, per device)
+
+- The first visit shows a full-page account screen. Make an account with a name, a color and a 4–6 digit PIN. There is no email and no login server.
+- In a browser that already had a desk, the first account adopts it. It keeps the old `td.` storage, so nothing moves.
+- Every other account gets its own storage prefix (`td.u.<id>.`, plus prefixed IndexedDB keys), so it starts as a fresh default desk.
+- You stay signed in on that device. To change, use the account button at the bottom of the side bar:
+  - Switch account: asks for that account's PIN.
+  - New account: opens the full-page setup.
+- Five wrong PINs lock the account for a minute.
+- Owner only: the Webull account and order ticket, the Discord bot panel, the phone-alert test and Supabase sync.
+  - An account becomes the owner when it adopts a desk that had the desk password saved, or when someone types the desk password, which `fn=deskcheck` checks on the server.
+  - The server still checks `DESK_PASSWORD` on every private call.
+- Accounts live on that device only. A friend who moves to another device makes a new account there.
+- The PIN keeps accounts apart on a shared device. It is not strong security: anyone with the device can read browser storage.

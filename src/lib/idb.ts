@@ -1,5 +1,8 @@
 // Tiny IndexedDB key-value store for the journal (screenshots make it too big for localStorage).
 import { useEffect, useRef, useState } from 'react';
+import { storagePrefix } from './accounts';
+
+const KP = storagePrefix() === 'td.' ? '' : storagePrefix();
 
 let dbP: Promise<IDBDatabase | null> | null = null;
 function db(): Promise<IDBDatabase | null> {
@@ -17,7 +20,8 @@ function db(): Promise<IDBDatabase | null> {
 }
 const mem = new Map<string, unknown>();
 
-export async function idbGet<T>(k: string): Promise<T | undefined> {
+export async function idbGet<T>(key: string): Promise<T | undefined> {
+  const k = KP + key;
   const d = await db();
   if (!d) return mem.get(k) as T | undefined;
   return new Promise((res) => {
@@ -28,7 +32,8 @@ export async function idbGet<T>(k: string): Promise<T | undefined> {
     } catch { res(mem.get(k) as T | undefined); }
   });
 }
-export async function idbSet(k: string, v: unknown) {
+export async function idbSet(key: string, v: unknown) {
+  const k = KP + key;
   mem.set(k, v);
   const d = await db();
   if (!d) return;
