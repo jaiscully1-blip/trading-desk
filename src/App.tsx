@@ -1,4 +1,5 @@
 import { useGammaLv } from './data/gamma';
+import { mergeArchive } from '../shared/newsx';
 import { DEFAULT_SIZE, addTop, type WidgetType } from './lib/grid';
 import { movementRead } from '../shared/movement';
 import { volRead } from '../shared/volatility';
@@ -41,6 +42,7 @@ const CompanyMap = lazy(() => import('./components/CompanyMap'));
 const SmartMoney = lazy(() => import('./components/SmartMoney'));
 const DistressPage = lazy(() => import('./components/Distress'));
 const GlobalPage = lazy(() => import('./components/GlobalPage'));
+const NewsPage = lazy(() => import('./components/NewsPage'));
 const MtfPage = lazy(() => import('./components/MtfPage'));
 const EtfSectors = lazy(() => import('./components/EtfSectors'));
 const EconOdds = lazy(() => import('./components/EconOdds'));
@@ -296,6 +298,13 @@ export default function App() {
   }, [mode]); // eslint-disable-line react-hooks/exhaustive-deps
   const newsSyms = useMemo(() => [...new Set([sel, ...INDEXES, ...wlSyms])], [sel, wlSyms]);
   const news = useNews(newsSyms, dataMode, HEADLINES);
+  // keep every live headline in this browser's archive (about 3,000 / 21 days) so News → Search can look back
+  useEffect(() => {
+    if (news.freshness === 'demo' || !news.items.length) return;
+    const add = news.items.map((n) => ({ id: n.id, t: n.t, title: n.title, src: n.src, url: n.url, syms: n.syms, sentiment: n.sentiment, summary: n.summary }));
+    const t = setTimeout(() => save('newsArchive', mergeArchive(load('newsArchive', []), add, Date.now())), 1500); // off the critical path
+    return () => clearTimeout(t);
+  }, [news.asOf]); // eslint-disable-line react-hooks/exhaustive-deps
   const cal = useCalendar(useMemo(() => [...new Set([...wlSyms, ...universe])], [wlSyms, universe]), dataMode);
 
   // Scan rows: daily stats finished with the live quote, then RS-ranked across the universe
@@ -654,7 +663,7 @@ export default function App() {
     ['kelly', 'KELLY · Odds of your next trades (simulator)', () => openWidget('sim')], ['calc', 'CALC · Risk and position calculator', () => openWidget('risk')],
     ['note', 'NOTE · Sticky notes', () => openWidget('notes')], ['al', 'AL · Keyword alerts (Messages)', () => setPage('messages')],
     ['qm', 'QM · Quote monitor (watchlist on the desk)', () => setPage('desk')], ['shrt', 'SHRT · Most-shorted stocks', () => openWidget('hisi')],
-    ['hous', 'HOUS · Housing (Zillow)', () => openWidget('housing')], ['glob', 'GLOB · Global → US', () => setPage('global')], ['gf', 'GF · Fundamentals charts', () => openWidget('fund', { sym: sel })], ['wn', 'WN · World business news', () => setPage('global')],
+    ['hous', 'HOUS · Housing (Zillow)', () => openWidget('housing')], ['glob', 'GLOB · Global → US', () => setPage('global')], ['gf', 'GF · Fundamentals charts', () => openWidget('fund', { sym: sel })], ['wn', 'WN · World business news', () => setPage('global')], ['top', 'TOP · Top stories across outlets', () => setPage('news')], ['ni', 'NI · News search', () => setPage('news')], ['cn', 'CN · Company news (by ticker)', () => setPage('news')],
   ].map(([id, label, run]) => ({ id: id as string, label: label as string, run: run as () => void, code: true, group: 'Codes' }));
   // codes that take a ticker ("NVDA DES", "AAPL BETA")
   const withSym: Record<string, (s: string) => void> = {
@@ -735,7 +744,7 @@ export default function App() {
       if (e.key === 'Escape') { if (replayId) { setReplayId(null); return; } setCmdOpen(false); setOverlay(null); setDrawer(false); setPbOpen(false); setSyncOpen(false); setCiOpen(false); setRecapOpen(false); return; }
       if (cmdOpen || pbOpen || syncOpen || ciOpen || replayId || recapOpen || typing(e.target) || e.ctrlKey || e.metaKey || e.altKey) return;
       const map: Record<string, () => void> = {
-        w: () => setPage('morning'), v: () => setPage('gamma'), h: () => setPage('home'), e: () => setPage('messages'), d: () => setPage('desk'), x: () => setPage('patterns'), s: () => setPage('scanner'), m: () => setPage('map'), g: () => setPage('flows'), c: () => setPage('calendar'), u: () => setPage('etfs'), i: () => setPage('smart'), y: () => setPage('odds'), B: () => setPage('status'), R: () => setPage('distress'), M: () => setPage('mtf'), G: () => setPage('global'),
+        w: () => setPage('morning'), v: () => setPage('gamma'), h: () => setPage('home'), e: () => setPage('messages'), d: () => setPage('desk'), x: () => setPage('patterns'), s: () => setPage('scanner'), m: () => setPage('map'), g: () => setPage('flows'), c: () => setPage('calendar'), u: () => setPage('etfs'), i: () => setPage('smart'), y: () => setPage('odds'), B: () => setPage('status'), R: () => setPage('distress'), M: () => setPage('mtf'), G: () => setPage('global'), N: () => setPage('news'),
         '?': () => setOverlay((o) => (o === 'help' ? null : 'help')),
         t: toggleTheme,
         z: () => toggleFocus(),
@@ -897,6 +906,8 @@ export default function App() {
         </Suspense>
       </div>
     );
+  } else if (page === 'news') {
+    body = <Suspense fallback={<section className="panel"><div className="ph-body">Loading…</div></section>}><NewsPage mode={dataMode} news={news.items} sel={sel} onChart={toDesk} /></Suspense>;
   } else if (page === 'global') {
     body = <Suspense fallback={<section className="panel"><div className="ph-body">Loading…</div></section>}><GlobalPage mode={dataMode} onChart={toDesk} /></Suspense>;
   } else if (page === 'status') {

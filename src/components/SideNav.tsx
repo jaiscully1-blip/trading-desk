@@ -2,7 +2,7 @@
 // Below ~1000px wide it turns into an icon rail (same colours, names in tooltips). The group colour also tints the page's panel headers.
 import type { ReactNode } from 'react';
 
-export type Page = 'morning' | 'home' | 'messages' | 'desk' | 'patterns' | 'company' | 'scanner' | 'map' | 'flows' | 'smart' | 'etfs' | 'gamma' | 'odds' | 'journal' | 'calendar' | 'status' | 'distress' | 'mtf' | 'global';
+export type Page = 'morning' | 'home' | 'messages' | 'desk' | 'patterns' | 'company' | 'scanner' | 'map' | 'flows' | 'smart' | 'etfs' | 'gamma' | 'odds' | 'journal' | 'calendar' | 'status' | 'distress' | 'mtf' | 'global' | 'news';
 export type GroupId = 'today' | 'charts' | 'scan' | 'flow' | 'journal';
 
 /** 24x24 stroke paths (own drawings, simple shapes) */
@@ -24,6 +24,7 @@ const ICON: Record<Page | 'account', string> = {
   calendar: 'M4 6h16v14H4z M4 10h16 M8 3v4 M16 3v4',
   journal: 'M5 4h11a3 3 0 0 1 3 3v13H8a3 3 0 0 1-3-3z M5 17a3 3 0 0 1 3-3h11',
   distress: 'M12 3l9 16H3z M12 9v5 M12 17h.01',
+  news: 'M4 5h13v14H6a2 2 0 0 1-2-2z M17 9h3v8a2 2 0 0 1-2 2 M7 9h7 M7 12h7 M7 15h4',
   global: 'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18 M7 8h4l1 3-3 2v3 M15 5l-1 4 3 2 3-1',
   status: 'M4 5h16v6H4z M4 13h16v6H4z M8 8h.01 M8 16h.01 M12 8h4 M12 16h4',
   account: 'M12 12m-4 0a4 4 0 1 0 8 0 4 4 0 1 0-8 0 M4 21a8 8 0 0 1 16 0',
@@ -41,11 +42,12 @@ const P: Record<Page, { label: string; hint: string; key: string }> = {
   journal: { label: 'Journal', hint: 'trades, rules, review', key: '⇧J' },
   mtf: { label: 'Multi-timeframe', hint: '4 linked charts: 3m, 15m, 1h, daily', key: '⇧M' },
   distress: { label: 'Distress', hint: 'weak companies, turnarounds, sector stress', key: '⇧R' },
+  news: { label: 'News', hint: 'top stories, search, news by ticker', key: '⇧N' },
   global: { label: 'Global → US', hint: 'world markets and news, and how they carry into US stocks', key: '⇧G' },
   status: { label: 'Data status', hint: 'which data sources are working or limited', key: '⇧B' },
 };
 export const NAV_GROUPS: { id: GroupId; label: string; pages: Page[] }[] = [
-  { id: 'today', label: 'Today', pages: ['morning', 'home', 'messages', 'calendar'] },
+  { id: 'today', label: 'Today', pages: ['morning', 'home', 'news', 'messages', 'calendar'] },
   { id: 'charts', label: 'Charts', pages: ['desk', 'mtf', 'patterns', 'company'] },
   { id: 'scan', label: 'Scan', pages: ['scanner', 'flows', 'etfs', 'smart', 'distress'] },
   { id: 'flow', label: 'Flow and risk', pages: ['global', 'gamma', 'map', 'odds', 'status'] },

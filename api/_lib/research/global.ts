@@ -3,7 +3,8 @@
 //                  each index's day has lined up with SPY (Yahoo, unofficial, delayed)
 //   fn=globalnews  world business headlines from 12 free feeds, tagged by region and by the US tickers linked to it
 import { REGIONS, impliedSpy, linkStats, overnightLine, tagWorldNews, WORLD_FEEDS } from '../../../shared/global.js';
-import { rssFeed } from '../adapters.js';
+import { finnhubNewsRange, rssFeed } from '../adapters.js';
+import { keywordSentiment } from '../../../shared/news.js';
 import { BIG_CAPS } from '../../../shared/feed.js';
 import { COMPANIES } from '../../../shared/data/companies.js';
 import { tagSymbols } from '../../../shared/news.js';
@@ -13,7 +14,7 @@ import { tagSymbols } from '../../../shared/news.js';
 const GENERIC = /^(bank|american|general|united|international|first|national|energy|health|capital|global|the|texas|southern|union|progressive|public|digital|advanced|applied|automatic|marsh|charles|walt|home|eli|morgan|goldman|wells|procter|johnson|lockheed|northrop|thermo|intercontinental|s&p)$/i;
 const NAMES: Record<string, string> = Object.fromEntries(COMPANIES.filter((c) => BIG_CAPS.includes(c[0]) && !GENERIC.test(c[1].split(/[\s,.]+/)[0])).map((c) => [c[0], c[1]]));
 const TAGGABLE = COMPANIES.filter((c) => BIG_CAPS.includes(c[0])).map((c) => c[0]);
-import { cached, json, ttl } from '../core.js';
+import { cached, hasKey, json, ttl } from '../core.js';
 import { longDaily } from '../yahoo.js';
 import { yahooPx } from './worldmkt.js';
 
@@ -45,4 +46,34 @@ export async function globalnews(): Promise<Response> {
   }));
   const items = tagWorldNews(lists.flat().filter((x) => Date.now() - x.t < 2 * 86400_000), 150, (title) => tagSymbols(title, TAGGABLE, NAMES));
   return json({ items, errors, feeds: WORLD_FEEDS.map((f) => f.name), asOf: Date.now(), source: 'Public RSS feeds: BBC, CNBC World, Bloomberg, FT, Nikkei Asia, SCMP, Economic Times, DW, Euronews, Guardian, Al Jazeera, CNA. Headlines and links only.' }, { sMaxAge: 300 });
+}
+
+/** fn=tickernews&symbol=NVDA[&name=Nvidia] -> recent headlines about one company from Yahoo Finance's ticker feed, Google
+ *  News search and Finnhub (when its key works), deduped, newest first. */
+export async function tickernews(req: Request): Promise<Response> {
+  const u = new URL(req.url);
+  const sym = (u.searchParams.get('symbol') ?? '').toUpperCase(), name = (u.searchParams.get('name') ?? '').replace(/[^\w .&-]/g, '').slice(0, 40);
+  if (!/^[A-Z][A-Z0-9.\-]{0,9}$/.test(sym)) return json({ error: 'bad symbol' }, { status: 400 });
+  const errors: Record<string, string> = {};
+  const q = encodeURIComponent(`${name ? `"${name}" OR ` : ''}${sym} stock when:3d`);
+  const feeds = [
+    { name: 'Yahoo Finance', url: `https://feeds.finance.yahoo.com/rss/2.0/headline?s=${encodeURIComponent(sym.replace('.', '-'))}&region=US&lang=en-US` },
+    { name: 'Google News', url: `https://news.google.com/rss/search?q=${q}&hl=en-US&gl=US&ceid=US:en` },
+  ];
+  const lists = await Promise.all(feeds.map(async (f) => {
+    try { return (await cached(`tn:${f.name}:${sym}:${name}`, 600, () => rssFeed(f.name, f.url))).val.map((x) => ({ ...x, src: f.name === 'Google News' ? (x.title.match(/ - ([^-]+)$/)?.[1]?.trim() ?? 'Google News') : f.name, title: f.name === 'Google News' ? x.title.replace(/ - [^-]+$/, '') : x.title })); }
+    catch (e) { errors[f.name] = (e as Error).message.slice(0, 80); return []; }
+  }));
+  if (hasKey('finnhub')) {
+    try {
+      const to = new Date().toISOString().slice(0, 10), from = new Date(Date.now() - 4 * 86400_000).toISOString().slice(0, 10);
+      const fh = (await cached(`cnews:${sym}:${from}:${to}`, 3600, () => finnhubNewsRange(sym, from, to))).val;
+      lists.push(fh.map((n) => ({ title: n.headline, url: n.url, t: n.t, src: n.source, summary: n.summary })));
+    } catch (e) { errors.Finnhub = (e as Error).message.slice(0, 80); }
+  }
+  const seen = new Set<string>();
+  const items = lists.flat().filter((x) => x.title && Date.now() - x.t < 5 * 86400_000).sort((a, b) => b.t - a.t)
+    .filter((x) => { const k = x.title.toLowerCase().replace(/[^a-z0-9 ]/g, '').slice(0, 60); if (seen.has(k)) return false; seen.add(k); return true; })
+    .slice(0, 80).map((x) => ({ id: x.url || x.title, t: x.t, title: x.title, src: x.src, url: x.url, syms: [sym], sentiment: keywordSentiment(x.title), summary: x.summary?.slice(0, 280) }));
+  return json({ sym, items, errors, asOf: Date.now(), source: 'Yahoo Finance ticker feed, Google News search and Finnhub company news. Headlines and links only.' }, { sMaxAge: 600 });
 }
