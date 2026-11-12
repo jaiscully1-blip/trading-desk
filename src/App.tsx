@@ -141,7 +141,10 @@ function worst(...f: Freshness[]): Freshness {
 }
 
 export default function App() {
-  const now = useNow();
+  // the whole desk re-renders when this ticks, so it ticks every 15 s (every second only while a cooldown is counting down);
+  // clocks and countdowns that show seconds run their own timer (src/lib/useTick.ts)
+  const [fastTick, setFastTick] = useState(false);
+  const now = useNow(fastTick ? 1000 : 15_000);
   const clk = useMemo(() => clock(now), [now]);
   const dataMode = useDataMode();
   const lateMode = useLateMode(dataMode); // scanner, rotation and calendars start a few seconds after the first paint
@@ -413,6 +416,18 @@ export default function App() {
   const liveTransfers = useMemo(() => transfers.filter((t) => !t.deleted), [transfers]);
   const lastPx = useCallback((s: string) => { const x = quotes[s]?.last; return Number.isFinite(x) ? x : undefined; }, [quotes]);
   const g = useMemo(() => guard(views, liveTransfers, settings, now, lastPx), [views, liveTransfers, settings, now, lastPx]);
+  useEffect(() => { setFastTick(!!g.cooldownUntil && g.cooldownUntil > Date.now()); }, [g.cooldownUntil, now]);
+  // panels that load on first use are fetched quietly once the desk is idle, so the first click on them is instant
+  useEffect(() => {
+    const loaders = [() => import('./components/Journal'), () => import('./components/Recap'), () => import('./components/OrderTicket'), () => import('./components/CompanyPage'),
+      () => import('./components/Distress'), () => import('./components/DayCases'), () => import('./components/Morning'), () => import('./components/Home'), () => import('./components/Chart'),
+      () => import('./components/Playbooks'), () => import('./components/Replay'), () => import('./components/SmartMoney'), () => import('./components/EtfSectors'), () => import('./components/Gamma')];
+    const idle = (f: () => void) => ('requestIdleCallback' in window ? (window as any).requestIdleCallback(f, { timeout: 3000 }) : setTimeout(f, 200));
+    let i = 0, stop = false;
+    const next = () => { if (stop || i >= loaders.length) return; loaders[i++]().catch(() => {}).finally(() => idle(next)); };
+    const t = setTimeout(() => idle(next), 4000);
+    return () => { stop = true; clearTimeout(t); };
+  }, []);
   const today = etDay(now);
   const checkin = checkins.find((c) => c.day === today);
   const viols = useMemo(() => findViolations(views, liveTransfers, settings, checkins), [views, liveTransfers, settings, checkins]);
