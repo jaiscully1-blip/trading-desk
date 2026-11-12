@@ -765,6 +765,7 @@ export default function App() {
       const map: Record<string, () => void> = {
         w: () => setPage('morning'), v: () => setPage('gamma'), h: () => setPage('home'), e: () => setPage('messages'), d: () => setPage('desk'), x: () => setPage('patterns'), s: () => setPage('scanner'), m: () => setPage('map'), g: () => setPage('flows'), c: () => setPage('calendar'), u: () => setPage('etfs'), i: () => setPage('smart'), y: () => setPage('odds'), B: () => setPage('status'), R: () => setPage('distress'), M: () => setPage('mtf'), G: () => setPage('global'), N: () => setPage('news'),
         '?': () => setOverlay((o) => (o === 'help' ? null : 'help')),
+        '/': () => setCmdOpen(true),
         t: toggleTheme,
         z: () => toggleFocus(),
         a: () => setDrawer((d) => !d),

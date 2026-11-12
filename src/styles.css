@@ -2408,3 +2408,30 @@ body:has(.hw.dragging)::before { animation-play-state: paused; }
 .sc-scale { display: flex; gap: 6px; flex-wrap: wrap; }
 .sc-scale i { font-style: normal; font-size: 11px; padding: 1px 7px; border-radius: 999px; background: var(--panel-2); color: var(--muted); }
 .sc-scale i.hi { color: var(--accent); } .sc-scale i.mid { color: var(--warn); }
+
+/* ---------------- header: three zones (markets | search | you) ---------------- */
+.top.top3 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(220px, 380px) minmax(0, auto); align-items: center; gap: 14px; }
+.top-zone { display: flex; align-items: center; gap: 8px; min-width: 0; overflow: hidden; }
+.tz-status { display: inline-flex; align-items: center; gap: 6px; flex: none; }
+.tz-you { margin-left: 0; justify-self: end; }
+.mc { display: flex; align-items: center; gap: 6px; min-width: 0; overflow: hidden; }
+.mc-chip { display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 9px; border-radius: 7px; border: 1px solid var(--line); background: color-mix(in srgb, var(--panel-2) 70%, transparent); flex: none; font-size: 12.5px; }
+.mc-chip:hover { border-color: var(--line-2); }
+.mc-sym { font: 600 10.5px 'IBM Plex Mono', monospace; color: var(--muted); letter-spacing: .04em; }
+.mc-spark, .mc-spark-empty { display: block; width: 46px; height: 16px; }
+.mc-breadth .mp-bar { width: 60px; }
+.top-search { display: flex; align-items: center; gap: 9px; height: 30px; padding: 0 10px 0 12px; border-radius: 999px; border: 1px solid var(--line-2); background: var(--panel-2); color: var(--muted); font-size: 13px; width: 100%; min-width: 0; }
+.top-search span { flex: 1; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.top-search:hover { border-color: var(--accent); color: var(--text); }
+.top-search kbd { font: 600 11px 'IBM Plex Mono', monospace; padding: 1px 6px; border-radius: 4px; border: 1px solid var(--line-2); color: var(--muted); }
+.top.top3 { grid-template-columns: minmax(0, 1fr) minmax(170px, 280px) auto; gap: 10px; }
+.tz-markets { container-type: inline-size; }
+.mc-chip { padding: 0 6px; gap: 4px; font-size: 12px; }
+.mc { gap: 4px; }
+.mc-spark, .mc-spark-empty { width: 38px; }
+/* the market zone gives up extras as it narrows: breadth first, then the lines, then DIA and IWM */
+@container (max-width: 760px) { .mc-breadth { display: none; } }
+@container (max-width: 640px) { .mc-spark, .mc-spark-empty { display: none; } }
+@container (max-width: 520px) { .tz-status .fresh { display: none; } }
+@container (max-width: 440px) { .mc-chip:nth-child(4) { display: none; } }
+@container (max-width: 360px) { .mc-chip:nth-child(3), .tz-status { display: none; } }

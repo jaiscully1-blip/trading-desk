@@ -105,9 +105,9 @@ export async function perps(): Promise<Response> {
   } catch (e) { return json({ error: (e as Error).message.slice(0, 160) }, { status: 502 }); }
 }
 
-/** fn=pulse  SPY / QQQ / IWM intraday lines plus breadth (how many of the ~500 big US stocks are up, down or flat today). */
+/** fn=pulse  SPY / QQQ / IWM / DIA intraday lines plus breadth (how many of the ~500 big US stocks are up, down or flat today). */
 export async function pulse(): Promise<Response> {
-  const syms = ['SPY', 'QQQ', 'IWM'];
+  const syms = ['SPY', 'QQQ', 'IWM', 'DIA'];
   let px: Record<string, Px> = {}, breadth: { up: number; down: number; flat: number; total: number } | null = null, err = '';
   try { px = (await cached('pulse:px', ttl(60, 600), () => yahooPx(syms))).val; } catch (e) { err = (e as Error).message.slice(0, 120); }
   try {
