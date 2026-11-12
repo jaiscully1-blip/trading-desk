@@ -1,4 +1,5 @@
 // Home page widgets. Each gets its saved config (cfg) and a setter, plus the shared desk data.
+import { HaltsW, IndexMoversW, WorldMktW } from './WorldMktW';
 import { HighSiW, HousingW } from './ExtrasW';
 import { TapeW } from './TapeW';
 import { MacroClock } from './MacroClock';
@@ -228,6 +229,15 @@ export function CalendarW({ d }: P) {
   );
 }
 
+export function WorldHomeW({ d, cfg, set }: P) {
+  return <WorldMktW mode={d.mode} cfg={cfg} set={set} />;
+}
+export function HaltsHomeW({ d }: P) {
+  return <HaltsW mode={d.mode} onChart={d.onChart} mine={new Set(Object.keys(d.quotes))} />;
+}
+export function IndexMoversHomeW({ d, cfg, set }: P) {
+  return <IndexMoversW mode={d.mode} onChart={d.onChart} cfg={cfg} set={set} />;
+}
 export function HousingHomeW({ d }: P) {
   return <HousingW mode={d.mode} />;
 }
@@ -253,6 +263,9 @@ export const WIDGETS = {
   macroclock: { title: 'Macro countdowns', make: MacroClockW },
   tape: { title: 'Time & sales (IEX)', make: TapeHomeW },
   housing: { title: 'Housing (Zillow)', make: HousingHomeW },
+  world: { title: 'World indices, futures & FX', make: WorldHomeW },
+  halts: { title: 'Trading halts', make: HaltsHomeW },
+  idxmovers: { title: 'Index movers', make: IndexMoversHomeW },
   hisi: { title: 'Most-shorted stocks', make: HighSiHomeW },
   crypto: { title: 'Crypto', make: CryptoW },
   commodities: { title: 'Commodities', make: CommoditiesW },

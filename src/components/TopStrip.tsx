@@ -5,6 +5,7 @@ import { pct, px, sUsd, tone, usd } from '../lib/format';
 import { Fresh, FlashNum, Q } from './common';
 import type { MovementRead } from '../../shared/movement';
 import { MovementBadge } from './Movement';
+import { WorldClock } from './WorldClock';
 
 function Tick({ label, value, raw, chg, chgFmt, onClick, minor }: { label: string; value: string; raw?: number; chg: number; chgFmt: string; onClick?: () => void; minor?: boolean }) {
   return (
@@ -31,6 +32,7 @@ export function TopStrip({
   movement,
   vol,
   moveStats,
+  onWorld,
 }: {
   account: { guard: Guard; settings: AccountSettings; demo: boolean; demoPrices: boolean };
   marketSource?: string;
@@ -53,6 +55,7 @@ export function TopStrip({
   movement?: MovementRead | null;
   vol?: import('../../shared/volatility').VolRead | null;
   moveStats?: import('../../shared/movementStats').MoveStats | null;
+  onWorld?: () => void;
 }) {
   const dayPnl = account.guard.todayRealized + account.guard.todayUnrealized;
   const spy = quotes.SPY, qqq = quotes.QQQ;
@@ -73,6 +76,7 @@ export function TopStrip({
       )}
 
       <div className="top-group right">
+        <WorldClock nyClosed={!!clk.holiday} onOpen={onWorld ?? (() => {})} />
         <button className={`acct ${accountOpen ? 'on' : ''}`} onClick={onAccount} title="Account drawer (A)" data-key="A">
           {account.settings.startBalance == null ? (
             <span className="muted">Set starting balance →</span>

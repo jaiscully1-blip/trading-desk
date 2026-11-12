@@ -897,7 +897,7 @@ export default function App() {
         <TopStrip
           movement={movement} vol={vol} moveStats={dayStats}
           quotes={quotes} clk={clk} mode={mode} override={override} onOverride={setOverride} onSelect={setSel}
-          onAccount={() => setDrawer((d) => !d)} accountOpen={drawer} theme={theme} onTheme={toggleTheme} onCmd={() => setCmdOpen(true)}
+          onAccount={() => setDrawer((d) => !d)} accountOpen={drawer} theme={theme} onTheme={toggleTheme} onCmd={() => setCmdOpen(true)} onWorld={() => setPage('map')}
           account={{ guard: g, settings, demo: views.some((v) => v.t.demo), demoPrices }}
           marketSource={market?.status?.source}
           quoteFresh={quoteFresh} quoteAsOf={live ? qs?.asOf : DEMO_AT} quoteSource={live ? qs?.source : 'Generated sample quotes'} macro={macro} live={live}
