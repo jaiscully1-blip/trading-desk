@@ -2162,3 +2162,45 @@ body:has(.hw.dragging)::before { animation-play-state: paused; }
 .jc-list { display: flex; flex-direction: column; gap: 3px; }
 .jc-row { display: grid; grid-template-columns: 54px 1fr auto; gap: 6px; align-items: center; padding: 3px 0; border-bottom: 1px solid color-mix(in srgb, var(--line) 60%, transparent); }
 .jc-tot { border-bottom: 0; padding-top: 6px; }
+
+/* ---------------- desk accounts (PIN, per device) ---------------- */
+.nv-foot { flex-wrap: wrap; }
+.nv-who { position: relative; flex: 1 1 100%; min-width: 0; }
+.nv.compact .nv-who { flex: none; }
+.nv-user { gap: 9px; }
+.nv-user .nv-l { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nv-menu { position: fixed; z-index: 1000; min-width: 230px; display: flex; flex-direction: column; padding: 6px; background: var(--panel); border: 1px solid var(--line-2); border-radius: 10px; box-shadow: var(--shadow); }
+.nv-menu-h { display: flex; flex-direction: column; gap: 2px; padding: 6px 8px 8px; border-bottom: 1px solid var(--line); margin-bottom: 4px; }
+.nv-menu > button { text-align: left; padding: 7px 8px; border-radius: 6px; font-size: 13px; }
+.nv-menu > button:hover { background: var(--sel); }
+.nv-unlock { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding: 6px 8px; }
+.nv-unlock input { flex: 1; min-width: 0; padding: 4px 8px; border: 1px solid var(--line-2); border-radius: 5px; background: var(--panel-2); color: var(--text); }
+.ag-badge { display: inline-grid; place-items: center; flex: none; border-radius: 50%; color: #fff; font-weight: 700; letter-spacing: 0.02em; text-shadow: 0 1px 1px rgba(0,0,0,.25); }
+.ag { min-height: 100vh; display: grid; place-items: center; padding-block: 40px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); background: var(--bg); color: var(--text); }
+.ag-card { width: min(520px, 100%); display: flex; flex-direction: column; gap: 14px; padding: 32px; background: var(--panel); border: 1px solid var(--line); border-radius: 16px; box-shadow: var(--shadow); }
+.ag-card h1 { margin: 4px 0 0; font-size: 24px; text-wrap: balance; }
+.ag-card p { margin: 0; }
+.ag-brand { display: flex; align-items: center; gap: 10px; font-size: 15px; }
+.ag-back { align-self: flex-start; }
+.ag-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 10px; }
+.ag-acct { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 16px 10px; border: 1px solid var(--line-2); border-radius: 12px; background: var(--panel-2); color: var(--text); position: relative; }
+.ag-acct:hover { border-color: var(--muted); }
+.ag-acct.on { border-color: var(--accent); background: var(--accent-bg); }
+.ag-n { font-weight: 600; font-size: 14px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ag-tag { position: absolute; top: 6px; right: 8px; font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+.ag-plus { width: 44px; height: 44px; font-size: 22px; background: transparent !important; color: var(--muted); border: 1.5px dashed var(--line-2); text-shadow: none; }
+.ag-form { display: flex; flex-direction: column; gap: 8px; }
+.ag-l { font-size: 11.5px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; color: var(--muted); margin-top: 6px; }
+.ag-text, .ag-pin { width: 100%; padding: 9px 12px; border: 1px solid var(--line-2); border-radius: 8px; background: var(--panel-2); color: var(--text); font-size: 15px; }
+.ag-pin { font: 600 22px 'IBM Plex Mono', monospace; letter-spacing: 0.4em; text-align: center; }
+.ag-text:focus, .ag-pin:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+.ag-pins { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.ag-pins > div { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.ag-colors { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.ag-sw { width: 26px; height: 26px; border-radius: 50%; border: 2px solid transparent; box-shadow: inset 0 0 0 2px var(--panel); }
+.ag-sw.on { border-color: var(--text); }
+.ag-preview { margin-left: auto; display: flex; align-items: center; gap: 8px; font-weight: 600; }
+.ag-owner-t { align-self: flex-start; font-size: 12.5px; color: var(--muted); margin-top: 6px; }
+.ag-owner { display: flex; flex-direction: column; gap: 8px; padding: 10px; border: 1px dashed var(--line-2); border-radius: 8px; }
+.ag-go { margin-top: 10px; padding: 10px; font-size: 14px; }
+@media (max-width: 460px) { .ag-card { padding: 20px; } .ag-pins { grid-template-columns: 1fr; } .ag-preview { margin-left: 0; } }

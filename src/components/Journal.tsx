@@ -1,5 +1,6 @@
 // Full journal (trades, stats, violations, import) and the account drawer.
 import { JournalCalendar } from './JournalCalendar';
+import { storagePrefix } from '../lib/accounts';
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { ColorType, LineSeries, createChart, type UTCTimestamp } from 'lightweight-charts';
 import {
@@ -377,7 +378,7 @@ export async function importFiles(p: ImportDeps, list: FileList | File[], onBusy
   onBusy('');
   return { out, pending };
 }
-const IMPORT_LOG = 'td.importLog';
+const IMPORT_LOG = `${storagePrefix()}importLog`;
 export const readImportLog = (): FileResult[] => { try { return JSON.parse(localStorage.getItem(IMPORT_LOG) ?? '[]'); } catch { return []; } };
 export const writeImportLog = (l: FileResult[]) => { try { localStorage.setItem(IMPORT_LOG, JSON.stringify(l.slice(0, 15))); } catch { /* storage full */ } };
 

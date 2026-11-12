@@ -1,6 +1,8 @@
 // Left side menu: every page is always visible, in five colour-coded groups, each with an icon, a plain name and its one-key shortcut.
 // Below ~1000px wide it turns into an icon rail (same colours, names in tooltips). The group colour also tints the page's panel headers.
-import type { ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
+import { currentAccount, initials, isOwner, leave, makeOwner, verifyDeskPassword } from '../lib/accounts';
 
 export type Page = 'morning' | 'home' | 'messages' | 'desk' | 'patterns' | 'company' | 'scanner' | 'map' | 'flows' | 'smart' | 'etfs' | 'gamma' | 'odds' | 'journal' | 'calendar' | 'status' | 'distress' | 'mtf' | 'global' | 'news';
 export type GroupId = 'today' | 'charts' | 'scan' | 'flow' | 'journal';
@@ -55,6 +57,48 @@ export const NAV_GROUPS: { id: GroupId; label: string; pages: Page[] }[] = [
 ];
 export const pageGroup = (p: Page): GroupId => NAV_GROUPS.find((g) => g.pages.includes(p))?.id ?? 'today';
 
+/** Who is signed in, and switching / making accounts. Stays signed in until you pick one of these. */
+function AccountMenu({ compact }: { compact?: boolean }) {
+  const a = currentAccount();
+  const [open, setOpen] = useState(false);
+  const [unlock, setUnlock] = useState(false);
+  const [pw, setPw] = useState('');
+  const [msg, setMsg] = useState('');
+  const box = useRef<HTMLDivElement>(null);
+  const menu = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState({ left: 0, bottom: 0 });
+  useEffect(() => {
+    if (!open) return;
+    const off = (e: PointerEvent) => { if (!box.current?.contains(e.target as Node) && !menu.current?.contains(e.target as Node)) setOpen(false); };
+    const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false); };
+    window.addEventListener('pointerdown', off); window.addEventListener('keydown', esc);
+    return () => { window.removeEventListener('pointerdown', off); window.removeEventListener('keydown', esc); };
+  }, [open]);
+  if (!a) return null;
+  const tryUnlock = async (e: React.FormEvent) => {
+    e.preventDefault(); setMsg('Checking…');
+    if (await verifyDeskPassword(pw)) { makeOwner(a, pw); location.reload(); } else setMsg('Not accepted.');
+  };
+  return (
+    <div className="nv-who" ref={box}>
+      <button className="nv-item nv-user" onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); setPos({ left: r.left, bottom: window.innerHeight - r.top + 6 }); setOpen((o) => !o); }} aria-expanded={open} aria-haspopup="menu" title={`Signed in as ${a.name}. Switch or make an account.`}>
+        <span className="ag-badge" style={{ background: a.color, width: 20, height: 20, fontSize: 9 }} aria-hidden="true">{initials(a.name)}</span>
+        {!compact && <span className="nv-l">{a.name}</span>}
+      </button>
+      {open && createPortal(
+        <div className="nv-menu" role="menu" ref={menu} style={{ left: pos.left, bottom: pos.bottom }}>
+          <div className="nv-menu-h"><b>{a.name}</b><span className="small muted">{isOwner() ? 'Owner account' : 'Desk account'} · this device</span></div>
+          <button role="menuitem" onClick={() => leave('pick')}>Switch account</button>
+          <button role="menuitem" onClick={() => leave('new')}>New account</button>
+          {!isOwner() && (unlock
+            ? <form className="nv-unlock" onSubmit={tryUnlock}><input type="password" value={pw} onChange={(e) => setPw(e.target.value)} placeholder="Desk password" aria-label="Desk password" autoFocus /><button className="btn sm primary" type="submit" disabled={!pw}>Unlock</button>{msg && <span className="small muted">{msg}</span>}</form>
+            : <button role="menuitem" className="muted" onClick={() => setUnlock(true)}>Desk owner? Unlock private panels</button>)}
+        </div>, document.body,
+      )}
+    </div>
+  );
+}
+
 export function SideNav({ compact, page, onPage, onCmd, onHelp, onAccount, dataState }: { compact?: boolean; page: Page; onPage: (p: Page) => void; onCmd: () => void; onHelp: () => void; onAccount: () => void; dataState?: 'live' | 'demo' | 'checking' }) {
   return (
     <nav className={`nv ${compact ? 'compact' : ''}`} aria-label="Pages">
@@ -78,6 +122,7 @@ export function SideNav({ compact, page, onPage, onCmd, onHelp, onAccount, dataS
         ))}
       </div>
       <div className="nv-foot">
+        <AccountMenu compact={compact} />
         <button className="nv-item nv-acct" onClick={onAccount} title="Account (A): balance, risk limits, settings" aria-label="Account" data-key="A"><Icon id="account" />{!compact && <><span className="nv-l">Account</span><span className="nv-key">A</span></>}</button>
         <button className="nv-mini" onClick={onHelp} title="Keyboard shortcuts (?). Hold Alt / Option to see every key." aria-label="Keyboard shortcuts">?</button>
       </div>

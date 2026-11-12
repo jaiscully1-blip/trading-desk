@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
+import { storagePrefix } from './accounts';
 
 // Browser storage is a per-device convenience for Milestone 1.
 // Watchlists, playbooks and the journal move to Supabase in Milestones 3-4.
-const PREFIX = 'td.';
+// each desk account has its own prefix ("td." for the first account, "td.u.<id>." for the rest)
+const PREFIX = storagePrefix();
 
 export function load<T>(key: string, fallback: T): T {
   try {

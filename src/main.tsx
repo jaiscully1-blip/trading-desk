@@ -1,6 +1,8 @@
 import { Component, StrictMode, type ReactNode } from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App';
+import { AccountGate } from './components/AccountGate';
+import { currentAccount, storagePrefix } from './lib/accounts';
 import './styles.css';
 import { reportError, startTelemetry } from './lib/telemetry';
 
@@ -18,7 +20,7 @@ class Boundary extends Component<{ children: ReactNode }, { err: Error | null }>
 }
 
 try {
-  const t = localStorage.getItem('td.themeV2');
+  const t = localStorage.getItem(`${storagePrefix()}themeV2`) ?? localStorage.getItem('td.themeV2');
   document.documentElement.dataset.theme = t ? JSON.parse(t) : 'dark';
 } catch { /* ignore */ }
 
@@ -36,6 +38,6 @@ document.addEventListener('click', (e) => {
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <Boundary><App /></Boundary>
+    <Boundary>{currentAccount() ? <App /> : <AccountGate />}</Boundary>
   </StrictMode>,
 );

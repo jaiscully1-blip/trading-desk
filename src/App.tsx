@@ -61,6 +61,7 @@ const RiverScene = lazy(() => import('./components/RiverScene'));
 import { popout, PageTabs } from './components/common';
 import { PingStack, StarredList } from './components/Pings';
 import { Desk, type Article, type DeskCtx } from './lib/deskctx';
+import { isOwner, storagePrefix } from './lib/accounts';
 import TickerInfo from './components/TickerInfo';
 import { OFFLINE_NAMES } from './data/info';
 import { earningsPings, levelPings, movePing, watchLevels, type Ping } from './lib/pings';
@@ -81,7 +82,7 @@ const ReaderOverlay = lazy(() => import('./components/Poker').then((m) => ({ def
 const OrderTicket = lazy(() => import('./components/OrderTicket').then((m) => ({ default: m.OrderTicket })));
 // start fetching the page you will land on while the app shell is still parsing
 try {
-  const first = JSON.parse(localStorage.getItem('td.page2') ?? '"home"');
+  const first = JSON.parse(localStorage.getItem(`${storagePrefix()}page2`) ?? '"home"');
   if (first === 'home') void import('./components/Home');
   else if (first === 'desk') void import('./components/Chart');
   else if (first === 'morning') void import('./components/Morning');
@@ -536,7 +537,8 @@ export default function App() {
   const [info, setInfo] = useState<{ sym: string; at: { x: number; y: number } } | null>(null);
   const openInfo = useCallback((sym: string, at?: { x: number; y: number }) => setInfo({ sym, at: at ?? { x: window.innerWidth / 2 - 170, y: 120 } }), []);
   const [orderReq, setOrderReq] = useState<{ initial: Partial<OrderDraft>; last?: number | null } | null>(null);
-  const openOrder = useCallback((initial: Partial<OrderDraft>, last?: number | null) => setOrderReq({ initial, last }), []);
+  // the Webull ticket belongs to the owner's account only; other accounts never open it
+  const openOrder = useCallback((initial: Partial<OrderDraft>, last?: number | null) => { if (isOwner()) setOrderReq({ initial, last }); }, []);
   const desk: DeskCtx = useMemo(() => ({ stars, toggleStar, names, openCompany, openArticle: setArticle, openInfo, openOrder, alertWords, setAlertWords, priceAlerts, setPriceAlerts }), [stars, toggleStar, names, openCompany, openInfo, openOrder, alertWords, setAlertWords, priceAlerts, setPriceAlerts]);
 
   const fired = useRef<Set<string>>(new Set(load<string[]>('pingFired', [])));
@@ -718,7 +720,7 @@ export default function App() {
     { id: 'auto-backup', label: `Auto CSV backup at the close: ${autoBackup ? 'on (turn off)' : 'off (turn on)'}`, run: () => setAutoBackup(!autoBackup) },
     { id: 'risk', label: 'Open risk / position size', hint: 'R', run: () => setTab('risk') },
     { id: 'account', label: 'Open account drawer', hint: 'A', run: () => setDrawer(true) },
-    { id: 'order', label: 'Webull order ticket (you approve every order)', run: () => openOrder({ sym: sel, side: 'BUY', type: 'LIMIT' }, Number.isFinite(quotes[sel]?.last) ? quotes[sel].last : null) },
+    ...(isOwner() ? [{ id: 'order', label: 'Webull order ticket (you approve every order)', run: () => openOrder({ sym: sel, side: 'BUY', type: 'LIMIT' }, Number.isFinite(quotes[sel]?.last) ? quotes[sel].last : null) }] : []),
     { id: 'gamma', label: 'Gamma & IV: call wall, put wall, zero-gamma flip, IV surface (SPY, QQQ, IWM, SPX)', hint: 'V', run: () => setPage('gamma') },
     { id: 'morning', label: 'Morning plan: premarket movers, sectors, setups, events (before 11am)', hint: 'W', run: () => setPage('morning') },
     { id: 'map', label: 'World map page', hint: 'M', run: () => setPage('map') },
@@ -995,7 +997,7 @@ export default function App() {
       {overlay === 'help' && <OverlayView kind="help" onClose={() => setOverlay(null)} />}
       {toast && <div className="toast" role="status">{toast}</div>}
       <Suspense fallback={null}>{article && <ReaderOverlay a={article} mode={dataMode} onClose={() => setArticle(null)}  />}</Suspense>
-      <Suspense fallback={null}>{orderReq && <OrderTicket initial={orderReq.initial} last={orderReq.last ?? (orderReq.initial.sym && Number.isFinite(quotes[orderReq.initial.sym]?.last) ? quotes[orderReq.initial.sym].last : null)} live={live} onClose={() => setOrderReq(null)} onPlaced={(t) => flash(`Sent to Webull: ${t}`, 5000)} />}</Suspense>
+      <Suspense fallback={null}>{orderReq && isOwner() && <OrderTicket initial={orderReq.initial} last={orderReq.last ?? (orderReq.initial.sym && Number.isFinite(quotes[orderReq.initial.sym]?.last) ? quotes[orderReq.initial.sym].last : null)} live={live} onClose={() => setOrderReq(null)} onPlaced={(t) => flash(`Sent to Webull: ${t}`, 5000)} />}</Suspense>
       {info && <TickerInfo key={info.sym} sym={info.sym} at={info.at} mode={dataMode} onClose={() => setInfo(null)} onChart={toDesk} onCompany={openCompany} />}
       <PingStack pings={pings} onOpen={toDesk} onDismiss={(id) => setPings((x) => x.filter((p) => p.id !== id))} />
     </div>
