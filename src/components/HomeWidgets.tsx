@@ -1,4 +1,5 @@
 // Home page widgets. Each gets its saved config (cfg) and a setter, plus the shared desk data.
+import { OptActiveW, PerpsW, RatesW } from './OptRatesW';
 import { HaltsW, IndexMoversW, WorldMktW } from './WorldMktW';
 import { HighSiW, HousingW } from './ExtrasW';
 import { TapeW } from './TapeW';
@@ -229,6 +230,15 @@ export function CalendarW({ d }: P) {
   );
 }
 
+export function OptActiveHomeW({ d }: P) {
+  return <OptActiveW mode={d.mode} onChart={d.onChart} />;
+}
+export function RatesHomeW({ d }: P) {
+  return <RatesW mode={d.mode} />;
+}
+export function PerpsHomeW({ d }: P) {
+  return <PerpsW mode={d.mode} />;
+}
 export function WorldHomeW({ d, cfg, set }: P) {
   return <WorldMktW mode={d.mode} cfg={cfg} set={set} />;
 }
@@ -266,6 +276,9 @@ export const WIDGETS = {
   world: { title: 'World indices, futures & FX', make: WorldHomeW },
   halts: { title: 'Trading halts', make: HaltsHomeW },
   idxmovers: { title: 'Index movers', make: IndexMoversHomeW },
+  optactive: { title: 'Most active options', make: OptActiveHomeW },
+  rates: { title: 'Yield curve & rates', make: RatesHomeW },
+  perps: { title: 'Crypto perps & funding', make: PerpsHomeW },
   hisi: { title: 'Most-shorted stocks', make: HighSiHomeW },
   crypto: { title: 'Crypto', make: CryptoW },
   commodities: { title: 'Commodities', make: CommoditiesW },

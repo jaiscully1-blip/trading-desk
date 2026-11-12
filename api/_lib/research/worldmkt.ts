@@ -5,8 +5,10 @@
 import { COMPANIES } from '../../../shared/data/companies.js';
 import { FUTURES, FX_PAIRS, WORLD_INDICES, currencyStrength, fxFromFrankfurter, indexMovers, parseHalts, parseNdxList, parseSparkPx, type Px } from '../../../shared/worldmkt.js';
 import { etToUtc } from '../../../shared/clock.js';
-import { getText } from '../adapters.js';
-import { cached, getJson, json, take, ttl } from '../core.js';
+import { fredHistory, getText } from '../adapters.js';
+import { cached, getJson, hasKey, json, take, ttl } from '../core.js';
+import { ACTIVE_UNDERLYINGS, CURVE, RATES, at, chainActivity, mostActive, parseHyperliquid, yieldCurve } from '../../../shared/optrates.js';
+import { parseCboe, type Chain } from '../../../shared/gamma.js';
 import { YH_HEADERS } from '../yahoo.js';
 import { snapshot } from './markets.js';
 
@@ -63,5 +65,42 @@ export async function idxmovers(req: Request): Promise<Response> {
     if (members.length < 50) throw new Error('index member list unavailable');
     const m = indexMovers(members, snap);
     return json({ index, ...m, members: members.length, asOf: Date.now(), source: `${source}; weights = market cap share (approximation: the real index adjusts for float${index === 'ndx' ? ' and caps the largest weights' : ''})` }, { sMaxAge: 120 });
+  } catch (e) { return json({ error: (e as Error).message.slice(0, 160) }, { status: 502 }); }
+}
+
+/* ---------------- options + rates ---------------- */
+/** fn=optactive -> the most traded option contracts across the busiest underlyings (Cboe delayed chains, read at most every 30 min). */
+export async function optactive(): Promise<Response> {
+  const chains: Chain[] = [], missed: string[] = [];
+  for (const s of ACTIVE_UNDERLYINGS) {
+    try {
+      const { val } = await cached(`optact:${s}`, ttl(1800, 4 * 3600), async () => {
+        if (!take('cboe')) throw new Error('Cboe request budget used up for now');
+        return parseCboe(await getJson(`https://cdn.cboe.com/api/global/delayed_quotes/options/${s}.json`, 'cboe', 25000), s);
+      });
+      chains.push(val);
+    } catch { missed.push(s); }
+  }
+  if (!chains.length) return json({ error: 'No option chains loaded (Cboe budget or network).', missed }, { status: 502 });
+  return json({ top: mostActive(chains), names: chains.map(chainActivity).sort((a, b) => b.volume - a.volume), missed, asOf: Date.now(), source: 'Cboe delayed option chains (~15 min delayed), re-read at most every 30 minutes' }, { sMaxAge: 300 });
+}
+
+/** fn=rates -> Treasury yield curve now / a month ago / a year ago, curve spreads, and key policy and market rates (FRED). */
+export async function rates(): Promise<Response> {
+  if (!hasKey('fred')) return json({ needsKey: true, error: 'The yield curve needs FRED_API_KEY (free).' }, { status: 503 });
+  const ids = [...CURVE.map((c) => c.id), ...RATES.map((r) => r.id)];
+  const series: Record<string, { date: string; value: number }[]> = {};
+  await Promise.all(ids.map(async (id) => { try { series[id] = (await cached(`fred:hist:${id}`, 6 * 3600, () => fredHistory(id, 400))).val; } catch { /* leave out */ } }));
+  const curve = yieldCurve(series);
+  const other = RATES.map((r) => ({ ...r, now: at(series[r.id] ?? [], 0), y1: at(series[r.id] ?? [], 365) })).filter((r) => r.now);
+  return json({ ...curve, rates: other, asOf: Date.now(), source: 'FRED (St. Louis Fed): Treasury constant-maturity yields and rates, daily (mortgage rate weekly)' }, { sMaxAge: 3600 });
+}
+
+/** fn=perps -> crypto perpetual futures: price, funding rate, open interest and volume (Hyperliquid public API). */
+export async function perps(): Promise<Response> {
+  try {
+    const { val } = await cached('hl:ctx', 60, async () => parseHyperliquid(await getJson('https://api.hyperliquid.xyz/info', 'binance', 10000, { method: 'POST', body: JSON.stringify({ type: 'metaAndAssetCtxs' }), headers: { 'content-type': 'application/json' } })));
+    if (!val.length) throw new Error('Hyperliquid returned no markets');
+    return json({ perps: val, asOf: Date.now(), source: 'Hyperliquid public API (a crypto derivatives exchange); funding is paid hourly between longs and shorts' }, { sMaxAge: 60 });
   } catch (e) { return json({ error: (e as Error).message.slice(0, 160) }, { status: 502 }); }
 }

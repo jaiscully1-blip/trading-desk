@@ -71,7 +71,7 @@ const LIMITS: Record<Provider, { perMin: number; perDay: number }> = {
   tradingview: { perMin: 10, perDay: 500 },
   alpaca: { perMin: 180, perDay: Infinity }, // free Basic plan: 200 requests/min
   nasdaq: { perMin: 30, perDay: 1500 }, // no published limit; every response is cached 30 min to 6 hours
-  cboe: { perMin: 6, perDay: 300 },
+  cboe: { perMin: 12, perDay: 400 }, // no published limit (static CDN files); each chain is cached 15-30 min in session
   earningsapi: { perMin: 20, perDay: 80 }, // free plan: 100 a day, 1,000 a month; every call is cached for hours
   tradetime: { perMin: 10, perDay: 1000 }, // asks clients to cache: 30 s for status, 24 h for holidays
   zillow: { perMin: 6, perDay: 60 },

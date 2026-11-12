@@ -2057,3 +2057,14 @@ body:has(.hw.dragging)::before { animation-play-state: paused; }
 .trv-turn.r-operator { opacity: .6; }
 .trv-turn mark { background: color-mix(in srgb, var(--warn) 40%, transparent); color: inherit; }
 .cl-row { grid-template-columns: 60px 1.4fr 1.1fr 0.6fr 0.6fr; }
+
+/* most active options, yield curve, perps */
+.oa-row { display: grid; grid-template-columns: 52px 1fr 0.9fr 0.9fr 1fr 0.7fr; gap: 6px; align-items: center; padding: 2px 10px; font-size: 12px; }
+.oa-row.oa-n { grid-template-columns: 52px 1.4fr 0.8fr 1fr; }
+.rc { padding-bottom: 6px; } .rc-svg { width: 100%; height: auto; display: block; padding: 0 6px; }
+.rc-now { fill: none; stroke: var(--accent); stroke-width: 2; } .rc-m1 { fill: none; stroke: var(--muted); stroke-width: 1.2; stroke-dasharray: 3 3; } .rc-y1 { fill: none; stroke: var(--line-2, var(--line)); stroke-width: 1.2; }
+.rc-t { font: 9.5px 'IBM Plex Mono', monospace; fill: var(--muted); text-anchor: middle; } .rc-t.start { text-anchor: start; }
+.rc-key { display: inline-block; width: 14px; height: 2px; vertical-align: middle; margin-right: 3px; } .rc-key.now { background: var(--accent); } .rc-key.m1 { background: var(--muted); } .rc-key.y1 { background: var(--line); }
+.rc-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 2px 10px; padding: 4px 10px; }
+.rc-sp, .rc-rates { display: flex; flex-wrap: wrap; gap: 4px 14px; padding: 4px 10px; } .rc-rates { display: grid; gap: 2px; }
+.pp-row { display: grid; grid-template-columns: 0.8fr 1fr 0.7fr 0.9fr 0.9fr 0.8fr; gap: 6px; align-items: center; padding: 2px 10px; font-size: 12px; }
