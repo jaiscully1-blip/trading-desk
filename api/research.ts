@@ -29,6 +29,7 @@ import { GET as bars } from './_lib/research/bars.js';
 import { GET as earnmoves } from './_lib/research/earnmoves.js';
 import { POST as notifyTest } from './_lib/research/notify-test.js';
 import { POST as linkread } from './_lib/research/linkread.js';
+import { essayai, range as essayRange } from './_lib/research/essay.js';
 import { MARKET_ROUTES } from './_lib/research/markets.js';
 import { GET as tearsheet, fundseriesRoute } from './_lib/research/tearsheet.js';
 import { GET as tape } from './_lib/research/tape.js';
@@ -80,14 +81,14 @@ async function frame(req: Request): Promise<Response> {
 // Reading a 10-K + one Gemini call can take ~20-40 s the first time (cached after that)
 export const maxDuration = 60;
 
-const ROUTES: Record<string, (req: Request) => Promise<Response>> = { deskcheck: async (req) => denyPrivate(req) ?? json({ ok: true }), names, earnings, 'company-news': companyNews, company, feed, 'crypto-news': () => cryptoNews(), frame, fundamentals, x: xEmbed, webull, discord, info, congress, premarket: () => premarket(), morning, gamma, 'webull-orders': webullOrdersGet, insider, polymarket, agents, kronos, 'econ-odds': () => econOdds(), eventcal, status, distress, daycases: () => daycases(), lookup, bars, earnmoves, tearsheet, tape, hours: () => hours(), housing: () => housing(), btcnet: () => btcnet(), hisi: () => hisi(), reactions, world, halts: () => halts(), idxmovers, transcript, optactive: () => optactive(), trending: () => trending(), global: () => global(), globalnews: () => globalnews(), fundseries: fundseriesRoute, tickernews, rates: () => rates(), perps: () => perps(), pulse: () => pulse(), ...SMART_ROUTES, ...MARKET_ROUTES };
+const ROUTES: Record<string, (req: Request) => Promise<Response>> = { deskcheck: async (req) => denyPrivate(req) ?? json({ ok: true }), names, earnings, 'company-news': companyNews, company, feed, 'crypto-news': () => cryptoNews(), frame, fundamentals, x: xEmbed, webull, discord, info, congress, premarket: () => premarket(), morning, gamma, 'webull-orders': webullOrdersGet, insider, polymarket, agents, kronos, 'econ-odds': () => econOdds(), eventcal, status, distress, daycases: () => daycases(), lookup, bars, earnmoves, tearsheet, tape, hours: () => hours(), housing: () => housing(), btcnet: () => btcnet(), hisi: () => hisi(), reactions, world, halts: () => halts(), idxmovers, transcript, optactive: () => optactive(), trending: () => trending(), global: () => global(), globalnews: () => globalnews(), fundseries: fundseriesRoute, tickernews, rates: () => rates(), perps: () => perps(), pulse: () => pulse(), range: essayRange, ...SMART_ROUTES, ...MARKET_ROUTES };
 export async function GET(req: Request): Promise<Response> {
   const fn = new URL(req.url).searchParams.get('fn') ?? '';
   const h = ROUTES[fn];
   return h ? h(req) : json({ error: `unknown fn; use one of ${Object.keys(ROUTES).join(', ')}` }, { status: 404 });
 }
 
-const POSTS: Record<string, (req: Request) => Promise<Response>> = { csvmap, 'webull-order': webullOrderPost, 'notify-test': notifyTest, linkread };
+const POSTS: Record<string, (req: Request) => Promise<Response>> = { csvmap, 'webull-order': webullOrderPost, 'notify-test': notifyTest, linkread, essayai };
 export async function POST(req: Request): Promise<Response> {
   const fn = new URL(req.url).searchParams.get('fn') ?? '';
   const h = POSTS[fn];

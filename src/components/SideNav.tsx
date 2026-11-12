@@ -5,7 +5,7 @@ import { createPortal } from 'react-dom';
 import { downloadDesk, exportDesk, importDesk, parseDeskFile, type DeskFile } from '../lib/deskfile';
 import { currentAccount, initials, isOwner, leave, makeOwner, verifyDeskPassword } from '../lib/accounts';
 
-export type Page = 'morning' | 'home' | 'messages' | 'desk' | 'patterns' | 'company' | 'scanner' | 'map' | 'flows' | 'smart' | 'etfs' | 'gamma' | 'odds' | 'journal' | 'calendar' | 'status' | 'distress' | 'mtf' | 'global' | 'news';
+export type Page = 'morning' | 'home' | 'messages' | 'desk' | 'patterns' | 'company' | 'scanner' | 'map' | 'flows' | 'smart' | 'etfs' | 'gamma' | 'odds' | 'journal' | 'calendar' | 'status' | 'distress' | 'mtf' | 'global' | 'news' | 'essay';
 export type GroupId = 'today' | 'charts' | 'scan' | 'flow' | 'journal';
 
 /** 24x24 stroke paths (own drawings, simple shapes) */
@@ -26,6 +26,7 @@ const ICON: Record<Page | 'account', string> = {
   odds: 'M19 5L5 19 M7 8m-2 0a2 2 0 1 0 4 0 2 2 0 1 0-4 0 M17 16m-2 0a2 2 0 1 0 4 0 2 2 0 1 0-4 0',
   calendar: 'M4 6h16v14H4z M4 10h16 M8 3v4 M16 3v4',
   journal: 'M5 4h11a3 3 0 0 1 3 3v13H8a3 3 0 0 1-3-3z M5 17a3 3 0 0 1 3-3h11',
+  essay: 'M4 20h4L19 9l-4-4L4 16z M13.5 6.5l4 4 M4 20h16',
   distress: 'M12 3l9 16H3z M12 9v5 M12 17h.01',
   news: 'M4 5h13v14H6a2 2 0 0 1-2-2z M17 9h3v8a2 2 0 0 1-2 2 M7 9h7 M7 12h7 M7 15h4',
   global: 'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18 M7 8h4l1 3-3 2v3 M15 5l-1 4 3 2 3-1',
@@ -43,6 +44,7 @@ const P: Record<Page, { label: string; hint: string; key: string }> = {
   scanner: { label: 'Scanner', hint: 'setups, gappers, RS rank', key: 'S' }, flows: { label: 'Rotation', hint: 'sector and theme rotation', key: 'G' }, etfs: { label: 'ETFs and sectors', hint: 'heatmap and holdings', key: 'U' }, smart: { label: 'Institutional Holdings', hint: '13F, ARK, Congress', key: 'I' },
   gamma: { label: 'Gamma and IV', hint: 'dealer gamma, volatility', key: 'V' }, map: { label: 'World map', hint: 'news hotspots, conflicts, shipping', key: 'M' }, odds: { label: 'Econ odds', hint: 'Fed, recession, CPI bets', key: 'Y' }, calendar: { label: 'Calendars', hint: 'economy, earnings, IPOs, Fed', key: 'C' },
   journal: { label: 'Journal', hint: 'trades, rules, review', key: '⇧J' },
+  essay: { label: 'Essays', hint: 'write up a stock with a linked chart, news and data', key: '⇧W' },
   mtf: { label: 'Multi-timeframe', hint: '4 linked charts: 3m, 15m, 1h, daily', key: '⇧M' },
   distress: { label: 'Distress', hint: 'weak companies, turnarounds, sector stress', key: '⇧R' },
   news: { label: 'News', hint: 'top stories, search, news by ticker', key: '⇧N' },
@@ -54,7 +56,7 @@ export const NAV_GROUPS: { id: GroupId; label: string; pages: Page[] }[] = [
   { id: 'charts', label: 'Charts', pages: ['desk', 'mtf', 'patterns', 'company'] },
   { id: 'scan', label: 'Scan', pages: ['scanner', 'flows', 'etfs', 'smart', 'distress'] },
   { id: 'flow', label: 'Flow and risk', pages: ['global', 'gamma', 'map', 'odds', 'status'] },
-  { id: 'journal', label: 'Journal', pages: ['journal'] },
+  { id: 'journal', label: 'Journal', pages: ['journal', 'essay'] },
 ];
 export const pageGroup = (p: Page): GroupId => NAV_GROUPS.find((g) => g.pages.includes(p))?.id ?? 'today';
 
