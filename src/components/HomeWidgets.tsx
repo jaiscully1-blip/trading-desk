@@ -1,4 +1,5 @@
 // Home page widgets. Each gets its saved config (cfg) and a setter, plus the shared desk data.
+import { TapeW } from './TapeW';
 import { MacroClock } from './MacroClock';
 import { useEffect, useMemo, useRef } from 'react';
 import { CandlestickSeries, ColorType, createChart, type IChartApi, type ISeriesApi, type UTCTimestamp } from 'lightweight-charts';
@@ -226,6 +227,10 @@ export function CalendarW({ d }: P) {
   );
 }
 
+export function TapeHomeW({ d, cfg, set }: P) {
+  return <TapeW mode={d.mode} sym={cfg.sym ?? d.sel ?? 'SPY'} onSym={(sym) => set({ ...cfg, sym })} onChart={d.onChart} />;
+}
+
 export function MacroClockW({ d }: P) {
   return <MacroClock cal={d.cal} />;
 }
@@ -238,6 +243,7 @@ export const WIDGETS = {
   stock: { title: 'Stock', make: StockW },
   messages: { title: 'Messages', make: MessagesW },
   macroclock: { title: 'Macro countdowns', make: MacroClockW },
+  tape: { title: 'Time & sales (IEX)', make: TapeHomeW },
   crypto: { title: 'Crypto', make: CryptoW },
   commodities: { title: 'Commodities', make: CommoditiesW },
   risk: { title: 'Risk calculator', make: RiskW },

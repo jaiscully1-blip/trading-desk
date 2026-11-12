@@ -1990,3 +1990,16 @@ body:has(.hw.dragging)::before { animation-play-state: paused; }
 .ot-risk { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin: 6px 0; padding: 6px 8px; border: 1px dashed var(--line); border-radius: 6px; }
 .ot-risk label { display: inline-flex; align-items: center; gap: 5px; }
 .ot-risk input { width: 80px; }
+
+/* time & sales (IEX) */
+.tp { display: flex; flex-direction: column; min-height: 0; height: 100%; }
+.tp-h { display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+.tp-in { width: 84px; background: transparent; border: 1px solid var(--line); border-radius: 5px; padding: 2px 6px; font: 500 11.5px 'IBM Plex Mono', monospace; color: var(--fg); text-transform: uppercase; }
+.tp-tag { margin-left: auto; }
+.tp-sum { display: flex; flex-wrap: wrap; gap: 4px 12px; padding: 5px 10px; border-bottom: 1px solid var(--line); align-items: center; }
+.tp-bar { width: 60px; height: 6px; border-radius: 3px; background: color-mix(in srgb, var(--down) 55%, transparent); display: inline-block; overflow: hidden; vertical-align: middle; }
+.tp-bar span { display: block; height: 100%; background: var(--up); }
+.tp-list { overflow: auto; flex: 1; min-height: 120px; max-height: 420px; font-size: 11.5px; }
+.tp-row { display: grid; grid-template-columns: 82px 70px 1fr 60px; gap: 6px; padding: 1px 10px; }
+.tp-row.up .tp-p { color: var(--up); } .tp-row.down .tp-p { color: var(--down); }
+.tp-row.big { background: color-mix(in srgb, var(--warn) 12%, transparent); font-weight: 600; }
