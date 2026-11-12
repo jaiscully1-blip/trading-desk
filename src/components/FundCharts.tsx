@@ -36,7 +36,7 @@ function useFund(syms: string[], live: boolean) {
   return st;
 }
 
-export function FundCharts({ mode, sym, cfg, set }: { mode: DataMode; sym: string; cfg?: Record<string, any>; set?: (c: Record<string, any>) => void }) {
+export function FundCharts({ mode, sym, cfg, set, onSym }: { mode: DataMode; sym: string; cfg?: Record<string, any>; set?: (c: Record<string, any>) => void; onSym?: (s: string) => void }) {
   const [local, setLocal] = useState<Record<string, any>>({});
   const c = cfg ?? local, setC = set ?? setLocal;
   const metric: Metric = c.metric ?? 'revenue';
@@ -45,6 +45,7 @@ export function FundCharts({ mode, sym, cfg, set }: { mode: DataMode; sym: strin
   const syms = [sym, ...others.filter((s) => s !== sym)].slice(0, 3);
   const data = useFund(syms, mode.kind === 'live');
   const [typed, setTyped] = useState('');
+  const [typedMain, setTypedMain] = useState('');
   const m = METRICS.find((x) => x.id === metric)!;
   if (mode.kind !== 'live') return <p className="small muted hw-pad">Fundamentals come from SEC filings and need the live desk; nothing is shown in demo mode.</p>;
   const ok = syms.map((s) => data[s]).filter((d): d is FundData => !!d && 'annual' in d);
@@ -64,6 +65,7 @@ export function FundCharts({ mode, sym, cfg, set }: { mode: DataMode; sym: strin
       <div className="fc-bar">
         <select value={metric} onChange={(e) => setC({ ...c, metric: e.target.value })} aria-label="Metric">{METRICS.map((x) => <option key={x.id} value={x.id}>{x.label}</option>)}</select>
         <span className="chips"><button className={`chip sm ${!quarterly ? 'on' : ''}`} onClick={() => setC({ ...c, q: false })}>Annual</button><button className={`chip sm ${quarterly ? 'on' : ''}`} onClick={() => setC({ ...c, q: true })}>Quarterly</button></span>
+        {onSym && <input className="tp-in" value={typedMain} onChange={(e) => setTypedMain(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') { const s = typedMain.trim().toUpperCase().replace(/^\$/, ''); if (/^[A-Z][A-Z0-9.]{0,9}$/.test(s)) onSym(s); setTypedMain(''); } }} placeholder="ticker ↵" maxLength={10} aria-label="Company" />}
         {syms.map((s, k) => <span key={s} className="chip sm on fc-chip" style={{ borderColor: COLORS[k] }}>{s}{k > 0 && <button aria-label={`Remove ${s}`} onClick={() => setC({ ...c, compare: others.filter((x) => x !== s) })}>×</button>}</span>)}
         {syms.length < 3 && <input className="tp-in" value={typed} onChange={(e) => setTyped(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') add(); }} placeholder="compare ↵" maxLength={10} aria-label="Add a company to compare" />}
         <Q k="calc" src="SEC XBRL company facts; quarters worked out from year-to-date totals where companies report those; margins are calculated" />

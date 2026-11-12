@@ -237,7 +237,9 @@ export function AlertsHomeW({ d }: P) {
   return <AlertsW quotes={d.quotes} sel={d.sel} live={d.mode.kind === 'live'} onChart={d.onChart} />;
 }
 export function FundHomeW({ d, cfg, set }: P) {
-  return <FundCharts mode={d.mode} sym={cfg.sym ?? d.sel ?? 'AAPL'} cfg={cfg} set={set} />;
+  // funds and indexes have no financial statements: start on a company instead
+  const start = cfg.sym ?? (/^(SPY|QQQ|IWM|DIA|VTI|VOO|TLT|GLD|USO|UUP)$/.test(d.sel) ? 'AAPL' : d.sel || 'AAPL');
+  return <FundCharts mode={d.mode} sym={start} cfg={cfg} set={set} onSym={(s) => set({ ...cfg, sym: s })} />;
 }
 export function AnalysisHomeW({ d, cfg, set }: P) {
   return <AnalysisW mode={d.mode} sel={d.sel} cfg={cfg} set={set} />;

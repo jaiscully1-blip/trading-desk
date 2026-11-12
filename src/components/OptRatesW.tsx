@@ -42,8 +42,8 @@ export function OptActiveW({ mode, onChart }: { mode: DataMode; onChart: (s: str
             <button className="wl-sym" onClick={() => onChart(o.sym)}>{o.sym}</button>
             <span className={o.cp === 'C' ? 'up' : 'down'}><b>{k(o.K)} {o.cp === 'C' ? 'call' : 'put'}</b></span>
             <span className="num small">{o.exp.slice(5)} <span className="muted">{o.dte}d</span></span>
-            <span className="num">{o.vol.toLocaleString('en-US')}</span>
-            <span className="num small muted" title="Open interest at the start of the day">{o.oi.toLocaleString('en-US')} OI</span>
+            <span className="num" title={`Volume ${o.vol.toLocaleString('en-US')} · open interest ${o.oi.toLocaleString('en-US')} at the start of the day`}>{o.vol.toLocaleString('en-US')}</span>
+            <span className="num small muted oa-oi" title="Open interest at the start of the day">{o.oi.toLocaleString('en-US')} OI</span>
             <span className="num small">{money(o.premium)}</span>
           </div>
         )) : d.names.map((n) => (

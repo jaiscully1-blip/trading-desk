@@ -71,9 +71,9 @@ export function HaltsW({ mode, onChart, mine }: { mode: DataMode; onChart: (s: s
         {rows.slice(0, 80).map((h) => (
           <div key={`${h.sym}${h.haltedAt}`} className={`hl-row ${mine.has(h.sym) ? 'mine' : ''}`} title={`${h.name} · ${h.market}${h.pausePrice ? ` · pause price ${h.pausePrice}` : ''}`}>
             <span><Star sym={h.sym} /><button className="wl-sym" onClick={() => onChart(h.sym)}>{h.sym}</button></span>
-            <span className="small">{h.reason} <span className="muted">({h.code})</span></span>
-            <span className="num small muted">{tm(h.haltedAt)} ET</span>
-            <span className="num small">{h.resumedAt ? <span className="up">resumed {tm(h.resumedAt)}</span> : <span className="down">halted</span>}</span>
+            <span className="small" title={`${h.reason} (${h.code})`}>{h.reason}</span>
+            <span className="num small muted" title="Halted at (ET)">{tm(h.haltedAt)}</span>
+            <span className="num small" title={h.resumedAt ? `Resumed ${tm(h.resumedAt)} ET` : 'Still halted'}>{h.resumedAt ? <span className="up">▶ {tm(h.resumedAt)}</span> : <span className="down">halted</span>}</span>
           </div>
         ))}
         {!rows.length && <p className="hw-pad small muted">No {only === 'open' ? 'stocks are halted right now' : 'halts'}.</p>}
