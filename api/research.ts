@@ -33,7 +33,7 @@ import { MARKET_ROUTES } from './_lib/research/markets.js';
 import { GET as tearsheet, fundseriesRoute } from './_lib/research/tearsheet.js';
 import { GET as tape } from './_lib/research/tape.js';
 import { btcnet, hisi, hours, housing, reactions, transcript, trending } from './_lib/research/extras.js';
-import { halts, idxmovers, optactive, perps, rates, world } from './_lib/research/worldmkt.js';
+import { halts, idxmovers, optactive, perps, pulse, rates, world } from './_lib/research/worldmkt.js';
 import { global, globalnews, tickernews } from './_lib/research/global.js';
 import { cached, json } from './_lib/core.js';
 import { denyPrivate } from './_lib/private.js';
@@ -80,7 +80,7 @@ async function frame(req: Request): Promise<Response> {
 // Reading a 10-K + one Gemini call can take ~20-40 s the first time (cached after that)
 export const maxDuration = 60;
 
-const ROUTES: Record<string, (req: Request) => Promise<Response>> = { deskcheck: async (req) => denyPrivate(req) ?? json({ ok: true }), names, earnings, 'company-news': companyNews, company, feed, 'crypto-news': () => cryptoNews(), frame, fundamentals, x: xEmbed, webull, discord, info, congress, premarket: () => premarket(), morning, gamma, 'webull-orders': webullOrdersGet, insider, polymarket, agents, kronos, 'econ-odds': () => econOdds(), eventcal, status, distress, daycases: () => daycases(), lookup, bars, earnmoves, tearsheet, tape, hours: () => hours(), housing: () => housing(), btcnet: () => btcnet(), hisi: () => hisi(), reactions, world, halts: () => halts(), idxmovers, transcript, optactive: () => optactive(), trending: () => trending(), global: () => global(), globalnews: () => globalnews(), fundseries: fundseriesRoute, tickernews, rates: () => rates(), perps: () => perps(), ...SMART_ROUTES, ...MARKET_ROUTES };
+const ROUTES: Record<string, (req: Request) => Promise<Response>> = { deskcheck: async (req) => denyPrivate(req) ?? json({ ok: true }), names, earnings, 'company-news': companyNews, company, feed, 'crypto-news': () => cryptoNews(), frame, fundamentals, x: xEmbed, webull, discord, info, congress, premarket: () => premarket(), morning, gamma, 'webull-orders': webullOrdersGet, insider, polymarket, agents, kronos, 'econ-odds': () => econOdds(), eventcal, status, distress, daycases: () => daycases(), lookup, bars, earnmoves, tearsheet, tape, hours: () => hours(), housing: () => housing(), btcnet: () => btcnet(), hisi: () => hisi(), reactions, world, halts: () => halts(), idxmovers, transcript, optactive: () => optactive(), trending: () => trending(), global: () => global(), globalnews: () => globalnews(), fundseries: fundseriesRoute, tickernews, rates: () => rates(), perps: () => perps(), pulse: () => pulse(), ...SMART_ROUTES, ...MARKET_ROUTES };
 export async function GET(req: Request): Promise<Response> {
   const fn = new URL(req.url).searchParams.get('fn') ?? '';
   const h = ROUTES[fn];

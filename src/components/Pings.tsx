@@ -7,18 +7,21 @@ import { pct, px, tone } from '../lib/format';
 import { etTime } from '../lib/clock';
 import { CoName, Star } from './common';
 
-const KIND: Record<Ping['kind'], string> = { news: 'NEWS', earnings: 'EARNINGS', move: 'MOVE', level: 'LEVEL', rotation: 'ROTATION', keyword: 'KEYWORD', alert: 'ALERT' };
+const KIND: Record<Ping['kind'], string> = { news: 'NEWS', earnings: 'EARNINGS', move: 'MOVE', level: 'LEVEL', rotation: 'ROTATION', keyword: 'KEYWORD', alert: 'ALERT', desk: 'DESK' };
+const GLYPH = (p: Ping) => (p.tone === 'up' ? '▲' : p.tone === 'down' ? '▼' : '●');
 
 function PingCard({ p, onOpen, onClose }: { p: Ping; onOpen: () => void; onClose: () => void }) {
   const [hover, setHover] = useState(false);
   useEffect(() => {
     if (hover) return;
-    const t = setTimeout(onClose, 14_000);
+    const t = setTimeout(onClose, p.ms ?? 14_000);
     return () => clearTimeout(t);
   }, [hover]); // eslint-disable-line react-hooks/exhaustive-deps
   const { names } = useDesk();
   return (
-    <div className={`ping ${p.tone ?? ''}`} role="status" onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}>
+    <div className={`ping k-${p.kind} ${p.tone ?? ''} ${hover ? 'held' : ''}`} role="status" onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}>
+      <span className="ping-g" aria-hidden="true">{GLYPH(p)}</span>
+      <div className="ping-main">
       <div className="ping-h">
         <span className={`ping-k k-${p.kind}`}>{KIND[p.kind]}</span>
         {p.sym ? <button className="ping-sym" onClick={onOpen} title="Open on the desk">{p.kind === 'rotation' || p.kind === 'keyword' ? '' : '★ '}{p.sym}</button> : <span className="ping-sym" />}
@@ -27,6 +30,8 @@ function PingCard({ p, onOpen, onClose }: { p: Ping; onOpen: () => void; onClose
         <button className="ping-x" onClick={onClose} aria-label="Dismiss">×</button>
       </div>
       <div className="ping-b">{p.url ? <a href={p.url} target="_blank" rel="noreferrer noopener">{p.text}</a> : p.text}</div>
+      </div>
+      <i className="ping-timer" style={{ animationDuration: `${p.ms ?? 14_000}ms` }} aria-hidden="true" />
     </div>
   );
 }
@@ -34,8 +39,8 @@ function PingCard({ p, onOpen, onClose }: { p: Ping; onOpen: () => void; onClose
 export function PingStack({ pings, onOpen, onDismiss }: { pings: Ping[]; onOpen: (sym: string) => void; onDismiss: (id: string) => void }) {
   if (!pings.length) return null;
   return (
-    <div className="pings" aria-live="polite">
-      {pings.slice(0, 5).map((p) => <PingCard key={p.id} p={p} onOpen={() => { onOpen(p.sym); onDismiss(p.id); }} onClose={() => onDismiss(p.id)} />)}
+    <div className={`pings ${pings.length > 1 ? 'stacked' : ''}`} aria-live="polite" title={pings.length > 1 ? 'Hover to fan out' : undefined}>
+      {pings.slice(0, 6).map((p) => <PingCard key={p.id} p={p} onOpen={() => { onOpen(p.sym); onDismiss(p.id); }} onClose={() => onDismiss(p.id)} />)}
       {pings.length > 1 && <button className="ping-clear" onClick={() => pings.forEach((p) => onDismiss(p.id))}>Clear all ({pings.length})</button>}
     </div>
   );
