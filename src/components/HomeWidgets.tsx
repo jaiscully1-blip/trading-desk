@@ -1,4 +1,12 @@
 // Home page widgets. Each gets its saved config (cfg) and a setter, plus the shared desk data.
+import { AlertsW } from './AlertsW';
+import { FundCharts } from './FundCharts';
+import { AnalysisW, TrendingW } from './AnalysisW';
+import { OptActiveW, PerpsW, RatesW } from './OptRatesW';
+import { HaltsW, IndexMoversW, WorldMktW } from './WorldMktW';
+import { HighSiW, HousingW } from './ExtrasW';
+import { TapeW } from './TapeW';
+import { MacroClock } from './MacroClock';
 import { useEffect, useMemo, useRef } from 'react';
 import { CandlestickSeries, ColorType, createChart, type IChartApi, type ISeriesApi, type UTCTimestamp } from 'lightweight-charts';
 import type { Quote, TF } from '../types';
@@ -225,6 +233,53 @@ export function CalendarW({ d }: P) {
   );
 }
 
+export function AlertsHomeW({ d }: P) {
+  return <AlertsW quotes={d.quotes} sel={d.sel} live={d.mode.kind === 'live'} onChart={d.onChart} />;
+}
+export function FundHomeW({ d, cfg, set }: P) {
+  // funds and indexes have no financial statements: start on a company instead
+  const start = cfg.sym ?? (/^(SPY|QQQ|IWM|DIA|VTI|VOO|TLT|GLD|USO|UUP)$/.test(d.sel) ? 'AAPL' : d.sel || 'AAPL');
+  return <FundCharts mode={d.mode} sym={start} cfg={cfg} set={set} onSym={(s) => set({ ...cfg, sym: s })} />;
+}
+export function AnalysisHomeW({ d, cfg, set }: P) {
+  return <AnalysisW mode={d.mode} sel={d.sel} cfg={cfg} set={set} />;
+}
+export function TrendingHomeW({ d }: P) {
+  return <TrendingW mode={d.mode} onChart={d.onChart} />;
+}
+export function OptActiveHomeW({ d }: P) {
+  return <OptActiveW mode={d.mode} onChart={d.onChart} />;
+}
+export function RatesHomeW({ d }: P) {
+  return <RatesW mode={d.mode} />;
+}
+export function PerpsHomeW({ d }: P) {
+  return <PerpsW mode={d.mode} />;
+}
+export function WorldHomeW({ d, cfg, set }: P) {
+  return <WorldMktW mode={d.mode} cfg={cfg} set={set} />;
+}
+export function HaltsHomeW({ d }: P) {
+  return <HaltsW mode={d.mode} onChart={d.onChart} mine={new Set(Object.keys(d.quotes))} />;
+}
+export function IndexMoversHomeW({ d, cfg, set }: P) {
+  return <IndexMoversW mode={d.mode} onChart={d.onChart} cfg={cfg} set={set} />;
+}
+export function HousingHomeW({ d }: P) {
+  return <HousingW mode={d.mode} />;
+}
+export function HighSiHomeW({ d }: P) {
+  return <HighSiW mode={d.mode} onChart={d.onChart} mine={new Set(Object.keys(d.quotes))} />;
+}
+
+export function TapeHomeW({ d, cfg, set }: P) {
+  return <TapeW mode={d.mode} sym={cfg.sym ?? d.sel ?? 'SPY'} onSym={(sym) => set({ ...cfg, sym })} onChart={d.onChart} />;
+}
+
+export function MacroClockW({ d }: P) {
+  return <MacroClock cal={d.cal} />;
+}
+
 export function MessagesW({ d }: P) {
   return <Messages feed={d.feed} cal={d.cal} nowMs={d.now} onChart={d.onChart} compact />;
 }
@@ -232,6 +287,20 @@ export function MessagesW({ d }: P) {
 export const WIDGETS = {
   stock: { title: 'Stock', make: StockW },
   messages: { title: 'Messages', make: MessagesW },
+  macroclock: { title: 'Macro countdowns', make: MacroClockW },
+  tape: { title: 'Time & sales (IEX)', make: TapeHomeW },
+  housing: { title: 'Housing (Zillow)', make: HousingHomeW },
+  world: { title: 'World indices, futures & FX', make: WorldHomeW },
+  halts: { title: 'Trading halts', make: HaltsHomeW },
+  idxmovers: { title: 'Index movers', make: IndexMoversHomeW },
+  optactive: { title: 'Most active options', make: OptActiveHomeW },
+  rates: { title: 'Yield curve & rates', make: RatesHomeW },
+  perps: { title: 'Crypto perps & funding', make: PerpsHomeW },
+  analysis: { title: 'Compare, beta & returns', make: AnalysisHomeW },
+  fund: { title: 'Fundamentals charts', make: FundHomeW },
+  alerts: { title: 'Price alerts', make: AlertsHomeW },
+  trending: { title: 'Trending on Reddit', make: TrendingHomeW },
+  hisi: { title: 'Most-shorted stocks', make: HighSiHomeW },
   crypto: { title: 'Crypto', make: CryptoW },
   commodities: { title: 'Commodities', make: CommoditiesW },
   risk: { title: 'Risk calculator', make: RiskW },

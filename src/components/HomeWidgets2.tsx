@@ -10,6 +10,7 @@ import { pct, px, tone } from '../lib/format';
 import { Seg, Star, LeanDot, Q } from './common';
 import type { HomeData } from './HomeWidgets';
 import { useTick } from '../lib/useTick';
+import { BtcNetStrip } from './ExtrasW';
 
 type Cfg = Record<string, any>;
 interface P { d: HomeData; cfg: Cfg; set: (c: Cfg) => void }
@@ -81,22 +82,43 @@ export function RiskW({ cfg, set }: P) {
 }
 
 /* ---------------- session clock: NY / London / Asia ---------------- */
+// Trade Time ids for the five markets shown; holidays for every one of them come from its published calendar
+const TT_ID: Record<string, string> = { ny: 'nyse', ldn: 'lse', tky: 'nikkei', hk: 'hkex', syd: 'asx' };
+interface TtRow { id: string; name: string; open: boolean; closedReason: string | null }
+function useWorldHours(live: boolean) {
+  const [st, setSt] = useState<{ rows: TtRow[]; nyse: { holidays: string[]; early: { date: string; close: number }[] } } | null>(null);
+  useEffect(() => {
+    if (!live) return;
+    let stop = false;
+    const go = () => fetch('/api/research?fn=hours').then((r) => (r.ok ? r.json() : null)).then((j) => { if (!stop && j?.exchanges) setSt({ rows: j.exchanges, nyse: j.nyse }); }).catch(() => {});
+    go();
+    const id = setInterval(() => { if (!document.hidden) go(); }, 120_000);
+    return () => { stop = true; clearInterval(id); };
+  }, [live]);
+  return st;
+}
+
 export function SessionsW({ d }: P) {
   const now = useTick(1000);
+  const tt = useWorldHours(d.mode.kind === 'live');
   const nyClosed = !!d.clk.holiday;
+  const holidayOf = (id: string) => tt?.rows.find((r) => r.id === TT_ID[id])?.closedReason === 'holiday';
+  const others = tt ? tt.rows.filter((r) => !Object.values(TT_ID).includes(r.id) && r.id !== 'nasdaq') : [];
   return (
     <div className="hw-col hw-scroll ss">
       <div className="ss-now num">{new Date(now).toLocaleTimeString('en-US', { timeZone: 'America/New_York', hour12: false })} <span>ET</span></div>
       {MARKETS.map((m) => {
-        const s = sessionState(m, now, m.id === 'ny' && nyClosed);
+        const s = sessionState(m, now, (m.id === 'ny' && nyClosed) || holidayOf(m.id));
         return (
           <div key={m.id} className={`ss-row ${s.status}`}>
-            <div className="ss-l1"><span className="ss-dot" aria-hidden="true" /><b>{m.name}</b><span className="ss-st">{s.status === 'open' ? 'OPEN' : s.status === 'lunch' ? 'LUNCH' : 'CLOSED'}</span><span className="num muted ss-loc">{s.local} local</span></div>
+            <div className="ss-l1"><span className="ss-dot" aria-hidden="true" /><b>{m.name}</b><span className="ss-st">{s.status === 'open' ? 'OPEN' : s.status === 'lunch' ? 'LUNCH' : holidayOf(m.id) ? 'HOLIDAY' : 'CLOSED'}</span><span className="num muted ss-loc">{s.local} local</span></div>
             <div className="ss-l2"><span className="num">{s.next} in {hms(s.inSec)}</span><span className="muted small">{m.open}–{m.close}{m.lunch ? ` · lunch ${m.lunch[0]}–${m.lunch[1]}` : ''}</span></div>
           </div>
         );
       })}
-      <p className="note">Regular hours, local time. Weekends handled; holidays only for New York{nyClosed ? ` (closed today: ${d.clk.holiday})` : ''}.</p>
+      {others.length > 0 && <div className="ss-more small"><span className="muted">Open now elsewhere:</span> {others.filter((r) => r.open).map((r) => r.name).join(', ') || 'none'}</div>}
+      {tt && tt.nyse.holidays.length > 0 && <div className="ss-more small"><span className="muted">Next US market holidays:</span> {tt.nyse.holidays.slice(0, 3).map((h) => new Date(`${h}T12:00:00Z`).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' })).join(', ')}{tt.nyse.early[0] ? ` · early close ${new Date(`${tt.nyse.early[0].date}T12:00:00Z`).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' })} at ${tt.nyse.early[0].close > 12 ? tt.nyse.early[0].close - 12 : tt.nyse.early[0].close}:00 PM` : ''}</div>}
+      <p className="note">Regular hours, local time.{tt ? ' Holidays for every market from Trade Time (exchange-published calendars, free).' : ` Weekends handled; holidays only for New York${nyClosed ? ` (closed today: ${d.clk.holiday})` : ''}.`}</p>
     </div>
   );
 }
@@ -157,6 +179,7 @@ export function CryptoW({ d, cfg, set }: P) {
         <span className="hw-tf"><Seg<TF> value={tf} onChange={(t) => set({ ...cfg, tf: t })} options={[{ id: '5m', label: '5m' }, { id: '1H', label: '1H' }, { id: 'D', label: 'D' }]} /></span>
       </div>
       {error ? <p className="small down hw-pad">{error}</p> : <Candles bars={bars} theme={d.theme} timeVisible={tf !== 'D'} />}
+      {base === 'BTC' && <BtcNetStrip mode={d.mode} />}
       <ul className="hw-news">{[...news.filter((n) => n.title.toUpperCase().includes(base)), ...news.filter((n) => !n.title.toUpperCase().includes(base))].slice(0, 10).map((n) => <li key={n.id}><span className={`sent ${n.sentiment > 0 ? 'up' : n.sentiment < 0 ? 'down' : 'muted'}`}>●</span>{n.url ? <a href={n.url} target="_blank" rel="noreferrer noopener">{n.title}</a> : n.title}<span className="muted small"> · {n.src}</span><LeanDot lean={n.lean} /></li>)}</ul>
       <p className="note hw-pad"><Q k={d.mode.kind === 'demo' ? 'demo' : 'live'} src={source || 'Binance'} />{source || 'Binance'} · 24/7, refreshes every minute · crypto news: Finnhub</p>
     </div>

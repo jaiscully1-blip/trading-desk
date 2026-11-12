@@ -9,6 +9,7 @@ import { useDesk } from '../lib/deskctx';
 import { DEMO_AT, rng } from '../lib/demo';
 import { pct, px, sUsd, tone } from '../lib/format';
 import { etTime } from '../lib/clock';
+import { daysLate } from '../../shared/extras';
 import { CoName, Fresh, Seg, Star, SymInfo } from './common';
 import { usePersisted } from '../lib/store';
 import { tokenMessage } from '../../shared/webull';
@@ -364,7 +365,7 @@ export function CongressW({ d, cfg, set }: P) {
             <span className="num small muted">{t.traded}</span>
             <span className="cg-who"><b>{t.who}</b> <span className={`tag p-${t.party}`}>{t.party}-{t.state}</span>{t.owner && t.owner !== 'SELF' && <span className="muted small"> · {t.owner.toLowerCase()}</span>}</span>
             <span className={/BUY|PURCHASE/i.test(t.type) ? 'up' : 'down'}>{/BUY|PURCHASE/i.test(t.type) ? 'BUY' : 'SELL'}</span>
-            <span className="num small">{range(t.min, t.max)}</span>
+            <span className="num small">{range(t.min, t.max)}{t.filed && daysLate(t.traded, t.filed) > 0 && <span className="tag cg-late" title={`Traded ${t.traded}, disclosed ${t.filed}: ${daysLate(t.traded, t.filed)} days past the STOCK Act's 45-day deadline`}>LATE {daysLate(t.traded, t.filed)}d</span>}</span>
           </div>
         ))}
         {!st.loading && !st.error && !st.trades.length && <p className="hw-pad small muted">No disclosed congressional trades in {sym}.</p>}

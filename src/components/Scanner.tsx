@@ -7,7 +7,7 @@ import { etTime } from '../lib/clock';
 import { pct, px, tone } from '../lib/format';
 import { Belt, CoName, Fresh, Star } from './common';
 
-type SortKey = 'sym' | 'chgPct' | 'gapPct' | 'rvol' | 'rsRank' | 'grade';
+type SortKey = 'sym' | 'chgPct' | 'gapPct' | 'rvol' | 'floatM' | 'rsRank' | 'grade';
 
 export interface ScannerProps {
   rows: ScanRow[];
@@ -91,6 +91,14 @@ export function Scanner(p: ScannerProps) {
       {panel === 'filter' && <FilterBuilder filters={p.filters} setFilters={p.setFilters} onSaved={(id) => { p.setFilterId(id); setPanel('none'); }} />}
       {panel === 'universe' && <UniverseEditor {...p} />}
 
+      {(() => {
+        // breadth of your scan universe (not the whole S&P 500): share of names above their 50- and 200-day averages
+        const rs = p.rows.filter((r) => r.sym !== 'SPY' && r.sym !== 'QQQ');
+        const a50 = rs.filter((r) => r.above50 != null), a200 = rs.filter((r) => r.above200 != null);
+        if (a50.length < 5) return null;
+        const pc = (xs: typeof rs, k: 'above50' | 'above200') => Math.round((xs.filter((r) => r[k]).length / xs.length) * 100);
+        return <p className="small muted sc-breadth" title="Share of the stocks in this scan universe trading above their 50-day and 200-day averages">Breadth: <b className="num">{pc(a50, 'above50')}%</b> above the 50-day{a200.length >= 5 ? <> · <b className="num">{pc(a200, 'above200')}%</b> above the 200-day</> : null} <span>({a50.length} stocks in this scan)</span></p>;
+      })()}
       <table className="grid sc">
         <thead>
           <tr>
@@ -98,6 +106,7 @@ export function Scanner(p: ScannerProps) {
             <H k="chgPct">Chg</H>
             <H k="gapPct">Gap</H>
             <H k="rvol" title="Relative volume, time-of-day adjusted">RVOL</H>
+            <H k="floatM" title="Estimated float, millions of shares: SEC public float (value held by non-insiders on one date) ÷ that day's close">Float</H>
             <H k="rsRank" title="RS percentile vs SPY over 5/20/60 days, within the universe">RS</H>
             <H k="grade" title="Playbook grade">Gr</H>
             <th aria-label="Add" />
@@ -114,6 +123,7 @@ export function Scanner(p: ScannerProps) {
                   <td className={`num ${tone(r.chgPct)}`}>{pct(r.chgPct, 1)}</td>
                   <td className={`num ${tone(r.gapPct ?? 0)}`}>{r.gapPct == null ? '—' : pct(r.gapPct, 1)}</td>
                   <td className="num">{r.rvol == null ? '—' : r.rvol.toFixed(1)}</td>
+                  <td className="num" title={r.siFloatPct != null ? `Short ${r.siFloatPct.toFixed(1)}% of float` : undefined}>{r.floatM == null ? '—' : r.floatM >= 1000 ? `${(r.floatM / 1000).toFixed(1)}B` : r.floatM >= 100 ? r.floatM.toFixed(0) : r.floatM.toFixed(1)}</td>
                   <td className="num">{r.rsRank ?? '—'}</td>
                   <td>{g ? <span className={`grade g-${g.grade.replace('+', 'p')}`} title={`${g.score.toFixed(0)}%${g.partial ? ' (under half the criteria had data)' : ''}`}>{g.grade}{g.partial ? '*' : ''}</span> : '—'}</td>
                   <td>
@@ -123,13 +133,13 @@ export function Scanner(p: ScannerProps) {
                   </td>
                 </tr>
                 {isOpen && (
-                  <tr className="sc-detail"><td colSpan={7}><Detail r={r} g={g} /></td></tr>
+                  <tr className="sc-detail"><td colSpan={8}><Detail r={r} g={g} /></td></tr>
                 )}
               </Fragment>
             );
           })}
           {!shown.length && (
-            <tr><td colSpan={7} className="muted sc-empty">{p.scan.loading ? 'Scanning…' : p.rows.length ? 'Nothing matches this filter right now.' : 'No scan data yet.'}</td></tr>
+            <tr><td colSpan={8} className="muted sc-empty">{p.scan.loading ? 'Scanning…' : p.rows.length ? 'Nothing matches this filter right now.' : 'No scan data yet.'}</td></tr>
           )}
         </tbody>
       </table>
@@ -185,12 +195,16 @@ function Detail({ r, g }: { r: ScanRow; g?: GradeResult }) {
         {(b.sma20 != null || b.sma50 != null) && <><span>20D / 50D avg</span><b className="num">{b.sma20?.toFixed(2) ?? '—'} / {b.sma50?.toFixed(2) ?? '—'}</b></>}
         {b.hi252 != null && <><span>52W high</span><b className="num">{b.hi252.toFixed(2)}</b></>}
         {r.atrPct != null && <><span>ATR %</span><b className="num">{r.atrPct.toFixed(1)}</b></>}
+        {r.adr != null && <><span title="Average of (high ÷ low − 1) over 20 sessions">Avg daily range</span><b className="num">{r.adr.toFixed(1)}%</b></>}
+        {r.maStack != null && <><span>10 / 20 / 50 / 200D</span><b className="num">{[b.sma10, b.sma20, b.sma50, b.sma200].map((m, i) => <span key={i} className={m == null ? 'muted' : r.last > m ? 'up' : 'down'}>{m == null ? '·' : r.last > m ? '▲' : '▼'}</span>)} <span className="muted small">price above {r.maStack} of 4</span></b></>}
+        {r.off5yLow != null && <><span>5-year low</span><b className="num">{b.lo5y?.toFixed(2)} <span className="muted small">· price is {r.off5yLow.toFixed(0)}% above it</span></b></>}
         {Number.isFinite(r.volTrend) && <><span>Vol 5D/20D</span><b className="num">{r.volTrend.toFixed(2)}x</b></>}
         {b.si !== undefined && <><span>Short interest</span>
         <b className="num">
           {b.si === null ? 'not reported' : `${(b.si.shares / 1e6).toFixed(1)}M sh · ${b.si.daysToCover.toFixed(1)} days${b.si.pctOut != null ? ` · ${b.si.pctOut.toFixed(1)}% of shares out` : ''}`}
         </b></>}
         {b.si && <><span>SI settled</span><b className="num">{b.si.settlementDate}</b></>}
+        {b.float && <><span title="Estimated: SEC public float (value held by non-insiders on one date) ÷ that day's close">Float (est.)</span><b className="num">{b.float.shares >= 1e9 ? `${(b.float.shares / 1e9).toFixed(2)}B` : `${(b.float.shares / 1e6).toFixed(1)}M`} sh{b.si ? ` · short ${((b.si.shares / b.float.shares) * 100).toFixed(1)}% of float` : ''} <span className="muted small">as of {b.float.asOf}</span></b></>}
         {b.catalyst !== undefined && <><span>Catalyst</span><b>{b.catalyst?.count ? `${b.catalyst.latest}${b.catalyst.latestAt ? ` (${etTime(b.catalyst.latestAt)} ET)` : ''}` : 'none in 24h'}</b></>}
         {r.bullFlag.ok && <><span>Bull flag</span><b>{r.bullFlag.detail} · trigger {r.bullFlag.trigger?.toFixed(2)}</b></>}
         {r.cupHandle.ok && <><span>Cup &amp; handle</span><b>{r.cupHandle.detail} · pivot {r.cupHandle.trigger?.toFixed(2)}</b></>}

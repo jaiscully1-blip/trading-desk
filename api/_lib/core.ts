@@ -3,7 +3,7 @@
 import { ProviderError } from '../../shared/parse.js';
 import { clock } from '../../shared/clock.js';
 
-export type Provider = 'twelvedata' | 'finnhub' | 'alphavantage' | 'fred' | 'finra' | 'kalshi' | 'gdelt' | 'binance' | 'coingecko' | 'sec' | 'gemini' | 'wikipedia' | 'aisstream' | 'polymarket' | 'github' | 'yahoo' | 'openfigi' | 'ark' | 'tradingview' | 'alpaca' | 'cboe' | 'nasdaq';
+export type Provider = 'twelvedata' | 'finnhub' | 'alphavantage' | 'fred' | 'finra' | 'kalshi' | 'gdelt' | 'binance' | 'coingecko' | 'sec' | 'gemini' | 'wikipedia' | 'aisstream' | 'polymarket' | 'github' | 'yahoo' | 'openfigi' | 'ark' | 'tradingview' | 'alpaca' | 'cboe' | 'nasdaq' | 'earningsapi' | 'tradetime' | 'zillow' | 'mempool' | 'dataroma' | 'apewisdom';
 
 export const KEY_ENV: Record<Provider, string> = {
   twelvedata: 'TWELVEDATA_API_KEY',
@@ -28,6 +28,12 @@ export const KEY_ENV: Record<Provider, string> = {
   alpaca: 'ALPACA_KEY_ID', // + ALPACA_SECRET_KEY; free account, IEX real-time + Benzinga news
   nasdaq: '', // nasdaq.com's public calendar JSON (earnings, IPOs): unofficial, no key, personal use
   cboe: '', // public delayed option chains (cdn.cboe.com), ~15 min delayed; personal, non-commercial use
+  earningsapi: 'EARNINGSAPI_KEY', // earningsapi.com free plan: 100 requests a day, values refresh once a day
+  tradetime: '', // api.tradeti.me: exchange hours and holidays, free, no key
+  zillow: '', // Zillow Research public CSVs (monthly)
+  mempool: '', // mempool.space public API (bitcoin network stats)
+  dataroma: '', // Dataroma's public superinvestor updates RSS feed
+  apewisdom: '', // apewisdom.io: Reddit ticker mentions, free, no key
 };
 
 export function key(p: Provider): string {
@@ -66,7 +72,13 @@ const LIMITS: Record<Provider, { perMin: number; perDay: number }> = {
   tradingview: { perMin: 10, perDay: 500 },
   alpaca: { perMin: 180, perDay: Infinity }, // free Basic plan: 200 requests/min
   nasdaq: { perMin: 30, perDay: 1500 }, // no published limit; every response is cached 30 min to 6 hours
-  cboe: { perMin: 6, perDay: 300 }, // no published limit; each chain is cached 15 min in session
+  cboe: { perMin: 12, perDay: 400 }, // no published limit (static CDN files); each chain is cached 15-30 min in session
+  earningsapi: { perMin: 20, perDay: 80 }, // free plan: 100 a day, 1,000 a month; every call is cached for hours
+  tradetime: { perMin: 10, perDay: 1000 }, // asks clients to cache: 30 s for status, 24 h for holidays
+  zillow: { perMin: 6, perDay: 60 },
+  mempool: { perMin: 20, perDay: 2000 },
+  dataroma: { perMin: 4, perDay: 100 },
+  apewisdom: { perMin: 6, perDay: 300 }, // no published limit; each chain is cached 15 min in session
 };
 const hits: Record<string, number[]> = {};
 const dayCount: Record<string, { day: string; n: number }> = {};

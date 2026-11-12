@@ -2,7 +2,8 @@
 // Sources, all free: Nasdaq's public calendar JSON (unofficial, no key), Finnhub earnings + IPO calendars (key), SEC EDGAR filings feed (official).
 // Alpha Vantage is only a last resort for IPOs (25 calls a day). Every part is optional: a failing source is named in `errors`.
 import { alphaIpos, edgarCurrent, finnhubEarnings, finnhubIpos, nasdaqEarnings, nasdaqIpo } from '../adapters.js';
-import { SYMBOL_RE, cached, hasKey, json, ttl } from '../core.js';
+import { SYMBOL_RE, cached, getJson, hasKey, json, key, ttl } from '../core.js';
+import { addActuals, parseEarningsApiCal } from '../../../shared/extras.js';
 import { mergeEarnings, mergeIpos, parseEdgarAtom, parseFinnhubIpo, parseNasdaqEarnings, parseNasdaqIpo, sortEarnings, sortIpos, type EarnItem, type FilingItem, type IpoItem } from '../../../shared/eventsCal.js';
 
 const ymd = (ms: number) => new Date(ms).toISOString().slice(0, 10);
@@ -28,7 +29,16 @@ export async function GET(req: Request): Promise<Response> {
   // Finnhub's free calendar lists every micro-cap; keep its extras only when Nasdaq gave nothing at all
   const known = new Set(nasdaqRows.map((r) => `${r.date}|${r.sym}`));
   const fhUse = nasdaqRows.length ? fh.filter((r) => known.has(`${r.date}|${r.sym.toUpperCase()}`)) : fh;
-  const merged = sortEarnings(mergeEarnings(nasdaqRows, fhUse));
+  let merged = sortEarnings(mergeEarnings(nasdaqRows, fhUse));
+  // actuals (EPS, revenue) for yesterday and today from earningsapi.com when its key is set. The free plan refreshes once a day
+  // and allows 100 calls a day, so each day is cached for 3 hours.
+  if (hasKey('earningsapi')) {
+    const want = [ymd(now - 86400_000), ymd(now)];
+    const got = await Promise.allSettled(want.map((d) => cached(`eapi:cal:${d}`, 3 * 3600, async () => parseEarningsApiCal(await getJson(`https://api.earningsapi.com/v2/calendar/earnings?date=${d}&apikey=${key('earningsapi')}`, 'earningsapi', 10000), d)).then((r) => r.val)));
+    const api = got.flatMap((r) => (r.status === 'fulfilled' ? r.value : []));
+    if (got.every((r) => r.status === 'rejected')) errors.earningsApi = String((got[0] as PromiseRejectedResult).reason?.message ?? 'failed').slice(0, 160);
+    merged = addActuals(merged, api);
+  }
   const earnings: EarnItem[] = [];
   const perDay: Record<string, number> = {}, totals: Record<string, number> = {};
   for (const r of merged) {
@@ -60,5 +70,5 @@ export async function GET(req: Request): Promise<Response> {
     if (got.every((r) => r.status === 'rejected')) errors.edgar = String((got[0] as PromiseRejectedResult).reason?.message ?? 'failed').slice(0, 160);
   } else errors.edgar = 'no SEC_USER_AGENT';
 
-  return json({ asOf: now, from, to, days, earnings, totals, ipos, filings, errors, sources: { earnings: 'Nasdaq public calendar (unofficial) + Finnhub', ipos: 'Nasdaq public calendar (unofficial) + Finnhub', filings: 'SEC EDGAR current filings' } }, { sMaxAge: 900 });
+  return json({ asOf: now, from, to, days, earnings, totals, ipos, filings, errors, sources: { earnings: 'Nasdaq public calendar (unofficial) + Finnhub + Earnings API (actuals)', ipos: 'Nasdaq public calendar (unofficial) + Finnhub', filings: 'SEC EDGAR current filings' } }, { sMaxAge: 900 });
 }

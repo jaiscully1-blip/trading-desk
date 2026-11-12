@@ -73,7 +73,7 @@ export function tagSymbols(title: string, symbols: string[], names: Record<strin
     const esc = s.replace(/[.\-]/g, '\\$&');
     if (new RegExp(`\\$${esc}\\b`).test(title)) { out.add(s); continue; }
     if (!AMBIGUOUS.has(s) && s.length >= 2 && new RegExp(`(^|[^A-Za-z$])${esc}([^A-Za-z]|$)`).test(title)) { out.add(s); continue; }
-    const word = (names[s] ?? '').split(/[\s,.]+/).find((w) => w.length >= 4 && !/^(the|corp|inc|holdings|group|company|technologies|platforms)$/i.test(w));
+    const word = (names[s] ?? '').split(/[\s,.]+/).find((w) => w.length >= 4 && !/^(the|corp|inc|holdings|group|company|companies|technologies|platforms|strategy|systems|brands|industries|international|financial|services|global|motors|energy|health)$/i.test(w));
     if (word && new RegExp(`\\b${word.replace(/[^A-Za-z0-9]/g, '')}\\b`, 'i').test(title)) out.add(s);
   }
   return [...out];

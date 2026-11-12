@@ -11,6 +11,16 @@ export function positionSize(account: number, riskPct: number, entry: number, st
   return { shares, riskUsd: shares * perShare, perShare, cost: shares * entry, cappedBy };
 }
 
+/** Shares so that hitting the stop loses about `riskUsd` dollars, then capped by the order ticket's limits (dollars and shares per order). */
+export function sharesForRisk(riskUsd: number, entry: number, stop: number, capUsd = Infinity, capQty = Infinity) {
+  const perShare = Math.abs(entry - stop);
+  if (!(perShare > 0) || !(entry > 0) || !(riskUsd > 0)) return null;
+  let shares = Math.floor(riskUsd / perShare), cappedBy: null | 'dollar cap' | 'share cap' = null;
+  if (shares * entry > capUsd) { shares = Math.floor(capUsd / entry); cappedBy = 'dollar cap'; }
+  if (shares > capQty) { shares = Math.floor(capQty); cappedBy = 'share cap'; }
+  return { shares, perShare, risk: shares * perShare, cost: shares * entry, cappedBy };
+}
+
 /** Reward:risk and the price targets at 1R, 2R, 3R. */
 export function rr(entry: number, stop: number, target: number) {
   const risk = Math.abs(entry - stop), dir = target >= entry ? 1 : -1;

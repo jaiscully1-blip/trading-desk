@@ -8,6 +8,7 @@ import { etToUtc, hms } from '../lib/clock';
 import { Fresh } from './common';
 import { useTick } from '../lib/useTick';
 import { SpecialDaysTable } from './DayCases';
+import { MacroClock } from './MacroClock';
 
 const dow = (d: string) => new Date(`${d}T12:00:00Z`).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' });
 
@@ -19,6 +20,7 @@ export function Calendars({ cal, now: appNow, onSelect, mySyms, mode, news }: { 
   const errs = cal?.errors ?? {};
   return (
     <div className="cal-tab">
+      <section className="cal-sec cal-wide"><MacroClock cal={cal} /></section>
       <section className="cal-sec">
         <h4>Fed <span className="muted small">statement 2:00 PM ET</span></h4>
         {f && fomcAt ? (

@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { DEFAULT_CAPS, describe, orderProblems, parseDraft, type OrderCaps, type OrderDraft } from '../../shared/orders';
 import { privateFetch, privatePost } from '../data/private';
+import { sharesForRisk } from '../../shared/risk';
+import { usePersisted } from '../lib/store';
 
 interface Limits { ordersOn: boolean; pinSet: boolean; keys: boolean; caps: OrderCaps; maxPerDay: number }
 type Form = Record<'sym' | 'qty' | 'limit' | 'stop' | 'takeProfit' | 'stopLoss', string> & Pick<OrderDraft, 'side' | 'type' | 'tif' | 'session'>;
@@ -31,6 +33,7 @@ export function OrderTicket({ initial, last, live, onClose, onPlaced }: { initia
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [held, setHeld] = useState<number | null>(null);
+  const [riskUsd, setRiskUsd] = usePersisted<string>('ticketRiskUsd', '');
 
   useEffect(() => { if (!live) return; privateFetch({ fn: 'webull-orders', op: 'limits' }).then(({ ok, j }) => (ok ? setLim(j) : setLimErr(j.error ?? 'Could not reach the desk.'))).catch(() => setLimErr('Could not reach the desk.')); }, [live]);
   const draft = useMemo(() => parseDraft(f), [f]);
@@ -89,6 +92,25 @@ export function OrderTicket({ initial, last, live, onClose, onPlaced }: { initia
             <label>Stop-loss $<input inputMode="decimal" value={f.stopLoss} onChange={set('stopLoss')} placeholder="optional" /></label>
           </>}
         </div>
+        {f.side === 'BUY' && (() => {
+          // size by dollar risk: shares = risk ÷ (entry − stop). It only fills the Shares box; Preview, PIN and Confirm still apply.
+          const entry = draft.type === 'LIMIT' || draft.type === 'STOP_LOSS_LIMIT' ? draft.limit ?? last ?? null : draft.type === 'STOP_LOSS' ? draft.stop ?? null : last ?? null;
+          const stopPx = draft.stopLoss ?? null;
+          const caps = lim?.caps ?? DEFAULT_CAPS;
+          const z = entry != null && stopPx != null && stopPx < entry ? sharesForRisk(+riskUsd, entry, stopPx, caps.maxUsd, caps.maxQty) : null;
+          return (
+            <div className="ot-risk small">
+              <label>Risk $<input inputMode="decimal" value={riskUsd} onChange={(e) => setRiskUsd(e.target.value.replace(/[^\d.]/g, ''))} placeholder="e.g. 50" /></label>
+              {!riskUsd ? <span className="muted">Type how many dollars you're willing to lose if the stop-loss hits; it works out the shares.</span>
+                : stopPx == null ? <span className="muted">Set a Stop-loss $ (limit buy) to size by risk.</span>
+                : stopPx >= (entry ?? 0) ? <span className="down">The stop-loss must be below the entry.</span>
+                : z && z.shares > 0 ? <>
+                  <span><b className="num">{z.shares}</b> shares · ${z.perShare.toFixed(2)}/share at risk · loses <b className="num">${z.risk.toFixed(0)}</b> at the stop · costs ${z.cost.toFixed(0)}{z.cappedBy ? <span className="warn-txt"> · cut to fit the {z.cappedBy}</span> : null}</span>
+                  <button className="link" onClick={() => set('qty')({ target: { value: String(z.shares) } })}>Use {z.shares}</button>
+                </> : <span className="muted">Risk is smaller than one share's distance to the stop.</span>}
+            </div>
+          );
+        })()}
         <p className="ot-sum">{draft.sym && draft.qty > 0 ? describe(draft) : 'Fill in the order.'}{last ? <span className="small muted"> · last ${last.toFixed(2)}</span> : null}</p>
         {problems.length > 0 && <ul className="ot-prob">{problems.map((p) => <li key={p}>{p}</li>)}</ul>}
         {step === 'edit' && <button className="btn" disabled={!live || busy || problems.length > 0 || !!off} onClick={doPreview}>{busy ? 'Previewing…' : 'Preview with Webull'}</button>}

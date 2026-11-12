@@ -1,4 +1,7 @@
 import { useGammaLv } from './data/gamma';
+import { checkAlerts, describeAlert, type PriceAlert } from '../shared/alertrules';
+import { mergeArchive } from '../shared/newsx';
+import { DEFAULT_SIZE, addTop, type WidgetType } from './lib/grid';
 import { movementRead } from '../shared/movement';
 import { volRead } from '../shared/volatility';
 import { moveStats } from '../shared/movementStats';
@@ -28,6 +31,7 @@ import { DEFAULT_SETTINGS, etDay, guard, viewTrade, violations as findViolations
 import { Scanner } from './components/Scanner';
 import { useMovers, useScan, useUniverse } from './data/scan';
 import { useCalendar, useNews } from './data/news';
+import { keywordHits } from '../shared/catalysts';
 import { useMarketStatus } from './data/market';
 import { useFlows, useWorld } from './data/world';
 import { rotationTurns } from '../shared/rotation';
@@ -38,6 +42,9 @@ const Rotation = lazy(() => import('./components/Rotation'));
 const CompanyMap = lazy(() => import('./components/CompanyMap'));
 const SmartMoney = lazy(() => import('./components/SmartMoney'));
 const DistressPage = lazy(() => import('./components/Distress'));
+const GlobalPage = lazy(() => import('./components/GlobalPage'));
+const NewsPage = lazy(() => import('./components/NewsPage'));
+const MtfPage = lazy(() => import('./components/MtfPage'));
 const EtfSectors = lazy(() => import('./components/EtfSectors'));
 const EconOdds = lazy(() => import('./components/EconOdds'));
 import { Calendars } from './components/Calendars';
@@ -160,6 +167,9 @@ export default function App() {
   const homeLayout = (spaces.list.find((w) => w.id === spaces.active) ?? spaces.list[0]).layout;
   const homeSyms = useMemo(() => [...homeLayout.main, ...homeLayout.side].flatMap((w) => (w.type === 'commodities' ? COMMODITIES.map((c) => c[0]) : w.type !== 'crypto' && w.cfg?.sym ? [String(w.cfg.sym)] : [])), [homeLayout]);
   const homeHasMovers = useMemo(() => [...homeLayout.main, ...homeLayout.side].some((w) => w.type === 'movers'), [homeLayout]);
+  const [alertWords, setAlertWords] = usePersisted<string[]>('alertWords', []);
+  const [priceAlerts, setPriceAlerts] = usePersisted<PriceAlert[]>('priceAlerts', []);
+  const alertSyms = useMemo(() => [...new Set(priceAlerts.filter((a) => a.active).map((a) => a.sym))], [priceAlerts]);
   const homeHasMsgs = useMemo(() => [...homeLayout.main, ...homeLayout.side].some((w) => w.type === 'messages'), [homeLayout]);
   const [companySym, setCompanySym] = usePersisted<string>('companySym', 'NVDA');
   // Half-screen laptop windows: the watchlist folds away (press [ to show it) and the side menu shrinks to keys
@@ -265,9 +275,10 @@ export default function App() {
   // QQQ is always scanned (SPY is added server-side) so the index day trades get playbook grades too
   const universe = useUniverse(['QQQ', ...wlSyms], live ? scanList : [...scanList, ...Object.keys(DEMO_QUOTES).filter((s) => !INDEXES.includes(s))], movers?.movers, scanPrefs.includeMovers);
   // USO/UUP are the fear strip's live oil and dollar proxies
-  const quoteSyms = useMemo(() => [...new Set([...INDEXES, 'USO', 'UUP', sel, ...stars, ...wlSyms, ...universe])].slice(0, 56), [wlSyms, sel, universe, stars]);
+  // tickers with an active price alert are always quoted (they come before the scan universe in the 56-ticker budget)
+  const quoteSyms = useMemo(() => [...new Set([...INDEXES, 'USO', 'UUP', sel, ...alertSyms, ...stars, ...wlSyms, ...universe])].slice(0, 56), [wlSyms, sel, universe, stars, alertSyms]);
   const qs = useQuotes(quoteSyms, dataMode);
-  const feed = useFeed(useMemo(() => [...wlSyms, ...universe].slice(0, 80), [wlSyms, universe]), dataMode, page === 'messages' || (page === 'home' && homeHasMsgs));
+  const feed = useFeed(useMemo(() => [...wlSyms, ...universe].slice(0, 80), [wlSyms, universe]), dataMode, page === 'messages' || (page === 'home' && homeHasMsgs) || alertWords.length > 0); // keyword alerts keep the feed running on every page
   const scan = useScan(universe, lateMode, (s) => DEMO_QUOTES[s]?.last ?? 100);
   const macro = useMacro(dataMode);
   const market = useMarketStatus(dataMode);
@@ -291,6 +302,13 @@ export default function App() {
   }, [mode]); // eslint-disable-line react-hooks/exhaustive-deps
   const newsSyms = useMemo(() => [...new Set([sel, ...INDEXES, ...wlSyms])], [sel, wlSyms]);
   const news = useNews(newsSyms, dataMode, HEADLINES);
+  // keep every live headline in this browser's archive (about 3,000 / 21 days) so News → Search can look back
+  useEffect(() => {
+    if (news.freshness === 'demo' || !news.items.length) return;
+    const add = news.items.map((n) => ({ id: n.id, t: n.t, title: n.title, src: n.src, url: n.url, syms: n.syms, sentiment: n.sentiment, summary: n.summary }));
+    const t = setTimeout(() => save('newsArchive', mergeArchive(load('newsArchive', []), add, Date.now())), 1500); // off the critical path
+    return () => clearTimeout(t);
+  }, [news.asOf]); // eslint-disable-line react-hooks/exhaustive-deps
   const cal = useCalendar(useMemo(() => [...new Set([...wlSyms, ...universe])], [wlSyms, universe]), dataMode);
 
   // Scan rows: daily stats finished with the live quote, then RS-ranked across the universe
@@ -519,7 +537,7 @@ export default function App() {
   const openInfo = useCallback((sym: string, at?: { x: number; y: number }) => setInfo({ sym, at: at ?? { x: window.innerWidth / 2 - 170, y: 120 } }), []);
   const [orderReq, setOrderReq] = useState<{ initial: Partial<OrderDraft>; last?: number | null } | null>(null);
   const openOrder = useCallback((initial: Partial<OrderDraft>, last?: number | null) => setOrderReq({ initial, last }), []);
-  const desk: DeskCtx = useMemo(() => ({ stars, toggleStar, names, openCompany, openArticle: setArticle, openInfo, openOrder }), [stars, toggleStar, names, openCompany, openInfo, openOrder]);
+  const desk: DeskCtx = useMemo(() => ({ stars, toggleStar, names, openCompany, openArticle: setArticle, openInfo, openOrder, alertWords, setAlertWords, priceAlerts, setPriceAlerts }), [stars, toggleStar, names, openCompany, openInfo, openOrder, alertWords, setAlertWords, priceAlerts, setPriceAlerts]);
 
   const fired = useRef<Set<string>>(new Set(load<string[]>('pingFired', [])));
   const pushPings = useCallback((ps: Ping[]) => {
@@ -539,6 +557,33 @@ export default function App() {
     if (!Object.keys(prev).length) return; // first time: just remember where everything is
     pushPings(turns.slice(0, 6).map((t) => ({ id: `rot:${t.sym}:${t.day}`, t: Date.now(), sym: t.sym, kind: 'rotation' as const, text: `${t.label} ${t.text}`, tone: t.tone })));
   }, [flowsData, live, pushPings]);
+  // price alerts: checked on every quote refresh (live quotes only); a match rings and shows a pop-up
+  const armed = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    if (!live || !priceAlerts.some((a) => a.active)) return;
+    const { next, fired: hits } = checkAlerts(priceAlerts, quotes, armed.current, Date.now());
+    if (!hits.length) return;
+    setPriceAlerts(next);
+    pushPings(hits.map((a) => ({ id: `pa:${a.id}:${a.firedAt}`, t: Date.now(), sym: a.sym, kind: 'alert' as const, text: `${describeAlert(a)} · now $${a.firedPx?.toFixed(2)}${a.note ? ` · ${a.note}` : ''}`, tone: a.kind === 'below' || a.kind === 'chgDown' ? 'down' as const : 'up' as const })));
+  }, [qs?.asOf]); // eslint-disable-line react-hooks/exhaustive-deps
+  // keyword alerts: a new message (filing, stake, insider trade, press release, Fed…) that contains one of your words.
+  // The first load only marks what's already there, so old messages don't ring.
+  const feedPrimed = useRef(false);
+  useEffect(() => {
+    if (!feed?.items.length || feed.demo) return;
+    const fresh: Ping[] = [];
+    for (const m of feed.items) {
+      if (m.kind === 'live') continue;
+      const hits = alertWords.length ? keywordHits(m, alertWords) : [];
+      if (!hits.length) continue;
+      const id = `kw:${m.id}`;
+      if (fired.current.has(id)) continue;
+      fired.current.add(id);
+      if (feedPrimed.current && Date.now() - m.t < 6 * 3600_000) fresh.push({ id, t: Date.now(), sym: m.sym ?? '', kind: 'keyword', text: `“${hits.join('”, “')}”: ${m.title}`, url: m.url, tone: m.tone });
+    }
+    feedPrimed.current = true;
+    pushPings(fresh.slice(0, 5));
+  }, [feed?.asOf, alertWords.join('|')]); // eslint-disable-line react-hooks/exhaustive-deps
   // news: any new headline tagged with a starred ticker (the first load only marks what's already there)
   const newsPrimed = useRef(false);
   useEffect(() => {
@@ -596,7 +641,51 @@ export default function App() {
   const setTab = (t: RightTab) => setLayout({ tab: t, rightOpen: true });
   const setTf = (tf: ChartTF) => setLayout({ tf });
 
+  // open a widget on the current Home workspace (add it if missing, else update its settings), then go Home
+  const openWidget = (type: WidgetType, cfg: Record<string, any> = {}) => {
+    setSpaces((s) => ({ ...s, list: s.list.map((w) => {
+      if (w.id !== s.active) return w;
+      const l = w.layout, ex = [...l.main, ...l.side].find((x) => x.type === type);
+      if (ex) { const up = (xs: typeof l.main) => xs.map((x) => (x.id === ex.id ? { ...x, cfg: { ...x.cfg, ...cfg } } : x)); return { ...w, layout: { main: up(l.main), side: up(l.side) } }; }
+      const sz = DEFAULT_SIZE[type];
+      return { ...w, layout: { ...l, main: addTop(l.main, { id: `${type}-${Date.now().toString(36)}`, type, x: 0, y: 0, w: sz.w, h: sz.h, cfg }) } };
+    }) }));
+    setPage('home');
+  };
+  // short codes, like a terminal: type the code in the command bar (Ctrl/Cmd K)
+  const codes: Cmd[] = [
+    ['des', 'DES · Company tear sheet', () => { setCompanySym(sel); setPage('company'); }],
+    ['cf', 'CF · SEC filings, stakes, insider trades, press releases', () => setPage('messages')],
+    ['ecal', 'ECAL · Earnings calendar', () => setPage('calendar')], ['ipo', 'IPO · IPO calendar', () => setPage('calendar')],
+    ['tran', 'TRAN · Call transcripts (Earnings calls tab)', () => setPage('calendar')], ['live', 'LIVE · Today\'s earnings calls and webcasts', () => setPage('calendar')],
+    ['eco', 'ECO · Economic calendar and countdowns', () => setPage('calendar')], ['wirp', 'WIRP · Fed rate odds', () => setPage('calendar')],
+    ['most', 'MOST · Most active, gainers, losers', () => openWidget('movers', { list: 'active' })],
+    ['hmap', 'HMAP · Index heatmap (ETFs & sectors)', () => setPage('etfs')],
+    ['halt', 'HALT · Trading halts', () => openWidget('halts')], ['moso', 'MOSO · Most active options', () => openWidget('optactive')],
+    ['imov', 'IMOV · Index movers (S&P 500 / Nasdaq-100)', () => openWidget('idxmovers')],
+    ['wei', 'WEI · World equity indices', () => openWidget('world', { tab: 'indices' })], ['weif', 'WEIF · World index futures', () => openWidget('world', { tab: 'futures' })],
+    ['fx', 'FX · FX pairs', () => openWidget('world', { tab: 'fx' })], ['fxip', 'FXIP · Currency strength', () => openWidget('world', { tab: 'fx' })],
+    ['tas', 'TAS · Time & sales (IEX)', () => openWidget('tape', { sym: sel })], ['perp', 'PERP · Crypto perpetuals and funding', () => openWidget('perps')],
+    ['gc', 'GC · Yield curve', () => openWidget('rates')], ['gtmm', 'GTMM · Rates dashboard', () => openWidget('rates')],
+    ['glco', 'GLCO · Commodities', () => openWidget('commodities')], ['pmi', 'PMI · Prediction markets', () => setPage('odds')],
+    ['hldr', 'HLDR · 13F holdings (smart money)', () => setPage('smart')], ['hfnd', 'HFND · Hedge funds and long-only managers', () => setPage('smart')],
+    ['eqs', 'EQS · Equity screener', () => setPage('scanner')], ['trend', 'TREND · Trending tickers (Reddit)', () => openWidget('trending')],
+    ['hms', 'HMS · Compare securities', () => openWidget('analysis', { tab: 'compare', syms: [sel, 'SPY'] })],
+    ['beta', 'BETA · Beta regression', () => openWidget('analysis', { tab: 'beta', syms: [sel] })], ['hrh', 'HRH · Return distribution', () => openWidget('analysis', { tab: 'returns', syms: [sel] })],
+    ['ovdv', 'OVDV · Volatility surface (Gamma & IV)', () => setPage('gamma')], ['gv', 'GV · Gamma levels and IV', () => setPage('gamma')],
+    ['kelly', 'KELLY · Odds of your next trades (simulator)', () => openWidget('sim')], ['calc', 'CALC · Risk and position calculator', () => openWidget('risk')],
+    ['note', 'NOTE · Sticky notes', () => openWidget('notes')], ['al', 'AL · Price alerts (any ticker, with sound)', () => openWidget('alerts')], ['kw', 'KW · Keyword alerts (Messages)', () => setPage('messages')],
+    ['qm', 'QM · Quote monitor (watchlist on the desk)', () => setPage('desk')], ['shrt', 'SHRT · Most-shorted stocks', () => openWidget('hisi')],
+    ['hous', 'HOUS · Housing (Zillow)', () => openWidget('housing')], ['glob', 'GLOB · Global → US', () => setPage('global')], ['gf', 'GF · Fundamentals charts', () => openWidget('fund', { sym: sel })], ['wn', 'WN · World business news', () => setPage('global')], ['top', 'TOP · Top stories across outlets', () => setPage('news')], ['ni', 'NI · News search', () => setPage('news')], ['cn', 'CN · Company news (by ticker)', () => setPage('news')],
+  ].map(([id, label, run]) => ({ id: id as string, label: label as string, run: run as () => void, code: true, group: 'Codes' }));
+  // codes that take a ticker ("NVDA DES", "AAPL BETA")
+  const withSym: Record<string, (s: string) => void> = {
+    des: (s) => { setCompanySym(s); setPage('company'); }, tas: (s) => openWidget('tape', { sym: s }), gf: (s) => openWidget('fund', { sym: s }),
+    hms: (s) => openWidget('analysis', { tab: 'compare', syms: [s, 'SPY'] }), beta: (s) => openWidget('analysis', { tab: 'beta', syms: [s] }), hrh: (s) => openWidget('analysis', { tab: 'returns', syms: [s] }),
+  };
+  for (const c of codes) if (withSym[c.id]) c.runSym = withSym[c.id];
   const commands: Cmd[] = [
+    ...codes,
     { id: 'gappers', label: 'Scanner: gappers ≥3%', run: () => { setFilterId('gappers'); setTab('scanner'); } },
     { id: 'scanner', label: 'Scanner page', hint: 'S', run: () => setPage('scanner') }, { id: 'desk', label: 'Desk page', hint: 'D', run: () => setPage('desk') }, { id: 'patterns', label: 'Pattern lookup: candlesticks + chart patterns for any ticker', hint: 'X', run: () => setPage('patterns') },
     { id: 'rvol', label: 'Scanner: relative volume ≥2', run: () => { setFilterId('rvol'); setTab('scanner'); } },
@@ -638,7 +727,9 @@ export default function App() {
     { id: 'smart', label: 'Smart money: 13F investors, ARK, politicians', hint: 'I', run: () => setPage('smart') },
     { id: 'odds', label: 'Economic odds (Fed, recession, CPI)', hint: 'Y', run: () => setPage('odds') },
     { id: 'status', label: 'Data status: which sources are working or limited', hint: '⇧B', run: () => setPage('status') },
+    { id: 'mtf', label: 'Multi-timeframe: 4 linked charts (3m, 15m, 1h, daily)', hint: '⇧M', run: () => setPage('mtf') },
     { id: 'distress', label: 'Distress: weak companies, turnarounds, sector stress', hint: '⇧R', run: () => setPage('distress') },
+    { id: 'global', label: 'Global → US: world markets, world news and how they carry into US stocks', hint: '⇧G', run: () => setPage('global') },
     { id: 'd', label: 'Chart: daily', hint: '1', run: () => setTf('D') },
     { id: '1h', label: 'Chart: 1-hour', hint: '2', run: () => setTf('1H') },
     { id: '5m', label: 'Chart: 5-minute', hint: '3', run: () => setTf('5m') },
@@ -666,7 +757,7 @@ export default function App() {
       if (e.key === 'Escape') { if (replayId) { setReplayId(null); return; } setCmdOpen(false); setOverlay(null); setDrawer(false); setPbOpen(false); setSyncOpen(false); setCiOpen(false); setRecapOpen(false); return; }
       if (cmdOpen || pbOpen || syncOpen || ciOpen || replayId || recapOpen || typing(e.target) || e.ctrlKey || e.metaKey || e.altKey) return;
       const map: Record<string, () => void> = {
-        w: () => setPage('morning'), v: () => setPage('gamma'), h: () => setPage('home'), e: () => setPage('messages'), d: () => setPage('desk'), x: () => setPage('patterns'), s: () => setPage('scanner'), m: () => setPage('map'), g: () => setPage('flows'), c: () => setPage('calendar'), u: () => setPage('etfs'), i: () => setPage('smart'), y: () => setPage('odds'), B: () => setPage('status'), R: () => setPage('distress'),
+        w: () => setPage('morning'), v: () => setPage('gamma'), h: () => setPage('home'), e: () => setPage('messages'), d: () => setPage('desk'), x: () => setPage('patterns'), s: () => setPage('scanner'), m: () => setPage('map'), g: () => setPage('flows'), c: () => setPage('calendar'), u: () => setPage('etfs'), i: () => setPage('smart'), y: () => setPage('odds'), B: () => setPage('status'), R: () => setPage('distress'), M: () => setPage('mtf'), G: () => setPage('global'), N: () => setPage('news'),
         '?': () => setOverlay((o) => (o === 'help' ? null : 'help')),
         t: toggleTheme,
         z: () => toggleFocus(),
@@ -812,6 +903,14 @@ export default function App() {
         <PatternLab mode={dataMode} theme={theme} symbols={[...wlSyms, ...universe]} demoLast={demoLast} onChart={toDesk} />
       </Suspense>
     );
+  } else if (page === 'mtf') {
+    body = (
+      <div className="page">
+        <Suspense fallback={<section className="panel"><div className="ph-body">Loading…</div></section>}>
+          <MtfPage mode={dataMode} mySyms={[...new Set([...wlSyms, sel])]} />
+        </Suspense>
+      </div>
+    );
   } else if (page === 'distress') {
     body = (
       <div className="page">
@@ -820,6 +919,10 @@ export default function App() {
         </Suspense>
       </div>
     );
+  } else if (page === 'news') {
+    body = <Suspense fallback={<section className="panel"><div className="ph-body">Loading…</div></section>}><NewsPage mode={dataMode} news={news.items} sel={sel} onChart={toDesk} /></Suspense>;
+  } else if (page === 'global') {
+    body = <Suspense fallback={<section className="panel"><div className="ph-body">Loading…</div></section>}><GlobalPage mode={dataMode} onChart={toDesk} /></Suspense>;
   } else if (page === 'status') {
     body = <div className="page"><DataStatus mode={dataMode} /></div>;
   } else if (page === 'smart' || page === 'etfs' || page === 'odds') {
@@ -867,7 +970,7 @@ export default function App() {
         <TopStrip
           movement={movement} vol={vol} moveStats={dayStats}
           quotes={quotes} clk={clk} mode={mode} override={override} onOverride={setOverride} onSelect={setSel}
-          onAccount={() => setDrawer((d) => !d)} accountOpen={drawer} theme={theme} onTheme={toggleTheme} onCmd={() => setCmdOpen(true)}
+          onAccount={() => setDrawer((d) => !d)} accountOpen={drawer} theme={theme} onTheme={toggleTheme} onCmd={() => setCmdOpen(true)} onWorld={() => setPage('map')}
           account={{ guard: g, settings, demo: views.some((v) => v.t.demo), demoPrices }}
           marketSource={market?.status?.source}
           quoteFresh={quoteFresh} quoteAsOf={live ? qs?.asOf : DEMO_AT} quoteSource={live ? qs?.source : 'Generated sample quotes'} macro={macro} live={live}

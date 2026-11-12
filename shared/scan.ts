@@ -36,6 +36,12 @@ export interface ScanBase {
   volTrend: number; // avg vol last 5 completed / last 20 completed
   sma20: number | null;
   sma50: number | null;
+  sma10?: number | null;
+  sma200?: number | null;
+  /** average daily range over 20 sessions, % of price (high ÷ low − 1) */
+  adr20?: number | null;
+  /** lowest low of the last 5 years (weekly bars); undefined = not looked up */
+  lo5y?: number | null;
   hi20: number | null; // highest high of the prior N completed sessions
   hi50: number | null;
   hi252: number | null;
@@ -48,6 +54,8 @@ export interface ScanBase {
   cupHandle: PatternHit;
   si?: ShortInterest | null; // null = looked up, none found; undefined = not available
   catalyst?: { count: number; latest?: string; latestAt?: number } | null;
+  /** estimated float shares (SEC public float ÷ close on its date); null = looked up, none found */
+  float?: { shares: number; asOf: string } | null;
   /** last 30 completed daily closes, 5 significant digits (sparklines) */
   spark?: number[];
   source: string;
@@ -116,6 +124,9 @@ export function computeBase(sym: string, bars: Bar[], nowEnc: number, asOf: numb
     volTrend: avg(vols.slice(-5)) / avgVol20,
     sma20: sma(20),
     sma50: sma(50),
+    sma10: sma(10),
+    sma200: sma(200),
+    adr20: n >= 20 ? avg(done.slice(-20).map((b) => (b.low > 0 ? (b.high / b.low - 1) * 100 : 0))) : null,
     hi20: maxHigh(20),
     hi50: maxHigh(50),
     hi252: n >= 60 ? maxHigh(252) : null,
@@ -225,6 +236,17 @@ export interface ScanRow {
   squeeze: boolean | null; // null = short interest or catalyst unknown
   siHigh: boolean | null;
   catalyst: boolean | null;
+  /** average daily range %, 20 sessions */
+  adr: number | null;
+  /** how many of the 10 / 20 / 50 / 200-day averages the price is above (0–4) */
+  maStack: number | null;
+  above200: boolean | null;
+  /** % above the 5-year low (0 = at the low) */
+  off5yLow: number | null;
+  /** estimated float, millions of shares (SEC public float ÷ close on its date) */
+  floatM: number | null;
+  /** short interest as % of the estimated float */
+  siFloatPct: number | null;
   bullFlag: PatternHit;
   cupHandle: PatternHit;
   base: ScanBase;
@@ -273,6 +295,12 @@ export function liveRow(b: ScanBase, q: LiveQuote | undefined, spy: { base: Scan
     gapAndGo: gapPct == null || open == null ? null : gapPct >= th.gapGo && last > open && (b.rvol ?? 0) >= th.gapGoRvol,
     siHigh,
     catalyst,
+    adr: b.adr20 ?? null,
+    maStack: [b.sma10, b.sma20, b.sma50, b.sma200].every((x) => x == null) ? null : [b.sma10, b.sma20, b.sma50, b.sma200].filter((x) => x != null && last > x).length,
+    above200: b.sma200 == null ? null : last > b.sma200,
+    off5yLow: b.lo5y && b.lo5y > 0 ? (last / b.lo5y - 1) * 100 : null,
+    floatM: b.float ? b.float.shares / 1e6 : null,
+    siFloatPct: b.float && b.si ? (b.si.shares / b.float.shares) * 100 : null,
     squeeze: siHigh === false || catalyst === false || b.volTrend < th.volRising ? false : siHigh && catalyst ? true : null,
     bullFlag: b.bullFlag,
     cupHandle: b.cupHandle,

@@ -2,7 +2,7 @@
 // Below ~1000px wide it turns into an icon rail (same colours, names in tooltips). The group colour also tints the page's panel headers.
 import type { ReactNode } from 'react';
 
-export type Page = 'morning' | 'home' | 'messages' | 'desk' | 'patterns' | 'company' | 'scanner' | 'map' | 'flows' | 'smart' | 'etfs' | 'gamma' | 'odds' | 'journal' | 'calendar' | 'status' | 'distress';
+export type Page = 'morning' | 'home' | 'messages' | 'desk' | 'patterns' | 'company' | 'scanner' | 'map' | 'flows' | 'smart' | 'etfs' | 'gamma' | 'odds' | 'journal' | 'calendar' | 'status' | 'distress' | 'mtf' | 'global' | 'news';
 export type GroupId = 'today' | 'charts' | 'scan' | 'flow' | 'journal';
 
 /** 24x24 stroke paths (own drawings, simple shapes) */
@@ -12,6 +12,7 @@ const ICON: Record<Page | 'account', string> = {
   messages: 'M4 5h16v11H9l-5 4z',
   desk: 'M7 4v3 M7 15v4 M5 7h4v8H5z M17 6v3 M17 17v3 M15 9h4v8h-4z',
   patterns: 'M3 17l5-6 4 4 5-8 4 5',
+  mtf: 'M3 3h8v8H3z M13 3h8v8h-8z M3 13h8v8H3z M13 13h8v8h-8z M5 9l2-3 2 2 M15 9l2-2 2 1 M5 19l2-2 2 1 M15 19l2-3 2 2',
   company: 'M5 20V6l7-3 7 3v14 M3 20h18 M9 9h2 M13 9h2 M9 13h2 M13 13h2 M10 20v-3h4v3',
   scanner: 'M12 12m-9 0a9 9 0 1 0 18 0 9 9 0 1 0-18 0 M12 12l6-5 M12 12m-4 0a4 4 0 1 0 8 0 4 4 0 1 0-8 0',
   flows: 'M4 12a8 8 0 0 1 13.7-5.6L20 9 M20 4v5h-5 M20 12a8 8 0 0 1-13.7 5.6L4 15 M4 20v-5h5',
@@ -23,6 +24,8 @@ const ICON: Record<Page | 'account', string> = {
   calendar: 'M4 6h16v14H4z M4 10h16 M8 3v4 M16 3v4',
   journal: 'M5 4h11a3 3 0 0 1 3 3v13H8a3 3 0 0 1-3-3z M5 17a3 3 0 0 1 3-3h11',
   distress: 'M12 3l9 16H3z M12 9v5 M12 17h.01',
+  news: 'M4 5h13v14H6a2 2 0 0 1-2-2z M17 9h3v8a2 2 0 0 1-2 2 M7 9h7 M7 12h7 M7 15h4',
+  global: 'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18 M7 8h4l1 3-3 2v3 M15 5l-1 4 3 2 3-1',
   status: 'M4 5h16v6H4z M4 13h16v6H4z M8 8h.01 M8 16h.01 M12 8h4 M12 16h4',
   account: 'M12 12m-4 0a4 4 0 1 0 8 0 4 4 0 1 0-8 0 M4 21a8 8 0 0 1 16 0',
 };
@@ -37,14 +40,17 @@ const P: Record<Page, { label: string; hint: string; key: string }> = {
   scanner: { label: 'Scanner', hint: 'setups, gappers, RS rank', key: 'S' }, flows: { label: 'Rotation', hint: 'sector and theme rotation', key: 'G' }, etfs: { label: 'ETFs and sectors', hint: 'heatmap and holdings', key: 'U' }, smart: { label: 'Smart money', hint: '13F, ARK, Congress', key: 'I' },
   gamma: { label: 'Gamma and IV', hint: 'dealer gamma, volatility', key: 'V' }, map: { label: 'World map', hint: 'news hotspots, conflicts, shipping', key: 'M' }, odds: { label: 'Econ odds', hint: 'Fed, recession, CPI bets', key: 'Y' }, calendar: { label: 'Calendars', hint: 'economy, earnings, IPOs, Fed', key: 'C' },
   journal: { label: 'Journal', hint: 'trades, rules, review', key: '⇧J' },
+  mtf: { label: 'Multi-timeframe', hint: '4 linked charts: 3m, 15m, 1h, daily', key: '⇧M' },
   distress: { label: 'Distress', hint: 'weak companies, turnarounds, sector stress', key: '⇧R' },
+  news: { label: 'News', hint: 'top stories, search, news by ticker', key: '⇧N' },
+  global: { label: 'Global → US', hint: 'world markets and news, and how they carry into US stocks', key: '⇧G' },
   status: { label: 'Data status', hint: 'which data sources are working or limited', key: '⇧B' },
 };
 export const NAV_GROUPS: { id: GroupId; label: string; pages: Page[] }[] = [
-  { id: 'today', label: 'Today', pages: ['morning', 'home', 'messages', 'calendar'] },
-  { id: 'charts', label: 'Charts', pages: ['desk', 'patterns', 'company'] },
+  { id: 'today', label: 'Today', pages: ['morning', 'home', 'news', 'messages', 'calendar'] },
+  { id: 'charts', label: 'Charts', pages: ['desk', 'mtf', 'patterns', 'company'] },
   { id: 'scan', label: 'Scan', pages: ['scanner', 'flows', 'etfs', 'smart', 'distress'] },
-  { id: 'flow', label: 'Flow and risk', pages: ['gamma', 'map', 'odds', 'status'] },
+  { id: 'flow', label: 'Flow and risk', pages: ['global', 'gamma', 'map', 'odds', 'status'] },
   { id: 'journal', label: 'Journal', pages: ['journal'] },
 ];
 export const pageGroup = (p: Page): GroupId => NAV_GROUPS.find((g) => g.pages.includes(p))?.id ?? 'today';

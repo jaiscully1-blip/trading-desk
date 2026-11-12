@@ -6,17 +6,19 @@ import { MONEYNESS, gammaRead, ivSurface, parseCboe, pcRatios, type GammaRead, t
 import { usePersisted } from '../lib/store';
 import { Fresh, Seg, Skel, PageTabs, Q } from './common';
 import { DEMO_AT, rng } from '../lib/demo';
+import { FlowPanel, Readings, type Flow } from './GammaExtras';
 
-type Sym = 'SPY' | 'QQQ' | 'IWM' | 'SPX';
+type Sym = string;
+const INDEXES = ['SPY', 'QQQ', 'IWM', 'SPX'];
 interface GammaData {
   sym: string; spot: number; chainAsOf: number | null; contracts: number; gex: GammaRead;
   gexWeek: { callWall: number | null; putWall: number | null; flip: number | null; total: number };
-  surface: IvRow[]; pc: { oi: number | null; vol: number | null }; asOf: number; source: string; stale?: boolean; demo?: boolean;
+  surface: IvRow[]; pc: { oi: number | null; vol: number | null }; flow?: Flow; asOf: number; source: string; stale?: boolean; demo?: boolean;
 }
 
 function demoData(sym: Sym): GammaData {
   const r = rng(sym.length * 97);
-  const spot = { SPY: 600, QQQ: 520, IWM: 230, SPX: 6000 }[sym], step = sym === 'SPX' ? 25 : sym === 'IWM' ? 1 : 5;
+  const spot = ({ SPY: 600, QQQ: 520, IWM: 230, SPX: 6000 } as Record<string, number>)[sym] ?? 150, step = sym === 'SPX' ? 25 : spot < 300 ? 1 : 5;
   const options: any[] = [];
   const now = DEMO_AT;
   for (let e = 0; e < 8; e++) {
@@ -41,7 +43,7 @@ function useGamma(sym: Sym, mode: DataMode): { d: GammaData | null; err?: string
     if (mode.kind === 'demo') { setSt({ d: demoData(sym) }); return; }
     let stop = false;
     setSt((s) => ({ d: s.d?.sym === sym ? s.d : null }));
-    const go = () => fetch(`/api/research?fn=gamma&symbol=${sym}`).then(async (r) => { const j = await r.json(); if (!stop) setSt(r.ok ? { d: j } : { d: null, err: j.error ?? `HTTP ${r.status}` }); }).catch((e) => !stop && setSt({ d: null, err: String(e) }));
+    const go = () => fetch(`/api/research?fn=gamma&symbol=${encodeURIComponent(sym)}`).then(async (r) => { const j = await r.json(); if (!stop) setSt(r.ok ? { d: j } : { d: null, err: j.error ?? `HTTP ${r.status}` }); }).catch((e) => !stop && setSt({ d: null, err: String(e) }));
     go();
     const id = setInterval(go, 10 * 60_000);
     return () => { stop = true; clearInterval(id); };
@@ -143,6 +145,8 @@ export default function Gamma({ mode, onChart }: { mode: DataMode; onChart: (s: 
   const [sym, setSym] = usePersisted<Sym>('gammaSym', 'SPY');
   const [range, setRange] = usePersisted<number>('gammaRange', 0.05);
   const { d, err } = useGamma(sym, mode);
+  const [other, setOther] = useState('');
+  const go = () => { const s = other.trim().toUpperCase().replace(/^\$/, ''); if (/^[A-Z][A-Z0-9.]{0,9}$/.test(s)) setSym(s); setOther(''); };
   const g = d?.gex;
   const front = d?.surface[0];
   const regimeText = useMemo(() => !g ? '' : g.regime === 'positive'
@@ -154,7 +158,8 @@ export default function Gamma({ mode, onChart }: { mode: DataMode; onChart: (s: 
         <div className="phead">
           <div className="phead-title">Gamma & IV</div>
           <div className="phead-ctl">
-            <PageTabs<Sym> label="Ticker" value={sym} onChange={setSym} options={[{ id: 'SPY', label: 'SPY' }, { id: 'QQQ', label: 'QQQ' }, { id: 'IWM', label: 'IWM' }, { id: 'SPX', label: 'SPX' }]} />
+            <PageTabs<Sym> label="Ticker" value={sym} onChange={setSym} options={[...INDEXES, ...(INDEXES.includes(sym) ? [] : [sym])].map((s) => ({ id: s, label: s }))} />
+            <input className="gx-other" value={other} onChange={(e) => setOther(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') go(); }} placeholder="Any ticker ↵" aria-label="Load the option chain for any ticker" maxLength={10} />
             {d && <Fresh kind={d.demo ? 'demo' : 'delayed'} at={d.chainAsOf ?? d.asOf} src={d.source} />}
           </div>
         </div>
@@ -189,6 +194,15 @@ export default function Gamma({ mode, onChart }: { mode: DataMode; onChart: (s: 
             <section className="panel gx-card"><div className="gx-h"><Q k="calc" src="calculated on the desk from the delayed option chain (Cboe, ~15 min)" /><b>Implied volatility surface</b><span className="small muted">% per year · out-of-the-money options · skew = IV at −5% minus +5%</span></div><Surface rows={d.surface} /></section>
             <section className="panel gx-card"><div className="gx-h"><Q k="calc" src="calculated on the desk from the delayed option chain (Cboe, ~15 min)" /><b>Term structure</b><span className="small muted">at-the-money IV by days to expiry{d.surface.length > 1 && d.surface[0].atm != null && d.surface[d.surface.length - 1].atm != null ? (d.surface[0].atm! > d.surface[d.surface.length - 1].atm! ? ' · inverted: near-term fear' : ' · upward: calm') : ''}</span></div><Term rows={d.surface} /></section>
           </div>
+        </div>
+      )}
+      {d && g && (
+        <div className="gx-grid gx-grid2">
+          <section className="panel gx-card">
+            <div className="gx-h"><Q k="calc" src="calculated on the desk from the delayed option chain (Cboe, ~15 min)" /><b>Options activity</b><span className="small muted">contracts trading above their open interest · max pain by expiry</span></div>
+            <FlowPanel flow={d.flow} sym={sym} />
+          </section>
+          <section className="panel gx-card"><Readings spot={d.spot} g={g} surface={d.surface} pc={d.pc} flow={d.flow} /></section>
         </div>
       )}
       <p className="note gx-pad">How to read it: walls are the strikes with the most dealer gamma; price often stalls near the call wall and finds support near the put wall while gamma is positive. Under the flip, moves tend to speed up. These are estimates from open interest (updated once a day by the exchange) and assume dealers are long calls and short puts; they are not certain. Source: Cboe delayed option chain, about 15 minutes behind.</p>

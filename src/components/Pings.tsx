@@ -7,7 +7,7 @@ import { pct, px, tone } from '../lib/format';
 import { etTime } from '../lib/clock';
 import { CoName, Star } from './common';
 
-const KIND: Record<Ping['kind'], string> = { news: 'NEWS', earnings: 'EARNINGS', move: 'MOVE', level: 'LEVEL', rotation: 'ROTATION' };
+const KIND: Record<Ping['kind'], string> = { news: 'NEWS', earnings: 'EARNINGS', move: 'MOVE', level: 'LEVEL', rotation: 'ROTATION', keyword: 'KEYWORD', alert: 'ALERT' };
 
 function PingCard({ p, onOpen, onClose }: { p: Ping; onOpen: () => void; onClose: () => void }) {
   const [hover, setHover] = useState(false);
@@ -21,7 +21,7 @@ function PingCard({ p, onOpen, onClose }: { p: Ping; onOpen: () => void; onClose
     <div className={`ping ${p.tone ?? ''}`} role="status" onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)}>
       <div className="ping-h">
         <span className={`ping-k k-${p.kind}`}>{KIND[p.kind]}</span>
-        <button className="ping-sym" onClick={onOpen} title="Open on the desk">{p.kind === 'rotation' ? '' : '★ '}{p.sym}</button>
+        {p.sym ? <button className="ping-sym" onClick={onOpen} title="Open on the desk">{p.kind === 'rotation' || p.kind === 'keyword' ? '' : '★ '}{p.sym}</button> : <span className="ping-sym" />}
         <span className="ping-n">{names[p.sym] ?? ''}</span>
         <span className="ping-t">{etTime(p.t)}</span>
         <button className="ping-x" onClick={onClose} aria-label="Dismiss">×</button>

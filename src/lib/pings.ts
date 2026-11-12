@@ -2,7 +2,7 @@
 import type { Bar } from '../types';
 import { analyze } from '../../shared/patterns';
 
-export type PingKind = 'news' | 'earnings' | 'move' | 'level' | 'rotation';
+export type PingKind = 'news' | 'earnings' | 'move' | 'level' | 'rotation' | 'keyword' | 'alert';
 export interface Ping { id: string; t: number; sym: string; kind: PingKind; text: string; url?: string; tone?: 'up' | 'down' }
 
 /** Move pings fire once per day each time the day's change crosses another multiple of the threshold (3%, 6%, 9%…). */

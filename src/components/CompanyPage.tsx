@@ -1,5 +1,8 @@
 // Company page: what they do, main products, and a clickable supply chain (suppliers -> company -> customers, competitors below).
 // Click any company with a ticker to re-center the diagram on it. Facts come from the latest 10-K, read by free Gemini.
+import { FundCharts } from './FundCharts';
+import { TranscriptView } from './Transcript';
+import { TearSheet } from './TearSheet';
 import { QuantPanel } from './QuantRead';
 import { Fragment, useState, type ReactNode } from 'react';
 import type { ChainLink } from '../../shared/company';
@@ -100,6 +103,7 @@ function Peers({ named, peers, onOpen }: { named: ChainLink[]; peers: ChainLink[
 export default function CompanyPage({ sym, mode, onOpen, onChart, onPatterns }: { sym: string; mode: DataMode; onOpen: (s: string) => void; onChart: (s: string) => void; onPatterns: (s: string) => void }) {
   const { names } = useDesk();
   const [trail, setTrail] = useState<string[]>([]);
+  const [call, setCall] = useState(false);
   const { data, loading, error, reading, retry } = useCompany(sym, names[sym] ?? sym, mode);
   const go = (s: string) => { if (s !== sym) { setTrail((t) => [...t.slice(-6), sym]); onOpen(s); } };
   const back = () => { const p = trail.at(-1); if (p) { setTrail((t) => t.slice(0, -1)); onOpen(p); } };
@@ -124,6 +128,7 @@ export default function CompanyPage({ sym, mode, onOpen, onChart, onPatterns }: 
   const pctOf = (s?: string) => { const m = s?.match(/(\d+(\.\d+)?)\s*%/); return m ? +m[1] : null; };
   return (
     <div className="page co-page">
+      {call && <TranscriptView sym={sym} onClose={() => setCall(false)} />}
       <section className="panel co">
         <div className="phead co-head">
           {trail.length > 0 && <button className="btn" onClick={back} title={`Back to ${trail.at(-1)}`}>← {trail.at(-1)}</button>}
@@ -132,6 +137,7 @@ export default function CompanyPage({ sym, mode, onOpen, onChart, onPatterns }: 
           {data?.demo && <span className="fresh fresh-demo">DEMO DATA</span>}
           <CompanySearch mode={mode} onOpen={go} current={sym} />
           <span className="phead-ctl">
+            <button className="btn" onClick={() => setCall(true)} title="Latest earnings call transcript (Alpha Vantage)">Earnings call</button>
             <button className="btn" onClick={() => onPatterns(sym)}>Patterns</button>
             <button className="btn primary" onClick={() => onChart(sym)}>Open on desk</button>
           </span>
@@ -154,6 +160,7 @@ export default function CompanyPage({ sym, mode, onOpen, onChart, onPatterns }: 
                   return rows.filter(([, v]) => v != null && v !== '').map(([k, v, t]) => <Fragment key={k}><span>{k}</span><b title={t}>{v}</b></Fragment>);
                 })()}
               </div>
+              <TearSheet sym={sym} mode={mode} />
               <h4><Q k="calc" src="a year of daily closes, scored on the desk" />Quant read <span className="muted small">bullish or bearish, and why</span></h4>
               <QuantPanel sym={sym} mode={mode} compact />
               <h4><Q k={f?.summary ? 'model' : 'unofficial'} src={f?.summary ? 'AI read of the company’s 10-K (check the filing)' : 'Wikipedia summary'} />What they do</h4>
@@ -191,6 +198,8 @@ export default function CompanyPage({ sym, mode, onOpen, onChart, onPatterns }: 
                 <Links title="Customers" xs={f?.customers ?? []} onOpen={go} />
               </div>
               <Peers named={named} peers={peerOnly} onOpen={go} />
+              <h4>Fundamentals over time <span className="muted small">· from SEC filings</span></h4>
+              <FundCharts mode={mode} sym={sym} />
             </div>
           </div>
         )}

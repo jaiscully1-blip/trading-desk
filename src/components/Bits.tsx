@@ -66,6 +66,10 @@ export interface Cmd {
   /** section in the command bar; pages are detected from the side menu */
   group?: string;
   run: () => void;
+  /** a terminal-style short code (DES, FX, HALT…): an exact match goes above tickers */
+  code?: boolean;
+  /** "AAPL DES": run the code for a ticker */
+  runSym?: (sym: string) => void;
 }
 
 export function CommandBar({ open, onClose, commands, tickers, onTicker, allowAny, quotes, pages }: { open: boolean; onClose: () => void; commands: Cmd[]; tickers: { sym: string; name: string }[]; onTicker: (s: string) => void; allowAny?: (s: string) => boolean; quotes?: Record<string, import('../types').Quote>; pages?: Set<string> }) {
@@ -97,6 +101,21 @@ export function CommandBar({ open, onClose, commands, tickers, onTicker, allowAn
         ...commands.filter((c) => grp(c) === 'Pages' && !rec.includes(c)).map((c) => ({ kind: 'cmd' as const, c, g: 'Pages' }))];
     }
     const byScore = scored.sort((a, b) => b.sc - a.sc);
+    // "AAPL DES": a ticker then a code runs the code for that ticker
+    const pair = /^([A-Za-z][A-Za-z0-9.]{0,9})\s+([A-Za-z0-9]{1,6})$/.exec(s);
+    const pc = pair ? commands.find((c) => c.code && c.id === pair[2].toLowerCase()) : null;
+    if (pair && pc) {
+      const sym = pair[1].toUpperCase();
+      return [{ kind: 'cmd' as const, c: { ...pc, id: pc.id, label: `${pc.label} · ${sym}`, run: () => (pc.runSym ? pc.runSym(sym) : (onTicker(sym), pc.run())) }, g: 'Codes' }];
+    }
+    // an exact short code ("fx", "des", "halt") goes first, above a ticker with the same letters
+    const exact = commands.find((c) => c.code && c.id === cq.toLowerCase());
+    if (exact && !s.startsWith('/')) {
+      const rest = byScore.filter(({ c }) => c !== exact).slice(0, 6).map(({ c }) => ({ kind: 'cmd' as const, c, g: grp(c) }));
+      const up0 = s.toUpperCase();
+      const tk = tickers.filter((x) => x.sym === up0 || x.sym.startsWith(up0)).slice(0, 4).map((x) => ({ kind: 'sym' as const, x, g: 'Tickers' }));
+      return [{ kind: 'cmd' as const, c: exact, g: 'Codes' }, ...tk, ...rest];
+    }
     if (s.startsWith('/')) { const all = byScore.map(({ c }) => ({ kind: 'cmd' as const, c, g: grp(c) })); return [...new Set(all.map((r) => r.g))].flatMap((g) => all.filter((r) => r.g === g)); }
     const up = s.toUpperCase();
     const t = tickers.map((x) => ({ x, sc: x.sym === up ? 2000 : x.sym.startsWith(up) ? 1500 - x.sym.length : fuzzyScore(s, x.name) ?? -1 }))
@@ -114,7 +133,7 @@ export function CommandBar({ open, onClose, commands, tickers, onTicker, allowAn
     const r = results[k];
     const typed = q.trim().toUpperCase();
     // live mode: any valid symbol jumps, even if it's not in the list
-    if (allowAny && typed && !typed.startsWith('/') && allowAny(typed) && (!r || r.kind !== 'sym' || r.x.sym !== typed) && k === 0) {
+    if (allowAny && typed && !typed.startsWith('/') && allowAny(typed) && (!r || (r.kind === 'cmd' ? !r.c.code : r.x.sym !== typed)) && k === 0) {
       onTicker(typed);
       onClose();
       return;
@@ -175,7 +194,7 @@ export function OverlayView({ kind, onClose }: { kind: 'map' | 'globe' | 'help';
     const rows: [string, string][] = [
       ['Ctrl K', 'Command bar: jump to ticker or run /command'],
       ['W  H  E  C', 'Today: Morning plan, Home, Messages, Calendars'],
-      ['D  X  O', 'Charts: Desk, Patterns, Company'],
+      ['D  ⇧M  X  O', 'Charts: Desk, Multi-timeframe, Patterns, Company'],
       ['S  G  U  I  ⇧R', 'Scan: Scanner, Rotation, ETFs and sectors, Smart money, Distress'],
       ['V  M  Y  ⇧B', 'Flow and risk: Gamma and IV, World map, Econ odds, Data status'],
       ['⇧J', 'Journal'],

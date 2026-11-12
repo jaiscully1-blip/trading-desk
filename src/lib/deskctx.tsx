@@ -11,6 +11,12 @@ export interface DeskCtx {
   /** small "what is this?" card next to the click */
   openInfo: (sym: string, at?: { x: number; y: number }) => void;
   /** open the approve-to-send Webull order ticket, prefilled */
+  /** words that ring a keyword alert when a message contains them (Messages feed) */
+  alertWords?: string[];
+  setAlertWords?: (w: string[]) => void;
+  /** price alerts on any ticker */
+  priceAlerts?: import('../../shared/alertrules').PriceAlert[];
+  setPriceAlerts?: (a: import('../../shared/alertrules').PriceAlert[]) => void;
   openOrder?: (draft: Partial<import('../../shared/orders').OrderDraft>, last?: number | null) => void;
 }
 export const Desk = createContext<DeskCtx>({ stars: [], toggleStar: () => {}, names: {}, openCompany: () => {}, openArticle: () => {}, openInfo: () => {} });
