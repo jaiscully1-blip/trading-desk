@@ -1,4 +1,5 @@
 import { useGammaLv } from './data/gamma';
+import { checkAlerts, describeAlert, type PriceAlert } from '../shared/alertrules';
 import { mergeArchive } from '../shared/newsx';
 import { DEFAULT_SIZE, addTop, type WidgetType } from './lib/grid';
 import { movementRead } from '../shared/movement';
@@ -167,6 +168,8 @@ export default function App() {
   const homeSyms = useMemo(() => [...homeLayout.main, ...homeLayout.side].flatMap((w) => (w.type === 'commodities' ? COMMODITIES.map((c) => c[0]) : w.type !== 'crypto' && w.cfg?.sym ? [String(w.cfg.sym)] : [])), [homeLayout]);
   const homeHasMovers = useMemo(() => [...homeLayout.main, ...homeLayout.side].some((w) => w.type === 'movers'), [homeLayout]);
   const [alertWords, setAlertWords] = usePersisted<string[]>('alertWords', []);
+  const [priceAlerts, setPriceAlerts] = usePersisted<PriceAlert[]>('priceAlerts', []);
+  const alertSyms = useMemo(() => [...new Set(priceAlerts.filter((a) => a.active).map((a) => a.sym))], [priceAlerts]);
   const homeHasMsgs = useMemo(() => [...homeLayout.main, ...homeLayout.side].some((w) => w.type === 'messages'), [homeLayout]);
   const [companySym, setCompanySym] = usePersisted<string>('companySym', 'NVDA');
   // Half-screen laptop windows: the watchlist folds away (press [ to show it) and the side menu shrinks to keys
@@ -272,7 +275,8 @@ export default function App() {
   // QQQ is always scanned (SPY is added server-side) so the index day trades get playbook grades too
   const universe = useUniverse(['QQQ', ...wlSyms], live ? scanList : [...scanList, ...Object.keys(DEMO_QUOTES).filter((s) => !INDEXES.includes(s))], movers?.movers, scanPrefs.includeMovers);
   // USO/UUP are the fear strip's live oil and dollar proxies
-  const quoteSyms = useMemo(() => [...new Set([...INDEXES, 'USO', 'UUP', sel, ...stars, ...wlSyms, ...universe])].slice(0, 56), [wlSyms, sel, universe, stars]);
+  // tickers with an active price alert are always quoted (they come before the scan universe in the 56-ticker budget)
+  const quoteSyms = useMemo(() => [...new Set([...INDEXES, 'USO', 'UUP', sel, ...alertSyms, ...stars, ...wlSyms, ...universe])].slice(0, 56), [wlSyms, sel, universe, stars, alertSyms]);
   const qs = useQuotes(quoteSyms, dataMode);
   const feed = useFeed(useMemo(() => [...wlSyms, ...universe].slice(0, 80), [wlSyms, universe]), dataMode, page === 'messages' || (page === 'home' && homeHasMsgs) || alertWords.length > 0); // keyword alerts keep the feed running on every page
   const scan = useScan(universe, lateMode, (s) => DEMO_QUOTES[s]?.last ?? 100);
@@ -533,7 +537,7 @@ export default function App() {
   const openInfo = useCallback((sym: string, at?: { x: number; y: number }) => setInfo({ sym, at: at ?? { x: window.innerWidth / 2 - 170, y: 120 } }), []);
   const [orderReq, setOrderReq] = useState<{ initial: Partial<OrderDraft>; last?: number | null } | null>(null);
   const openOrder = useCallback((initial: Partial<OrderDraft>, last?: number | null) => setOrderReq({ initial, last }), []);
-  const desk: DeskCtx = useMemo(() => ({ stars, toggleStar, names, openCompany, openArticle: setArticle, openInfo, openOrder, alertWords, setAlertWords }), [stars, toggleStar, names, openCompany, openInfo, openOrder, alertWords, setAlertWords]);
+  const desk: DeskCtx = useMemo(() => ({ stars, toggleStar, names, openCompany, openArticle: setArticle, openInfo, openOrder, alertWords, setAlertWords, priceAlerts, setPriceAlerts }), [stars, toggleStar, names, openCompany, openInfo, openOrder, alertWords, setAlertWords, priceAlerts, setPriceAlerts]);
 
   const fired = useRef<Set<string>>(new Set(load<string[]>('pingFired', [])));
   const pushPings = useCallback((ps: Ping[]) => {
@@ -553,6 +557,15 @@ export default function App() {
     if (!Object.keys(prev).length) return; // first time: just remember where everything is
     pushPings(turns.slice(0, 6).map((t) => ({ id: `rot:${t.sym}:${t.day}`, t: Date.now(), sym: t.sym, kind: 'rotation' as const, text: `${t.label} ${t.text}`, tone: t.tone })));
   }, [flowsData, live, pushPings]);
+  // price alerts: checked on every quote refresh (live quotes only); a match rings and shows a pop-up
+  const armed = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    if (!live || !priceAlerts.some((a) => a.active)) return;
+    const { next, fired: hits } = checkAlerts(priceAlerts, quotes, armed.current, Date.now());
+    if (!hits.length) return;
+    setPriceAlerts(next);
+    pushPings(hits.map((a) => ({ id: `pa:${a.id}:${a.firedAt}`, t: Date.now(), sym: a.sym, kind: 'alert' as const, text: `${describeAlert(a)} · now $${a.firedPx?.toFixed(2)}${a.note ? ` · ${a.note}` : ''}`, tone: a.kind === 'below' || a.kind === 'chgDown' ? 'down' as const : 'up' as const })));
+  }, [qs?.asOf]); // eslint-disable-line react-hooks/exhaustive-deps
   // keyword alerts: a new message (filing, stake, insider trade, press release, Fed…) that contains one of your words.
   // The first load only marks what's already there, so old messages don't ring.
   const feedPrimed = useRef(false);
@@ -661,7 +674,7 @@ export default function App() {
     ['beta', 'BETA · Beta regression', () => openWidget('analysis', { tab: 'beta', syms: [sel] })], ['hrh', 'HRH · Return distribution', () => openWidget('analysis', { tab: 'returns', syms: [sel] })],
     ['ovdv', 'OVDV · Volatility surface (Gamma & IV)', () => setPage('gamma')], ['gv', 'GV · Gamma levels and IV', () => setPage('gamma')],
     ['kelly', 'KELLY · Odds of your next trades (simulator)', () => openWidget('sim')], ['calc', 'CALC · Risk and position calculator', () => openWidget('risk')],
-    ['note', 'NOTE · Sticky notes', () => openWidget('notes')], ['al', 'AL · Keyword alerts (Messages)', () => setPage('messages')],
+    ['note', 'NOTE · Sticky notes', () => openWidget('notes')], ['al', 'AL · Price alerts (any ticker, with sound)', () => openWidget('alerts')], ['kw', 'KW · Keyword alerts (Messages)', () => setPage('messages')],
     ['qm', 'QM · Quote monitor (watchlist on the desk)', () => setPage('desk')], ['shrt', 'SHRT · Most-shorted stocks', () => openWidget('hisi')],
     ['hous', 'HOUS · Housing (Zillow)', () => openWidget('housing')], ['glob', 'GLOB · Global → US', () => setPage('global')], ['gf', 'GF · Fundamentals charts', () => openWidget('fund', { sym: sel })], ['wn', 'WN · World business news', () => setPage('global')], ['top', 'TOP · Top stories across outlets', () => setPage('news')], ['ni', 'NI · News search', () => setPage('news')], ['cn', 'CN · Company news (by ticker)', () => setPage('news')],
   ].map(([id, label, run]) => ({ id: id as string, label: label as string, run: run as () => void, code: true, group: 'Codes' }));

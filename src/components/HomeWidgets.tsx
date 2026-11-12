@@ -1,4 +1,5 @@
 // Home page widgets. Each gets its saved config (cfg) and a setter, plus the shared desk data.
+import { AlertsW } from './AlertsW';
 import { FundCharts } from './FundCharts';
 import { AnalysisW, TrendingW } from './AnalysisW';
 import { OptActiveW, PerpsW, RatesW } from './OptRatesW';
@@ -232,6 +233,9 @@ export function CalendarW({ d }: P) {
   );
 }
 
+export function AlertsHomeW({ d }: P) {
+  return <AlertsW quotes={d.quotes} sel={d.sel} live={d.mode.kind === 'live'} onChart={d.onChart} />;
+}
 export function FundHomeW({ d, cfg, set }: P) {
   return <FundCharts mode={d.mode} sym={cfg.sym ?? d.sel ?? 'AAPL'} cfg={cfg} set={set} />;
 }
@@ -292,6 +296,7 @@ export const WIDGETS = {
   perps: { title: 'Crypto perps & funding', make: PerpsHomeW },
   analysis: { title: 'Compare, beta & returns', make: AnalysisHomeW },
   fund: { title: 'Fundamentals charts', make: FundHomeW },
+  alerts: { title: 'Price alerts', make: AlertsHomeW },
   trending: { title: 'Trending on Reddit', make: TrendingHomeW },
   hisi: { title: 'Most-shorted stocks', make: HighSiHomeW },
   crypto: { title: 'Crypto', make: CryptoW },

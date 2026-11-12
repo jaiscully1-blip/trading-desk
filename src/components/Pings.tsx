@@ -7,7 +7,7 @@ import { pct, px, tone } from '../lib/format';
 import { etTime } from '../lib/clock';
 import { CoName, Star } from './common';
 
-const KIND: Record<Ping['kind'], string> = { news: 'NEWS', earnings: 'EARNINGS', move: 'MOVE', level: 'LEVEL', rotation: 'ROTATION', keyword: 'KEYWORD' };
+const KIND: Record<Ping['kind'], string> = { news: 'NEWS', earnings: 'EARNINGS', move: 'MOVE', level: 'LEVEL', rotation: 'ROTATION', keyword: 'KEYWORD', alert: 'ALERT' };
 
 function PingCard({ p, onOpen, onClose }: { p: Ping; onOpen: () => void; onClose: () => void }) {
   const [hover, setHover] = useState(false);
