@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { dayFibs } from '../../shared/dayfib';
 import { useDesk } from '../lib/deskctx';
 import {
   CandlestickSeries, ColorType, CrosshairMode, HistogramSeries, LineSeries, LineStyle, createChart, createSeriesMarkers,
@@ -24,7 +25,7 @@ import { Fresh, PanelHead, Seg } from './common';
 import { pct, px, tone } from '../lib/format';
 
 const cssVar = (n: string) => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
-type Overlays = { vwap: boolean; ma: boolean; lvl: boolean; cg?: boolean; gx?: boolean; lad?: boolean; swing?: boolean; zn?: boolean };
+type Overlays = { vwap: boolean; ma: boolean; lvl: boolean; cg?: boolean; gx?: boolean; lad?: boolean; swing?: boolean; zn?: boolean; fib?: boolean };
 const GX_SYMS = ['SPY', 'QQQ', 'IWM'];
 type CgTrade = { who: string; party: string; state: string; type: string; traded: string; filed: string; min: number | null; max: number | null };
 const cgCache = new Map<string, CgTrade[]>();
@@ -240,6 +241,23 @@ export function ChartPanel({
     zp.current.set(z);
   }, [levels, ov, tf, theme, bars, dayTools]);
 
+  // Fibonacci levels for today, anchored to yesterday's high and low (retracements inside, 1.272 / 1.618 extensions beyond)
+  const fibLines = useRef<IPriceLine[]>([]);
+  useEffect(() => {
+    const x = s.current;
+    if (!x) return;
+    for (const l of fibLines.current) x.c.removePriceLine(l);
+    fibLines.current = [];
+    if (ov.fib === false || tf === 'W' || tf === 'M') return;
+    const hi = levels.find((l) => l.id === 'pdh')?.value, lo = levels.find((l) => l.id === 'pdl')?.value;
+    if (hi == null || lo == null) return;
+    const gold = cssVar('--warn'), faint = cssVar('--muted');
+    for (const f of dayFibs(hi, lo)) {
+      const key = f.ratio === 0.5 || f.ratio === 0.618;
+      fibLines.current.push(x.c.createPriceLine({ price: f.price, color: key ? gold : faint, lineWidth: 1, lineStyle: f.kind === 'ext' ? LineStyle.SparseDotted : LineStyle.Dotted, axisLabelVisible: !ladderOn && key, title: ladderOn ? '' : f.label }));
+    }
+  }, [levels, ov, tf, theme, bars, ladderOn]);
+
   // Gamma walls + zero-gamma flip (Cboe delayed chain, next 7 days) for SPY / QQQ / IWM; real data only, nothing in demo mode
   const gxOn = ov.gx !== false && GX_SYMS.includes(sym) && mode?.kind === 'live' && tf !== 'W' && tf !== 'M';
   const gx = useGammaLv(sym, gxOn);
@@ -286,6 +304,7 @@ export function ChartPanel({
         {dayTools && tf !== 'D' && tf !== 'W' && tf !== 'M' && T('vwap', 'VWAP', 'Session VWAP (intraday). Shown during regular trading hours only.')}
         {T('ma', dayTools ? 'MA 20/50' : 'MA 20/50/200', dayTools ? '20 and 50-period simple moving averages' : 'Market is closed: 20, 50 and 200-period moving averages (long-term view)')}
         {T('lvl', 'Levels', 'Draw key levels on the chart')}
+        <button className={`chip sm ${ov.fib !== false ? 'on' : ''}`} onClick={() => setOv({ ...ov, fib: ov.fib === false })} title="Fibonacci levels for today from yesterday's high and low: 23.6 / 38.2 / 50 / 61.8 / 78.6% inside the range, 1.272 and 1.618 beyond it (50% and 61.8% highlighted)" aria-pressed={ov.fib !== false}>Fib</button>
         {GX_SYMS.includes(sym) && mode?.kind === 'live' && <button className={`chip sm ${ov.gx !== false ? 'on' : ''}`} onClick={() => setOv({ ...ov, gx: ov.gx === false })} title={`Dealer gamma: call wall, put wall and zero-gamma flip for the next 7 days (Cboe delayed ~15 min, estimated from open interest)`} aria-pressed={ov.gx !== false}>Gamma</button>}
         {ov.lvl && tf !== 'W' && tf !== 'M' && <button className={`chip sm ${ov.lad !== false ? 'on' : ''}`} onClick={() => setOv({ ...ov, lad: ov.lad === false })} title="Ladder: every level in price order beside the chart, with distance from the last price" aria-pressed={ov.lad !== false}>Ladder</button>}
         {ov.lvl && dayTools && tf !== 'W' && tf !== 'M' && <button className={`chip sm ${ov.swing ? 'on' : ''}`} onClick={() => setOv({ ...ov, swing: !ov.swing })} title={ov.swing ? 'Swing preset: prior-day range and gamma walls only. Click for Day (all levels).' : 'Day preset: all levels. Click for Swing (prior-day range and gamma walls only).'} aria-pressed={!!ov.swing}>{ov.swing ? 'Swing' : 'Day'}</button>}
