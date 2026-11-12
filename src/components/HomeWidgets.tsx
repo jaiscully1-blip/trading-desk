@@ -1,4 +1,5 @@
 // Home page widgets. Each gets its saved config (cfg) and a setter, plus the shared desk data.
+import { MacroClock } from './MacroClock';
 import { useEffect, useMemo, useRef } from 'react';
 import { CandlestickSeries, ColorType, createChart, type IChartApi, type ISeriesApi, type UTCTimestamp } from 'lightweight-charts';
 import type { Quote, TF } from '../types';
@@ -225,6 +226,10 @@ export function CalendarW({ d }: P) {
   );
 }
 
+export function MacroClockW({ d }: P) {
+  return <MacroClock cal={d.cal} />;
+}
+
 export function MessagesW({ d }: P) {
   return <Messages feed={d.feed} cal={d.cal} nowMs={d.now} onChart={d.onChart} compact />;
 }
@@ -232,6 +237,7 @@ export function MessagesW({ d }: P) {
 export const WIDGETS = {
   stock: { title: 'Stock', make: StockW },
   messages: { title: 'Messages', make: MessagesW },
+  macroclock: { title: 'Macro countdowns', make: MacroClockW },
   crypto: { title: 'Crypto', make: CryptoW },
   commodities: { title: 'Commodities', make: CommoditiesW },
   risk: { title: 'Risk calculator', make: RiskW },

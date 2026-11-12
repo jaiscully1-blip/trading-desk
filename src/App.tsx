@@ -28,6 +28,7 @@ import { DEFAULT_SETTINGS, etDay, guard, viewTrade, violations as findViolations
 import { Scanner } from './components/Scanner';
 import { useMovers, useScan, useUniverse } from './data/scan';
 import { useCalendar, useNews } from './data/news';
+import { keywordHits } from '../shared/catalysts';
 import { useMarketStatus } from './data/market';
 import { useFlows, useWorld } from './data/world';
 import { rotationTurns } from '../shared/rotation';
@@ -161,6 +162,7 @@ export default function App() {
   const homeLayout = (spaces.list.find((w) => w.id === spaces.active) ?? spaces.list[0]).layout;
   const homeSyms = useMemo(() => [...homeLayout.main, ...homeLayout.side].flatMap((w) => (w.type === 'commodities' ? COMMODITIES.map((c) => c[0]) : w.type !== 'crypto' && w.cfg?.sym ? [String(w.cfg.sym)] : [])), [homeLayout]);
   const homeHasMovers = useMemo(() => [...homeLayout.main, ...homeLayout.side].some((w) => w.type === 'movers'), [homeLayout]);
+  const [alertWords, setAlertWords] = usePersisted<string[]>('alertWords', []);
   const homeHasMsgs = useMemo(() => [...homeLayout.main, ...homeLayout.side].some((w) => w.type === 'messages'), [homeLayout]);
   const [companySym, setCompanySym] = usePersisted<string>('companySym', 'NVDA');
   // Half-screen laptop windows: the watchlist folds away (press [ to show it) and the side menu shrinks to keys
@@ -268,7 +270,7 @@ export default function App() {
   // USO/UUP are the fear strip's live oil and dollar proxies
   const quoteSyms = useMemo(() => [...new Set([...INDEXES, 'USO', 'UUP', sel, ...stars, ...wlSyms, ...universe])].slice(0, 56), [wlSyms, sel, universe, stars]);
   const qs = useQuotes(quoteSyms, dataMode);
-  const feed = useFeed(useMemo(() => [...wlSyms, ...universe].slice(0, 80), [wlSyms, universe]), dataMode, page === 'messages' || (page === 'home' && homeHasMsgs));
+  const feed = useFeed(useMemo(() => [...wlSyms, ...universe].slice(0, 80), [wlSyms, universe]), dataMode, page === 'messages' || (page === 'home' && homeHasMsgs) || alertWords.length > 0); // keyword alerts keep the feed running on every page
   const scan = useScan(universe, lateMode, (s) => DEMO_QUOTES[s]?.last ?? 100);
   const macro = useMacro(dataMode);
   const market = useMarketStatus(dataMode);
@@ -520,7 +522,7 @@ export default function App() {
   const openInfo = useCallback((sym: string, at?: { x: number; y: number }) => setInfo({ sym, at: at ?? { x: window.innerWidth / 2 - 170, y: 120 } }), []);
   const [orderReq, setOrderReq] = useState<{ initial: Partial<OrderDraft>; last?: number | null } | null>(null);
   const openOrder = useCallback((initial: Partial<OrderDraft>, last?: number | null) => setOrderReq({ initial, last }), []);
-  const desk: DeskCtx = useMemo(() => ({ stars, toggleStar, names, openCompany, openArticle: setArticle, openInfo, openOrder }), [stars, toggleStar, names, openCompany, openInfo, openOrder]);
+  const desk: DeskCtx = useMemo(() => ({ stars, toggleStar, names, openCompany, openArticle: setArticle, openInfo, openOrder, alertWords, setAlertWords }), [stars, toggleStar, names, openCompany, openInfo, openOrder, alertWords, setAlertWords]);
 
   const fired = useRef<Set<string>>(new Set(load<string[]>('pingFired', [])));
   const pushPings = useCallback((ps: Ping[]) => {
@@ -540,6 +542,24 @@ export default function App() {
     if (!Object.keys(prev).length) return; // first time: just remember where everything is
     pushPings(turns.slice(0, 6).map((t) => ({ id: `rot:${t.sym}:${t.day}`, t: Date.now(), sym: t.sym, kind: 'rotation' as const, text: `${t.label} ${t.text}`, tone: t.tone })));
   }, [flowsData, live, pushPings]);
+  // keyword alerts: a new message (filing, stake, insider trade, press release, Fed…) that contains one of your words.
+  // The first load only marks what's already there, so old messages don't ring.
+  const feedPrimed = useRef(false);
+  useEffect(() => {
+    if (!feed?.items.length || feed.demo) return;
+    const fresh: Ping[] = [];
+    for (const m of feed.items) {
+      if (m.kind === 'live') continue;
+      const hits = alertWords.length ? keywordHits(m, alertWords) : [];
+      if (!hits.length) continue;
+      const id = `kw:${m.id}`;
+      if (fired.current.has(id)) continue;
+      fired.current.add(id);
+      if (feedPrimed.current && Date.now() - m.t < 6 * 3600_000) fresh.push({ id, t: Date.now(), sym: m.sym ?? '', kind: 'keyword', text: `“${hits.join('”, “')}”: ${m.title}`, url: m.url, tone: m.tone });
+    }
+    feedPrimed.current = true;
+    pushPings(fresh.slice(0, 5));
+  }, [feed?.asOf, alertWords.join('|')]); // eslint-disable-line react-hooks/exhaustive-deps
   // news: any new headline tagged with a starred ticker (the first load only marks what's already there)
   const newsPrimed = useRef(false);
   useEffect(() => {
