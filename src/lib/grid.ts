@@ -51,3 +51,35 @@ export const DEFAULT_SIZE: Record<WidgetType, { w: number; h: number; side: numb
   world: { w: 4, h: 12, side: 12 }, halts: { w: 5, h: 10, side: 10 }, idxmovers: { w: 5, h: 11, side: 11 }, optactive: { w: 6, h: 12, side: 12 },
   rates: { w: 5, h: 13, side: 13 }, perps: { w: 5, h: 12, side: 12 }, analysis: { w: 6, h: 12, side: 12 }, trending: { w: 4, h: 12, side: 12 }, fund: { w: 7, h: 11, side: 11 }, alerts: { w: 5, h: 10, side: 10 },
 };
+
+export type Edge = 'n' | 's' | 'e' | 'w' | 'ne' | 'nw' | 'se' | 'sw';
+export interface Metrics { colW: number; row: number; gap: number }
+export interface Rect { left: number; top: number; width: number; height: number }
+
+/** Pixel box of a widget on the canvas. */
+export const rectOf = (w: Pick<Widget, 'x' | 'y' | 'w' | 'h'>, m: Metrics): Rect =>
+  ({ left: w.x * (m.colW + m.gap), top: w.y * (m.row + m.gap), width: w.w * m.colW + (w.w - 1) * m.gap, height: w.h * m.row + (w.h - 1) * m.gap });
+
+/**
+ * Resize from any edge or corner. Returns the box that follows the pointer pixel for pixel (`live`) and the grid cells it
+ * snaps to on release (`snap`). The opposite edge stays put; size never drops below 2 columns x 3 rows or past one screen wide.
+ */
+export function resizeFrom(start: Pick<Widget, 'x' | 'y' | 'w' | 'h'>, edge: Edge, dx: number, dy: number, m: Metrics): { live: Rect; snap: { x: number; y: number; w: number; h: number } } {
+  const r0 = rectOf(start, m), cw = m.colW + m.gap, rh = m.row + m.gap;
+  const minW = 2 * m.colW + m.gap, minH = 3 * m.row + 2 * m.gap, maxW = COLS * m.colW + (COLS - 1) * m.gap;
+  let { left, top, width, height } = r0;
+  if (edge.includes('e')) width = r0.width + dx;
+  if (edge.includes('w')) width = r0.width - dx;
+  if (edge.includes('s')) height = r0.height + dy;
+  if (edge.includes('n')) height = r0.height - dy;
+  width = Math.max(minW, Math.min(maxW, width));
+  height = Math.max(minH, height);
+  if (edge.includes('w')) { left = r0.left + r0.width - width; if (left < 0) { width += left; left = 0; } }
+  if (edge.includes('n')) { top = r0.top + r0.height - height; if (top < 0) { height += top; top = 0; } }
+  if (left + width > CANVAS_COLS * cw - m.gap) width = CANVAS_COLS * cw - m.gap - left;
+  const w = Math.max(2, Math.min(COLS, Math.round((width + m.gap) / cw)));
+  const h = Math.max(3, Math.round((height + m.gap) / rh));
+  const x = edge.includes('w') ? Math.max(0, start.x + start.w - w) : start.x;
+  const y = edge.includes('n') ? Math.max(0, start.y + start.h - h) : start.y;
+  return { live: { left, top, width, height }, snap: { x, y, w: Math.min(w, CANVAS_COLS - x), h } };
+}

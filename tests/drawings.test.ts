@@ -34,3 +34,23 @@ describe('chart drawings', () => {
     expect(geom(sh('trend', [pt(0, 0), pt(10, 10)]), (q) => (q.t === 10 ? null : { x: 1, y: 1 }), 500)).toEqual([]);
   });
 });
+
+describe('trendline angle and prices', () => {
+  it('angle on screen: flat 0, straight up 90, down -90, back left 180', async () => {
+    const { lineAngle } = await import('../shared/drawings');
+    expect(lineAngle({ x: 0, y: 100 }, { x: 50, y: 100 })).toBe(0);
+    expect(lineAngle({ x: 0, y: 100 }, { x: 0, y: 0 })).toBe(90);
+    expect(lineAngle({ x: 0, y: 0 }, { x: 0, y: 100 })).toBe(-90);
+    expect(lineAngle({ x: 50, y: 100 }, { x: 0, y: 100 })).toBe(180);
+    expect(lineAngle({ x: 0, y: 100 }, { x: 100, y: 0 })).toBeCloseTo(45);
+  });
+  it('labels both end prices and the angle with the change', async () => {
+    const { geom } = await import('../shared/drawings');
+    const s = { id: 'a', kind: 'trend' as const, ink: 'accent' as const, pts: [{ t: 0, d: 0, p: 100 }, { t: 10, d: 0, p: 110 }] };
+    const out = geom(s, (q) => ({ x: q.t * 10, y: 200 - q.p }), 500);
+    const texts = out.filter((x) => x.k === 'text').map((x) => (x as { text: string }).text);
+    expect(texts).toContain('100.00');
+    expect(texts).toContain('110.00');
+    expect(texts.find((t) => t.includes('°'))).toBe('5.7° · +10.00 (+10.00%)');
+  });
+});

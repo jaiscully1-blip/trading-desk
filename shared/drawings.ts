@@ -27,7 +27,18 @@ export function geom(s: Shape, px: Px, width: number, fmt: (n: number) => string
   if (q.some((x) => !x)) return [];
   const a = q[0]!, b = q[1];
   switch (s.kind) {
-    case 'trend': return b ? [{ k: 'line', x1: a.x, y1: a.y, x2: b.x, y2: b.y }] : [];
+    case 'trend': {
+      if (!b) return [];
+      // price at each end, and the angle as it looks on screen (0° flat, 90° straight up, ±180° pointing back left)
+      const p1 = s.pts[0].p, p2 = s.pts[1].p, chg = p2 - p1;
+      const up = (y: number, other: number) => (y <= other ? -8 : 15); // label above the higher end, below the lower one
+      return [
+        { k: 'line', x1: a.x, y1: a.y, x2: b.x, y2: b.y },
+        { k: 'text', x: a.x, y: a.y + up(a.y, b.y), text: fmt(p1), right: a.x > b.x },
+        { k: 'text', x: b.x, y: b.y + up(b.y, a.y), text: fmt(p2), right: b.x >= a.x ? false : true },
+        { k: 'text', x: (a.x + b.x) / 2 + 8, y: (a.y + b.y) / 2 - 8, text: `${lineAngle(a, b).toFixed(1)}° · ${chg >= 0 ? '+' : '−'}${fmt(Math.abs(chg))}${p1 ? ` (${chg >= 0 ? '+' : '−'}${Math.abs((chg / p1) * 100).toFixed(2)}%)` : ''}` },
+      ];
+    }
     case 'ray': return [{ k: 'line', x1: a.x, y1: a.y, x2: width, y2: a.y }, { k: 'text', x: width - 4, y: a.y - 4, text: fmt(s.pts[0].p), right: true }];
     case 'rect': return b ? [{ k: 'rect', x: Math.min(a.x, b.x), y: Math.min(a.y, b.y), w: Math.abs(b.x - a.x), h: Math.abs(b.y - a.y) }] : [];
     case 'tri': return q.length >= 2 ? [{ k: 'poly', pts: q.map((x) => [x!.x, x!.y] as [number, number]), closed: q.length === 3, fill: q.length === 3 }] : [];
@@ -47,6 +58,13 @@ export function geom(s: Shape, px: Px, width: number, fmt: (n: number) => string
       return out;
     }
   }
+}
+
+/** On-screen angle of the line from a to b in degrees: 0 flat, +90 straight up, -90 straight down, ±180 back to the left.
+ *  It depends on the chart's zoom, like any drawn angle; the price change does not. */
+export function lineAngle(a: { x: number; y: number }, b: { x: number; y: number }): number {
+  const d = (Math.atan2(a.y - b.y, b.x - a.x) * 180) / Math.PI;
+  return Object.is(d, -0) ? 0 : d;
 }
 
 export const uid = () => Math.random().toString(36).slice(2, 9);

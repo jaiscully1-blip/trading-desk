@@ -2204,3 +2204,26 @@ body:has(.hw.dragging)::before { animation-play-state: paused; }
 .ag-owner { display: flex; flex-direction: column; gap: 8px; padding: 10px; border: 1px dashed var(--line-2); border-radius: 8px; }
 .ag-go { margin-top: 10px; padding: 10px; font-size: 14px; }
 @media (max-width: 460px) { .ag-card { padding: 20px; } .ag-pins { grid-template-columns: 1fr; } .ag-preview { margin-left: 0; } }
+
+/* ---------------- widget resize from every edge and corner ---------------- */
+.hw-grip { position: absolute; z-index: 3; touch-action: none; }
+.hw-grip.g-n, .hw-grip.g-s { left: 12px; right: 12px; height: 7px; cursor: ns-resize; }
+.hw-grip.g-n { top: -3px; } .hw-grip.g-s { bottom: -3px; }
+.hw-grip.g-e, .hw-grip.g-w { top: 12px; bottom: 12px; width: 7px; cursor: ew-resize; }
+.hw-grip.g-e { right: -3px; } .hw-grip.g-w { left: -3px; }
+.hw-grip.g-ne, .hw-grip.g-nw, .hw-grip.g-se, .hw-grip.g-sw { width: 14px; height: 14px; }
+.hw-grip.g-ne { top: -3px; right: -3px; cursor: nesw-resize; } .hw-grip.g-sw { bottom: -3px; left: -3px; cursor: nesw-resize; }
+.hw-grip.g-nw { top: -3px; left: -3px; cursor: nwse-resize; } .hw-grip.g-se { bottom: -3px; right: -3px; cursor: nwse-resize; }
+.hw-grip.g-se { background: linear-gradient(135deg, transparent 50%, var(--line-2) 50%, var(--line-2) 58%, transparent 58%, transparent 70%, var(--line-2) 70%, var(--line-2) 78%, transparent 78%); }
+.hw:hover > .hw-grip.g-n, .hw:hover > .hw-grip.g-s, .hw:hover > .hw-grip.g-e, .hw:hover > .hw-grip.g-w { background: transparent; }
+.hw-grip:hover, .hw.sizing > .hw-grip { background: color-mix(in srgb, var(--accent) 35%, transparent) !important; border-radius: 3px; }
+.hw-grip.g-n:hover, .hw-grip.g-s:hover { box-shadow: inset 0 0 0 1px var(--accent); }
+.home-grid .hw { overflow: visible; }
+.home-grid .hw > .hw-body { overflow: hidden; border-radius: inherit; }
+.hw.dragging { transition: none !important; will-change: left, top, width, height; }
+.hw-target { position: absolute; z-index: 6; border: 1.5px dashed var(--accent); border-radius: 8px; background: color-mix(in srgb, var(--accent) 8%, transparent); pointer-events: none; }
+.hw-target span { position: absolute; right: 6px; bottom: 6px; padding: 2px 7px; border-radius: 5px; background: var(--accent); color: var(--accent-ink); font: 600 11px 'IBM Plex Mono', monospace; white-space: nowrap; }
+.home.side-off, .nav.compact ~ .app .home.side-off { grid-template-columns: minmax(0, 1fr); }
+.home.lib-on.side-off { grid-template-columns: 230px minmax(0, 1fr); }
+.home-side-h { align-items: center; gap: 6px; }
+.home-side-h .muted { margin-left: auto; }
