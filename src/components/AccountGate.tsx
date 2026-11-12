@@ -127,6 +127,7 @@ function Create({ onBack }: { onBack?: () => void }) {
 
         {msg && <p className="down small" role="alert">{msg}</p>}
         <button className="btn primary ag-go" type="submit" disabled={!ready || busy}>{busy ? 'Setting up…' : legacy ? 'Save and open my desk' : 'Create my desk'}</button>
+        {!legacy && <p className="small muted">Already have a desk on another link, browser or computer? There, open your account menu (bottom left) and pick <b>Download my desk</b>. Make your account here, then pick <b>Load a desk file</b>.</p>}
         <p className="small faint">The PIN keeps accounts apart on this device. It is not a bank-grade lock: anyone who can use this browser could read its storage.</p>
       </form>
     </>

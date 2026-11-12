@@ -40,6 +40,27 @@ export async function idbSet(key: string, v: unknown) {
   try { d.transaction('kv', 'readwrite').objectStore('kv').put(v, k); } catch { /* memory only */ }
 }
 
+/** Every IndexedDB entry of the signed-in account (keys without the account prefix), for "Download my desk". */
+export async function idbAll(): Promise<Record<string, unknown>> {
+  const d = await db();
+  if (!d) return {};
+  return new Promise((res) => {
+    const out: Record<string, unknown> = {};
+    try {
+      const req = d.transaction('kv').objectStore('kv').openCursor();
+      req.onsuccess = () => {
+        const c = req.result;
+        if (!c) return res(out);
+        const k = String(c.key);
+        // the first account owns the unprefixed keys; other accounts' keys start with td.u.
+        if (KP ? k.startsWith(KP) : !k.startsWith('td.u.')) out[KP ? k.slice(KP.length) : k] = c.value;
+        c.continue();
+      };
+      req.onerror = () => res(out);
+    } catch { res(out); }
+  });
+}
+
 /** Like useState, persisted to IndexedDB. `loaded` turns true once the stored value is in. */
 export function useIdbState<T>(key: string, initial: T) {
   const [v, setV] = useState<T>(initial);
