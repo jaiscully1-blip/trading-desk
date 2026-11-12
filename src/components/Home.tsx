@@ -2,7 +2,7 @@
 // favorites), workspace tabs along the bottom (add, rename, close), and Undo / Redo / Save point / Restore / Clear.
 // Drag a widget by its title bar, resize from its corner, pin it in place, or send it to the scrollable side bar (⇥).
 import { useCallback, useEffect, useRef, useState, type FormEvent, type PointerEvent as RPE } from 'react';
-import { CANVAS_COLS, COLS, DEFAULT_SIZE, addTop, settle, type Widget, type WidgetType } from '../lib/grid';
+import { CANVAS_COLS, COLS, DEFAULT_SIZE, addTop, rectOf, resizeFrom, settle, type Edge, type Rect, type Widget, type WidgetType } from '../lib/grid';
 import { WIDGETS, type HomeData } from './HomeWidgets';
 import { useDesk } from '../lib/deskctx';
 import { usePersisted } from '../lib/store';
@@ -34,7 +34,9 @@ const ALL_GROUPS: { name: string; items: { type: WidgetType; blurb: string }[] }
 const GROUPS = isOwner() ? ALL_GROUPS : ALL_GROUPS.map((g) => ({ ...g, items: g.items.filter((i) => !OWNER_ONLY.has(i.type)) })).filter((g) => g.items.length);
 const symFor = (t: WidgetType) => t === 'stock' || t === 'options' || t === 'claims' || t === 'congress' || t === 'insider';
 
-type Drag = { id: string; kind: 'move' | 'size'; x0: number; y0: number; sl0: number; st0: number; start: Widget; area: 'main' | 'side'; before: HomeLayout; moved: boolean };
+type Drag = { id: string; kind: 'move' | 'size'; edge: Edge; x0: number; y0: number; sl0: number; st0: number; start: Widget; area: 'main' | 'side'; before: HomeLayout; moved: boolean; snap?: { x: number; y: number; w: number; h: number } };
+const EDGES: Edge[] = ['n', 's', 'e', 'w', 'ne', 'nw', 'se', 'sw'];
+const EDGE_NAME: Record<Edge, string> = { n: 'top edge', s: 'bottom edge', e: 'right edge', w: 'left edge', ne: 'top-right corner', nw: 'top-left corner', se: 'bottom-right corner', sw: 'bottom-left corner' };
 
 export default function Home({ spaces, setSpaces, d, tickers }: { spaces: Workspaces; setSpaces: (f: (s: Workspaces) => Workspaces) => void; d: HomeData; tickers: { sym: string; name: string }[] }) {
   const { names } = useDesk();
@@ -43,8 +45,11 @@ export default function Home({ spaces, setSpaces, d, tickers }: { spaces: Worksp
   const [q, setQ] = useState('');
   const [libQ, setLibQ] = useState('');
   const [libOpen, setLibOpen] = usePersisted('libOpen', true);
+  const [sideOpen, setSideOpen] = usePersisted('homeSideOpen', true);
   const [pins, setPins] = usePersisted<WidgetType[]>('libPins', ['stock', 'risk', 'sessions']);
   const [drag, setDrag] = useState<Drag | null>(null);
+  // while dragging, the widget follows the pointer pixel for pixel; the dashed box shows where it will snap
+  const [live, setLive] = useState<{ rect: Rect; snap: { x: number; y: number; w: number; h: number } } | null>(null);
   const [renaming, setRenaming] = useState<string | null>(null);
   const area = useRef<HTMLDivElement>(null);
   const port = useRef<HTMLDivElement>(null); // the scrolling window onto the canvas
@@ -135,12 +140,12 @@ export default function Home({ spaces, setSpaces, d, tickers }: { spaces: Worksp
   // Drag / resize: pointer capture on the grab handle, and the drag ends on ANY of pointerup, pointercancel, lost capture,
   // window blur, tab hidden, or no button held on the next move. Escape cancels and puts the widget back.
   // Scrolling the canvas mid-drag is added to the pointer movement so the widget never jumps away from the cursor.
-  const down = (e: RPE, w: Widget, kind: Drag['kind'], where: 'main' | 'side') => {
+  const down = (e: RPE, w: Widget, kind: Drag['kind'], where: 'main' | 'side', edge: Edge = 'se') => {
     if (e.button !== 0) return;
     if (kind === 'move' && ((e.target as HTMLElement).closest('button, input, select, textarea, a') || w.pinned)) return;
     e.preventDefault();
     try { (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId); } catch { /* window listeners below still end the drag */ }
-    setDrag({ id: w.id, kind, x0: e.clientX, y0: e.clientY, sl0: port.current?.scrollLeft ?? 0, st0: port.current?.scrollTop ?? 0, start: { ...w }, area: where, before: layout, moved: false });
+    setDrag({ id: w.id, kind, edge, x0: e.clientX, y0: e.clientY, sl0: port.current?.scrollLeft ?? 0, st0: port.current?.scrollTop ?? 0, start: { ...w }, area: where, before: layout, moved: false });
   };
   const dragRef = useRef<Drag | null>(null);
   dragRef.current = drag;
@@ -154,10 +159,19 @@ export default function Home({ spaces, setSpaces, d, tickers }: { spaces: Worksp
       if (dg.kind === 'size') setLayout((l) => ({ ...l, side: l.side.map((w) => (w.id === s.id ? { ...w, h: Math.max(3, Math.round(s.h + dy / (ROW + GAP))) } : w)) }));
       return;
     }
+    const m = { colW, row: ROW, gap: GAP };
+    const show = (rect: Rect, snap: { x: number; y: number; w: number; h: number }) => setLive({ rect, snap });
+    if (dg.kind === 'size') {
+      // resizing: nothing else moves until you let go, so the box tracks the pointer with no lag
+      const r = resizeFrom(s, dg.edge, dx, dy, m);
+      dg.snap = r.snap;
+      show(r.live, r.snap);
+      return;
+    }
     const cx = Math.round(dx / (colW + GAP)), cy = Math.round(dy / (ROW + GAP));
-    const next = dg.kind === 'move'
-      ? { ...s, x: Math.max(0, Math.min(CANVAS_COLS - Math.min(s.w, COLS), s.x + cx)), y: Math.max(0, s.y + cy) }
-      : { ...s, w: Math.max(2, Math.min(COLS, CANVAS_COLS - s.x, s.w + cx)), h: Math.max(3, s.h + cy) };
+    const next = { ...s, x: Math.max(0, Math.min(CANVAS_COLS - Math.min(s.w, COLS), s.x + cx)), y: Math.max(0, s.y + cy) };
+    const r0 = rectOf(s, m);
+    show({ ...r0, left: Math.max(0, r0.left + dx), top: Math.max(0, r0.top + dy) }, { x: next.x, y: next.y, w: s.w, h: s.h });
     setLayout((l) => {
       const cur = l.main.find((w) => w.id === s.id);
       if (!cur || (cur.x === next.x && cur.y === next.y && cur.w === next.w && cur.h === next.h)) return l;
@@ -168,8 +182,13 @@ export default function Home({ spaces, setSpaces, d, tickers }: { spaces: Worksp
     const dg = dragRef.current;
     if (!dg) return;
     dragRef.current = null;
+    setLive(null);
     if (cancel) setLayout(() => dg.before);
-    else if (dg.moved) { setLayout((l) => ({ ...l, main: settle(l.main) })); h().u.push(dg.before); h().u.splice(0, h().u.length - 60); h().r = []; }
+    else if (dg.moved && dg.kind === 'size' && dg.area === 'main' && dg.snap) {
+      const sn = dg.snap;
+      setLayout((l) => ({ ...l, main: settle(l.main.map((w) => (w.id === dg.id ? { ...w, ...sn } : w)), dg.id) }));
+      h().u.push(dg.before); h().u.splice(0, h().u.length - 60); h().r = [];
+    } else if (dg.moved) { setLayout((l) => ({ ...l, main: settle(l.main) })); h().u.push(dg.before); h().u.splice(0, h().u.length - 60); h().r = []; }
     setDrag(null); bump((x) => x + 1);
   };
   const moveRef = useRef(moveTo), endRef = useRef(endDrag);
@@ -240,7 +259,7 @@ export default function Home({ spaces, setSpaces, d, tickers }: { spaces: Worksp
   const blurbOf = (t: WidgetType) => GROUPS.flatMap((g) => g.items).find((i) => i.type === t)?.blurb ?? '';
 
   return (
-    <div className={`page home ${libOpen ? 'lib-on' : ''}`}>
+    <div className={`page home ${libOpen ? 'lib-on' : ''} ${sideOpen ? '' : 'side-off'}`}>
       {libOpen && (
         <aside className="lib" aria-label="Widget library">
           <div className="lib-h"><b>WIDGETS</b><button className="hw-btn" onClick={() => setLibOpen(false)} title="Hide the library" aria-label="Hide widget library">«</button></div>
@@ -267,6 +286,7 @@ export default function Home({ spaces, setSpaces, d, tickers }: { spaces: Worksp
             <button className="btn" onClick={() => go(0, 1)} title="Down (Shift + ↓)" aria-label="Scroll down">▼</button>
             <button className="btn" onClick={() => go(1, 0)} disabled={scroll.x > canvasW - width - 4} title="One screen right (Shift + →)" aria-label="Screen right">▶</button>
           </div>
+          {!sideOpen && <button className="btn" onClick={() => setSideOpen(true)} title={`Show the side bar${layout.side.length ? ` (${layout.side.length} widget${layout.side.length > 1 ? 's' : ''})` : ''}`}>Side bar «{layout.side.length ? ` ${layout.side.length}` : ''}</button>}
         </div>
         <div className="home-port" ref={port} onScroll={(e) => setScroll({ x: e.currentTarget.scrollLeft, y: e.currentTarget.scrollTop })}>
         <div className="home-grid" ref={area} style={{ height, width: canvasW }} onPointerDown={panDown} onPointerMove={panMove} onPointerUp={panUp} onPointerCancel={panUp} onLostPointerCapture={panUp}>
@@ -278,12 +298,21 @@ export default function Home({ spaces, setSpaces, d, tickers }: { spaces: Worksp
               <p className="muted">Search a ticker above, or pick from the widget library on the left. Drag a widget by its title bar, resize from its corner, pin it with ⌖, and send it to the side bar with ⇥. Workspaces live in the tabs at the bottom.</p>
             </div>
           )}
-          {layout.main.map((w) => (
-            <section key={w.id} className={`hw panel ${drag?.id === w.id ? 'dragging' : ''} ${w.pinned ? 'pinned' : ''}`} style={{ left: w.x * (colW + GAP), top: w.y * (ROW + GAP), width: w.w * colW + (w.w - 1) * GAP, height: w.h * ROW + (w.h - 1) * GAP }}>
-              {chrome(w, 'main')}
-              {!w.pinned && <div className="hw-size" onPointerDown={(e) => down(e, w, 'size', 'main')} {...grab} title="Drag to resize" aria-hidden="true" />}
-            </section>
-          ))}
+          {drag?.area === 'main' && live && (() => {
+            const t = rectOf(live.snap, { colW, row: ROW, gap: GAP });
+            return <div className="hw-target" style={t} aria-hidden="true"><span>{live.snap.w} × {live.snap.h}{drag.kind === 'size' ? ` · ${Math.round(live.rect.width)} × ${Math.round(live.rect.height)} px` : ''}</span></div>;
+          })()}
+          {layout.main.map((w) => {
+            const mine = drag?.id === w.id && drag.area === 'main';
+            // while dragging, the box follows the pointer ; the dashed box underneath is where it will snap
+            const box = mine && live ? live.rect : rectOf(w, { colW, row: ROW, gap: GAP });
+            return (
+              <section key={w.id} className={`hw panel ${mine ? `dragging ${drag!.kind === 'size' ? 'sizing' : ''}` : ''} ${w.pinned ? 'pinned' : ''}`} style={box}>
+                {chrome(w, 'main')}
+                {!w.pinned && EDGES.map((ed) => <div key={ed} className={`hw-grip g-${ed}`} onPointerDown={(e) => down(e, w, 'size', 'main', ed)} {...grab} title={`Drag the ${EDGE_NAME[ed]} to resize`} aria-hidden="true" />)}
+              </section>
+            );
+          })}
         </div>
         </div>
         {(scroll.x > 4 || scroll.y > 4 || layout.main.some((w) => (w.x + w.w) * (colW + GAP) > width + 4 || (w.y + w.h) * (ROW + GAP) > vh + 4)) && <div className="home-mm" title="Map of this workspace. Click to jump; drag empty space or use Shift + arrows to move around." style={{ width: MM_W, height: MM_H }}
@@ -293,8 +322,8 @@ export default function Home({ spaces, setSpaces, d, tickers }: { spaces: Worksp
           {(scroll.x > 4 || scroll.y > 4) && <button className="home-mm-home" onClick={(e) => { e.stopPropagation(); panTo(0, 0); }} title="Back to the top-left">⌂</button>}
         </div>}
       </div>
-      <aside className="home-side" aria-label="Side bar">
-        <div className="home-side-h"><b>SIDE BAR</b><span className="muted small">scroll · ⇤ to move back</span></div>
+      {sideOpen && <aside className="home-side" aria-label="Side bar">
+        <div className="home-side-h"><b>SIDE BAR</b><span className="muted small">scroll · ⇤ to move back</span><button className="hw-btn" onClick={() => setSideOpen(false)} title="Hide the side bar (its widgets stay saved)" aria-label="Hide side bar">»</button></div>
         {!layout.side.length && <p className="small muted home-side-empty">Your second screen. Send widgets here with ⇥ and scroll through them.</p>}
         {layout.side.map((w) => (
           <section key={w.id} className="hw panel side" style={{ height: w.h * ROW + (w.h - 1) * GAP }}>
@@ -302,7 +331,7 @@ export default function Home({ spaces, setSpaces, d, tickers }: { spaces: Worksp
             <div className="hw-size" onPointerDown={(e) => down(e, w, 'size', 'side')} {...grab} title="Drag to change height" aria-hidden="true" />
           </section>
         ))}
-      </aside>
+      </aside>}
       <div className="ws-bar">
         <div className="ws-tabs" role="tablist" aria-label="Workspaces">
           {spaces.list.map((w) => (
