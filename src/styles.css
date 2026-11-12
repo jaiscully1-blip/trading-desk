@@ -2293,3 +2293,11 @@ body:has(.hw.dragging)::before { animation-play-state: paused; }
 @media (max-width: 760px) { .ml-fx-row { grid-template-columns: 1fr; } }
 .tiny { font-size: 11px; }
 .chip.warn { color: var(--warn); border-color: color-mix(in srgb, var(--warn) 50%, var(--line-2)); }
+.nv-logo-img { width: 34px; height: 34px; border-radius: 10px; object-fit: cover; display: block; box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 45%, transparent); }
+.nv-name { white-space: nowrap; }
+/* multi-timeframe drawing tools: slim icon toolbar above each chart */
+.mtf-draw { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.pat-stage.compact { min-height: 0; }
+.pat-tools.compact { padding: 3px 6px; gap: 3px; }
+.pat-tools.compact .pt-b { padding: 1px 6px; min-width: 24px; font-size: 12px; }
+.pat-tools.compact .pt-ink { width: 14px; height: 14px; }

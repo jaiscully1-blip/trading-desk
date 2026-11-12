@@ -8,7 +8,9 @@ import { usePersisted } from '../lib/store';
 import { Fresh, Seg, PageTabs } from './common';
 
 type Tab = 'funds' | 'ark' | 'pols';
-const CHG_LABEL: Record<Change, string> = { new: 'NEW', added: 'ADDED', trimmed: 'TRIMMED', sold: 'SOLD OUT', same: 'HELD' };
+// what each change means, shown on hover (EXITED rows show last quarter's value and shares, since they now hold none)
+const CHG_HINT: Record<Change, string> = { new: 'New position this quarter', added: 'Bought more shares than last quarter', trimmed: 'Sold some shares, still holds the rest', sold: 'Sold the whole position: held it last quarter, holds none now. Value and shares are from last quarter.', same: 'Same number of shares as last quarter' };
+const CHG_LABEL: Record<Change, string> = { new: 'NEW', added: 'ADDED', trimmed: 'TRIMMED', sold: 'EXITED', same: 'HELD' };
 const fmtDate = (d: string) => (d ? new Date(`${d}T12:00:00Z`).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—');
 const Sym = ({ s, onChart }: { s: string | null; onChart: (s: string) => void }) => (s ? <button className="sym-chip" onClick={() => onChart(s)} title="Open chart">{s}</button> : <span className="muted">—</span>);
 
@@ -65,7 +67,7 @@ function Funds({ onChart }: { onChart: (s: string) => void }) {
                       <td className="r"><span className="sm-wbar"><i style={{ width: `${Math.min(100, p.weight * 100 * 2)}%` }} /></span>{(p.weight * 100).toFixed(1)}%</td>
                       <td className="r num">{usd(p.change === 'sold' ? p.prevValue : p.value)}</td>
                       <td className="r num">{(p.change === 'sold' ? p.prevShares : p.shares).toLocaleString()}</td>
-                      <td><span className={`sm-chg c-${p.change}`}>{CHG_LABEL[p.change]}</span>{p.chgPct != null && p.change !== 'sold' && p.change !== 'same' && <span className="small muted"> {p.chgPct > 0 ? '+' : ''}{p.chgPct.toFixed(0)}% shares</span>}</td>
+                      <td><span className={`sm-chg c-${p.change}`} title={CHG_HINT[p.change]}>{CHG_LABEL[p.change]}</span>{p.chgPct != null && p.change !== 'sold' && p.change !== 'same' && <span className="small muted"> {p.chgPct > 0 ? '+' : ''}{p.chgPct.toFixed(0)}% shares</span>}</td>
                     </tr>
                   ))}
                 </tbody>

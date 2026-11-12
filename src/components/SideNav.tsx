@@ -102,7 +102,7 @@ function AccountMenu({ compact }: { compact?: boolean }) {
 export function SideNav({ compact, page, onPage, onCmd, onHelp, onAccount, dataState }: { compact?: boolean; page: Page; onPage: (p: Page) => void; onCmd: () => void; onHelp: () => void; onAccount: () => void; dataState?: 'live' | 'demo' | 'checking' }) {
   return (
     <nav className={`nv ${compact ? 'compact' : ''}`} aria-label="Pages">
-      <div className="nv-brand"><span className="nv-logo">D</span>{!compact && <span className="nv-name">Desk</span>}</div>
+      <div className="nv-brand"><img className="nv-logo nv-logo-img" src="/logo.jpg" alt="" width="34" height="34" />{!compact && <span className="nv-name">Trade Desk</span>}</div>
       <button className="nv-search" onClick={onCmd} title="Search tickers, pages and commands (Cmd K / Ctrl K)" aria-label="Search">
         <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true"><path d="M11 11m-6 0a6 6 0 1 0 12 0 6 6 0 1 0-12 0 M20 20l-4-4" /></svg>
         {!compact && <><span>Search</span><span className="nv-key">⌘K</span></>}

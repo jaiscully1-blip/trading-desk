@@ -7,6 +7,7 @@ import { DockviewReact, type DockviewReadyEvent, type IDockviewPanelProps } from
 import 'dockview-react/dist/styles/dockview.css';
 import { CandlestickSeries, ColorType, CrosshairMode, HistogramSeries, LineSeries, LineStyle, createChart, type IChartApi, type IPriceLine, type ISeriesApi, type UTCTimestamp } from 'lightweight-charts';
 import { dayFibs, priorDayHL } from '../../shared/dayfib';
+import DrawLayer, { type Painter } from './DrawLayer';
 import type { DataMode } from '../data/live';
 import type { Bar } from '../../shared/types';
 import { MTF_LABEL, MTF_TFS, type MtfTF } from '../../shared/mtf';
@@ -22,7 +23,7 @@ const TOP = ['NVDA', 'AAPL', 'MSFT', 'AMZN', 'META', 'TSLA', 'AMD', 'GOOGL'];
 const REFRESH: Record<MtfTF, number> = { '1m': 30_000, '3m': 45_000, '5m': 60_000, '15m': 90_000, '1h': 180_000, '4h': 300_000, '1d': 600_000, '1w': 1_800_000 };
 const cssVar = (n: string) => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
 
-interface Ctx { slots: Slot[]; active: string; setActive: (id: string) => void; setSlot: (id: string, p: Partial<Slot>) => void; linked: boolean; mode: DataMode; fib: boolean }
+interface Ctx { slots: Slot[]; active: string; setActive: (id: string) => void; setSlot: (id: string, p: Partial<Slot>) => void; linked: boolean; mode: DataMode; fib: boolean; draw: boolean }
 const MtfCtx = createContext<Ctx | null>(null);
 
 /** EMA of closes */
@@ -54,6 +55,8 @@ function MtfChart({ slot }: { slot: Slot }) {
   const { bars, name, asOf, error, loading } = useBars(slot.sym, slot.tf, ctx.mode);
   const el = useRef<HTMLDivElement>(null);
   const chart = useRef<IChartApi | null>(null);
+  const cser = useRef<ISeriesApi<'Candlestick'> | null>(null); // for the drawing layer
+  const painter = useRef<Painter | null>(null);
   const ser = useRef<{ c: ISeriesApi<'Candlestick'>; v: ISeriesApi<'Histogram'>; a: ISeriesApi<'Line'>; b: ISeriesApi<'Line'>; w: ISeriesApi<'Line'> } | null>(null);
   const fitted = useRef('');
   const intraday = !['1d', '1w'].includes(slot.tf);
@@ -75,8 +78,9 @@ function MtfChart({ slot }: { slot: Slot }) {
     const common = { lineWidth: 1 as const, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false };
     ser.current = { c: cs, v, a: c.addSeries(LineSeries, { ...common, color: cssVar('--warn') }), b: c.addSeries(LineSeries, { ...common, color: cssVar('--demo') }), w: c.addSeries(LineSeries, { ...common, color: cssVar('--vwap') || cssVar('--accent'), lineWidth: 2 }) };
     chart.current = c;
+    cser.current = cs;
     fitted.current = '';
-    return () => { c.remove(); chart.current = null; ser.current = null; };
+    return () => { c.remove(); chart.current = null; ser.current = null; cser.current = null; };
   }, [intraday]);
 
   useEffect(() => {
@@ -132,7 +136,7 @@ function MtfChart({ slot }: { slot: Slot }) {
         <span className="mtf-legend small muted">{intraday ? 'EMA 9 · EMA 21 · VWAP' : 'SMA 50 · SMA 200'}</span>
         {asOf > 0 && <Fresh kind={intraday ? 'delayed' : 'eod'} at={asOf} src="Yahoo Finance chart data (unofficial, about 15 min delayed). 3m and 4h are built from 1m and 1h bars." />}
       </div>
-      <div className="mtf-chart" ref={el} />
+      <div className="mtf-draw"><DrawLayer chart={chart} series={cser} bars={bars} storeKey={`mtf:${slot.sym}:${slot.tf}`} painter={painter} compact toolbar={ctx.draw}><div className="mtf-chart pat-canvas" ref={el} /></DrawLayer></div>
       {(loading && !bars.length) && <div className="mtf-msg muted small">Loading {slot.sym} {MTF_LABEL[slot.tf]}…</div>}
       {error && !bars.length && <div className="mtf-msg down small">{error}</div>}
     </div>
@@ -186,8 +190,10 @@ export default function MtfPage({ mode, mySyms }: { mode: DataMode; mySyms: stri
   };
   const resetLayout = () => { setLayout(null); const a = api.current; if (!a) return; a.clear(); onReady({ api: a } as DockviewReadyEvent); };
 
-  const [fib, setFib] = usePersisted<boolean>('mtfFib', true);
-  const ctx = useMemo<Ctx>(() => ({ slots, active, setActive, setSlot, linked, mode, fib }), [slots, active, setSlot, linked, mode, fib]);
+  // Fib levels start off (new key, so everyone's old "on" is reset); the Fib chip turns them on
+  const [fib, setFib] = usePersisted<boolean>('mtfFib2', false);
+  const [draw, setDraw] = usePersisted<boolean>('mtfDraw', false);
+  const ctx = useMemo<Ctx>(() => ({ slots, active, setActive, setSlot, linked, mode, fib, draw }), [slots, active, setSlot, linked, mode, fib, draw]);
   const mine = [...new Set(mySyms)].filter((s) => !INDEXES.includes(s) && !TOP.includes(s)).slice(0, 10);
   const cur = slots.find((s) => s.id === active)?.sym ?? slots[0].sym;
   const chip = (s: string) => <button key={s} className={`chip sm ${slots.some((x) => x.sym === s) && (linked || cur === s) ? 'on' : ''}`} onClick={() => pick(s)}>{s}</button>;
@@ -201,6 +207,7 @@ export default function MtfPage({ mode, mySyms }: { mode: DataMode; mySyms: stri
           <button className={`btn ${linked ? 'primary' : ''}`} onClick={toggleLink} title={linked ? 'Linked: one ticker on 3m, 15m, 1h and daily. Click to give each chart its own ticker.' : 'Unlinked: search changes only the chart you last clicked. Click to link all four.'}>
             {linked ? '🔗 Linked' : 'Unlinked'}
           </button>
+          <button className={`chip sm ${draw ? 'on' : ''}`} onClick={() => setDraw(!draw)} aria-pressed={draw} title="Drawing tools on each chart: trendline (with angle and prices), ray, Fib, box, triangle, note, free draw. Drawings are saved per ticker and timeframe.">✎ Draw</button>
           <button className={`chip sm ${fib ? 'on' : ''}`} onClick={() => setFib(!fib)} aria-pressed={fib} title="Fibonacci levels for today from yesterday's high and low (50% and 61.8% highlighted)">Fib</button>
           <button className="btn" onClick={resetLayout} title="Put the four charts back in a 2 x 2 grid">Reset layout</button>
         </div>

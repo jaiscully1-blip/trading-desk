@@ -23,9 +23,11 @@ const TOOLS: { id: Tool; icon: string; label: string; hint: string }[] = [
 
 export type Painter = (g: CanvasRenderingContext2D, dpr: number, yOff: number) => void;
 
-export default function DrawLayer({ chart, series, bars, storeKey, painter, children }: {
+export default function DrawLayer({ chart, series, bars, storeKey, painter, children, compact = false, toolbar = true }: {
   chart: MutableRefObject<IChartApi | null>; series: MutableRefObject<ISeriesApi<'Candlestick'> | null>; bars: Bar[]; storeKey: string;
   painter: MutableRefObject<Painter | null>; children: ReactNode;
+  /** icon-only toolbar for small charts (multi-timeframe) */ compact?: boolean;
+  /** hide the toolbar; drawings still show */ toolbar?: boolean;
 }) {
   const [all, setAll] = usePersisted<Record<string, Shape[]>>('patDrawings', {});
   const shapes = all[storeKey] ?? [];
@@ -130,16 +132,16 @@ export default function DrawLayer({ chart, series, bars, storeKey, painter, chil
   const shown = [...shapes, ...(draft ? [draft] : [])];
   return (
     <>
-      <div className="pat-tools" role="toolbar" aria-label="Drawing tools">
-        {TOOLS.map((t) => <button key={t.id} className={`pt-b ${tool === t.id ? 'on' : ''}`} onClick={() => { setTool(t.id); setDraft(null); st.current = null; setTextAt(null); }} title={t.hint} aria-pressed={tool === t.id}><span aria-hidden="true">{t.icon}</span> {t.label}</button>)}
+      {toolbar && <div className={`pat-tools ${compact ? 'compact' : ''}`} role="toolbar" aria-label="Drawing tools">
+        {TOOLS.map((t) => <button key={t.id} className={`pt-b ${tool === t.id ? 'on' : ''}`} onClick={() => { setTool(t.id); setDraft(null); st.current = null; setTextAt(null); }} title={t.hint} aria-label={t.label} aria-pressed={tool === t.id}><span aria-hidden="true">{t.icon}</span>{!compact && ` ${t.label}`}</button>)}
         <span className="pt-sep" />
         {INKS.map((c) => <button key={c.id} className={`pt-ink ${ink === c.id ? 'on' : ''}`} style={{ background: `var(${c.v})` }} onClick={() => { setInk(c.id); if (sel) setShapes((a) => a.map((s) => (s.id === sel ? { ...s, ink: c.id } : s))); }} title={`${c.label}${sel ? ' (also recolors the selected drawing)' : ''}`} aria-label={`${c.label} ink`} />)}
         <span className="pt-sep" />
-        <button className="pt-b" disabled={!shapes.length} onClick={() => { setShapes((a) => a.slice(0, -1)); setSel(null); }} title="Undo the last drawing">↶ Undo</button>
-        <button className="pt-b" disabled={!sel} onClick={() => { setShapes((a) => a.filter((s) => s.id !== sel)); setSel(null); }} title="Delete the selected drawing (Delete key)">Delete</button>
-        <button className="pt-b" disabled={!shapes.length} onClick={() => { if (confirm(`Clear all ${shapes.length} drawings on this chart?`)) { setShapes(() => []); setSel(null); } }} title="Remove every drawing on this ticker and timeframe">Clear</button>
-      </div>
-      <div className="pat-stage">
+        <button className="pt-b" disabled={!shapes.length} onClick={() => { setShapes((a) => a.slice(0, -1)); setSel(null); }} title="Undo the last drawing" aria-label="Undo">{compact ? '↶' : '↶ Undo'}</button>
+        <button className="pt-b" disabled={!sel} onClick={() => { setShapes((a) => a.filter((s) => s.id !== sel)); setSel(null); }} title="Delete the selected drawing (Delete key)" aria-label="Delete">{compact ? '⌫' : 'Delete'}</button>
+        <button className="pt-b" disabled={!shapes.length} onClick={() => { if (confirm(`Clear all ${shapes.length} drawings on this chart?`)) { setShapes(() => []); setSel(null); } }} title="Remove every drawing on this ticker and timeframe" aria-label="Clear">{compact ? '✕' : 'Clear'}</button>
+      </div>}
+      <div className={`pat-stage ${compact ? 'compact' : ''}`}>
         {children}
         <svg ref={svg} className={`pat-draw ${tool !== 'cursor' ? 'active' : ''}`} onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up}>
           <defs><clipPath id="pat-clip"><rect x="0" y="0" width={Math.max(0, W)} height={plot().h} /></clipPath></defs>
