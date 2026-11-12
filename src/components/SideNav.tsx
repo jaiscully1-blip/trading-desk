@@ -40,7 +40,7 @@ const P: Record<Page, { label: string; hint: string; key: string }> = {
   morning: { label: 'Morning plan', hint: 'premarket movers, setups, events', key: 'W' }, home: { label: 'Home', hint: 'your widgets and workspaces', key: 'H' },
   messages: { label: 'Messages', hint: 'earnings, Fed, White House, live', key: 'E' },
   desk: { label: 'Desk', hint: 'chart, levels, watchlist, journal', key: 'D' }, patterns: { label: 'Patterns', hint: 'chart patterns and drawing tools', key: 'X' }, company: { label: 'Company', hint: 'filings, quant read, peers', key: 'O' },
-  scanner: { label: 'Scanner', hint: 'setups, gappers, RS rank', key: 'S' }, flows: { label: 'Rotation', hint: 'sector and theme rotation', key: 'G' }, etfs: { label: 'ETFs and sectors', hint: 'heatmap and holdings', key: 'U' }, smart: { label: 'Smart money', hint: '13F, ARK, Congress', key: 'I' },
+  scanner: { label: 'Scanner', hint: 'setups, gappers, RS rank', key: 'S' }, flows: { label: 'Rotation', hint: 'sector and theme rotation', key: 'G' }, etfs: { label: 'ETFs and sectors', hint: 'heatmap and holdings', key: 'U' }, smart: { label: 'Institutional Holdings', hint: '13F, ARK, Congress', key: 'I' },
   gamma: { label: 'Gamma and IV', hint: 'dealer gamma, volatility', key: 'V' }, map: { label: 'World map', hint: 'news hotspots, conflicts, shipping', key: 'M' }, odds: { label: 'Econ odds', hint: 'Fed, recession, CPI bets', key: 'Y' }, calendar: { label: 'Calendars', hint: 'economy, earnings, IPOs, Fed', key: 'C' },
   journal: { label: 'Journal', hint: 'trades, rules, review', key: '⇧J' },
   mtf: { label: 'Multi-timeframe', hint: '4 linked charts: 3m, 15m, 1h, daily', key: '⇧M' },
