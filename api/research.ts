@@ -28,6 +28,7 @@ import { GET as lookup } from './_lib/research/lookup.js';
 import { GET as bars } from './_lib/research/bars.js';
 import { GET as earnmoves } from './_lib/research/earnmoves.js';
 import { POST as notifyTest } from './_lib/research/notify-test.js';
+import { POST as linkread } from './_lib/research/linkread.js';
 import { MARKET_ROUTES } from './_lib/research/markets.js';
 import { GET as tearsheet, fundseriesRoute } from './_lib/research/tearsheet.js';
 import { GET as tape } from './_lib/research/tape.js';
@@ -86,7 +87,7 @@ export async function GET(req: Request): Promise<Response> {
   return h ? h(req) : json({ error: `unknown fn; use one of ${Object.keys(ROUTES).join(', ')}` }, { status: 404 });
 }
 
-const POSTS: Record<string, (req: Request) => Promise<Response>> = { csvmap, 'webull-order': webullOrderPost, 'notify-test': notifyTest };
+const POSTS: Record<string, (req: Request) => Promise<Response>> = { csvmap, 'webull-order': webullOrderPost, 'notify-test': notifyTest, linkread };
 export async function POST(req: Request): Promise<Response> {
   const fn = new URL(req.url).searchParams.get('fn') ?? '';
   const h = POSTS[fn];
