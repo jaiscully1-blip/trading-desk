@@ -3,7 +3,7 @@
 import { ProviderError } from '../../shared/parse.js';
 import { clock } from '../../shared/clock.js';
 
-export type Provider = 'twelvedata' | 'finnhub' | 'alphavantage' | 'fred' | 'finra' | 'kalshi' | 'gdelt' | 'binance' | 'coingecko' | 'sec' | 'gemini' | 'wikipedia' | 'aisstream' | 'polymarket' | 'github' | 'yahoo' | 'openfigi' | 'ark' | 'tradingview' | 'alpaca' | 'cboe' | 'nasdaq' | 'earningsapi' | 'tradetime' | 'zillow' | 'mempool' | 'dataroma' | 'apewisdom' | 'rdw' | 'copernicus' | 'stocktwits';
+export type Provider = 'twelvedata' | 'finnhub' | 'alphavantage' | 'fred' | 'finra' | 'kalshi' | 'gdelt' | 'binance' | 'coingecko' | 'sec' | 'gemini' | 'wikipedia' | 'aisstream' | 'polymarket' | 'github' | 'yahoo' | 'openfigi' | 'ark' | 'tradingview' | 'alpaca' | 'cboe' | 'nasdaq' | 'earningsapi' | 'tradetime' | 'zillow' | 'mempool' | 'dataroma' | 'apewisdom' | 'rdw' | 'copernicus' | 'stocktwits' | 'opensky' | 'eia' | 'noaa';
 
 export const KEY_ENV: Record<Provider, string> = {
   twelvedata: 'TWELVEDATA_API_KEY',
@@ -36,6 +36,9 @@ export const KEY_ENV: Record<Provider, string> = {
   apewisdom: '', // apewisdom.io: Reddit ticker mentions, free, no key
   rdw: '', // Netherlands vehicle register (RDW open data, Socrata), free, no key
   stocktwits: '', // StockTwits public symbol streams, no key
+  opensky: '', // OpenSky Network anonymous REST: 400 credits a day
+  eia: 'EIA_API_KEY', // U.S. Energy Information Administration open data, free key
+  noaa: '', // api.weather.gov, no key (asks for a User-Agent)
   copernicus: 'COPERNICUS_CLIENT_ID', // + COPERNICUS_CLIENT_SECRET; Copernicus Data Space (Sentinel Hub), free account and monthly quota
 };
 
@@ -83,6 +86,9 @@ const LIMITS: Record<Provider, { perMin: number; perDay: number }> = {
   dataroma: { perMin: 4, perDay: 100 },
   apewisdom: { perMin: 6, perDay: 300 }, // no published limit; each chain is cached 15 min in session
   rdw: { perMin: 30, perDay: 2000 }, // Socrata asks anonymous callers to stay modest
+  opensky: { perMin: 6, perDay: 300 }, // anonymous: 400 credits a day; answers cached 5-10 minutes
+  eia: { perMin: 20, perDay: 1000 },
+  noaa: { perMin: 20, perDay: 2000 },
   stocktwits: { perMin: 3, perDay: 150 }, // public API allows ~200 an hour; every answer is cached 10 minutes
   copernicus: { perMin: 10, perDay: 300 }, // free quota is processing units per month: every answer is cached a day
 };

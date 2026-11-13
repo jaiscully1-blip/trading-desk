@@ -2578,3 +2578,7 @@ body:has(.hw.dragging)::before { animation-play-state: paused; }
 .ad-table .r { text-align: right; }
 .ad-wait { margin: 0; }
 .ad-game { border-top: 1px solid var(--line); padding-top: 6px; }
+
+.re-two { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.re-two tr { cursor: pointer; } .re-two tr.on td { background: var(--accent-bg); }
+@media (max-width: 1200px) { .re-two { grid-template-columns: 1fr; } }

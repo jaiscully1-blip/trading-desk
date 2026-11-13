@@ -60,6 +60,7 @@ export const PRICE_BASKET: { id: string; name: string; unit: string }[] = [
 export interface AltDay {
   jobs?: Record<string, number>; apps?: Record<string, number>; steam?: Record<string, number>;
   github?: Record<string, { repos: number; pushed30: number; stars: number }>; reddit?: Record<string, number>; twits?: Record<string, number>;
+  /** airborne flights per airline prefix and aircraft near each airport (one OpenSky reading a day) */ air?: Record<string, number>;
 }
 export interface AltFile { version: 1; updated: string; days: Record<string, AltDay> }
 
