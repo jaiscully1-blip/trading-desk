@@ -84,3 +84,11 @@ export async function pricebasket(): Promise<Response> {
     return json({ items: val, source: 'U.S. Bureau of Labor Statistics average retail prices, via FRED (monthly, about two weeks after the month ends)' }, { sMaxAge: 3600 });
   } catch (e) { return json({ error: (e as Error).message.slice(0, 160) }, { status: 502 }); }
 }
+
+/** fn=airhist  daily history of airline and airport counts from the snapshot file */
+export async function airhist(): Promise<Response> {
+  const f = await altFile();
+  if (!f) return json({ error: 'not-run-yet' });
+  const keys = [...new Set(Object.values(f.days).flatMap((d) => Object.keys(d.air ?? {})))];
+  return json({ series: Object.fromEntries(keys.map((k) => [k, series(f, 'air', k)])), updated: f.updated }, { sMaxAge: 900 });
+}

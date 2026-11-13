@@ -2,6 +2,7 @@
 // Free public sources only; a source that fails is skipped for the day (never filled in). Run locally:
 //   npx tsx scripts/altdata-build.ts
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { AIRLINES, AIRPORTS, countAirlines, countNear } from '../shared/realecon';
 import { APP_PUBLISHERS, GITHUB_ORGS, JOB_BOARDS, STEAM_GAMES, STOCKTWITS_DAILY, appRank, countJobs, jobsUrl, prune, type AltDay, type AltFile } from '../shared/altdata';
 
 const FILE = 'published/altdata.json';
@@ -67,11 +68,20 @@ for (const sym of STOCKTWITS_DAILY) {
   await sleep(400);
 }
 
+// air traffic: airborne flights per airline, aircraft within 40 km of big airports (OpenSky, anonymous)
+try {
+  const all = await get('https://opensky-network.org/api/states/all');
+  const al = countAirlines(all?.states ?? []);
+  day.air = {};
+  for (const a of AIRLINES) day.air[a.prefix] = al[a.prefix] ?? 0;
+  for (const p of AIRPORTS) { const c = countNear(all?.states ?? [], p.lat, p.lon); day.air[p.code] = c.airborne + c.ground; }
+} catch (e) { errors.push(`air: ${(e as Error).message}`); }
+
 const old: AltFile = existsSync(FILE) ? JSON.parse(readFileSync(FILE, 'utf8')) : { version: 1, updated: '', days: {} };
 // a second run on the same day keeps what the first run got for anything that failed this time
 const prev = old.days[today] ?? {};
 const merged: AltDay = {};
-for (const k of ['jobs', 'apps', 'steam', 'github', 'reddit', 'twits'] as const) merged[k] = { ...(prev[k] ?? {}), ...(day[k] ?? {}) } as never;
+for (const k of ['jobs', 'apps', 'steam', 'github', 'reddit', 'twits', 'air'] as const) merged[k] = { ...(prev[k] ?? {}), ...(day[k] ?? {}) } as never;
 const out = prune({ version: 1, updated: new Date().toISOString(), days: { ...old.days, [today]: merged } }, today);
 writeFileSync(FILE, JSON.stringify(out));
 console.log(`altdata ${today}: jobs ${Object.keys(day.jobs ?? {}).length}, apps ${Object.keys(day.apps ?? {}).length}, steam ${Object.keys(day.steam ?? {}).length}, github ${Object.keys(day.github ?? {}).length}, reddit ${Object.keys(day.reddit ?? {}).length}, stocktwits ${Object.keys(day.twits ?? {}).length}${errors.length ? ` · skipped: ${errors.join('; ')}` : ''}`);
