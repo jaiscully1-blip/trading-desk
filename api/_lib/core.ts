@@ -3,7 +3,7 @@
 import { ProviderError } from '../../shared/parse.js';
 import { clock } from '../../shared/clock.js';
 
-export type Provider = 'twelvedata' | 'finnhub' | 'alphavantage' | 'fred' | 'finra' | 'kalshi' | 'gdelt' | 'binance' | 'coingecko' | 'sec' | 'gemini' | 'wikipedia' | 'aisstream' | 'polymarket' | 'github' | 'yahoo' | 'openfigi' | 'ark' | 'tradingview' | 'alpaca' | 'cboe' | 'nasdaq' | 'earningsapi' | 'tradetime' | 'zillow' | 'mempool' | 'dataroma' | 'apewisdom';
+export type Provider = 'twelvedata' | 'finnhub' | 'alphavantage' | 'fred' | 'finra' | 'kalshi' | 'gdelt' | 'binance' | 'coingecko' | 'sec' | 'gemini' | 'wikipedia' | 'aisstream' | 'polymarket' | 'github' | 'yahoo' | 'openfigi' | 'ark' | 'tradingview' | 'alpaca' | 'cboe' | 'nasdaq' | 'earningsapi' | 'tradetime' | 'zillow' | 'mempool' | 'dataroma' | 'apewisdom' | 'rdw' | 'copernicus';
 
 export const KEY_ENV: Record<Provider, string> = {
   twelvedata: 'TWELVEDATA_API_KEY',
@@ -34,6 +34,8 @@ export const KEY_ENV: Record<Provider, string> = {
   mempool: '', // mempool.space public API (bitcoin network stats)
   dataroma: '', // Dataroma's public superinvestor updates RSS feed
   apewisdom: '', // apewisdom.io: Reddit ticker mentions, free, no key
+  rdw: '', // Netherlands vehicle register (RDW open data, Socrata), free, no key
+  copernicus: 'COPERNICUS_CLIENT_ID', // + COPERNICUS_CLIENT_SECRET; Copernicus Data Space (Sentinel Hub), free account and monthly quota
 };
 
 export function key(p: Provider): string {
@@ -79,6 +81,8 @@ const LIMITS: Record<Provider, { perMin: number; perDay: number }> = {
   mempool: { perMin: 20, perDay: 2000 },
   dataroma: { perMin: 4, perDay: 100 },
   apewisdom: { perMin: 6, perDay: 300 }, // no published limit; each chain is cached 15 min in session
+  rdw: { perMin: 30, perDay: 2000 }, // Socrata asks anonymous callers to stay modest
+  copernicus: { perMin: 10, perDay: 300 }, // free quota is processing units per month: every answer is cached a day
 };
 const hits: Record<string, number[]> = {};
 const dayCount: Record<string, { day: string; n: number }> = {};
