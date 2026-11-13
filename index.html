@@ -18,6 +18,44 @@
   </head>
   <body>
     <div id="root"></div>
+    <script>
+      // Start-up safety net: if the desk hasn't drawn anything after 9 seconds, show what went wrong and ways out,
+      // instead of a blank screen. "Repair" clears only the cached app files (never your saved desk).
+      (function () {
+        var errs = [];
+        window.addEventListener('error', function (e) { errs.push((e.message || 'error') + (e.filename ? ' @ ' + e.filename.split('/').pop() + ':' + e.lineno : '')); }, true);
+        window.addEventListener('unhandledrejection', function (e) { errs.push(String((e.reason && e.reason.message) || e.reason)); });
+        setTimeout(function () {
+          var root = document.getElementById('root');
+          if (!root || root.querySelector('.shell, .ag, .crash')) return;
+          if ((root.innerText || '').trim().length > 20) return;
+          var box = document.createElement('div');
+          box.style.cssText = 'position:fixed;inset:0;display:grid;place-items:center;z-index:9999;font:14px system-ui,sans-serif;color:#ece6df;background:#0a0807';
+          box.innerHTML = '<div style="max-width:560px;padding:24px;border:1px solid #3b2f25;border-radius:14px;background:#110e0c">' +
+            '<b style="font-size:17px">The desk didn\'t start.</b>' +
+            '<p style="color:#a69a8c;margin:10px 0">Usually an old copy of the app is cached in this browser. Repair clears that copy (your desk, journal and accounts stay).</p>' +
+            '<pre id="td-errs" style="white-space:pre-wrap;font:12px ui-monospace,monospace;color:#ff8a7d;max-height:160px;overflow:auto;margin:0 0 14px"></pre>' +
+            '<div style="display:flex;gap:8px;flex-wrap:wrap">' +
+            '<button id="td-repair" style="padding:8px 14px;border-radius:8px;border:0;background:#ee9a45;color:#0a0807;font-weight:600;cursor:pointer">Repair and reload</button>' +
+            '<button id="td-home" style="padding:8px 14px;border-radius:8px;border:1px solid #3b2f25;background:none;color:#ece6df;cursor:pointer">Open the Home page</button>' +
+            '<button id="td-reload" style="padding:8px 14px;border-radius:8px;border:1px solid #3b2f25;background:none;color:#ece6df;cursor:pointer">Reload</button></div></div>';
+          document.body.appendChild(box);
+          document.getElementById('td-errs').textContent = errs.length ? errs.slice(-6).join('\n') : 'No error was reported: the app files may not have loaded.';
+          document.getElementById('td-reload').onclick = function () { location.reload(); };
+          document.getElementById('td-home').onclick = function () {
+            try { for (var i = localStorage.length - 1; i >= 0; i--) { var k = localStorage.key(i) || ''; if (/^td\.(u\.[^.]+\.)?page2$/.test(k)) localStorage.setItem(k, '"home"'); } } catch (e) {}
+            location.reload();
+          };
+          document.getElementById('td-repair').onclick = function () {
+            var jobs = [];
+            try { if (navigator.serviceWorker) jobs.push(navigator.serviceWorker.getRegistrations().then(function (rs) { return Promise.all(rs.map(function (r) { return r.unregister(); })); })); } catch (e) {}
+            try { if (window.caches) jobs.push(caches.keys().then(function (ks) { return Promise.all(ks.map(function (k) { return caches.delete(k); })); })); } catch (e) {}
+            try { sessionStorage.removeItem('td.verReload'); } catch (e) {}
+            Promise.all(jobs).then(function () { location.replace(location.pathname + '?fresh=' + Date.now()); }, function () { location.reload(); });
+          };
+        }, 9000);
+      })();
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
