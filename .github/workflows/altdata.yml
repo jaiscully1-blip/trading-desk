@@ -1,0 +1,37 @@
+# Daily alt-data snapshot: job openings (Greenhouse / Lever / Ashby public boards), App Store rank (Apple's public charts),
+# Steam players, GitHub org activity, Reddit mentions (ApeWisdom) and StockTwits watchers. Free public sources only.
+# Commits ONLY published/altdata.json. The desk's Alt Data page reads it. Data, not advice; nothing here can trade.
+name: Alt data
+
+on:
+  schedule:
+    - cron: "15 22 * * *"   # once a day, ~6 pm ET (every day, so weekends count for apps and players)
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: altdata
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Take today's snapshot
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npx --yes tsx@4.19.2 scripts/altdata-build.ts
+      - name: Save (only the alt-data file)
+        run: |
+          git config user.name "altdata-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add published/altdata.json
+          git diff --cached --quiet || git commit -m "Alt data $(date -u +%F)"
+          git pull --rebase --quiet && git push
