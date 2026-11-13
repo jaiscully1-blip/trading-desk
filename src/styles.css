@@ -2553,3 +2553,28 @@ body:has(.hw.dragging)::before { animation-play-state: paused; }
 .tl-inv { display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; padding: 4px 0; border-bottom: 1px solid var(--line); }
 .tl-setup summary { cursor: pointer; font-size: 12.5px; color: var(--accent); }
 @media (max-width: 1100px) { .tl-two { grid-template-columns: 1fr; } }
+
+/* ---------------- Alt Data ---------------- */
+.ad { display: flex; flex-direction: column; gap: 10px; overflow-y: auto; padding: 10px 14px 24px; }
+.ad-top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.ad-top h2 { margin: 0; font: 700 22px 'Sora', 'IBM Plex Sans', sans-serif; }
+.ad-top input { width: 100px; padding: 6px 9px; border-radius: 7px; border: 1px solid var(--line-2); background: var(--panel-2); color: var(--text); font: 600 14px 'IBM Plex Mono', monospace; text-transform: uppercase; }
+.ad-cov { display: flex; gap: 4px; flex-wrap: wrap; align-items: center; }
+.ad-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); gap: 10px; }
+.ad-card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+:root[data-scene='river'] .ad-card { background: rgba(8, 21, 35, .93); }
+.ad-h { display: flex; align-items: center; gap: 8px; }
+.ad-h h3 { margin: 0; font-size: 14px; }
+.ad-stats { display: flex; gap: 16px; flex-wrap: wrap; }
+.ad-stat { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.ad-k { font: 600 10.5px 'IBM Plex Mono', monospace; letter-spacing: .04em; color: var(--muted); text-transform: uppercase; }
+.ad-stat b { font: 600 20px 'IBM Plex Mono', monospace; }
+.ad-stat b.warn { color: var(--warn); }
+.ad-line { width: 100%; height: 70px; display: block; }
+.ad-mini .ad-line { height: 22px; width: 120px; }
+.ad-mark { stroke: var(--warn); stroke-width: 1; stroke-dasharray: 3 3; vector-effect: non-scaling-stroke; opacity: .7; }
+.ad-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.ad-table th, .ad-table td { padding: 4px 6px; border-bottom: 1px solid var(--line); text-align: left; }
+.ad-table .r { text-align: right; }
+.ad-wait { margin: 0; }
+.ad-game { border-top: 1px solid var(--line); padding-top: 6px; }
