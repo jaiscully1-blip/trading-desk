@@ -27,6 +27,8 @@ export const PROVIDER_INFO: Record<string, ProviderInfo> = {
   nasdaq: { label: 'Nasdaq calendars', feeds: 'Earnings and IPO calendars', fallback: 'Finnhub calendars, Alpha Vantage IPOs', unofficial: true },
   cboe: { label: 'Cboe delayed options', feeds: 'Gamma levels, option chains (15 min delayed)', fallback: 'Gamma page shows nothing' },
   earningsapi: { label: 'Earnings API', feeds: 'Earnings actuals, beat / miss and the moves after reports', fallback: 'Finnhub actuals, Nasdaq estimates' },
+  rdw: { label: 'RDW (Netherlands vehicle register)', feeds: 'Tesla and BYD registrations by month and model', fallback: 'Section left empty' },
+  copernicus: { label: 'Copernicus Data Space (Sentinel-2)', feeds: 'Satellite lot fullness on the Tesla & Lots page', fallback: 'Lots show setup steps' },
   tradetime: { label: 'Trade Time', feeds: 'World exchange hours, open / closed status and holidays', fallback: 'Built-in session table' },
   zillow: { label: 'Zillow Research', feeds: 'Home values, rents, listings and sales (monthly)', fallback: 'Housing panel left out' },
   mempool: { label: 'mempool.space', feeds: 'Bitcoin network: fees, hash rate, difficulty', fallback: 'Section left out' },

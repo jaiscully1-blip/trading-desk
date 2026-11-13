@@ -45,6 +45,7 @@ const DistressPage = lazy(() => import('./components/Distress'));
 const GlobalPage = lazy(() => import('./components/GlobalPage'));
 const NewsPage = lazy(() => import('./components/NewsPage'));
 const EssayPage = lazy(() => import('./components/EssayPage'));
+const TeslaPage = lazy(() => import('./components/TeslaPage'));
 const MtfPage = lazy(() => import('./components/MtfPage'));
 const EtfSectors = lazy(() => import('./components/EtfSectors'));
 const EconOdds = lazy(() => import('./components/EconOdds'));
@@ -715,6 +716,7 @@ export default function App() {
     { id: 'fed', label: 'Fed meeting countdown and rate odds', run: () => setPage('calendar') },
     { id: 'earnings', label: 'Earnings calendar', run: () => setPage('calendar') },
     { id: 'fear', label: 'Show/hide fear strip', hint: 'F', run: () => setLayout({ fearOpen: layout.fearOpen === false }) },
+    { id: 'tesla', label: 'Tesla & Lots: registrations, satellite lot fullness, inventory', hint: 'Shift T', run: () => setPage('tesla') },
     { id: 'essay', label: 'Essays: write up a stock with a linked chart, news and data', hint: 'Shift W', run: () => setPage('essay') },
     { id: 'journal', label: 'Journal page (trades, stats, violations, import)', hint: 'Shift J', run: () => setPage('journal') },
     { id: 'ticket', label: 'Quick journal / trade ticket', hint: 'Q', run: () => setTab('journal') },
@@ -775,6 +777,7 @@ export default function App() {
         p: () => setPbOpen(true),
         J: () => setPage('journal'),
         W: () => setPage('essay'),
+        T: () => setPage('tesla'),
         '1': () => setTf('D'), '2': () => setTf('1H'), '3': () => setTf('5m'), '4': () => setTf('W'), '5': () => setTf('M'), '6': () => setTf('15m'),
         o: () => openCompany(sel),
         n: () => { setPage('desk'); setTab('news'); }, q: () => { setPage('desk'); setTab('journal'); }, r: () => { setPage('desk'); setTab('risk'); },
@@ -931,6 +934,8 @@ export default function App() {
     );
   } else if (page === 'news') {
     body = <Suspense fallback={<section className="panel"><div className="ph-body">Loading…</div></section>}><NewsPage mode={dataMode} news={news.items} sel={sel} onChart={toDesk} /></Suspense>;
+  } else if (page === 'tesla') {
+    body = <Suspense fallback={<section className="panel"><div className="ph-body">Loading…</div></section>}><TeslaPage mode={dataMode} /></Suspense>;
   } else if (page === 'essay') {
     body = <Suspense fallback={<section className="panel"><div className="ph-body">Loading…</div></section>}><EssayPage mode={dataMode} onChart={toDesk} /></Suspense>;
   } else if (page === 'global') {
