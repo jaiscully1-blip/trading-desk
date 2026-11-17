@@ -1,11 +1,12 @@
 // Left side menu: every page is always visible, in five colour-coded groups, each with an icon, a plain name and its one-key shortcut.
 // Below ~1000px wide it turns into an icon rail (same colours, names in tooltips). The group colour also tints the page's panel headers.
+import { isMuted, msToNextOpen, muteLabel, setMute, useMute } from '../lib/mute';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { downloadDesk, exportDesk, importDesk, parseDeskFile, type DeskFile } from '../lib/deskfile';
 import { currentAccount, initials, isOwner, leave, makeOwner, verifyDeskPassword } from '../lib/accounts';
 
-export type Page = 'morning' | 'home' | 'messages' | 'desk' | 'patterns' | 'company' | 'scanner' | 'map' | 'flows' | 'smart' | 'etfs' | 'gamma' | 'odds' | 'journal' | 'calendar' | 'status' | 'distress' | 'mtf' | 'global' | 'news' | 'essay' | 'tesla' | 'altdata' | 'realecon';
+export type Page = 'morning' | 'home' | 'messages' | 'desk' | 'patterns' | 'company' | 'scanner' | 'map' | 'flows' | 'smart' | 'etfs' | 'gamma' | 'odds' | 'journal' | 'calendar' | 'status' | 'distress' | 'insiders' | 'credit' | 'mtf' | 'global' | 'news' | 'essay' | 'tesla' | 'altdata' | 'realecon';
 export type GroupId = 'today' | 'charts' | 'scan' | 'flow' | 'alt' | 'journal';
 
 /** 24x24 stroke paths (own drawings, simple shapes) */
@@ -31,6 +32,8 @@ const ICON: Record<Page | 'account', string> = {
   altdata: 'M4 19V9 M10 19V5 M16 19v-7 M22 19H2',
   tesla: 'M3 13l2-5h14l2 5v5H3z M3 13h18 M7 18v2 M17 18v2 M7 15.5h.01 M17 15.5h.01',
   distress: 'M12 3l9 16H3z M12 9v5 M12 17h.01',
+  credit: 'M3 17l5-6 4 3 5-8 4 4 M3 21h18',
+  insiders: 'M12 11a4 4 0 100-8 4 4 0 000 8 M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7',
   news: 'M4 5h13v14H6a2 2 0 0 1-2-2z M17 9h3v8a2 2 0 0 1-2 2 M7 9h7 M7 12h7 M7 15h4',
   global: 'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18 M7 8h4l1 3-3 2v3 M15 5l-1 4 3 2 3-1',
   status: 'M4 5h16v6H4z M4 13h16v6H4z M8 8h.01 M8 16h.01 M12 8h4 M12 16h4',
@@ -52,6 +55,8 @@ const P: Record<Page, { label: string; hint: string; key: string }> = {
   tesla: { label: 'Tesla & Lots', hint: 'registrations, satellite lot fullness, inventory', key: '⇧T' },
   essay: { label: 'Essays', hint: 'write up a stock with a linked chart, news and data', key: '⇧W' },
   mtf: { label: 'Multi-timeframe', hint: '4 linked charts: 3m, 15m, 1h, daily', key: '⇧M' },
+  credit: { label: 'Credit market', hint: 'spreads, yield curve, stress, bond ETFs', key: '' },
+  insiders: { label: 'Insiders', hint: 'insider buys and sells, short volume, big funds', key: '' },
   distress: { label: 'Distress', hint: 'weak companies, turnarounds, sector stress', key: '⇧R' },
   news: { label: 'News', hint: 'top stories, search, news by ticker', key: '⇧N' },
   global: { label: 'Global → US', hint: 'world markets and news, and how they carry into US stocks', key: '⇧G' },
@@ -60,7 +65,7 @@ const P: Record<Page, { label: string; hint: string; key: string }> = {
 export const NAV_GROUPS: { id: GroupId; label: string; pages: Page[] }[] = [
   { id: 'today', label: 'Today', pages: ['morning', 'home', 'news', 'messages', 'calendar'] },
   { id: 'charts', label: 'Charts', pages: ['desk', 'mtf', 'patterns', 'company'] },
-  { id: 'scan', label: 'Scan', pages: ['scanner', 'flows', 'etfs', 'smart', 'distress'] },
+  { id: 'scan', label: 'Scan', pages: ['scanner', 'flows', 'etfs', 'smart', 'insiders', 'credit', 'distress'] },
   { id: 'flow', label: 'Flow and risk', pages: ['global', 'gamma', 'map', 'odds', 'status'] },
   { id: 'alt', label: 'Alt data', pages: ['altdata', 'tesla', 'realecon'] },
   { id: 'journal', label: 'Journal', pages: ['journal', 'essay'] },
@@ -70,6 +75,8 @@ export const pageGroup = (p: Page): GroupId => NAV_GROUPS.find((g) => g.pages.in
 /** Who is signed in, and switching / making accounts. Stays signed in until you pick one of these. */
 function AccountMenu({ compact }: { compact?: boolean }) {
   const a = currentAccount();
+  const mute = useMute();
+  const muted = mute != null && isMuted();
   const [open, setOpen] = useState(false);
   const [unlock, setUnlock] = useState(false);
   const [pw, setPw] = useState('');
@@ -101,9 +108,28 @@ function AccountMenu({ compact }: { compact?: boolean }) {
       <button className="nv-item nv-user" onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); setPos({ left: r.left, bottom: window.innerHeight - r.top + 6 }); setOpen((o) => !o); }} aria-expanded={open} aria-haspopup="menu" title={`Signed in as ${a.name}. Switch or make an account.`}>
         <span className="ag-badge" style={{ background: a.color, width: 20, height: 20, fontSize: 9 }} aria-hidden="true">{initials(a.name)}</span>
         {!compact && <span className="nv-l">{a.name}</span>}
+        {muted && <span className="nv-muted" role="img" aria-label="Notifications muted" title="Notifications muted">🔕</span>}
       </button>
       {open && createPortal(
         <div className="nv-menu" role="menu" ref={menu} style={{ left: pos.left, bottom: pos.bottom }}>
+          <div className="nv-mute" role="group" aria-label="Notifications">
+            {muted ? (
+              <>
+                <span className="small">🔕 Notifications muted {muteLabel(mute)}</span>
+                <button role="menuitem" className="chip sm on" onClick={() => setMute(null)}>Turn notifications back on</button>
+              </>
+            ) : (
+              <>
+                <span className="small muted">Mute notifications (sound and pop-ups)</span>
+                <div className="nv-mute-b">
+                  <button role="menuitem" className="chip sm" onClick={() => setMute({ until: Date.now() + 3600_000 })}>1 hour</button>
+                  <button role="menuitem" className="chip sm" onClick={() => setMute({ until: Date.now() + msToNextOpen() })}>Until tomorrow's open</button>
+                  <button role="menuitem" className="chip sm" onClick={() => setMute({ until: 'manual' })}>Until I turn it on</button>
+                </div>
+              </>
+            )}
+          </div>
+          <div className="nv-menu-sep" />
           <div className="nv-menu-h"><b>{a.name}</b><span className="small muted">{isOwner() ? 'Owner account' : 'Desk account'} · this device</span></div>
           <button role="menuitem" onClick={() => leave('pick')}>Switch account</button>
           <button role="menuitem" onClick={() => leave('new')}>New account</button>
@@ -127,7 +153,7 @@ function AccountMenu({ compact }: { compact?: boolean }) {
   );
 }
 
-export function SideNav({ compact, page, onPage, onCmd, onHelp, onAccount, dataState }: { compact?: boolean; page: Page; onPage: (p: Page) => void; onCmd: () => void; onHelp: () => void; onAccount: () => void; dataState?: 'live' | 'demo' | 'checking' }) {
+export function SideNav({ compact, page, onPage, onCmd, onHelp, onAccount, onCalm, dataState }: { compact?: boolean; page: Page; onPage: (p: Page) => void; onCmd: () => void; onHelp: () => void; onAccount: () => void; onCalm?: () => void; dataState?: 'live' | 'demo' | 'checking' }) {
   return (
     <nav className={`nv ${compact ? 'compact' : ''}`} aria-label="Pages">
       <div className="nv-brand"><img className="nv-logo nv-logo-img" src="/logo.jpg" alt="" width="34" height="34" />{!compact && <span className="nv-name">Trade Desk</span>}</div>
@@ -152,6 +178,7 @@ export function SideNav({ compact, page, onPage, onCmd, onHelp, onAccount, dataS
       <div className="nv-foot">
         <AccountMenu compact={compact} />
         <button className="nv-item nv-acct" onClick={onAccount} title="Account (A): balance, risk limits, settings" aria-label="Account" data-key="A"><Icon id="account" />{!compact && <><span className="nv-l">Account</span><span className="nv-key">A</span></>}</button>
+        {onCalm && <button className="nv-mini" onClick={onCalm} title="Calm mode: hide everything except the 9:30 and 4:00 price checks" aria-label="Calm mode">☾</button>}
         <button className="nv-mini" onClick={onHelp} title="Keyboard shortcuts (?). Hold Alt / Option to see every key." aria-label="Keyboard shortcuts">?</button>
       </div>
     </nav>

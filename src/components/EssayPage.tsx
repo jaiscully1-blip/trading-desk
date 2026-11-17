@@ -7,13 +7,14 @@ import { usePersisted } from '../lib/store';
 import { EssayChart, PIN_COLORS, fetchRange, type Pin } from './EssayChart';
 import { citeText, factLines, fmtDay, rangeStats, ymd, type DayBar, type RangeStats } from '../../shared/essay';
 import { TearSheet } from './TearSheet';
+import { StanceButton } from './StanceLayer';
 import { TranscriptView } from './Transcript';
 import { InsiderW } from './MoreWidgets';
 import { useSnapshot } from '../data/apis';
 import { COMPANIES } from '../../shared/data/companies';
 
 interface Src { id: string; kind: 'news' | 'filing' | 'data'; title: string; url?: string; src?: string; t?: number }
-interface Essay { id: string; title: string; sym: string; html: string; pins: Pin[]; sources: Src[]; created: number; updated: number }
+interface Essay { id: string; title: string; idea?: string; sym: string; html: string; pins: Pin[]; sources: Src[]; created: number; updated: number }
 type Tab = 'chart' | 'news' | 'fund' | 'earn' | 'hold' | 'peers' | 'sources' | 'ai';
 const TABS: { id: Tab; label: string }[] = [
   { id: 'chart', label: 'Chart' }, { id: 'news', label: 'News' }, { id: 'fund', label: 'Fundamentals' }, { id: 'earn', label: 'Earnings' },
@@ -66,11 +67,14 @@ export default function EssayPage({ mode, onChart }: { mode: DataMode; onChart: 
   const [tab, setTab] = usePersisted<Tab>('essayTab', 'chart');
   const [focus, setFocus] = useState<{ from: number; to: number; color?: string } | null>(null);
   const [saved, setSaved] = useState<number | null>(null);
+  const [pending, setPending] = useState(false);
+  const [view, setView] = usePersisted<'write' | 'papers'>('essayView', 'write');
+  const flushRef = useRef<() => void>(() => {});
   const [transcript, setTranscript] = useState(false);
   const ed = useRef<HTMLDivElement>(null);
   const lastRange = useRef<Range | null>(null);
   const active = essays.find((e) => e.id === activeId) ?? essays[0] ?? null;
-  const patch = useCallback((p: Partial<Essay>) => { if (!active) return; setEssays((xs) => xs.map((e) => (e.id === active.id ? { ...e, ...p, updated: Date.now() } : e))); setSaved(Date.now()); }, [active, setEssays]);
+  const patch = useCallback((p: Partial<Essay>) => { if (!active) return; setEssays((xs) => xs.map((e) => (e.id === active.id ? { ...e, ...p, updated: Date.now() } : e))); setSaved(Date.now()); setPending(false); }, [active, setEssays]);
   const [symDraft, setSymDraft] = useState(active?.sym ?? '');
   useEffect(() => setSymDraft(active?.sym ?? ''), [active?.id]); // eslint-disable-line react-hooks/exhaustive-deps
   const sym = active?.sym ?? '';
@@ -84,9 +88,12 @@ export default function EssayPage({ mode, onChart }: { mode: DataMode; onChart: 
   useEffect(() => { if (!essays.length) create(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // load the essay's text into the editor when switching essays (typing never re-renders it, so the caret stays put)
-  useEffect(() => { if (ed.current && active) ed.current.innerHTML = clean(active.html); }, [active?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (ed.current && active) ed.current.innerHTML = clean(active.html); }, [active?.id, view]); // eslint-disable-line react-hooks/exhaustive-deps
   const saveT = useRef<ReturnType<typeof setTimeout>>(undefined);
-  const onInput = () => { clearTimeout(saveT.current); saveT.current = setTimeout(() => { if (ed.current) patch({ html: clean(ed.current.innerHTML) }); }, 400); };
+  const onInput = () => { setPending(true); clearTimeout(saveT.current); saveT.current = setTimeout(() => { if (ed.current) patch({ html: clean(ed.current.innerHTML) }); }, 400); };
+  // never lose the last few keystrokes: save right away when you switch tabs, close the page or leave the editor
+  flushRef.current = () => { clearTimeout(saveT.current); if (ed.current && active) patch({ html: clean(ed.current.innerHTML) }); };
+  useEffect(() => { const f = () => { if (document.hidden) flushRef.current(); }; const g = () => flushRef.current(); document.addEventListener('visibilitychange', f); window.addEventListener('pagehide', g); return () => { document.removeEventListener('visibilitychange', f); window.removeEventListener('pagehide', g); flushRef.current(); }; }, []);
   const keepCaret = () => { const s = window.getSelection(); if (s && s.rangeCount && ed.current?.contains(s.anchorNode)) lastRange.current = s.getRangeAt(0).cloneRange(); };
 
   /** Put HTML where the caret was (or at the end), then save. */
@@ -134,6 +141,7 @@ export default function EssayPage({ mode, onChart }: { mode: DataMode; onChart: 
   }, [cites, active?.pins, bars, spy, sym]);
 
   if (!active) return null;
+  if (view === 'papers') return <Papers essays={essays} activeId={active.id} onOpen={(id) => { setActiveId(id); setView('write'); }} onNew={() => { create(); setView('write'); }} onIdea={(id, idea) => setEssays((xs) => xs.map((e) => (e.id === id ? { ...e, idea, updated: Date.now() } : e)))} onDelete={(id) => { const rest = essays.filter((e) => e.id !== id); setEssays(rest); if (id === active.id) setActiveId(rest[0]?.id ?? ''); }} />;
   return (
     <div className={`page es ${drawer ? 'drawer-on' : ''}`}>
       <div className="es-main">
@@ -141,18 +149,22 @@ export default function EssayPage({ mode, onChart }: { mode: DataMode; onChart: 
           <select value={active.id} onChange={(e) => setActiveId(e.target.value)} aria-label="Your essays" className="es-pick">
             {essays.map((e) => <option key={e.id} value={e.id}>{e.title || 'Untitled'}{e.sym ? ` · ${e.sym}` : ''}</option>)}
           </select>
+          <button className="btn" onClick={() => { flushRef.current(); setView('papers'); }} title="See every paper in a list, with its idea">All papers ({essays.length})</button>
           <button className="btn" onClick={create}>New essay</button>
           <form className="es-sym" onSubmit={(e) => { e.preventDefault(); const s = symDraft.trim().toUpperCase(); if (SYM_RE.test(s)) patch({ sym: s }); }}>
             <input value={symDraft} onChange={(e) => setSymDraft(e.target.value.toUpperCase())} onBlur={() => { const s = symDraft.trim().toUpperCase(); if (SYM_RE.test(s) && s !== sym) patch({ sym: s }); }} placeholder="Ticker" aria-label="Essay ticker" maxLength={10} />
           </form>
+          <StanceButton sym={sym} />
           {name && <span className="small muted es-name">{name}</span>}
           <span className="es-sp" />
-          <span className="small muted">{words} words{saved ? ' · saved' : ''}</span>
+          <span className="small muted">{words} words</span>
+          <span className={`es-save ${pending ? 'saving' : ''}`} role="status" aria-live="polite" title="Your writing saves by itself, a moment after you stop typing, and when you leave the page. It is stored in this browser.">{pending ? 'Saving…' : saved ? `✓ Saved ${new Date(saved).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', second: '2-digit' })}` : '✓ Autosave on'}</span>
           <button className="btn" onClick={() => { if (confirm(`Delete "${active.title || 'Untitled'}"? This can't be undone.`)) { const rest = essays.filter((e) => e.id !== active.id); setEssays(rest); setActiveId(rest[0]?.id ?? ''); } }} title="Delete this essay">Delete</button>
           <button className={`btn ${drawer ? 'on' : 'primary'}`} onClick={() => setDrawer(!drawer)} aria-expanded={drawer}>{drawer ? 'Research ›' : '‹ Research'}</button>
         </div>
         <div className="es-doc">
           <input className="es-title" value={active.title} onChange={(e) => patch({ title: e.target.value })} placeholder="Title your essay" aria-label="Essay title" />
+          <input className="es-idea" value={active.idea ?? ''} onChange={(e) => patch({ idea: e.target.value })} placeholder="The idea in one line (shows on the All papers list)" aria-label="Essay idea" maxLength={200} />
           <div className="es-tools" role="toolbar" aria-label="Formatting">
             <button onMouseDown={(e) => e.preventDefault()} onClick={() => cmd('formatBlock', 'h2')} title="Heading">H2</button>
             <button onMouseDown={(e) => e.preventDefault()} onClick={() => cmd('formatBlock', 'h3')} title="Subheading">H3</button>
@@ -212,6 +224,42 @@ export default function EssayPage({ mode, onChart }: { mode: DataMode; onChart: 
         </aside>
       )}
       {transcript && sym && <TranscriptView sym={sym} onClose={() => setTranscript(false)} />}
+    </div>
+  );
+}
+
+
+const plain = (html: string) => html.replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim();
+function Papers({ essays, activeId, onOpen, onNew, onIdea, onDelete }: { essays: Essay[]; activeId: string; onOpen: (id: string) => void; onNew: () => void; onIdea: (id: string, idea: string) => void; onDelete: (id: string) => void }) {
+  const [q, setQ] = useState('');
+  const [sort, setSort] = useState<'recent' | 'title' | 'ticker'>('recent');
+  const [onlyIdeas, setOnlyIdeas] = useState(false);
+  const ql = q.trim().toLowerCase();
+  const rows = essays.map((e) => ({ e, text: plain(e.html) })).filter(({ e, text }) => (!onlyIdeas || (e.idea ?? '').trim()) && (!ql || `${e.title} ${e.idea ?? ''} ${e.sym} ${text}`.toLowerCase().includes(ql)))
+    .sort((a, b) => (sort === 'title' ? (a.e.title || '~').localeCompare(b.e.title || '~') : sort === 'ticker' ? a.e.sym.localeCompare(b.e.sym) : b.e.updated - a.e.updated));
+  const ideas = essays.filter((e) => (e.idea ?? '').trim()).length;
+  return (
+    <div className="page es-papers">
+      <div className="es-bar">
+        <button className="btn" onClick={() => onOpen(activeId)}>‹ Back to writing</button>
+        <h3 className="es-ptitle">All papers <span className="muted small">{essays.length} · {ideas} with an idea</span></h3>
+        <span className="es-sp" />
+        <input className="lib-q" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search titles, ideas, tickers, text…" aria-label="Search papers" />
+        <select value={sort} onChange={(e) => setSort(e.target.value as typeof sort)} aria-label="Sort papers"><option value="recent">Newest edit</option><option value="title">Title A–Z</option><option value="ticker">Ticker</option></select>
+        <label className="small"><input type="checkbox" checked={onlyIdeas} onChange={(e) => setOnlyIdeas(e.target.checked)} /> Ideas only</label>
+        <button className="btn primary" onClick={onNew}>New essay</button>
+      </div>
+      <div className="es-plist">
+        {rows.map(({ e, text }) => (
+          <article key={e.id} className={`es-pcard ${e.id === activeId ? 'on' : ''}`}>
+            <div className="es-ptop"><button className="link es-pname" onClick={() => onOpen(e.id)}>{e.title || 'Untitled'}</button>{e.sym && <span className="tag">{e.sym}</span>}<span className="es-sp" /><span className="small muted">{new Date(e.updated).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span></div>
+            <input className="es-idea" value={e.idea ?? ''} onChange={(ev) => onIdea(e.id, ev.target.value)} placeholder="Add the idea in one line…" aria-label={`Idea for ${e.title || 'untitled paper'}`} maxLength={200} />
+            <p className="small muted es-psnip">{text ? `${text.slice(0, 200)}${text.length > 200 ? '…' : ''}` : 'Nothing written yet.'}</p>
+            <div className="es-pfoot small muted">{text ? text.split(' ').length : 0} words · {e.sources.length} sources · {e.pins.length} pinned ranges<span className="es-sp" /><button className="link" onClick={() => onOpen(e.id)}>Open</button><button className="link down" onClick={() => { if (confirm(`Delete "${e.title || 'Untitled'}"? This can't be undone.`)) onDelete(e.id); }}>Delete</button></div>
+          </article>
+        ))}
+        {!rows.length && <p className="muted hw-pad">No papers match.</p>}
+      </div>
     </div>
   );
 }

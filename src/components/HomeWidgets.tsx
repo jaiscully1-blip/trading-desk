@@ -59,6 +59,10 @@ function DistressHomeW({ d }: P) {
   return <Suspense fallback={<p className="hw-pad small muted">Loading…</p>}><DistressInner mode={d.mode} mySyms={[...stars, d.sel]} onChart={d.onChart} openPage={d.openPage ? () => d.openPage!('distress') : undefined} /></Suspense>;
 }
 import { RulesW as RulesInner } from './RulesW';
+import { LeverageCheck } from './LeverageCheck';
+import BennerW from './BennerW';
+function BennerWidget({ d }: P) { return <BennerW now={d.now} />; }
+function LeverageW({ d }: P) { return <LeverageCheck equity={d.equity ?? null} />; }
 function RulesW({ d, cfg, set }: P) { return <RulesInner r={d.rules} now={d.now} cfg={cfg} set={set} />; }
 const cssVar = (n: string) => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
 
@@ -326,6 +330,8 @@ export const WIDGETS = {
   agents: { title: 'AI analysts', make: AgentsW },
   backtest: { title: 'Playbook backtest', make: BacktestW },
   rules: { title: 'My rules', make: RulesW },
+  leverage: { title: 'Leverage check', make: LeverageW },
+  benner: { title: 'Benner cycle (folklore)', make: BennerWidget },
   macro: { title: 'Macro and liquidity', make: MacroW },
   earnipo: { title: 'Earnings and IPOs', make: EarnIpoW },
   kronos: { title: 'Kronos forecast (experiment)', make: KronosW },

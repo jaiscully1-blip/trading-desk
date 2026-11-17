@@ -1,0 +1,38 @@
+# Daily market-wide insider activity: every Form 4 SEC received the previous business day is opened, and open-market buys and larger sales are
+# kept (45 days). Also FINRA's latest daily short-sale volume. Free sources only. Commits ONLY published/insiders.json, shown on the desk's
+# Insiders page as facts from filings, not a signal or advice. Nothing here can trade.
+# Secrets: SEC_USER_AGENT (required: an app name and a contact email, as SEC asks).
+name: Insiders
+
+on:
+  schedule:
+    - cron: "30 10 * * 2-6"   # 10:30 UTC, early morning ET: the previous business day's index is complete
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: insiders
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Build the insider file
+        env:
+          SEC_USER_AGENT: ${{ secrets.SEC_USER_AGENT }}
+        run: npx --yes tsx@4.19.2 scripts/insiders-build.ts
+      - name: Save results (only published/insiders.json)
+        run: |
+          git config user.name "insiders-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add published/insiders.json
+          git diff --cached --quiet || git commit -m "Insiders $(date -u +%F)"
+          git pull --rebase --quiet && git push

@@ -13,6 +13,7 @@ import { DEMO_AT, INDEXES, defaultBoards, makeCandles, makeHeadlines, makeQuotes
 import type { ReactNode } from 'react';
 import { DEFAULT_LAYOUTS } from './lib/layout';
 import { load, save, usePersisted } from './lib/store';
+import { isMuted, msToNextOpen, setMute } from './lib/mute';
 import { px } from './lib/format';
 import { computeLevels, detectLevelEvents, LEVEL_SHORT, type LevelEvent } from './lib/levels';
 import { levelsForHours, toolHours } from '../shared/toolHours';
@@ -60,6 +61,10 @@ import { CommandBar, NewsTicker, OverlayView, type Cmd } from './components/Bits
 import { SideNav, pageGroup, NAV_GROUPS, type Page } from './components/SideNav';
 const NAV_PAGE_IDS = new Set<string>(NAV_GROUPS.flatMap((g) => g.pages));
 const HoverCard = lazy(() => import('./components/HoverCard'));
+import StanceLayer from './components/StanceLayer';
+const CreditPage = lazy(() => import('./components/CreditPage'));
+const InsiderPage = lazy(() => import('./components/InsiderPage'));
+const CalmMode = lazy(() => import('./components/CalmMode'));
 import DataStatus from './components/DataStatus';
 const RiverScene = lazy(() => import('./components/RiverScene'));
 import { popout, PageTabs } from './components/common';
@@ -134,6 +139,7 @@ const typing = (t: EventTarget | null) =>
 const blankQuote = (sym: string, name = sym): Quote => ({ sym, name, last: NaN, chgPct: NaN, rvol: NaN, rs5: NaN, rs20: NaN, rs60: NaN, rsRank: NaN, gapPct: NaN, pmVol: NaN, flags: [] });
 
 function beep() {
+  if (isMuted()) return;
   try {
     const a = new AudioContext();
     const o = a.createOscillator(), g = a.createGain();
@@ -213,6 +219,7 @@ export default function App() {
   const [cmdOpen, setCmdOpen] = useState(false);
   const [overlay, setOverlay] = useState<Overlay>(null);
   const [drawer, setDrawer] = useState(false);
+  const [calm, setCalm] = usePersisted<boolean>('calmOn', false); // Calm mode stays on until you turn it off
   useEffect(() => { if (drawer) setDrawerSeen(true); }, [drawer]);
   const [newsFilter, setNewsFilter] = usePersisted<NewsFilter>('newsFilter', 'all');
   const [filterId, setFilterId] = usePersisted<string>('scanFilterId', 'all');
@@ -520,10 +527,10 @@ export default function App() {
     if (!fired.length) return;
     const items = fired.map((ev) => ({ t: Date.now(), sym: ev.sym, text: `${ev.sym} ${ev.kind === 'break' ? `broke ${ev.dir === 'up' ? 'above' : 'below'}` : 'touched'} ${LEVEL_SHORT[ev.id]} ${px(ev.level)} (last ${px(ev.price)})` }));
     setAlertLog((l) => [...items, ...l].slice(0, 100));
-    flash(items[0].text, 8000, { kind: 'level', sym: items[0].sym });
+    if (!isMuted()) flash(items[0].text, 8000, { kind: 'level', sym: items[0].sym });
     beep();
     try {
-      if (Notification.permission === 'granted') for (const it of items) new Notification(it.text, { tag: it.text });
+      if (Notification.permission === 'granted' && !isMuted()) for (const it of items) new Notification(it.text, { tag: it.text });
     } catch { /* not supported */ }
   }, [qs?.asOf]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -553,10 +560,10 @@ export default function App() {
   const pushPings = useCallback((ps: Ping[]) => {
     if (!ps.length) return;
     save('pingFired', [...fired.current].slice(-600));
-    setPings((x) => [...ps, ...x].slice(0, 20));
+    if (!isMuted()) setPings((x) => [...ps, ...x].slice(0, 20)); // muted: still logged below, just no pop-up
     setPingLog((l) => [...ps, ...l].slice(0, 200));
     beep();
-    try { if (Notification.permission === 'granted' && document.hidden) for (const p of ps) new Notification(`★ ${p.sym}: ${p.text}`, { tag: p.id }); } catch { /* not supported */ }
+    try { if (Notification.permission === 'granted' && document.hidden && !isMuted()) for (const p of ps) new Notification(`★ ${p.sym}: ${p.text}`, { tag: p.id }); } catch { /* not supported */ }
   }, [setPingLog]);
   // rotation: ping when a sector / theme / country turns (Lagging->Improving, Improving->Leading, Leading->Weakening, Weakening->Lagging)
   useEffect(() => {
@@ -738,10 +745,16 @@ export default function App() {
     { id: 'map', label: 'World map page', hint: 'M', run: () => setPage('map') },
     { id: 'globe', label: 'Sector rotation page', hint: 'G', run: () => setPage('flows') },
     { id: 'etfs', label: 'ETFs & sectors: heatmap, ETF holdings, baskets', hint: 'U', run: () => setPage('etfs') },
+    { id: 'mute1', label: 'Mute notifications for 1 hour', hint: '', run: () => { setMute({ until: Date.now() + 3600_000 }); } },
+    { id: 'mutetill', label: 'Mute notifications until tomorrow’s 9:30 open', hint: '', run: () => { setMute({ until: Date.now() + msToNextOpen() }); } },
+    { id: 'unmute', label: 'Unmute notifications', hint: '', run: () => { setMute(null); } },
+    { id: 'calm', label: 'Calm mode: hide everything except the 9:30 and 4:00 price checks', hint: '', run: () => setCalm(true) },
     { id: 'smart', label: '13F Tracker: big investors, ARK, politicians', hint: 'I', run: () => setPage('smart') },
     { id: 'odds', label: 'Economic odds (Fed, recession, CPI)', hint: 'Y', run: () => setPage('odds') },
     { id: 'status', label: 'Data status: which sources are working or limited', hint: '⇧B', run: () => setPage('status') },
     { id: 'mtf', label: 'Multi-timeframe: 4 linked charts (3m, 15m, 1h, daily)', hint: '⇧M', run: () => setPage('mtf') },
+    { id: 'credit', label: 'Credit market: spreads, yield curve, stress, bond ETFs, both sides', hint: '', run: () => setPage('credit') },
+    { id: 'insiders', label: 'Insiders: who is buying and selling their own stock, short volume, big funds', hint: '', run: () => setPage('insiders') },
     { id: 'distress', label: 'Distress: weak companies, turnarounds, sector stress', hint: '⇧R', run: () => setPage('distress') },
     { id: 'global', label: 'Global → US: world markets, world news and how they carry into US stocks', hint: '⇧G', run: () => setPage('global') },
     { id: 'd', label: 'Chart: daily', hint: '1', run: () => setTf('D') },
@@ -888,7 +901,7 @@ export default function App() {
   } else if (page === 'calendar') {
     body = <div className="page page-split"><section className="panel cal-page"><Calendars cal={cal} now={now} onSelect={setSel} mySyms={new Set([...wlSyms, ...stars])} mode={dataMode} news={news.items} /></section><div className="center">{chart()}</div></div>;
   } else if (page === 'journal') {
-    body = <div className="page"><Suspense fallback={<section className="panel"><div className="ph-body muted small">Loading journal…</div></section>}><JournalOverlay views={views} setTrades={setTrades} transfers={transfers} setTransfers={setTransfers} onAutoStart={(t) => setSettings((s) => (s.startBalance == null ? { ...s, startBalance: 0, startDate: t } : s))} violations={viols} lastPx={lastPx} settings={settings} onClose={() => setPage('desk')} onSelect={toDesk} onReplay={setReplayId} canSample={!live} /></Suspense></div>;
+    body = <div className="page"><Suspense fallback={<section className="panel"><div className="ph-body muted small">Loading journal…</div></section>}><JournalOverlay equity={settings.startBalance == null ? null : g.equity} views={views} setTrades={setTrades} transfers={transfers} setTransfers={setTransfers} onAutoStart={(t) => setSettings((s) => (s.startBalance == null ? { ...s, startBalance: 0, startDate: t } : s))} violations={viols} lastPx={lastPx} settings={settings} onClose={() => setPage('desk')} onSelect={toDesk} onReplay={setReplayId} canSample={!live} /></Suspense></div>;
   } else if (page === 'messages') {
     body = <div className="page"><section className="panel msgs-page"><div className="phead"><div className="phead-title">Messages: earnings, Fed, White House, economy</div></div><Messages feed={feed} cal={cal} nowMs={now} onChart={toDesk} /></section></div>;
   } else if (page === 'gamma') {
@@ -952,6 +965,10 @@ export default function App() {
     body = <Suspense fallback={<section className="panel"><div className="ph-body">Loading…</div></section>}><GlobalPage mode={dataMode} onChart={toDesk} /></Suspense>;
   } else if (page === 'status') {
     body = <div className="page"><DataStatus mode={dataMode} /></div>;
+  } else if (page === 'credit') {
+    body = <div className="page"><Suspense fallback={<section className="panel"><div className="ph-body">Loading…</div></section>}><CreditPage mode={dataMode} onPage={(p) => setPage(p)} /></Suspense></div>;
+  } else if (page === 'insiders') {
+    body = <div className="page"><Suspense fallback={<section className="panel"><div className="ph-body">Loading…</div></section>}><InsiderPage mode={dataMode} onChart={toDesk} onPage={(p) => setPage(p)} /></Suspense></div>;
   } else if (page === 'smart' || page === 'etfs' || page === 'odds') {
     body = (
       <div className="page">
@@ -991,8 +1008,10 @@ export default function App() {
     <div className={`shell ${focus ? 'focus' : ''}`} data-group={pageGroup(page)}>
       {river && <Suspense fallback={null}><RiverScene still={scene === 'still'} /></Suspense>}
       <Suspense fallback={null}><HoverCard quotes={quotes} names={OFFLINE_NAMES} /></Suspense>
+      <StanceLayer />
+      {calm && <Suspense fallback={null}><CalmMode onExit={() => setCalm(false)} /></Suspense>}
       {focus && <button className="focus-chip" onClick={toggleFocus} title="Bring the side bars back (Z)">Focus mode · Z to exit</button>}
-      <SideNav compact={iconRail} page={page} onPage={setPage} dataState={dataMode.kind} onCmd={() => setCmdOpen(true)} onHelp={() => setOverlay('help')} onAccount={() => setDrawer((d) => !d)} />
+      <SideNav compact={iconRail} page={page} onPage={setPage} dataState={dataMode.kind} onCmd={() => setCmdOpen(true)} onHelp={() => setOverlay('help')} onAccount={() => setDrawer((d) => !d)} onCalm={() => setCalm(true)} />
       <div className={`app ${layout.tickerOpen ? '' : 'no-ticker'} ${layout.fearOpen !== false ? 'has-fear' : ''}`}>
         <TopStrip
           movement={movement} vol={vol} moveStats={dayStats}
@@ -1021,7 +1040,7 @@ export default function App() {
       {syncOpen && <SyncDialog user={cloudUser?.email ?? null} onClose={() => setSyncOpen(false)} />}
       {overlay === 'help' && <OverlayView kind="help" onClose={() => setOverlay(null)} />}
       <Suspense fallback={null}>{article && <ReaderOverlay a={article} mode={dataMode} onClose={() => setArticle(null)}  />}</Suspense>
-      <Suspense fallback={null}>{orderReq && isOwner() && <OrderTicket initial={orderReq.initial} last={orderReq.last ?? (orderReq.initial.sym && Number.isFinite(quotes[orderReq.initial.sym]?.last) ? quotes[orderReq.initial.sym].last : null)} live={live} onClose={() => setOrderReq(null)} onPlaced={(t) => flash(`Sent to Webull: ${t}`, 5000)} />}</Suspense>
+      <Suspense fallback={null}>{orderReq && isOwner() && <OrderTicket initial={orderReq.initial} last={orderReq.last ?? (orderReq.initial.sym && Number.isFinite(quotes[orderReq.initial.sym]?.last) ? quotes[orderReq.initial.sym].last : null)} live={live} equity={settings.startBalance == null ? null : g.equity} onClose={() => setOrderReq(null)} onPlaced={(t) => flash(`Sent to Webull: ${t}`, 5000)} />}</Suspense>
       {info && <TickerInfo key={info.sym} sym={info.sym} at={info.at} mode={dataMode} onClose={() => setInfo(null)} onChart={toDesk} onCompany={openCompany} />}
       <PingStack pings={pings} onOpen={toDesk} onDismiss={(id) => setPings((x) => x.filter((p) => p.id !== id))} />
     </div>

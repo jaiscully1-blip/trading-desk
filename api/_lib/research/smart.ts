@@ -117,4 +117,30 @@ async function politician(req: Request): Promise<Response> {
   } catch (e) { return json({ id, error: (e as Error).message }, { status: 502 }); }
 }
 
-export const SMART_ROUTES = { '13f': thirteenF, ark: () => ark(), politician };
+// GET /api/research?fn=f13agg -> published/f13.json (weekly GitHub Action): cross-fund patterns for the 13F Tracker's Patterns tab
+const F13_REPO = process.env.GITHUB_REPO || 'jaiscully1-blip/trading-desk';
+const F13_TOKEN = process.env.GITHUB_TOKEN;
+async function f13agg(): Promise<Response> {
+  const url = F13_TOKEN ? `https://api.github.com/repos/${F13_REPO}/contents/published/f13.json` : `https://raw.githubusercontent.com/${F13_REPO}/main/published/f13.json`;
+  const init = F13_TOKEN ? { headers: { authorization: `Bearer ${F13_TOKEN}`, accept: 'application/vnd.github.raw+json', 'x-github-api-version': '2022-11-28' } } : undefined;
+  try {
+    const local = process.env.VERCEL ? null : await import('node:fs').then((fs) => JSON.parse(fs.readFileSync('published/f13.json', 'utf8'))).catch(() => null);
+    const { val } = local ? { val: local } : await cached('f13:file', 3600, () => getJson(url, 'github', 15000, init));
+    if (!val?.stocks?.length) return json({ error: 'published/f13.json is empty or malformed' }, { status: 502 });
+    return json({ ...val, asOf: Date.parse(val.built) || Date.now() }, { sMaxAge: 3600, swr: 86400 });
+  } catch (e) { return json({ error: `No 13F pattern file yet (${(e as Error).message.slice(0, 80)}). Run the "13F patterns" GitHub Action once.` }, { status: 404 }); }
+}
+
+// GET /api/research?fn=insiders -> published/insiders.json (daily GitHub Action): market-wide Form 4 buys and larger sales, plus FINRA short volume
+async function insiders(): Promise<Response> {
+  const url = F13_TOKEN ? `https://api.github.com/repos/${F13_REPO}/contents/published/insiders.json` : `https://raw.githubusercontent.com/${F13_REPO}/main/published/insiders.json`;
+  const init = F13_TOKEN ? { headers: { authorization: `Bearer ${F13_TOKEN}`, accept: 'application/vnd.github.raw+json', 'x-github-api-version': '2022-11-28' } } : undefined;
+  try {
+    const local = process.env.VERCEL ? null : await import('node:fs').then((fs) => JSON.parse(fs.readFileSync('published/insiders.json', 'utf8'))).catch(() => null);
+    const { val } = local ? { val: local } : await cached('insiders:file', 1800, () => getJson(url, 'github', 15000, init));
+    if (!val?.rows?.length) return json({ error: 'published/insiders.json is empty or malformed' }, { status: 502 });
+    return json({ ...val, asOf: Date.parse(val.built) || Date.now() }, { sMaxAge: 1800, swr: 86400 });
+  } catch (e) { return json({ error: `No insider file yet (${(e as Error).message.slice(0, 80)}). Run the "Insiders" GitHub Action once.` }, { status: 404 }); }
+}
+
+export const SMART_ROUTES = { '13f': thirteenF, ark: () => ark(), politician, f13agg: () => f13agg(), insiders: () => insiders() };

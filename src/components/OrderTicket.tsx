@@ -1,5 +1,6 @@
 // Webull order ticket: you fill it in (or it comes prefilled from a setup), press Preview, read what Webull says,
 // type your order PIN and press Confirm. Nothing is sent without all three. The PIN is never saved.
+import { LeverageCheck } from './LeverageCheck';
 import { useEffect, useMemo, useState } from 'react';
 import { DEFAULT_CAPS, describe, orderProblems, parseDraft, type OrderCaps, type OrderDraft } from '../../shared/orders';
 import { privateFetch, privatePost } from '../data/private';
@@ -23,7 +24,7 @@ function previewLines(raw: any): [string, string][] {
   return out.sort((a, b) => Number(/amount|cost|fee|commission|total/i.test(b[0])) - Number(/amount|cost|fee|commission|total/i.test(a[0])));
 }
 
-export function OrderTicket({ initial, last, live, onClose, onPlaced }: { initial: Partial<OrderDraft>; last?: number | null; live: boolean; onClose: () => void; onPlaced?: (text: string) => void }) {
+export function OrderTicket({ initial, last, live, equity, onClose, onPlaced }: { initial: Partial<OrderDraft>; last?: number | null; live: boolean; equity?: number | null; onClose: () => void; onPlaced?: (text: string) => void }) {
   const [f, setF] = useState<Form>({ sym: initial.sym ?? '', side: initial.side ?? 'BUY', type: initial.type ?? 'LIMIT', qty: s(initial.qty), limit: s(initial.limit), stop: s(initial.stop), tif: initial.tif ?? 'DAY', session: initial.session ?? 'CORE', takeProfit: s(initial.takeProfit), stopLoss: s(initial.stopLoss) });
   const [lim, setLim] = useState<Limits | null>(null);
   const [limErr, setLimErr] = useState('');
@@ -92,6 +93,12 @@ export function OrderTicket({ initial, last, live, onClose, onPlaced }: { initia
             <label>Stop-loss $<input inputMode="decimal" value={f.stopLoss} onChange={set('stopLoss')} placeholder="optional" /></label>
           </>}
         </div>
+        {f.side === 'BUY' && (() => { // reminder only: it never blocks Preview, PIN or Confirm
+          const ent = draft.limit ?? draft.stop ?? last ?? null, q = draft.qty ?? 0;
+          const position = ent && q ? ent * q : null;
+          const atRisk = ent && q && draft.stopLoss != null && draft.stopLoss < ent ? (ent - draft.stopLoss) * q : null;
+          return <LeverageCheck compact equity={equity ?? null} seed={{ position, atRisk }} />;
+        })()}
         {f.side === 'BUY' && (() => {
           // size by dollar risk: shares = risk ÷ (entry − stop). It only fills the Shares box; Preview, PIN and Confirm still apply.
           const entry = draft.type === 'LIMIT' || draft.type === 'STOP_LOSS_LIMIT' ? draft.limit ?? last ?? null : draft.type === 'STOP_LOSS' ? draft.stop ?? null : last ?? null;

@@ -64,7 +64,7 @@ export default function HoverCard({ quotes, names }: { quotes: Record<string, Qu
       <div className="hc-f small muted">
         {q && Number.isFinite(q.rsRank) && <span>RS rank {q.rsRank}</span>}
         {q?.spark && q.spark.length > 2 && <span>30-day trend</span>}
-        <span>click to open</span>
+        <span>click to open</span><span>right-click: your view</span>
       </div>
     </div>
   );

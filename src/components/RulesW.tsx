@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import type { AccountSettings, Guard, Violation } from '../lib/journal';
 import { VIOLATION_LABEL, etDay } from '../lib/journal';
+import { LeverageBanner } from './LeverageCheck';
 
 export interface RulesData { g: Guard; settings: AccountSettings; checkedIn: boolean; viols: Violation[]; hasAccount: boolean }
 
@@ -51,6 +52,7 @@ export function RulesW({ r, now, cfg, set }: { r: RulesData | undefined; now: nu
   const weekCost = week.reduce((a, v) => a + v.cost, 0);
   return (
     <div className="hw-pad rules-w">
+      <LeverageBanner />
       {r && (
         <ul className="rules-rows">
           {ruleRows(r, now).map((x) => (

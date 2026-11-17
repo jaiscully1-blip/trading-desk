@@ -1,13 +1,14 @@
 // Smart money: what big investors (13F), ARK (daily) and members of Congress (disclosures) are buying and selling.
 import { useMemo, useState, type ReactNode } from 'react';
-import { FAMOUS_POLS, FUNDS, usd, type Change, type F13Pos } from '../../shared/smartmoney';
+import { FAMOUS_POLS, FUNDS, usd, type Change, type F13Pos, type Fund } from '../../shared/smartmoney';
+import { boards, breadth, type F13File, type StockAgg } from '../../shared/f13agg';
 import { MEMBERS } from '../../shared/data/congress';
 import { useApi } from '../data/apis';
 import type { DataMode } from '../data/live';
 import { usePersisted } from '../lib/store';
 import { Fresh, Seg, PageTabs } from './common';
 
-type Tab = 'funds' | 'ark' | 'pols';
+type Tab = 'funds' | 'patterns' | 'ark' | 'pols';
 // what each change means, shown on hover (EXITED rows show last quarter's value and shares, since they now hold none)
 const CHG_HINT: Record<Change, string> = { new: 'New position this quarter', added: 'Bought more shares than last quarter', trimmed: 'Sold some shares, still holds the rest', sold: 'Sold the whole position: held it last quarter, holds none now. Value and shares are from last quarter.', same: 'Same number of shares as last quarter' };
 const CHG_LABEL: Record<Change, string> = { new: 'NEW', added: 'ADDED', trimmed: 'TRIMMED', sold: 'EXITED', same: 'HELD' };
@@ -16,23 +17,52 @@ const Sym = ({ s, onChart }: { s: string | null; onChart: (s: string) => void })
 
 interface F13Resp { filer: string; period: string; filed: string; prevPeriod: string | null; total: number; count: number; positions: (F13Pos & { sym: string | null })[]; url: string; asOf: number; stale?: boolean; source: string }
 
+interface Mine { cik: string; who: string }
 function Funds({ onChart }: { onChart: (s: string) => void }) {
   const [cik, setCik] = usePersisted<string>('smFund', FUNDS[0].cik);
+  const [mine, setMine] = usePersisted<Mine[]>('smMine', []);
+  const [q, setQ] = useState('');
+  const [addCik, setAddCik] = useState('');
+  const [addName, setAddName] = useState('');
   const [flt, setFlt] = useState<'all' | Change>('all');
+  const all: Fund[] = useMemo(() => [...FUNDS, ...mine.map((m) => ({ cik: m.cik, who: m.who || `CIK ${m.cik}`, firm: 'Added by you', style: '', cat: 'My investors' }))], [mine]);
   const r = useApi<F13Resp>(`/api/research?fn=13f&cik=${cik}`, 0, 6 * 3600_000);
-  const fund = FUNDS.find((f) => f.cik === cik)!;
+  const fund = all.find((f) => f.cik === cik) ?? all[0];
   const d = r.data;
   const counts = useMemo(() => { const c: Record<string, number> = {}; for (const p of d?.positions ?? []) c[p.change] = (c[p.change] ?? 0) + 1; return c; }, [d]);
   const rows = (d?.positions ?? []).filter((p) => flt === 'all' || p.change === flt);
   const top10 = (d?.positions ?? []).filter((p) => p.change !== 'sold').slice(0, 10).reduce((s, p) => s + p.weight, 0);
+  const ql = q.trim().toLowerCase();
+  const shown = ql ? all.filter((f) => `${f.who} ${f.firm} ${f.cat ?? ''}`.toLowerCase().includes(ql)) : all;
+  const cats = [...new Set(shown.map((f) => f.cat ?? 'Other'))].sort((a, b) => (a === 'My investors' ? -1 : b === 'My investors' ? 1 : 0));
+  const addOne = () => {
+    const c = addCik.replace(/\D/g, '').replace(/^0+/, '');
+    if (!c || all.some((f) => f.cik === c)) { setAddCik(''); if (c) setCik(c); return; }
+    setMine([...mine, { cik: c, who: addName.trim() }]); setCik(c); setAddCik(''); setAddName('');
+  };
   return (
     <div className="sm-split">
       <aside className="sm-list">
-        {FUNDS.map((f) => (
-          <button key={f.cik} className={`sm-fund ${f.cik === cik ? 'on' : ''}`} onClick={() => { setCik(f.cik); setFlt('all'); }}>
-            <b>{f.who}</b><span>{f.firm}</span><span className="muted small">{f.style}</span>
-          </button>
+        <input className="lib-q" value={q} onChange={(e) => setQ(e.target.value)} placeholder={`Search ${all.length} investors…`} aria-label="Search investors" />
+        <details className="pt-add">
+          <summary>+ Add an investor</summary>
+          <input className="lib-q" value={addCik} onChange={(e) => setAddCik(e.target.value)} placeholder="SEC CIK number (digits)" aria-label="CIK" inputMode="numeric" />
+          <input className="lib-q" value={addName} onChange={(e) => setAddName(e.target.value)} placeholder="Name (optional)" aria-label="Investor name" />
+          <button className="chip sm on" onClick={addOne} disabled={!addCik.trim()}>Add and open</button>
+          <p className="small muted">Find a CIK by searching the firm at <a href="https://www.sec.gov/edgar/searchedgar/companysearch" target="_blank" rel="noreferrer noopener">SEC EDGAR</a>; it is the number in the filer URL. The tracker shows the SEC's own filer name, so a wrong number is obvious. Only firms that file 13F-HR work. To include added investors in the Patterns tab too, add their CIKs to the EXTRA_CIKS variable of the “13F patterns” GitHub Action.</p>
+        </details>
+        {cats.map((c) => (
+          <div key={c} className="pt-cat">
+            <div className="pt-cath">{c} <span className="muted">{shown.filter((f) => (f.cat ?? 'Other') === c).length}</span></div>
+            {shown.filter((f) => (f.cat ?? 'Other') === c).map((f) => (
+              <button key={f.cik} className={`sm-fund ${f.cik === cik ? 'on' : ''}`} onClick={() => { setCik(f.cik); setFlt('all'); }}>
+                <b>{f.who}</b><span>{f.firm}</span>{f.style && <span className="muted small">{f.style}</span>}
+                {f.cat === 'My investors' && <span className="small down" role="button" tabIndex={0} onClick={(e) => { e.stopPropagation(); setMine(mine.filter((m) => m.cik !== f.cik)); if (cik === f.cik) setCik(FUNDS[0].cik); }} onKeyDown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); setMine(mine.filter((m) => m.cik !== f.cik)); if (cik === f.cik) setCik(FUNDS[0].cik); } }}>remove</span>}
+              </button>
+            ))}
+          </div>
         ))}
+        {!shown.length && <p className="small muted">No match. Use “Add an investor” with its SEC CIK.</p>}
       </aside>
       <section className="sm-main">
         <div className="sm-head">
@@ -78,6 +108,101 @@ function Funds({ onChart }: { onChart: (s: string) => void }) {
           </>
         )}
       </section>
+    </div>
+  );
+}
+
+
+const tone = (v: number) => (v > 0 ? 'up' : v < 0 ? 'down' : '');
+const fmtV = (v: number, f: 'usd' | 'n' | 'pct') => (f === 'usd' ? `${v < 0 ? '-' : v > 0 ? '+' : ''}${usd(Math.abs(v))}` : f === 'pct' ? `${(v * 100).toFixed(1)}%` : String(v));
+function Bars({ b, onPick, onChart }: { b: ReturnType<typeof boards>[number]; onPick: (s: StockAgg) => void; onChart: (s: string) => void }) {
+  const max = Math.max(1e-9, ...b.rows.map((s) => Math.abs(b.val(s))));
+  const signed = b.key === 'bought' || b.key === 'sold' || b.key === 'fav' || b.key === 'unfav';
+  return (
+    <div className="pt-board">
+      <h4>{b.title}</h4><p className="small muted">{b.note}</p>
+      {b.rows.map((s) => { const v = b.val(s); return (
+        <div key={s.cusip} className="pt-row">
+          <span className="pt-sym">{s.sym ? <button className="sym-chip" onClick={() => onChart(s.sym!)} title="Open chart">{s.sym}</button> : <span className="muted small">—</span>}</span>
+          <button className="pt-name small" onClick={() => onPick(s)} title="Who holds it">{s.name.slice(0, 24)}</button>
+          <span className="pt-bar"><i className={signed ? tone(v) === 'down' ? 'bg-down' : 'bg-up' : 'bg-flat'} style={{ width: `${Math.max(2, (Math.abs(v) / max) * 100)}%` }} /></span>
+          <span className={`pt-val num ${signed ? tone(v) : ''}`}>{signed && v > 0 && b.fmt === 'n' ? '+' : ''}{fmtV(v, b.fmt)}</span>
+        </div>
+      ); })}
+    </div>
+  );
+}
+/** buys vs sells for one stock: green = funds that bought (new + added), red = funds that sold (trimmed + exited) */
+const Split = ({ s }: { s: StockAgg }) => { const b = s.newN + s.addedN, t = s.trimmedN + s.soldN, n = b + t || 1; return <span className="pt-split" title={`${s.newN} new, ${s.addedN} added, ${s.trimmedN} trimmed, ${s.soldN} exited`}><i className="bg-up" style={{ width: `${(b / n) * 100}%` }} /><i className="bg-down" style={{ width: `${(t / n) * 100}%` }} /></span>; };
+
+function Patterns({ onChart }: { onChart: (s: string) => void }) {
+  const r = useApi<F13File & { asOf: number; error?: string }>('/api/research?fn=f13agg', 0, 3600_000);
+  const [bk, setBk] = usePersisted<string>('smPatBoard', 'bought');
+  const [pick, setPick] = useState<StockAgg | null>(null);
+  const [cat, setCat] = useState('all');
+  const [q, setQ] = useState('');
+  const d = r.data && !r.data.error ? r.data : null;
+  const bs = useMemo(() => (d ? boards(d.stocks) : []), [d]);
+  const br = useMemo(() => (d ? breadth(d.stocks) : null), [d]);
+  const cats = useMemo(() => [...new Set((d?.fundStats ?? []).map((f) => f.cat))], [d]);
+  if (r.loading && !d) return <p className="hw-pad muted">Loading the cross-fund patterns…</p>;
+  if (!d) return <p className="hw-pad muted">{r.error || r.data?.error || 'No pattern file yet.'} It is built weekly from SEC filings, and can be started by hand from the GitHub Actions tab.</p>;
+  const cur = bs.find((b) => b.key === bk) ?? bs[0];
+  const ql = q.trim().toUpperCase();
+  const found = ql ? d.stocks.filter((s) => s.sym === ql || s.name.toUpperCase().includes(ql)).slice(0, 6) : [];
+  const fs = d.fundStats.filter((f) => cat === 'all' || f.cat === cat).sort((a, b) => b.total - a.total);
+  return (
+    <div className="sm-main pt">
+      <div className="sm-head">
+        <div>
+          <h3>Patterns across {d.funds} investors <span className="muted">· quarter ended {fmtDate(d.period)}</span></h3>
+          <p className="small muted">Built from each investor's last two 13F filings. Long US-listed positions only (no shorts, no cash), filed up to 45 days after quarter-end, so this shows the past, not live positions. “Net $” is share change × a recent price, an estimate. These are facts about what funds did, not a signal: funds are often wrong, and many are index funds that buy and sell by rule.</p>
+        </div>
+        <Fresh kind="eod" at={d.asOf} src={d.source} />
+      </div>
+      {br && br.ratio != null && (
+        <div className="pt-breadth">
+          <span className="small">Direction of all moves this quarter</span>
+          <span className="pt-split big"><i className="bg-up" style={{ width: `${br.ratio * 100}%` }} /><i className="bg-down" style={{ width: `${(1 - br.ratio) * 100}%` }} /></span>
+          <span className="small"><b className="up">{br.buys.toLocaleString()}</b> buys (new + added) · <b className="down">{br.sells.toLocaleString()}</b> sells (trimmed + exited) · {(br.ratio * 100).toFixed(0)}% buys</span>
+        </div>
+      )}
+      <div className="pt-find"><input className="lib-q" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Look up a ticker or company across all funds…" aria-label="Find a stock" />{found.map((s) => <button key={s.cusip} className="chip sm" onClick={() => { setPick(s); setQ(''); }}>{s.sym ?? s.name.slice(0, 14)}</button>)}</div>
+      {pick && (
+        <div className="pt-pick">
+          <div className="sm-row"><h4>{pick.sym ?? '—'} <span className="muted">{pick.name}</span></h4><button className="chip sm" onClick={() => setPick(null)}>close</button></div>
+          <div className="sm-stats">
+            <div><span className="muted small">Funds holding</span><b>{pick.holders}</b><span className="small muted"> was {pick.holdersPrev}</span></div>
+            <div><span className="muted small">Held</span><b>{usd(pick.value)}</b></div>
+            <div><span className="muted small">Net $ moved</span><b className={tone(pick.netValue)}>{pick.netValue >= 0 ? '+' : '-'}{usd(Math.abs(pick.netValue))}</b></div>
+            <div><span className="muted small">Avg % of fund</span><b>{(pick.avgWeight * 100).toFixed(1)}%</b></div>
+            <div><span className="muted small">Buyers / sellers</span><Split s={pick} /> <span className="small">{pick.newN + pick.addedN} / {pick.trimmedN + pick.soldN}</span></div>
+          </div>
+          <table className="sm-tbl"><thead><tr><th>Biggest holders</th><th className="r">% of their fund</th><th className="r">Value</th><th>This quarter</th></tr></thead>
+            <tbody>{pick.top.map((h) => <tr key={h.cik} className={h.change === 'sold' ? 'dim' : ''}><td>{h.who}</td><td className="r">{(h.weight * 100).toFixed(1)}%</td><td className="r num">{h.value ? usd(h.value) : '—'}</td><td><span className={`sm-chg c-${h.change}`}>{h.change === 'same' ? 'HELD' : h.change === 'sold' ? 'EXITED' : h.change.toUpperCase()}</span></td></tr>)}</tbody></table>
+        </div>
+      )}
+      <div className="pt-chips">{bs.map((b) => <button key={b.key} className={`chip sm ${b.key === cur.key ? 'on' : ''}`} onClick={() => setBk(b.key)}>{b.title.replace(/ \(.*\)/, '')}</button>)}</div>
+      <div className="pt-grid">
+        <Bars b={cur} onPick={setPick} onChart={onChart} />
+        <div className="pt-board">
+          <h4>Buyers vs sellers, most-held stocks</h4><p className="small muted">Green = funds that bought (new + added), red = funds that sold (trimmed + exited). Sorted by how many funds hold it.</p>
+          {[...d.stocks].slice(0, 20).sort((a, b) => b.holders - a.holders).map((s) => (
+            <div key={s.cusip} className="pt-row"><span className="pt-sym">{s.sym ? <button className="sym-chip" onClick={() => onChart(s.sym!)}>{s.sym}</button> : '—'}</span><button className="pt-name small" onClick={() => setPick(s)}>{s.name.slice(0, 20)}</button><Split s={s} /><span className="pt-val small muted">{s.holders}</span></div>
+          ))}
+        </div>
+      </div>
+      <h4 className="pt-h">How each investor behaves</h4>
+      <div className="pt-chips"><button className={`chip sm ${cat === 'all' ? 'on' : ''}`} onClick={() => setCat('all')}>All</button>{cats.map((c) => <button key={c} className={`chip sm ${cat === c ? 'on' : ''}`} onClick={() => setCat(c)}>{c}</button>)}</div>
+      <div className="sm-tblwrap"><table className="sm-tbl">
+        <thead><tr><th>Investor</th><th className="r">Reported</th><th className="r">Positions</th><th className="r" title="Share of the portfolio in the 10 biggest positions">Top 10 =</th><th title="Share of positions that changed (new, added, trimmed or sold)">Turnover</th><th>New</th><th>Added</th><th>Trimmed</th><th>Exited</th></tr></thead>
+        <tbody>{fs.map((f) => (
+          <tr key={f.cik}><td>{f.who} <span className="small muted">{f.cat}</span></td><td className="r num">{usd(f.total)}</td><td className="r">{f.count}</td><td className="r">{Math.round(f.top10 * 100)}%</td>
+            <td>{f.turnover == null ? '—' : <span className="sm-wbar"><i style={{ width: `${Math.min(100, f.turnover * 100)}%` }} /></span>}{f.turnover == null ? '' : `${Math.round(f.turnover * 100)}%`}</td>
+            <td className="up">{f.newN}</td><td className="up">{f.addedN}</td><td className="down">{f.trimmedN}</td><td className="down">{f.soldN}</td></tr>
+        ))}</tbody>
+      </table></div>
+      {Object.keys(d.skipped).length > 0 && <p className="note">Left out: {Object.entries(d.skipped).map(([k, v]) => `${k} (${v})`).join('; ')}.</p>}
     </div>
   );
 }
@@ -198,11 +323,11 @@ export default function SmartMoney({ mode, onChart, extra }: { mode: DataMode; o
       <div className="overlay-in sm">
         <div className="phead">
           <div className="phead-title">13F Tracker</div>
-          <div className="phead-ctl">{extra}<PageTabs value={tab} onChange={setTab} options={[{ id: 'funds', label: 'Big investors (13F)' }, { id: 'ark', label: 'ARK daily' }, { id: 'pols', label: 'Politicians' }]} /></div>
+          <div className="phead-ctl">{extra}<PageTabs value={tab} onChange={setTab} options={[{ id: 'funds', label: 'Big investors (13F)' }, { id: 'patterns', label: 'Patterns' }, { id: 'ark', label: 'ARK daily' }, { id: 'pols', label: 'Politicians' }]} /></div>
         </div>
         <div className="sm-body">
           {!live ? <p className="hw-pad muted"><Fresh kind="demo" /> These trackers read real filings only, so they need the live desk (the deployed site with its server).</p>
-            : tab === 'funds' ? <Funds onChart={onChart} /> : tab === 'ark' ? <Ark onChart={onChart} /> : <Pols onChart={onChart} />}
+            : tab === 'funds' ? <Funds onChart={onChart} /> : tab === 'patterns' ? <Patterns onChart={onChart} /> : tab === 'ark' ? <Ark onChart={onChart} /> : <Pols onChart={onChart} />}
         </div>
       </div>
     </div>

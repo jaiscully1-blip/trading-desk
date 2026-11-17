@@ -52,3 +52,11 @@ export function insiderSummary(txs: InsiderTx[], sinceDay: string) {
   const sum = (c: string) => recent.filter((t) => t.code === c).reduce((a, t) => a + (t.value ?? 0), 0);
   return { buys: recent.filter((t) => t.code === 'P').length, sells: recent.filter((t) => t.code === 'S').length, buyValue: sum('P'), sellValue: sum('S') };
 }
+
+/** The company a Form 4 is about (issuer), and whether the sale/buy was under a 10b5-1 plan (a pre-arranged schedule). */
+export function issuerOf(xml: string): { cik: string; name: string; sym: string; plan: boolean } {
+  return {
+    cik: tag(xml, 'issuerCik').replace(/^0+/, ''), name: decode(tag(xml, 'issuerName')), sym: tag(xml, 'issuerTradingSymbol').toUpperCase().replace(/[^A-Z0-9.\-]/g, ''),
+    plan: /<aff10b5One>\s*(1|true)\s*</i.test(xml) || /10b5-1/i.test(xml.slice(xml.indexOf('<footnotes>') >= 0 ? xml.indexOf('<footnotes>') : 0)),
+  };
+}

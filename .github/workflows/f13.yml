@@ -1,0 +1,38 @@
+# Weekly cross-fund 13F patterns (every fund in shared/smartmoney.ts): what most funds are buying, selling, trimming, adding. Free sources only
+# (SEC EDGAR, OpenFIGI). Commits ONLY published/f13.json, shown on 13F Tracker -> Patterns as CALCULATED from filings, not advice. Nothing here can trade.
+# Secrets: SEC_USER_AGENT (required: an app name and a contact email, as SEC asks). Variable EXTRA_CIKS (optional): extra filers, comma separated.
+name: 13F patterns
+
+on:
+  schedule:
+    - cron: "0 12 * * 6"   # Saturdays 12:00 UTC; filings land through mid-Feb/May/Aug/Nov, so a weekly run is plenty
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: f13
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Build the 13F patterns
+        env:
+          SEC_USER_AGENT: ${{ secrets.SEC_USER_AGENT }}
+          EXTRA_CIKS: ${{ vars.EXTRA_CIKS }}
+        run: npx --yes tsx@4.19.2 scripts/f13-build.ts
+      - name: Save results (only published/f13.json)
+        run: |
+          git config user.name "f13-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add published/f13.json
+          git diff --cached --quiet || git commit -m "13F patterns $(date -u +%F)"
+          git pull --rebase --quiet && git push
