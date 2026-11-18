@@ -172,3 +172,10 @@ export function tokenMessage(status: string | undefined): { text: string; ok: bo
     default: return { text: `Webull says the token is ${status}.`, ok: false };
   }
 }
+
+/** Which Webull account the desk reads (and the ticket uses): the pinned WEBULL_ACCOUNT_ID if set, otherwise the margin
+ *  account, otherwise the first one. Webull labels type as MARGIN / CASH (or similar) on the accounts list. */
+export function pickAccount(list: { id: string; type: string; label: string }[], pinned?: string): string | undefined {
+  if (pinned) return list.find((a) => a.id === pinned)?.id ?? pinned;
+  return (list.find((a) => /margin/i.test(`${a.type} ${a.label}`)) ?? list[0])?.id;
+}
