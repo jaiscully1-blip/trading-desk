@@ -1,6 +1,7 @@
 // Real Economy: what's moving in the physical economy. Air traffic (airlines and airports, live and daily history), a
 // corporate-jet tracker (your list of tail codes; checks which public company's HQ city a jet is near), rail freight, electricity
 // demand by grid region, gasoline nationally and by state, shipping costs, and severe weather with the kinds of stocks it touches.
+import { PageHero } from './PageHero';
 import { useEffect, useState } from 'react';
 import type { DataMode } from '../data/live';
 import { usePersisted } from '../lib/store';
@@ -145,7 +146,7 @@ export default function RealEconPage({ mode }: { mode: DataMode }) {
   const live = mode.kind === 'live';
   return (
     <div className="page ad">
-      <div className="ad-top"><h2>Real Economy</h2><span className="small muted">Planes, jets, trains, power, fuel, freight and weather: what the physical economy is doing. Data to research with, not advice.</span></div>
+      <PageHero page="realecon" title="Real Economy" sub="Planes, jets, trains, power, fuel, freight and weather: what the physical economy is doing. Data to research with, not advice." />
       <div className="ad-grid">
         <Air live={live} />
         <Weather live={live} />

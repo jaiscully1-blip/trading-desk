@@ -1,6 +1,7 @@
 // Alt Data: for one ticker, the free "outside the price" signals: hiring (public job boards), App Store rank, public interest
 // (Wikipedia pageviews) around earnings, developer activity (GitHub), players (Steam), Reddit mentions and StockTwits mood.
 // Below: a grocery and energy price basket (BLS via FRED) as an inflation read. Each shows its change over ~1 month and ~1 year.
+import { PageHero } from './PageHero';
 import { useEffect, useMemo, useState } from 'react';
 import type { DataMode } from '../data/live';
 import { usePersisted } from '../lib/store';
@@ -141,12 +142,10 @@ export default function AltDataPage({ mode, sel }: { mode: DataMode; sel: string
   const since = d?.days ? `${d.days} day${d.days === 1 ? '' : 's'} of snapshots` : '';
   return (
     <div className="page ad">
-      <div className="ad-top">
-        <h2>Alt Data</h2>
+      <PageHero page="altdata" title="Alt Data" sub={<>Signals from outside the price for one ticker: hiring, App Store rank, public interest, GitHub, players, Reddit and StockTwits, plus a grocery and energy price basket. Data, not advice. {since}{d?.updated ? ` · last ${new Date(d.updated).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}` : ''}</>}>
         <form onSubmit={(e) => { e.preventDefault(); go(draft); }}><input value={draft} onChange={(e) => setDraft(e.target.value.toUpperCase())} aria-label="Ticker" maxLength={10} /></form>
         {sel && sel !== sym && <button className="chip sm" onClick={() => go(sel)}>Use {sel}</button>}
-        <span className="small muted">{since}{d?.updated ? ` · last ${new Date(d.updated).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}` : ''}</span>
-      </div>
+      </PageHero>
       {covered.length > 0 && <div className="ad-cov"><span className="small muted">Tracked daily:</span>{covered.map((s) => <button key={s} className={`chip sm ${s === sym ? 'on' : ''}`} onClick={() => go(s)}>{s}</button>)}</div>}
       {!live && <p className="small muted">Live data only.</p>}
       {d?.error === 'not-run-yet' && <p className="small muted">The daily snapshot hasn't run yet. It runs every evening (GitHub Action "Alt data").</p>}

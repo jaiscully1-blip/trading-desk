@@ -1,6 +1,7 @@
 // Shorts & Supply (was Market Plumbing): how a stock actually trades and who is supplying or absorbing shares. Per ticker: short volume, dark-pool and
 // off-exchange share, borrow fee and availability, fails to deliver, unusual options, buybacks and dilution filings. Market-wide:
 // index rebalance dates, IPO lockups ending, merger votes and tender offers, and a merger-arbitrage spread calculator.
+import { PageHero } from './PageHero';
 import { useEffect, useMemo, useState } from 'react';
 import type { DataMode } from '../data/live';
 import { usePersisted } from '../lib/store';
@@ -146,12 +147,10 @@ export default function PlumbingPage({ mode, sel }: { mode: DataMode; sel: strin
   const go = (s: string) => { const v = s.trim().toUpperCase(); if (SYM_RE.test(v)) { setSym(v); setDraft(v); } };
   return (
     <div className="page ad">
-      <div className="ad-top">
-        <h2>Shorts &amp; Supply</h2>
+      <PageHero page="plumbing" title="Shorts & Supply" sub={`How ${sym} trades: shorts, dark pools, borrow, fails, options flow, buybacks and new shares. Data, not advice.`}>
         <form onSubmit={(e) => { e.preventDefault(); go(draft); }}><input value={draft} onChange={(e) => setDraft(e.target.value.toUpperCase())} aria-label="Ticker" maxLength={10} /></form>
         {sel && sel !== sym && <button className="chip sm" onClick={() => go(sel)}>Use {sel}</button>}
-        <span className="small muted">How {sym} trades: shorts, dark pools, borrow, fails, options flow, buybacks and new shares. Data, not advice.</span>
-      </div>
+      </PageHero>
       <Ticker sym={sym} live={live} />
       <h3 className="pl-sec">Across the market</h3>
       <Market live={live} />
