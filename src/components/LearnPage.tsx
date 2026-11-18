@@ -16,12 +16,14 @@ import { EVIDENCE_NOTE, GLOSSARY, PATH, RESOURCES, STRATEGIES, resourceById, sea
 import { fvgStats, gapFills, orb, pct, sessions, sweeps, vwapStats } from '../../shared/setuplab';
 
 const Setups = lazy(() => import('./LearnSetups'));
-type Tab = 'start' | 'indicators' | 'strategies' | 'setups' | 'math' | 'mindset' | 'concepts' | 'glossary' | 'resources';
+const ChartGame = lazy(() => import('./LearnChartGame'));
+type Tab = 'start' | 'indicators' | 'strategies' | 'setups' | 'game' | 'math' | 'mindset' | 'concepts' | 'glossary' | 'resources';
 const TABS: { id: Tab; label: string; blurb: string; icon: string }[] = [
   { id: 'start', label: 'Start', blurb: 'New to trading? Start with the path below, then flip through the decks.', icon: '◎' },
   { id: 'indicators', label: 'Indicators', blurb: 'Moving averages, VWAP, RSI, MACD, bands, ATR, volume and more, each drawn live on SPY.', icon: '∿' },
   { id: 'strategies', label: 'Strategies', blurb: 'ORB, fair value gaps, volume + EMA, VWAP reclaim and more: exact rules, why they work, and the usual mistakes.', icon: '⇗' },
   { id: 'setups', label: 'Setups & traps', blurb: 'Fakeouts, liquidity grabs, traps, VWAP and volume, measured on real bars.', icon: '⚑' },
+  { id: 'game', label: 'Chart game', blurb: 'A real chart from a random stock and date with the ending hidden: call up or down, then see what happened and the base rate.', icon: '◧' },
   { id: 'math', label: 'Quick math', blurb: 'Position size, R, expectancy, drawdowns, expected move and more: formula, calculator and mental shortcuts.', icon: '∑' },
   { id: 'mindset', label: 'Mindset', blurb: 'The habits and biases that decide most results.', icon: '◐' },
   { id: 'concepts', label: 'Concepts', blurb: 'How prices are set and move, orders, valuation, filings, AI and backtests.', icon: '▦' },
@@ -213,6 +215,7 @@ export default function LearnPage({ go }: { go?: (p: Page) => void }) {
       {tab === 'indicators' && <Indicators />}
       {tab === 'strategies' && <Strategies />}
       {tab === 'setups' && <Suspense fallback={<section className="ad-card">Loading…</section>}><Setups /></Suspense>}
+      {tab === 'game' && <Suspense fallback={<section className="ad-card">Loading…</section>}><ChartGame /></Suspense>}
       {tab === 'math' && <QuickMath />}
       {tab === 'mindset' && <Notes deck="Mindset" />}
       {tab === 'concepts' && <Notes deck="Concepts" />}
