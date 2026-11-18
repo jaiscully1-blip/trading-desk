@@ -182,7 +182,8 @@ export async function getJson(url: string, provider: Provider, timeoutMs = 8000,
     noteOk(provider);
     return out;
   } catch (e) {
-    if (e instanceof ProviderError) { noteError(provider, e.message); throw e; }
+    // a GitHub file that a job hasn't produced yet (404) is 'not run yet', not a broken provider: don't flag it on Data status
+    if (e instanceof ProviderError) { if (!(provider === 'github' && /HTTP 404/.test(e.message))) noteError(provider, e.message); throw e; }
     const pe = new ProviderError(provider, (e as Error).name === 'AbortError' ? 'timeout' : (e as Error).message, true);
     noteError(provider, pe.message);
     throw pe;
