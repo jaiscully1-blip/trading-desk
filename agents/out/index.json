@@ -1,0 +1,16 @@
+[
+ {
+  "ticker": "SPY",
+  "date": "2026-11-18",
+  "ranAt": "2026-11-18T02:02:50.056876Z",
+  "decision": null,
+  "error": "GoogleModelNotFoundError: Error calling model 'gemini-2.5-flash-lite' (NOT_FOUND): 404 NOT_FOUND. {'error': {'code': 404, 'message': 'This model models/gemini-2.5-flash-lite is no longer available to new users. Please update your code to use models/gemini-3.5-flash-lite for the latest features and improvements. We recommend you to use the Interactions API (https://aistudio.google.com/docs/get-started).', 'status': 'NOT_FOUND'}}"
+ },
+ {
+  "ticker": "NVDA",
+  "date": "2026-11-18",
+  "ranAt": "2026-11-18T02:02:48.655937Z",
+  "decision": null,
+  "error": "GoogleModelNotFoundError: Error calling model 'gemini-2.5-flash-lite' (NOT_FOUND): 404 NOT_FOUND. {'error': {'code': 404, 'message': 'This model models/gemini-2.5-flash-lite is no longer available to new users. Please update your code to use models/gemini-3.5-flash-lite for the latest features and improvements. We recommend you to use the Interactions API (https://aistudio.google.com/docs/get-started).', 'status': 'NOT_FOUND'}}"
+ }
+]
