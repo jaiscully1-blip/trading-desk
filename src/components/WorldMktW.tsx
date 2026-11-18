@@ -30,19 +30,19 @@ export function WorldMktW({ mode, cfg, set: setCfg }: { mode: DataMode; cfg: Rec
   const digits = (r: { last: number; sym: string }) => (tab === 'fx' ? (r.last > 20 ? 2 : 4) : r.last > 1000 ? 0 : 2);
   return (
     <div className="wm">
-      <div className="wm-h"><Seg<Set> value={tab} onChange={(t) => setCfg({ ...cfg, tab: t })} options={[{ id: 'indices', label: 'World indices' }, { id: 'futures', label: 'Futures' }, { id: 'fx', label: 'FX' }]} />{d && <Fresh kind="delayed" at={d.asOf} src={d.source} />}</div>
+      <div className="wk-h"><Seg<Set> value={tab} onChange={(t) => setCfg({ ...cfg, tab: t })} options={[{ id: 'indices', label: 'World indices' }, { id: 'futures', label: 'Futures' }, { id: 'fx', label: 'FX' }]} />{d && <Fresh kind="delayed" at={d.asOf} src={d.source} />}</div>
       {mode.kind !== 'live' ? liveOnly('World markets') : err ? <p className="hw-pad small down">{err}</p> : !d ? <p className="hw-pad small muted">Loading…</p> : (
         <>
           {tab === 'fx' && d.strength && d.strength.length > 2 && (
-            <div className="wm-str small" title="Each currency's average move today against the others listed (positive = stronger)">
+            <div className="wk-str small" title="Each currency's average move today against the others listed (positive = stronger)">
               {d.strength.map((s) => <span key={s.ccy} className={s.score >= 0 ? 'up' : 'down'}><b>{s.ccy}</b> {pctTxt(s.score)}</span>)}
             </div>
           )}
-          <div className="wm-list">
+          <div className="wk-list">
             {d.rows.map((r, i) => (
-              <div key={r.sym} className="wm-row">
-                {tab === 'indices' && (i === 0 || d.rows[i - 1].region !== r.region) ? <div className="wm-reg small muted">{r.region}</div> : null}
-                <span className="wm-l">{r.label}</span>
+              <div key={r.sym} className="wk-row">
+                {tab === 'indices' && (i === 0 || d.rows[i - 1].region !== r.region) ? <div className="wk-reg small muted">{r.region}</div> : null}
+                <span className="wk-l">{r.label}</span>
                 <b className="num">{r.last.toLocaleString('en-US', { minimumFractionDigits: digits(r), maximumFractionDigits: digits(r) })}</b>
                 <span className={`num ${r.chgPct >= 0 ? 'up' : 'down'}`}>{pctTxt(r.chgPct)}</span>
                 {r.spark.length > 2 ? <Spark v={r.spark} w={64} h={14} /> : <span />}
@@ -66,7 +66,7 @@ export function HaltsW({ mode, onChart, mine }: { mode: DataMode; onChart: (s: s
   const rows = d.halts.filter((h) => only === 'all' || (only === 'open' ? h.resumedAt == null || h.resumedAt > Date.now() : /^T[1-3]$/.test(h.code)));
   return (
     <div className="hl">
-      <div className="wm-h"><Seg value={only} onChange={setOnly} options={[{ id: 'open', label: 'Still halted' }, { id: 'news', label: 'News halts' }, { id: 'all', label: 'All today' }]} /><Fresh kind="live" at={d.asOf} src={d.source} /></div>
+      <div className="wk-h"><Seg value={only} onChange={setOnly} options={[{ id: 'open', label: 'Still halted' }, { id: 'news', label: 'News halts' }, { id: 'all', label: 'All today' }]} /><Fresh kind="live" at={d.asOf} src={d.source} /></div>
       <div className="hl-list">
         {rows.slice(0, 80).map((h) => (
           <div key={`${h.sym}${h.haltedAt}`} className={`hl-row ${mine.has(h.sym) ? 'mine' : ''}`} title={`${h.name} · ${h.market}${h.pausePrice ? ` · pause price ${h.pausePrice}` : ''}`}>
@@ -99,7 +99,7 @@ export function IndexMoversW({ mode, onChart, cfg, set }: { mode: DataMode; onCh
   );
   return (
     <div className="im">
-      <div className="wm-h"><Seg value={index} onChange={(i) => set({ ...cfg, index: i })} options={[{ id: 'spx', label: 'S&P 500' }, { id: 'ndx', label: 'Nasdaq-100' }]} />{d && <Fresh kind="delayed" at={d.asOf} src={d.source} />}</div>
+      <div className="wk-h"><Seg value={index} onChange={(i) => set({ ...cfg, index: i })} options={[{ id: 'spx', label: 'S&P 500' }, { id: 'ndx', label: 'Nasdaq-100' }]} />{d && <Fresh kind="delayed" at={d.asOf} src={d.source} />}</div>
       {mode.kind !== 'live' ? liveOnly('Index movers') : err ? <p className="hw-pad small down">{err}</p> : !d ? <p className="hw-pad small muted">Loading…</p> : (
         <>
           {d.total != null && <p className="small hw-pad">Index move from priced members: <b className={`num ${d.total >= 0 ? 'up' : 'down'}`}>{pctTxt(d.total)}</b> <span className="muted">({d.covered} of {d.members} stocks priced)</span></p>}

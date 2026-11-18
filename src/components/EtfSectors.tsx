@@ -81,7 +81,7 @@ function Heatmap({ snap, onChart }: { snap: SnapshotResp | null; onChart: (s: st
   const up = priced.filter((t) => t.c! > 0).length;
   return (
     <div className="es-heat">
-      <div className="es-bar">
+      <div className="etf-bar">
         <Seg value={uni} onChange={setUni} options={[{ id: 'spx', label: 'S&P 500' }, { id: 'all', label: '+ Nasdaq-100' }]} />
         <Seg value={size} onChange={setSize} options={[{ id: 'cap', label: 'Size: market cap' }, { id: 'eq', label: 'Equal size' }]} />
         {priced.length > 0 && <span className="small"><span className="up">{up} up</span> · <span className="down">{priced.length - up} down</span></span>}
