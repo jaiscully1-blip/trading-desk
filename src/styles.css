@@ -2758,3 +2758,10 @@ button.chip[data-st="bull"] { color: var(--up); } button.chip[data-st="bear"] { 
 .fi-words { display: flex; flex-direction: column; gap: 4px; }
 .fi-words .chip { margin: 2px; }
 .fi-me td { background: var(--accent-bg); }
+
+.ws-phase { position: relative; }
+.ws-phase > button.on { color: var(--accent); }
+.ws-phase-pop { position: absolute; bottom: calc(100% + 6px); right: 0; z-index: 30; width: 320px; display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; border-radius: 10px; background: var(--panel); border: 1px solid var(--line-2); box-shadow: var(--shadow); }
+:root[data-scene='river'] .ws-phase-pop { background: rgba(8, 21, 35, .97); }
+.ws-phase-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.ws-phase-row select { max-width: 150px; }

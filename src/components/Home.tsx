@@ -1,6 +1,7 @@
 // Home (H): workspaces of widgets. Each workspace starts blank. A widget library on the left (search, groups, pinned
 // favorites), workspace tabs along the bottom (add, rename, close), and Undo / Redo / Save point / Restore / Clear.
 // Drag a widget by its title bar, resize from its corner, pin it in place, or send it to the scrollable side bar (⇥).
+import { PHASE_LABEL, phaseOf, type Phase } from '../../shared/macroextra';
 import { useCallback, useEffect, useRef, useState, type FormEvent, type PointerEvent as RPE } from 'react';
 import { CANVAS_COLS, COLS, DEFAULT_SIZE, addTop, rectOf, resizeFrom, settle, type Edge, type Rect, type Widget, type WidgetType } from '../lib/grid';
 import { WIDGETS, type HomeData } from './HomeWidgets';
@@ -46,6 +47,27 @@ export default function Home({ spaces, setSpaces, d, tickers }: { spaces: Worksp
   const [libQ, setLibQ] = useState('');
   const [libOpen, setLibOpen] = usePersisted('libOpen', true);
   const [sideOpen, setSideOpen] = usePersisted('homeSideOpen', true);
+  // workspaces that switch with the market phase (premarket, open, midday, close, after hours): only when the phase changes,
+  // so picking another workspace by hand sticks until the next phase
+  const [phaseMap, setPhaseMap] = usePersisted<Partial<Record<Phase, string>>>('wsPhaseMap', {});
+  const [phaseAuto, setPhaseAuto] = usePersisted<boolean>('wsPhaseAuto', false);
+  const [phaseOpen, setPhaseOpen] = useState(false);
+  const lastPhase = useRef<Phase | null>(null);
+  useEffect(() => {
+    if (!phaseAuto) { lastPhase.current = null; return; }
+    const check = () => {
+      const p = new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', hour: 'numeric', minute: 'numeric', weekday: 'short', hour12: false }).formatToParts(new Date());
+      const get = (t: string) => p.find((x) => x.type === t)?.value ?? '';
+      const ph = phaseOf((Number(get('hour')) % 24) * 60 + Number(get('minute')), !['Sat', 'Sun'].includes(get('weekday')));
+      if (ph === lastPhase.current) return;
+      lastPhase.current = ph;
+      const id = phaseMap[ph];
+      if (id && spaces.list.some((w) => w.id === id)) setSpaces((s) => (s.active === id ? s : { ...s, active: id }));
+    };
+    check();
+    const t = setInterval(check, 30_000);
+    return () => clearInterval(t);
+  }, [phaseAuto, phaseMap, spaces.list.length]); // eslint-disable-line react-hooks/exhaustive-deps
   const [pins, setPins] = usePersisted<WidgetType[]>('libPins', ['stock', 'risk', 'sessions']);
   const [drag, setDrag] = useState<Drag | null>(null);
   // while dragging, the widget follows the pointer pixel for pixel; the dashed box shows where it will snap
@@ -345,6 +367,20 @@ export default function Home({ spaces, setSpaces, d, tickers }: { spaces: Worksp
           <button className="ws-add" onClick={addSpace} title="New workspace" aria-label="New workspace">+</button>
         </div>
         <div className="ws-actions">
+          <span className="ws-phase">
+            <button className={phaseAuto ? 'on' : ''} onClick={() => setPhaseOpen(!phaseOpen)} title="Pick a workspace for each part of the trading day; the desk switches when the phase changes" aria-expanded={phaseOpen}>⏱ By phase{phaseAuto ? ' · on' : ''}</button>
+            {phaseOpen && (
+              <div className="ws-phase-pop" role="dialog" aria-label="Workspace by market phase">
+                <label className="small"><input type="checkbox" checked={phaseAuto} onChange={(e) => setPhaseAuto(e.target.checked)} /> Switch workspaces with the market phase</label>
+                {(Object.keys(PHASE_LABEL) as Phase[]).map((ph) => (
+                  <label key={ph} className="ws-phase-row small"><span>{PHASE_LABEL[ph]}</span>
+                    <select value={phaseMap[ph] ?? ''} onChange={(e) => setPhaseMap({ ...phaseMap, [ph]: e.target.value || undefined })}><option value="">(don't switch)</option>{spaces.list.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}</select>
+                  </label>
+                ))}
+                <button className="btn sm" onClick={() => setPhaseOpen(false)}>Done</button>
+              </div>
+            )}
+          </span>
           <button onClick={undo} disabled={!h().u.length} title="Undo (Ctrl/⌘ Z)">↶ Undo</button>
           <button onClick={redo} disabled={!h().r.length} title="Redo (Ctrl/⌘ Shift Z)">↷ Redo</button>
           <button onClick={restore} disabled={!ws.saved} title={ws.savedAt ? `Go back to the save point from ${new Date(ws.savedAt).toLocaleString()}` : 'No save point yet'}>Restore</button>
