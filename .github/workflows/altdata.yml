@@ -28,10 +28,12 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: npx --yes tsx@4.19.2 scripts/altdata-build.ts
+      - name: Borrow fees (Interactive Brokers public file)
+        run: npx --yes tsx@4.19.2 scripts/borrow-build.ts
       - name: Save (only the alt-data file)
         run: |
           git config user.name "altdata-bot"
           git config user.email "actions@users.noreply.github.com"
-          git add published/altdata.json
+          git add published/altdata.json published/borrow-latest.json published/borrow-hist.json
           git diff --cached --quiet || git commit -m "Alt data $(date -u +%F)"
           git pull --rebase --quiet && git push
