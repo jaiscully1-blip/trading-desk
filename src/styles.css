@@ -2746,3 +2746,15 @@ button.chip[data-st="bull"] { color: var(--up); } button.chip[data-st="bear"] { 
 .pl-q { display: flex; gap: 12px; flex-wrap: wrap; }
 .pl-q span { display: flex; flex-direction: column; }
 .pl-sec { margin: 8px 0 0; font: 700 16px 'Sora', 'IBM Plex Sans', sans-serif; }
+
+/* Filings Intel (Company page) */
+.fi { margin-top: 14px; border-top: 1px solid var(--line); padding-top: 6px; }
+.fi-toggle { display: flex; align-items: center; justify-content: space-between; width: 100%; text-align: left; }
+.fi-toggle h4 { margin: 6px 0; }
+.fi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(380px, 1fr)); gap: 10px; }
+.fi-box { border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.fi-box h5 { margin: 0; font-size: 12px; display: flex; align-items: center; gap: 6px; }
+.fi-list { margin: 0; padding-left: 16px; display: flex; flex-direction: column; gap: 6px; font-size: 12.5px; line-height: 1.45; max-height: 320px; overflow-y: auto; }
+.fi-words { display: flex; flex-direction: column; gap: 4px; }
+.fi-words .chip { margin: 2px; }
+.fi-me td { background: var(--accent-bg); }
