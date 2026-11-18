@@ -3,13 +3,12 @@
 import { cached, json } from '../core.js';
 import { denyPrivate } from '../private.js';
 import { WEBULL_HOST, hasWebull, wbAccounts, wbBalance, wbConfig, wbOrders, wbPositions, wbTokenCheck, wbTokenCreate } from '../webull.js';
-import { fillsFromOrders, listOf, normBalance, normPositions, realized, tokenInfo, wbTime } from '../../../shared/webull.js';
+import { fillsFromOrders, listOf, pickAccount, normBalance, normPositions, realized, tokenInfo, wbTime } from '../../../shared/webull.js';
 
 export async function accountId(): Promise<{ id: string; list: { id: string; type: string; label: string }[] }> {
   const raw = (await cached('wb:accounts', 3600, wbAccounts)).val;
   const list = listOf(raw).map((a: any) => ({ id: String(a.account_id ?? a.accountId ?? a.id ?? ''), type: String(a.account_type ?? a.account_class ?? a.type ?? ''), label: String(a.account_label ?? a.account_number ?? a.nickname ?? '') })).filter((a) => a.id);
-  const want = process.env.WEBULL_ACCOUNT_ID;
-  const id = (want && list.find((a) => a.id === want)?.id) || want || list[0]?.id;
+  const id = pickAccount(list, process.env.WEBULL_ACCOUNT_ID);
   if (!id) throw new Error('Webull returned no accounts for this app key');
   return { id, list };
 }

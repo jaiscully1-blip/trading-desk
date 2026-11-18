@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { pyQuote, webullSign } from '../api/_lib/webull';
-import { fillsFromOrders, normBalance, normPositions, realized } from '../shared/webull';
+import { fillsFromOrders, pickAccount, normBalance, normPositions, realized } from '../shared/webull';
 import { botWatchlist, messageText, tickersIn, toMessages } from '../shared/discord';
 
 describe('webull signing', () => {
@@ -87,3 +87,13 @@ describe('broker CSVs', () => {
 
 import { wbTime } from '../shared/webull';
 describe('order-history time', () => { it('sends UTC with a Z, the format Webull accepts', () => { expect(wbTime(Date.UTC(2026, 9, 19, 4, 26, 21, 272))).toBe('2026-10-19T04:26:21.272Z'); }); });
+
+describe('account choice', () => {
+  const list = [{ id: 'C1', type: 'CASH', label: '' }, { id: 'M1', type: 'MARGIN', label: '' }];
+  it('prefers the margin account unless one is pinned', () => {
+    expect(pickAccount(list)).toBe('M1');
+    expect(pickAccount(list, 'C1')).toBe('C1');
+    expect(pickAccount([{ id: 'C1', type: 'CASH', label: '' }])).toBe('C1');
+    expect(pickAccount([])).toBeUndefined();
+  });
+});
