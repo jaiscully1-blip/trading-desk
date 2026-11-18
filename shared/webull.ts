@@ -129,7 +129,8 @@ export function realized(fills: WbFill[]): { closed: WbClosed[]; days: WbDay[]; 
 }
 
 /** Webull's time format for order history: yyyy-MM-dd'T'HH:mm:ss.SSSZ */
-export const wbTime = (t: number) => new Date(t).toISOString().replace('Z', '+0000');
+/** Webull order-history time: yyyy-MM-dd'T'HH:mm:ss.SSS'Z' in UTC (a '+0000' offset is rejected with OPENAPI_PARAM_ERR). */
+export const wbTime = (t: number) => new Date(t).toISOString();
 
 /** Open (resting) orders, read under the field names Webull's order endpoints use. Combo legs are flattened. */
 export interface WbOpenOrder { id: string; sym: string; side: string; type: string; qty: number | null; filled: number | null; limit: number | null; stop: number | null; status: string; tif: string; placed: number | null; combo: string }

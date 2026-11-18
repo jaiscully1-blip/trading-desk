@@ -84,3 +84,6 @@ describe('broker CSVs', () => {
     expect(toFills(rows, detect(rows)).items[0]).toMatchObject({ action: 'buy', qty: 3 });
   });
 });
+
+import { wbTime } from '../shared/webull';
+describe('order-history time', () => { it('sends UTC with a Z, the format Webull accepts', () => { expect(wbTime(Date.UTC(2026, 9, 19, 4, 26, 21, 272))).toBe('2026-10-19T04:26:21.272Z'); }); });
