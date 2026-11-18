@@ -51,7 +51,7 @@ describe('names -> tickers', () => {
     }, 'NVDA', LIST);
     expect(f.summary).toBe('Makes chips.');
     expect(f.products).toEqual([{ name: 'Data Center', share: '88%', note: undefined }]);
-    expect(f.suppliers.map((x) => x.sym)).toEqual([undefined, 'TSM', 'MU']);
+    expect(f.suppliers.map((x) => x.sym)).toEqual(['TSM', 'TSM', 'MU']); // "TSMC" is a known brand of Taiwan Semiconductor
     expect(f.customers.map((x) => x.name)).toEqual(['Customer A', 'Microsoft Corporation']);
     expect(f.customers[1].sym).toBe('MSFT');
     expect(f.competitors.map((x) => x.sym)).toEqual(['AMD']);

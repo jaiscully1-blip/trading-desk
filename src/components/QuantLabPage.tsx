@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { PageHero } from './PageHero';
 import { Fresh } from './common';
 import { QuantEvents } from './QuantEvents';
+import { Term } from './InfoDrawer';
 import { LIVE_TICKERS, type LiveBlock } from '../../shared/livefeeds';
 import { usePersisted } from '../lib/store';
 import type { FundPoint } from '../../shared/fundseries';
@@ -77,7 +78,7 @@ function Card({ title, right, children, className = '' }: { title: ReactNode; ri
   return <section className={`ql-card ${className}`}><header className="ql-h"><h3>{title}</h3>{right && <div className="ql-hr">{right}</div>}</header>{children}</section>;
 }
 function Tile({ k, v, sub, tone }: { k: string; v: ReactNode; sub?: ReactNode; tone?: 'up' | 'dn' }) {
-  return <div className="ql-tile"><span className="ql-k">{k}</span><b className={`num ${tone ?? ''}`}>{v}</b>{sub && <span className="small muted">{sub}</span>}</div>;
+  return <div className="ql-tile"><span className="ql-k"><Term k={k} /></span><b className={`num ${tone ?? ''}`}>{v}</b>{sub && <span className="small muted">{sub}</span>}</div>;
 }
 
 function Detail({ f, all, cand, y, ylabel }: { f: Finding; all: Finding[]; cand: Candidate; y: Series; ylabel: string }) {

@@ -2,6 +2,7 @@
 // interest (FINRA), cash, debt, last fiscal year's revenue, profit and free cash flow (SEC filings), next earnings (Finnhub).
 // Empty readings are hidden, not shown as dashes.
 import { Fragment, useEffect, useState, type ReactNode } from 'react';
+import { Term } from './InfoDrawer';
 import type { DataMode } from '../data/live';
 import type { Tear } from '../../shared/tearsheet';
 import { Q } from './common';
@@ -96,7 +97,7 @@ export function TearSheet({ sym, mode }: { sym: string; mode: DataMode }) {
     <div className="ts">
       <h4><Q k="calc" src="SEC filings (official), FINRA short interest, Yahoo prices (unofficial, delayed). Float, market cap and net cash are calculated. Hover a row for its source and date." />Tear sheet</h4>
       <div className="kv co-kv ts-kv">
-        {shown.map(([k, v, src]) => <Fragment key={k}><span title={src}>{k}</span><b className="num" title={src}>{v}</b></Fragment>)}
+        {shown.map(([k, v, src]) => <Fragment key={k}><span title={src}><Term k={k} sym={sym} /></span><b className="num" title={src}>{v}</b></Fragment>)}
       </div>
       {!shown.length && <p className="small muted">No SEC or price data for {sym}.</p>}
       <Reactions sym={sym} />

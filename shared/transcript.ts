@@ -43,3 +43,12 @@ export function quarterCandidates(nowMs: number, n = 4): string[] {
 
 /** Usual call time from the report timing (companies set their own; this is only the common pattern). */
 export const usualCallTime = (when: string) => (when === 'amc' ? 'usually 4:30–5:00 PM ET' : when === 'bmo' ? 'usually 8:00–9:00 AM ET' : 'time not announced');
+
+/** Estimated start time (seconds into the call) of each turn. Published transcripts carry no times, so this uses a
+ *  typical speaking pace (about 150 words a minute) plus a short pause between speakers. Labelled as estimates. */
+export function turnTimes(turns: { text: string }[], wpm = 150, gap = 3): number[] {
+  const out: number[] = []; let t = 0;
+  for (const x of turns) { out.push(t); t += (x.text.split(/\s+/).filter(Boolean).length / wpm) * 60 + gap; }
+  return out;
+}
+export const clock = (s: number) => { const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), x = Math.floor(s % 60); return `${h ? `${h}:${String(m).padStart(2, '0')}` : m}:${String(x).padStart(2, '0')}`; };

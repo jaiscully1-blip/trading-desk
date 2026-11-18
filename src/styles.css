@@ -3192,3 +3192,41 @@ button.chip[data-st="bull"] { color: var(--up); } button.chip[data-st="bear"] { 
 .spd.docked .spd-frame { width: 300px; height: 80px; border: 0; border-radius: 12px; transform: scale(.8); transform-origin: top left; }
 .spd-x { position: absolute; top: -7px; left: -7px; z-index: 1; width: 18px; height: 18px; border-radius: 50%; border: 1px solid var(--line-2); background: var(--panel); color: var(--muted); font-size: 12px; line-height: 1; display: grid; place-items: center; cursor: pointer; padding: 0; }
 .spd-x:hover { color: var(--text); }
+/* Info drawer + explainable terms */
+.term { all: unset; cursor: help; border-bottom: 1px dotted var(--muted); } .term:hover, .term:focus-visible { color: var(--accent); border-bottom-color: var(--accent); }
+.idr { position: fixed; z-index: 60; top: 64px; right: 14px; bottom: 44px; width: min(380px, calc(100vw - 28px)); display: flex; flex-direction: column; background: var(--panel); border: 1px solid var(--line-2); border-radius: 12px; box-shadow: 0 12px 32px var(--shadow); animation: page-in .18s ease-out; }
+.idr-h { display: flex; justify-content: space-between; gap: 10px; padding: 12px 14px 8px; border-bottom: 1px solid var(--line); } .idr-h h3 { margin: 2px 0 0; font-size: 16px; text-wrap: balance; } .idr-h p { margin: 2px 0 0; }
+.idr-k { font: 600 10.5px 'IBM Plex Mono', monospace; letter-spacing: .05em; text-transform: uppercase; color: var(--accent); }
+.idr-b { padding: 10px 14px 14px; overflow-y: auto; display: grid; gap: 10px; align-content: start; } .idr-b ul { margin: 0; padding-left: 18px; display: grid; gap: 4px; font-size: 13px; }
+.idr-what { margin: 0; font-size: 14px; line-height: 1.45; }
+.idr-acts { display: flex; flex-wrap: wrap; gap: 6px; } .idr-acts .btn { font-size: 12.5px; }
+.idr-save { display: grid; gap: 6px; border-top: 1px solid var(--line); padding-top: 10px; } .idr-save textarea { width: 100%; resize: vertical; font: inherit; font-size: 13px; }
+.sc-hit { fill: none; stroke: transparent; stroke-width: 14; cursor: pointer; pointer-events: stroke; }
+.sc-node.clickable, .sc-center.clickable, .sc-col.clickable { cursor: pointer; }
+.sc-center.clickable:hover rect { filter: brightness(1.15); }
+/* Journal → Research */
+.rs { display: grid; gap: 12px; }
+.rs-add { display: grid; grid-template-columns: 140px minmax(0, 1fr); gap: 6px; background: var(--panel-2); padding: 10px; border-radius: 10px; }
+.rs-add textarea, .rs-add input:nth-of-type(3) { grid-column: 1 / -1; } .rs-add .btn { justify-self: start; }
+.rs-add textarea { font: inherit; resize: vertical; }
+.rs-group { display: grid; gap: 6px; } .rs-group h4 { margin: 4px 0 0; }
+.rs-note { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; display: grid; gap: 4px; background: var(--panel); }
+.rs-note header { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.rs-body { margin: 0; white-space: pre-wrap; font-size: 13px; } .rs-note textarea { width: 100%; font: inherit; }
+.rs-acts { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+/* Earnings call: replay and live captions */
+.trv-mode { margin-left: auto; }
+.trv-play { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding: 6px 12px; } .trv-play input[type=range] { flex: 1 1 160px; min-width: 120px; }
+.trv-t { display: inline-block; min-width: 46px; color: var(--accent); font-size: 11.5px; }
+.trv-turn.clickable { cursor: pointer; } .trv-turn.clickable:hover { background: var(--panel-2); }
+.lc { display: grid; gap: 8px; padding: 8px 12px 12px; min-height: 0; }
+.lc-bar { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; } .lc-bar input { flex: 1 1 180px; min-width: 0; }
+.lc-live { color: var(--down); font: 600 11px 'IBM Plex Mono', monospace; animation: lc-blink 1.2s ease-in-out infinite; }
+@keyframes lc-blink { 50% { opacity: .35; } }
+.lc-list { display: grid; gap: 2px; max-height: 55vh; overflow-y: auto; align-content: start; }
+.lc-line { all: unset; display: grid; grid-template-columns: 52px minmax(0, 1fr); gap: 8px; padding: 5px 8px; border-radius: 6px; font-size: 13.5px; line-height: 1.45; cursor: pointer; }
+.lc-line:hover { background: var(--panel-2); } .lc-line.hot { background: var(--accent-bg); } .lc-line.interim { color: var(--muted); font-style: italic; cursor: default; }
+.lc-t { color: var(--accent); font-size: 11.5px; padding-top: 2px; }
+@media (prefers-reduced-motion: reduce) { .lc-live { animation: none; } }
+.fs-i.clickable { cursor: pointer; } .fs-i.clickable:hover .tick-l { color: var(--accent); }
+button.cg-name { color: inherit; font-family: inherit; cursor: pointer; } button.cg-name:hover { border-color: var(--pg, var(--accent)); }

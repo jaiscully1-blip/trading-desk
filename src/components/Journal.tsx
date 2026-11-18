@@ -1,4 +1,5 @@
 // Full journal (trades, stats, violations, import) and the account drawer.
+import { ResearchTab } from './ResearchTab';
 import { JournalCalendar } from './JournalCalendar';
 import { IMPORT_EVENT, takePendingFiles } from '../lib/importPick';
 import { storagePrefix } from '../lib/accounts';
@@ -18,7 +19,7 @@ import { load, save } from '../lib/store';
 import { ScreenshotInput, uid } from './Trading';
 import { realized } from '../../shared/webull';
 
-type Tab = 'trades' | 'calendar' | 'stats' | 'violations' | 'discipline' | 'import';
+type Tab = 'trades' | 'research' | 'calendar' | 'stats' | 'violations' | 'discipline' | 'import';
 const fmtDate = (ms: number) => { const d = etDay(ms); return `${d.slice(5, 7)}/${d.slice(8)} ${etTime(ms)}`; };
 const r2 = (x: number | null) => (x == null ? '—' : `${x >= 0 ? '+' : ''}${x.toFixed(2)}R`);
 
@@ -50,7 +51,7 @@ export function JournalOverlay(p: JournalProps) {
       <div className="overlay-in jn">
         <div className="phead">
           <div className="phead-title">
-            <PageTabs<Tab> value={tab} onChange={setTab} options={[{ id: 'trades', label: 'Trades', count: p.views.filter((v) => !v.t.deleted).length || undefined }, { id: 'calendar', label: 'Calendar', hint: 'trades on their close or expiration day, with your notes' }, { id: 'stats', label: 'Stats' }, { id: 'violations', label: 'Violations', count: p.violations.length || undefined }, { id: 'discipline', label: 'Discipline', hint: 'waiting log, size check, what price did after you sold' }, { id: 'import', label: 'Import' }]} />
+            <PageTabs<Tab> value={tab} onChange={setTab} options={[{ id: 'trades', label: 'Trades', count: p.views.filter((v) => !v.t.deleted).length || undefined }, { id: 'research', label: 'Research', hint: 'notes and clips from your research, grouped by ticker' }, { id: 'calendar', label: 'Calendar', hint: 'trades on their close or expiration day, with your notes' }, { id: 'stats', label: 'Stats' }, { id: 'violations', label: 'Violations', count: p.violations.length || undefined }, { id: 'discipline', label: 'Discipline', hint: 'waiting log, size check, what price did after you sold' }, { id: 'import', label: 'Import' }]} />
           </div>
           <div className="phead-ctl">
             {hasDemo && <><Fresh kind="demo" /><button className="chip sm" onClick={() => p.setTrades((ts) => ts.map((t) => (t.demo ? { ...t, deleted: true, updated: Date.now() } : t)))}>Remove sample trades</button></>}
@@ -59,6 +60,7 @@ export function JournalOverlay(p: JournalProps) {
         </div>
         <div className="jn-body">
           {tab === 'trades' && <Trades {...p} />}
+          {tab === 'research' && <ResearchTab />}
           {tab === 'calendar' && <JournalCalendar views={p.views} onSelect={p.onSelect} />}
           {tab === 'stats' && <StatsTab views={p.views} />}
           {tab === 'violations' && <ViolationsTab v={p.violations} />}
