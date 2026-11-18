@@ -10,6 +10,7 @@ import { MiniChart } from './LearnMiniChart';
 import { Calc } from './LearnCalc';
 import { Diagram } from './LearnDiagram';
 import { PA_CARDS, PA_GROUPS } from '../../shared/pacards';
+import { BASICS, BASIC_GROUPS, breakeven, payoff } from '../../shared/basics';
 import { DIAGRAM_FOR } from '../../shared/diagrams';
 import { usePersisted } from '../lib/store';
 import { useLabBars } from '../lib/useLabBars';
@@ -19,9 +20,10 @@ import { fvgStats, gapFills, orb, pct, sessions, sweeps, vwapStats } from '../..
 
 const Setups = lazy(() => import('./LearnSetups'));
 const ChartGame = lazy(() => import('./LearnChartGame'));
-type Tab = 'start' | 'pa' | 'indicators' | 'strategies' | 'setups' | 'game' | 'math' | 'mindset' | 'concepts' | 'glossary' | 'resources';
+type Tab = 'start' | 'basics' | 'pa' | 'indicators' | 'strategies' | 'setups' | 'game' | 'math' | 'mindset' | 'concepts' | 'glossary' | 'resources';
 const TABS: { id: Tab; label: string; blurb: string; icon: string }[] = [
   { id: 'start', label: 'Start', blurb: 'New to trading? Start with the path below, then flip through the decks.', icon: '◎' },
+  { id: 'basics', label: 'Basics', blurb: 'Never traded? What a stock is, how to place an order, account rules, what options are and how they pay off, risk and taxes.', icon: '①' },
   { id: 'pa', label: 'Price action', blurb: 'Structure, BOS and CHoCH, liquidity and sweeps, FVGs and inverse FVGs, order blocks, sessions, candlesticks, chart patterns, volume and Wyckoff: the patterns most chart traders use.', icon: '⟋' },
   { id: 'indicators', label: 'Indicators', blurb: 'Moving averages, VWAP, RSI, MACD, bands, ATR, volume and more, each drawn live on SPY.', icon: '∿' },
   { id: 'strategies', label: 'Strategies', blurb: 'ORB, fair value gaps, volume + EMA, VWAP reclaim and more: exact rules, why they work, and the usual mistakes.', icon: '⇗' },
@@ -123,6 +125,58 @@ function Strategies() {
         </>} />
       ))}</div>
       <p className="note">Measured numbers use real SPY bars (Yahoo, delayed) without costs or slippage. History, not a forecast; learning material, not advice.</p>
+    </>
+  );
+}
+
+/** Options payoff at expiration for one contract: pick call or put, buy or sell, strike and premium. */
+function OptionPayoff() {
+  const [kind, setKind] = useState<'call' | 'put'>('call');
+  const [side, setSide] = useState<'buy' | 'sell'>('buy');
+  const [strike, setStrike] = useState(105), [prem, setPrem] = useState(2), [px, setPx] = useState(112);
+  const lo = strike * 0.8, hi = strike * 1.2, W = 420, H = 150, pts = Array.from({ length: 41 }, (_, i) => lo + ((hi - lo) * i) / 40);
+  const vals = pts.map((p) => payoff(kind, side, strike, prem, p)), m = Math.max(...vals.map(Math.abs), 1);
+  const X = (p: number) => 10 + ((p - lo) / (hi - lo)) * (W - 20), Y = (v: number) => H / 2 - (v / m) * (H / 2 - 10);
+  const now = payoff(kind, side, strike, prem, px), be = breakeven(kind, strike, prem);
+  const maxLoss = side === 'buy' ? `$${(prem * 100).toFixed(0)} (the premium)` : kind === 'call' ? 'unlimited (the stock can keep rising)' : `$${((strike - prem) * 100).toFixed(0)} (if the stock goes to 0)`;
+  const num = (v: number, set: (x: number) => void, step = 1) => <input type="number" step={step} value={v} onChange={(e) => set(Math.max(0.01, +e.target.value || 0))} />;
+  return (
+    <div className="bs-pay">
+      <div className="bs-pay-in">
+        <h4>Try it: option payoff at expiration</h4>
+        <div className="ln-chips">{(['buy', 'sell'] as const).map((x) => <button key={x} className={`chip sm ${side === x ? 'on' : ''}`} onClick={() => setSide(x)}>{x === 'buy' ? 'Buy' : 'Sell'}</button>)}{(['call', 'put'] as const).map((x) => <button key={x} className={`chip sm ${kind === x ? 'on' : ''}`} onClick={() => setKind(x)}>{x === 'call' ? 'Call' : 'Put'}</button>)}</div>
+        <label>Strike {num(strike, setStrike)}</label><label>Premium {num(prem, setPrem, 0.05)}</label><label>Stock at expiration {num(px, setPx)}</label>
+        <p className={`bs-pl ${now >= 0 ? 'up' : 'down'}`}>{now >= 0 ? 'Profit' : 'Loss'}: ${Math.abs(now).toFixed(0)} <span className="small muted">per contract (100 shares)</span></p>
+        <p className="small muted">Break-even ${be.toFixed(2)} · max loss {maxLoss} · {side === 'buy' ? `you pay $${(prem * 100).toFixed(0)}` : `you collect $${(prem * 100).toFixed(0)}`}</p>
+      </div>
+      <svg className="bs-svg" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" role="img" aria-label="Payoff at expiration">
+        <line x1={0} x2={W} y1={Y(0)} y2={Y(0)} className="bs-zero" />
+        <line x1={X(strike)} x2={X(strike)} y1={6} y2={H - 6} className="bs-strike" />
+        <path d={pts.map((p, i) => `${i ? 'L' : 'M'}${X(p).toFixed(1)},${Y(vals[i]).toFixed(1)}`).join('')} className="bs-line" />
+        {px >= lo && px <= hi && <circle cx={X(px)} cy={Y(now)} r={4} className={now >= 0 ? 'bs-dot up' : 'bs-dot dn'} />}
+        <text x={X(strike) + 4} y={14} className="bs-t">strike {strike}</text><text x={W - 6} y={Y(0) - 4} textAnchor="end" className="bs-t">$0</text>
+      </svg>
+    </div>
+  );
+}
+
+function Basics() {
+  const [g, setG] = useState<string>('All');
+  const [q, setQ] = useState('');
+  const xs = BASICS.filter((c) => (g === 'All' || c.group === g) && (!q || `${c.name} ${c.short} ${c.points.join(' ')}`.toLowerCase().includes(q.toLowerCase())));
+  return (
+    <>
+      <div className="ln-chips">{['All', ...BASIC_GROUPS].map((x) => <button key={x} className={`chip sm ${g === x ? 'on' : ''}`} onClick={() => setG(x)}>{x}</button>)}<input className="ln-search" placeholder={`Search ${BASICS.length} basics…`} value={q} onChange={(e) => setQ(e.target.value)} /></div>
+      {(g === 'Options basics' || g === 'Common option trades') && !q && <OptionPayoff />}
+      <div className="fc-grid">{xs.map((c) => (
+        <FlipCard key={c.id} tag={c.group} title={c.name} front={<><h4>{c.name}</h4><p>{c.short}</p></>} back={<>
+          <List xs={c.points} />
+          {c.example && <p className="bs-ex"><b>Example:</b> {c.example}</p>}
+          <Yt q={c.watch} />
+        </>} />
+      ))}</div>
+      {g === 'All' && !q && <OptionPayoff />}
+      <p className="small muted">US rules as of 2026; brokers differ, so check yours. Learning material, not advice.</p>
     </>
   );
 }
@@ -246,6 +300,7 @@ export default function LearnPage({ go }: { go?: (p: Page) => void }) {
       {tab === 'setups' && <Suspense fallback={<section className="ad-card">Loading…</section>}><Setups /></Suspense>}
       {tab === 'game' && <Suspense fallback={<section className="ad-card">Loading…</section>}><ChartGame /></Suspense>}
       {tab === 'math' && <QuickMath />}
+      {tab === 'basics' && <Basics />}
       {tab === 'mindset' && <Notes deck="Mindset" />}
       {tab === 'concepts' && <Notes deck="Concepts" />}
       {tab === 'glossary' && <Glossary />}
