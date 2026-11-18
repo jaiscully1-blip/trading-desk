@@ -29,7 +29,7 @@ export function MarketChips({ live, quotes, onSelect }: { live: boolean; quotes:
   }, [live]);
   const b = d?.breadth;
   return (
-    <div className="mc" title={d ? `Lines: today so far. ${d.source}.` : undefined}>
+    <div className="mp-cell" title={d ? `Lines: today so far. ${d.source}.` : undefined}>
       {SYMS.map((s) => {
         const q = quotes[s], p = d?.rows.find((r) => r.sym === s);
         const last = q && Number.isFinite(q.last) ? q.last : p?.last, chg = q && Number.isFinite(q.chgPct) ? q.chgPct : p?.chgPct;

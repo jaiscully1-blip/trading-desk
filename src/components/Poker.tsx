@@ -18,7 +18,7 @@ interface P { d: HomeData; cfg: Cfg; set: (c: Cfg) => void }
 const CAT: Record<Cat, string> = { fundamental: 'Financials', technical: 'Technicals', news: 'News' };
 
 export function Pill({ lean }: { lean: Lean }) {
-  return <span className={`pill ${lean === 'bullish' ? 'bull' : lean === 'bearish' ? 'bear' : 'mixed'}`}>{lean === 'no data' ? 'NO DATA' : lean.toUpperCase()}</span>;
+  return <span className={`pk-pill ${lean === 'bullish' ? 'bull' : lean === 'bearish' ? 'bear' : 'mixed'}`}>{lean === 'no data' ? 'NO DATA' : lean.toUpperCase()}</span>;
 }
 
 /* ---------------- claims ---------------- */
@@ -72,7 +72,7 @@ export function ClaimsW({ d, cfg, set }: P) {
       <div className="cl-list">
         {open && claims.filter((x) => x.cat === open).map((x, i) => (
           <div key={i} className="cl-claim">
-            <span className={`pill sm ${x.side === 'bull' ? 'bull' : 'bear'}`}>{x.side === 'bull' ? 'BULLISH' : 'BEARISH'}</span>
+            <span className={`pk-pill sm ${x.side === 'bull' ? 'bull' : 'bear'}`}>{x.side === 'bull' ? 'BULLISH' : 'BEARISH'}</span>
             <div className="cl-txt">
               {x.cat === 'news' ? <button className="link cl-head" onClick={() => openArticle({ title: x.text, url: x.url, src: x.source, t: x.t ?? Date.now(), summary: x.summary, syms: [sym], sentiment: x.side === 'bull' ? 1 : -1 })}>{x.text}</button> : <b>{x.text}</b>}
               <div className="small muted">{x.evidence} · {x.source}{x.t ? ` · ${new Date(x.t).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}` : ''}</div>
@@ -165,7 +165,7 @@ export function ReaderOverlay({ a, onClose, mode }: { a: Article; onClose: () =>
         </div>
         <h3>{a.title}</h3>
         <div className="reader-tags">
-          {w.bull.length > w.bear.length ? <span className="pill bull">BULLISH</span> : w.bear.length > w.bull.length ? <span className="pill bear">BEARISH</span> : <span className="pill mixed">NEUTRAL</span>}
+          {w.bull.length > w.bear.length ? <span className="pk-pill bull">BULLISH</span> : w.bear.length > w.bull.length ? <span className="pk-pill bear">BEARISH</span> : <span className="pk-pill mixed">NEUTRAL</span>}
           {(w.bull.length > 0 || w.bear.length > 0) && <span className="small muted">from the headline’s words: {[...w.bull.map((x) => `+${x}`), ...w.bear.map((x) => `−${x}`)].join(', ')}</span>}
           {(a.syms ?? []).map((s) => <span key={s} className="sym-chip">{s}</span>)}
         </div>

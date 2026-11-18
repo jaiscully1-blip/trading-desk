@@ -657,7 +657,7 @@ html, body { min-width: 900px; }
 .co-name { font-size: 15px; font-weight: 600; }
 .co-head .phead-ctl { margin-left: auto; display: flex; gap: 6px; }
 .co-pad { padding: 14px; }
-.co-grid { display: grid; grid-template-columns: minmax(260px, 30%) minmax(0, 1fr); min-height: 0; flex: 1; overflow: hidden; }
+.co-grid { display: grid; grid-template-columns: minmax(300px, 34%) minmax(0, 1fr); min-height: 0; flex: 1; overflow: hidden; }
 .co-side { border-right: 1px solid var(--line); padding: 12px 14px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; }
 .co-side h4, .co-links h4 { margin: 6px 0 2px; font: 600 11px 'IBM Plex Mono', monospace; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
 .co-kv { font-size: 12.5px; }
@@ -922,11 +922,11 @@ html, body { min-width: 900px; }
 .cm-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--muted); }
 
 /* ---------- poker desk: pills, claims, bet board, reader ---------- */
-.pill { display: inline-block; font: 700 10px 'IBM Plex Mono', monospace; letter-spacing: .06em; padding: 2px 8px; border-radius: 999px; border: 1px solid; white-space: nowrap; }
-.pill.sm { font-size: 9px; padding: 1px 6px; }
-.pill.bull { color: var(--up); border-color: color-mix(in srgb, var(--up) 50%, transparent); background: color-mix(in srgb, var(--up) 14%, transparent); }
-.pill.bear { color: var(--down); border-color: color-mix(in srgb, var(--down) 50%, transparent); background: color-mix(in srgb, var(--down) 14%, transparent); }
-.pill.mixed { color: var(--muted); border-color: var(--line-2); background: var(--panel-2); }
+.pk-pill { display: inline-block; font: 700 10px 'IBM Plex Mono', monospace; letter-spacing: .06em; padding: 2px 8px; border-radius: 999px; border: 1px solid; white-space: nowrap; }
+.pk-pill.sm { font-size: 9px; padding: 1px 6px; }
+.pk-pill.bull { color: var(--up); border-color: color-mix(in srgb, var(--up) 50%, transparent); background: color-mix(in srgb, var(--up) 14%, transparent); }
+.pk-pill.bear { color: var(--down); border-color: color-mix(in srgb, var(--down) 50%, transparent); background: color-mix(in srgb, var(--down) 14%, transparent); }
+.pk-pill.mixed { color: var(--muted); border-color: var(--line-2); background: var(--panel-2); }
 .cl-overall { margin-left: auto; display: flex; gap: 6px; align-items: center; font-size: 11px; color: var(--muted); }
 .cl-cats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; padding: 8px; }
 .cl-cat { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 4px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel-2); font-size: 12px; }
@@ -1256,7 +1256,7 @@ button.bt-r:hover { background: var(--panel-2); }
 .tm-t2 { fill: rgba(255,255,255,.9); font-family: 'IBM Plex Mono', monospace; pointer-events: none; }
 .tm-tip { position: absolute; top: 8px; right: 8px; background: var(--panel); border: 1px solid var(--line-2); border-radius: 6px; padding: 6px 9px; font-size: 12px; box-shadow: var(--shadow); pointer-events: none; max-width: 300px; }
 .es-heat, .es-etf { display: flex; flex-direction: column; gap: 8px; min-height: 100%; }
-.es-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.etf-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .es-legend { display: flex; margin-left: auto; }
 .es-legend i { font: 600 10px 'IBM Plex Mono', monospace; color: #fff; padding: 2px 6px; font-style: normal; }
 .es-picks { display: flex; gap: 14px; flex-wrap: wrap; }
@@ -1734,8 +1734,8 @@ body:has(.hw.dragging)::before { animation-play-state: paused; }
 .river-bg > svg { width: 100%; height: 100%; display: block; }
 :root[data-scene='river'] {
   --bg: rgba(5, 14, 24, .72);
-  --panel: rgba(8, 21, 35, .84);
-  --panel-2: rgba(18, 38, 56, .72);
+  --panel: rgba(8, 21, 35, .92);
+  --panel-2: rgba(18, 38, 56, .86);
   --line: rgba(160, 214, 224, .14);
   --line-2: rgba(160, 214, 224, .26);
   --text: #eaf2f4;
@@ -1758,6 +1758,8 @@ body:has(.hw.dragging)::before { animation-play-state: paused; }
 :root[data-scene='river'] .nv,
 :root[data-scene='river'] .top { background: rgba(6, 17, 28, .94); }
 :root[data-scene='river'] .panel, :root[data-scene='river'] .home-side { border-radius: 10px; }
+/* full pages sit on a near-solid backdrop so long text stays readable over the scene; the scene still shows around Home widgets */
+:root[data-scene='river'] .page .overlay-in, :root[data-scene='river'] .page > .panel { background: rgba(7, 19, 31, .97); }
 :root[data-scene='river'] .nv { background: rgba(6, 17, 29, .7); border-right-color: rgba(160, 214, 224, .14); }
 :root[data-scene='river'] .top { background: rgba(6, 17, 29, .66); }
 :root[data-scene='river'] .main, :root[data-scene='river'] .app { background: transparent; }
@@ -2032,11 +2034,11 @@ body:has(.hw.dragging)::before { animation-play-state: paused; }
 .wc-more { display: block; width: 100%; text-align: center; padding: 6px 0 4px; }
 
 /* world markets, halts, index movers */
-.wm-h { display: flex; gap: 8px; align-items: center; padding: 6px 10px; flex-wrap: wrap; }
-.wm-list, .hl-list { max-height: 420px; overflow: auto; }
-.wm-row { display: grid; grid-template-columns: 1.4fr 1fr 0.7fr 68px; gap: 6px; align-items: center; padding: 3px 10px; font-size: 12px; }
-.wm-reg { grid-column: 1 / -1; padding-top: 4px; text-transform: uppercase; letter-spacing: .05em; font-size: 10px; }
-.wm-str { display: flex; flex-wrap: wrap; gap: 4px 10px; padding: 2px 10px 6px; }
+.wk-h { display: flex; gap: 8px; align-items: center; padding: 6px 10px; flex-wrap: wrap; }
+.wk-list, .hl-list { max-height: 420px; overflow: auto; }
+.wk-row { display: grid; grid-template-columns: 1.4fr 1fr 0.7fr 68px; gap: 6px; align-items: center; padding: 3px 10px; font-size: 12px; }
+.wk-reg { grid-column: 1 / -1; padding-top: 4px; text-transform: uppercase; letter-spacing: .05em; font-size: 10px; }
+.wk-str { display: flex; flex-wrap: wrap; gap: 4px 10px; padding: 2px 10px 6px; }
 .hl-row { display: grid; grid-template-columns: 0.9fr 1.8fr 0.7fr 0.9fr; gap: 6px; align-items: center; padding: 3px 10px; font-size: 12px; }
 .hl-row.mine, .im-row.mine { background: color-mix(in srgb, var(--accent) 8%, transparent); }
 .im-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 0 10px; }
@@ -2414,7 +2416,7 @@ body:has(.hw.dragging)::before { animation-play-state: paused; }
 .top-zone { display: flex; align-items: center; gap: 8px; min-width: 0; overflow: hidden; }
 .tz-status { display: inline-flex; align-items: center; gap: 6px; flex: none; }
 .tz-you { margin-left: 0; justify-self: end; }
-.mc { display: flex; align-items: center; gap: 6px; min-width: 0; overflow: hidden; }
+.mp-cell { display: flex; align-items: center; gap: 6px; min-width: 0; overflow: hidden; }
 .mc-chip { display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 9px; border-radius: 7px; border: 1px solid var(--line); background: color-mix(in srgb, var(--panel-2) 70%, transparent); flex: none; font-size: 12.5px; }
 .mc-chip:hover { border-color: var(--line-2); }
 .mc-sym { font: 600 10.5px 'IBM Plex Mono', monospace; color: var(--muted); letter-spacing: .04em; }
@@ -2427,7 +2429,7 @@ body:has(.hw.dragging)::before { animation-play-state: paused; }
 .top.top3 { grid-template-columns: minmax(0, 1fr) minmax(170px, 280px) auto; gap: 10px; }
 .tz-markets { container-type: inline-size; }
 .mc-chip { padding: 0 6px; gap: 4px; font-size: 12px; }
-.mc { gap: 4px; }
+.mp-cell { gap: 4px; }
 .mc-spark, .mc-spark-empty { width: 38px; }
 /* the market zone gives up extras as it narrows: breadth first, then the lines, then DIA and IWM */
 @container (max-width: 760px) { .mc-breadth { display: none; } }
