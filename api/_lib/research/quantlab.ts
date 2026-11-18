@@ -36,6 +36,17 @@ async function monthly(sym: string): Promise<C[]> {
   return ts.map((t, i) => ({ t: t * 1000, c: Number(adj[i] ?? cl[i]) })).filter((x) => Number.isFinite(x.c) && x.c > 0);
 }
 
+// Monthly Wikipedia pageviews (since July 2015) for the company's article: public attention as a series.
+async function wikiMonthly(name: string): Promise<{ title: string; months: [string, number][] } | null> {
+  const clean = name.replace(/\b(INC|CORP|CORPORATION|CO|COMPANY|LTD|PLC|HOLDINGS?|GROUP|N\.?V|S\.?A|THE)\b\.?/gi, '').replace(/[^\w .&'-]/g, ' ').replace(/\s+/g, ' ').trim();
+  if (!clean) return null;
+  const sr = await getJson(`https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(`${clean} company`)}&srlimit=1&format=json&origin=*`, 'wikipedia', 8000);
+  const title = sr?.query?.search?.[0]?.title; if (!title) return null;
+  const end = new Date().toISOString().slice(0, 7).replace('-', '') + '01';
+  const pv = await getJson(`https://wikimedia.org/api/rest_v1/metrics/pageviews/per-article/en.wikipedia/all-access/user/${encodeURIComponent(title.replace(/ /g, '_'))}/monthly/2015070100/${end}00`, 'wikipedia', 10000, { headers: { 'user-agent': 'trading-desk research' } });
+  return { title, months: (pv?.items ?? []).map((x: any) => [String(x.timestamp).slice(0, 6), Number(x.views) || 0] as [string, number]) };
+}
+
 export async function quantlab(req: Request): Promise<Response> {
   const sym = (new URL(req.url).searchParams.get('symbol') ?? '').toUpperCase();
   if (!SYMBOL_RE.test(sym)) return json({ error: 'bad symbol' }, { status: 400 });
@@ -58,8 +69,9 @@ export async function quantlab(req: Request): Promise<Response> {
       })(),
       cached('ql:ff', 86400, famaFrench).then((x) => x.val).catch(() => [] as FFMonth[]),
     ]);
+    const wiki = fund && 'name' in fund && fund.name ? await cached(`ql:wiki:${sym}`, 7 * 86400, () => wikiMonthly(fund.name!)).then((x) => x.val).catch(() => null) : null;
     if (stock.length < 24) return json({ error: `Not enough monthly price history for ${sym}.` }, { status: 404 });
-    return json({ sym, stock, factors, fund, ff, asOf: Date.now(), source: 'Prices: Yahoo Finance monthly (unofficial, dividend-adjusted). Earnings: SEC XBRL 10-Q and 10-K filings (official). Factors: Kenneth French data library (monthly, about 2 months behind).' }, { sMaxAge: 3600 });
+    return json({ sym, stock, factors, fund, ff, wiki, asOf: Date.now(), source: 'Prices: Yahoo Finance monthly (unofficial, dividend-adjusted). Earnings: SEC XBRL 10-Q and 10-K filings (official). Factors: Kenneth French data library (monthly, about 2 months behind).' }, { sMaxAge: 3600 });
   } catch (e) { return json({ error: (e as Error).message.slice(0, 160) }, { status: 502 }); }
 }
 

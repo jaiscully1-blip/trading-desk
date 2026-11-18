@@ -15,7 +15,7 @@ import {
 } from '../../shared/quantlab';
 
 type C = { t: number; c: number };
-interface QResp { sym: string; stock: C[]; factors: Record<string, C[]>; fund: { name?: string; quarterly?: FundPoint[]; error?: string }; ff?: FFMonth[]; asOf: number; source: string; error?: string }
+interface QResp { sym: string; stock: C[]; factors: Record<string, C[]>; fund: { name?: string; quarterly?: FundPoint[]; error?: string }; ff?: FFMonth[]; wiki?: { title: string; months: [string, number][] } | null; asOf: number; source: string; error?: string }
 interface ToneDoc { source: string; built: string; coverageEnds: string; method: string; companies: Record<string, ToneCo> }
 const SYM_RE = /^[A-Z^][A-Z0-9.\-]{0,9}$/;
 const f2 = (v: number) => (v >= 0 ? '+' : '') + v.toFixed(2);
@@ -173,6 +173,29 @@ function FactorCard({ fit, sym }: { fit: FactorFit; sym: string }) {
   );
 }
 
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+/** Average return by calendar month, beyond the S&P 500, with how often it was positive and a t statistic. */
+function Seasonality({ stock, spy, sym }: { stock: C[]; spy: C[]; sym: string }) {
+  const sr = monthlyReturns(stock), mr = monthlyReturns(spy), cur = new Date().toISOString().slice(0, 7).replace('-', '');
+  const rows = MONTHS.map((name, i) => {
+    const xs = [...sr].filter(([ym]) => +ym.slice(4) === i + 1 && ym !== cur && mr.has(ym)).map(([ym, v]) => v - mr.get(ym)!);
+    const m = xs.reduce((a, b) => a + b, 0) / (xs.length || 1), sd = Math.sqrt(xs.reduce((a, b) => a + (b - m) ** 2, 0) / Math.max(1, xs.length - 1));
+    return { name, n: xs.length, m, up: xs.filter((v) => v > 0).length / (xs.length || 1), t: sd ? m / (sd / Math.sqrt(xs.length)) : 0 };
+  });
+  const lim = Math.max(1, ...rows.map((r) => Math.abs(r.m))), real = rows.filter((r) => Math.abs(r.t) >= 2);
+  return (
+    <Card title={<>Seasonality <span className="muted">· {sym} vs the S&P 500, by calendar month</span></>} right={<span className="small muted">{rows[0].n} years</span>}>
+      <div className="ql-season">
+        {rows.map((r) => <div key={r.name} className="ql-mo" title={`${r.name}: ${pc(r.m, 2)} on average beyond the S&P 500 · beat it ${(r.up * 100).toFixed(0)}% of years · t ${r.t.toFixed(1)}`}>
+          <div className="ql-mobar"><i className={r.m >= 0 ? 'pos' : 'neg'} style={{ height: `${(Math.abs(r.m) / lim) * 50}%` }} /></div>
+          <b className={`num ${Math.abs(r.t) >= 2 ? (r.m >= 0 ? 'up' : 'dn') : 'muted'}`}>{pc(r.m, 1)}</b><span className="small muted">{r.name} · {(r.up * 100).toFixed(0)}%</span>
+        </div>)}
+      </div>
+      <p className="small muted ql-note">{real.length ? `${real.map((r) => r.name).join(', ')} ${real.length === 1 ? 'stands' : 'stand'} out (t ≥ 2), but with 12 months tested about one in twenty will look this strong by chance.` : 'No month stands out from chance (none with t ≥ 2).'} The % under each month is how often {sym} beat the S&P 500 that month.</p>
+    </Card>
+  );
+}
+
 function LiveCard({ blocks, sym }: { blocks: LiveBlock[]; sym: string }) {
   return (
     <Card title={<>Live customer signals <span className="muted">· {sym}</span></>} right={<span className="small muted">free public feeds, refreshed every 12 hours</span>}>
@@ -230,6 +253,12 @@ export default function QuantLabPage({ sel }: { sel?: string }) {
       const lv: Series = new Map(ls.points);
       // counts and volumes: yearly growth (they're seasonal); % positive: change; recall counts: change
       cands.push({ id: ls.id, label: ls.label, group: 'Live feeds', s: drop(/vol|veh|cfpb/.test(ls.id) ? yoyPct(lv) : diff(lv)) });
+    }
+    if (d.wiki?.months.length) {
+      const m = new Map<string, number>(), c = new Map<string, number>();
+      for (const [ym, v] of d.wiki.months) { const q = `${ym.slice(0, 4)}Q${Math.floor((+ym.slice(4) - 1) / 3) + 1}`; m.set(q, (m.get(q) ?? 0) + v); c.set(q, (c.get(q) ?? 0) + 1); }
+      const full: Series = new Map([...m].filter(([q]) => c.get(q) === 3));
+      cands.push({ id: 'wiki', label: `Wikipedia views of "${d.wiki.title}" (yearly growth)`, group: 'Attention', s: drop(yoyPct(full)) });
     }
     if (d.ff?.length && mode !== 'ff') cands.push(...ffCandidates(d.ff).map((c) => ({ ...c, s: drop(c.s) })));
     const tested = scan(sym, y, cands);
@@ -299,6 +328,7 @@ export default function QuantLabPage({ sel }: { sel?: string }) {
         </Card>
       </>}
 
+      {d && <Seasonality stock={d.stock} spy={d.factors.SPY ?? []} sym={sym} />}
       {feeds.length > 0 && <LiveCard blocks={feeds} sym={sym} />}
       {model && <QuantEvents sym={sym} extra={feeds.map((b) => ({ kind: b.kind, source: b.source, events: b.events }))} />}
       {co && model && <ReviewTone co={co} ret={model.raw} sym={sym} fund={model.fund} />}
