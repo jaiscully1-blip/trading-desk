@@ -2740,3 +2740,9 @@ button.chip[data-st="bull"] { color: var(--up); } button.chip[data-st="bear"] { 
 /* performance: the river layer gets its own compositing layer so animating boats never repaint the panels above it */
 .river-bg { contain: strict; will-change: transform; transform: translateZ(0); }
 .river-bg.still * { animation-play-state: paused !important; }
+
+.pl-bars { display: flex; align-items: flex-end; gap: 3px; height: 60px; }
+.pl-bars i { flex: 1; min-width: 4px; border-radius: 2px 2px 0 0; opacity: .85; }
+.pl-q { display: flex; gap: 12px; flex-wrap: wrap; }
+.pl-q span { display: flex; flex-direction: column; }
+.pl-sec { margin: 8px 0 0; font: 700 16px 'Sora', 'IBM Plex Sans', sans-serif; }

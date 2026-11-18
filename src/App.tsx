@@ -49,6 +49,7 @@ const EssayPage = lazy(() => import('./components/EssayPage'));
 const TeslaPage = lazy(() => import('./components/TeslaPage'));
 const AltDataPage = lazy(() => import('./components/AltDataPage'));
 const RealEconPage = lazy(() => import('./components/RealEconPage'));
+const PlumbingPage = lazy(() => import('./components/PlumbingPage'));
 const MtfPage = lazy(() => import('./components/MtfPage'));
 const EtfSectors = lazy(() => import('./components/EtfSectors'));
 const EconOdds = lazy(() => import('./components/EconOdds'));
@@ -726,6 +727,7 @@ export default function App() {
     { id: 'fed', label: 'Fed meeting countdown and rate odds', run: () => setPage('calendar') },
     { id: 'earnings', label: 'Earnings calendar', run: () => setPage('calendar') },
     { id: 'fear', label: 'Show/hide fear strip', hint: 'F', run: () => setLayout({ fearOpen: layout.fearOpen === false }) },
+    { id: 'plumbing', label: 'Market Plumbing: short volume, dark pools, borrow fee, fails to deliver, unusual options, buybacks, dilution, lockups, mergers', hint: 'Shift P', run: () => setPage('plumbing') },
     { id: 'realecon', label: 'Real Economy: air traffic, CEO jets, rail, power demand, gas prices, freight, weather', hint: 'Shift E', run: () => setPage('realecon') },
     { id: 'altdata', label: 'Alt Data: hiring, app ranks, Wikipedia interest, GitHub, Steam, Reddit and StockTwits, price basket', hint: 'Shift A', run: () => setPage('altdata') },
     { id: 'tesla', label: 'Tesla & Lots: registrations, satellite lot fullness, inventory', hint: 'Shift T', run: () => setPage('tesla') },
@@ -798,6 +800,7 @@ export default function App() {
         T: () => setPage('tesla'),
         A: () => setPage('altdata'),
         E: () => setPage('realecon'),
+        P: () => setPage('plumbing'),
         '1': () => setTf('D'), '2': () => setTf('1H'), '3': () => setTf('5m'), '4': () => setTf('W'), '5': () => setTf('M'), '6': () => setTf('15m'),
         o: () => openCompany(sel),
         n: () => { setPage('desk'); setTab('news'); }, q: () => { setPage('desk'); setTab('journal'); }, r: () => { setPage('desk'); setTab('risk'); },
@@ -954,6 +957,8 @@ export default function App() {
     );
   } else if (page === 'news') {
     body = <Suspense fallback={<section className="panel"><div className="ph-body">Loading…</div></section>}><NewsPage mode={dataMode} news={news.items} sel={sel} onChart={toDesk} /></Suspense>;
+  } else if (page === 'plumbing') {
+    body = <Suspense fallback={<section className="panel"><div className="ph-body">Loading…</div></section>}><PlumbingPage mode={dataMode} sel={sel} /></Suspense>;
   } else if (page === 'realecon') {
     body = <Suspense fallback={<section className="panel"><div className="ph-body">Loading…</div></section>}><RealEconPage mode={dataMode} /></Suspense>;
   } else if (page === 'altdata') {
