@@ -2714,21 +2714,42 @@ button.chip[data-st="bull"] { color: var(--up); } button.chip[data-st="bear"] { 
 .bn-says { margin: 0; line-height: 1.4; }
 
 /* Credit market page */
-.cm { display: flex; flex-direction: column; gap: 16px; padding: 6px 2px; }
-.cm-intro { max-width: 820px; margin: 0; }
-.cm-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 8px; }
-.cm-card { border: 1px solid var(--line); border-radius: 8px; background: var(--panel); padding: 8px 10px; display: flex; flex-direction: column; gap: 2px; }
-.cm-val { font-size: 20px; }
-.cm-pct { position: relative; height: 4px; background: var(--panel-2); border-radius: 2px; margin: 4px 0 2px; }
-.cm-pct i { position: absolute; top: -3px; width: 3px; height: 10px; background: var(--accent); border-radius: 1px; transform: translateX(-50%); }
-.cm-sec h3 { margin: 0 0 2px; font-size: 15px; } .cm-sec p { margin: 2px 0 6px; }
-.cm-svg { width: 100%; height: auto; display: block; }
-.cm-hover { min-height: 18px; display: flex; flex-wrap: wrap; gap: 8px; }
-.cm-grid { stroke: var(--line); stroke-width: 1; } .cm-zero { stroke: var(--line-2); stroke-width: 1.2; stroke-dasharray: 4 3; }
-.cm-cross { stroke: var(--muted); stroke-width: 1; stroke-dasharray: 2 2; }
-.cm-rec { fill: var(--muted); opacity: .14; }
-.cm-t { fill: var(--muted); font-size: 10px; }
-.cm-leg { display: flex; flex-wrap: wrap; gap: 12px; }
+.credit { display: flex; flex-direction: column; gap: 14px; padding: 12px max(12px, calc((100% - 1120px) / 2)); overflow-x: hidden; background: var(--bg); font-size: 14px; line-height: 1.55; }
+:root[data-scene='river'] .credit { background: rgba(6, 16, 28, .97); }
+.credit-intro { margin: 0; max-width: 78ch; color: var(--text); opacity: .85; }
+.credit-k { display: block; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin-bottom: 4px; }
+.credit-glance { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 12px; }
+@media (max-width: 860px) { .credit-glance { grid-template-columns: minmax(0, 1fr); } }
+.credit-gauge-box, .credit-glance-list { border: 1px solid var(--line-2); border-radius: 10px; background: var(--panel); padding: 14px 16px; }
+.credit-gauge { position: relative; height: 12px; margin: 10px 0 6px; }
+.credit-gauge-bar { position: absolute; inset: 0; border-radius: 6px; background: linear-gradient(90deg, var(--up), #d6c94a 50%, var(--down)); opacity: .85; }
+.credit-gauge i { position: absolute; top: -5px; width: 0; height: 0; border-left: 7px solid transparent; border-right: 7px solid transparent; border-top: 9px solid var(--text); transform: translateX(-50%); }
+.credit-gauge-ends { display: flex; justify-content: space-between; color: var(--muted); }
+.credit-badge { display: inline-block; margin-top: 10px; padding: 4px 10px; border-radius: 999px; font: 600 15px 'IBM Plex Mono', monospace; border: 1px solid var(--line-2); }
+.credit-badge.tight { color: var(--up); } .credit-badge.wide { color: var(--down); }
+.credit-glance-list { display: flex; flex-direction: column; gap: 12px; }
+.credit-glance-list b { font: 600 15px 'IBM Plex Mono', monospace; }
+.credit-nav { position: sticky; top: -12px; z-index: 3; display: flex; flex-wrap: wrap; gap: 6px; padding: 8px 0; background: inherit; border-bottom: 1px solid var(--line); }
+.credit-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; }
+.credit-card { border: 1px solid var(--line-2); border-radius: 10px; background: var(--panel); padding: 10px 12px; display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.credit-card .small { font-size: 12px; }
+.credit-val { font-size: 22px; }
+.credit-pct { position: relative; height: 4px; background: var(--panel-2); border-radius: 2px; margin: 4px 0 2px; }
+.credit-pct i { position: absolute; top: -3px; width: 3px; height: 10px; background: var(--accent); border-radius: 1px; transform: translateX(-50%); }
+.credit-sec { border: 1px solid var(--line-2); border-radius: 10px; background: var(--panel); padding: 14px 16px; scroll-margin-top: 48px; min-width: 0; }
+.credit-sec h3 { margin: 0 0 4px; font: 600 17px 'Sora', 'IBM Plex Sans', sans-serif; }
+.credit-sec h4 { margin: 8px 0 4px; font-size: 14px; }
+.credit-what { margin: 2px 0 10px; max-width: 78ch; color: var(--text); opacity: .8; }
+.credit-sec .ins-both ul { font-size: 14px; }
+.credit-svg { width: 100%; height: auto; display: block; }
+.credit-chart { min-width: 0; }
+.credit-hover { min-height: 20px; display: flex; flex-wrap: wrap; gap: 10px; font-size: 13px; margin-bottom: 4px; }
+.credit-grid { stroke: var(--line); stroke-width: 1; } .credit-zero { stroke: var(--line-2); stroke-width: 1.2; stroke-dasharray: 4 3; }
+.credit-cross { stroke: var(--muted); stroke-width: 1; stroke-dasharray: 2 2; }
+.credit-rec { fill: var(--muted); opacity: .14; }
+.credit-t { fill: var(--muted); font-size: 11px; }
+.credit-leg { display: flex; flex-wrap: wrap; gap: 14px; font-size: 13px; margin-top: 4px; }
+.credit .sm-tblwrap { overflow-x: auto; }
 
 /* Journal -> Discipline */
 .dsc { display: flex; flex-direction: column; gap: 18px; padding: 8px; }
