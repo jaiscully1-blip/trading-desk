@@ -20,3 +20,13 @@ describe('live feeds helpers', () => {
   });
   it('reads openFDA dates', () => { expect(fdaDate('20250917')).toBe('2025-09-17'); expect(fdaDate('bad')).toBe(''); });
 });
+
+import { FDA_EXCLUDE, steamIds } from '../shared/livefeeds';
+describe('live feed fixes', () => {
+  it('reads Steam app ids from store search results', () => {
+    expect(steamIds({ items: [{ logo: 'https://x/steam/apps/359550/abc/capsule.jpg' }, { logo: 'nope' }] })).toEqual([359550]);
+  });
+  it('keeps Merck & Co. and drops Merck KGaA', () => {
+    expect(FDA_EXCLUDE.MRK.test('Merck KGaA')).toBe(true); expect(FDA_EXCLUDE.MRK.test('Merck Sharp & Dohme LLC')).toBe(false);
+  });
+});
