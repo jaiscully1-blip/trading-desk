@@ -1,4 +1,4 @@
-// Market Plumbing: how a stock actually trades and who is supplying or absorbing shares. Per ticker: short volume, dark-pool and
+// Shorts & Supply (was Market Plumbing): how a stock actually trades and who is supplying or absorbing shares. Per ticker: short volume, dark-pool and
 // off-exchange share, borrow fee and availability, fails to deliver, unusual options, buybacks and dilution filings. Market-wide:
 // index rebalance dates, IPO lockups ending, merger votes and tender offers, and a merger-arbitrage spread calculator.
 import { useEffect, useMemo, useState } from 'react';
@@ -147,7 +147,7 @@ export default function PlumbingPage({ mode, sel }: { mode: DataMode; sel: strin
   return (
     <div className="page ad">
       <div className="ad-top">
-        <h2>Market Plumbing</h2>
+        <h2>Shorts &amp; Supply</h2>
         <form onSubmit={(e) => { e.preventDefault(); go(draft); }}><input value={draft} onChange={(e) => setDraft(e.target.value.toUpperCase())} aria-label="Ticker" maxLength={10} /></form>
         {sel && sel !== sym && <button className="chip sm" onClick={() => go(sel)}>Use {sel}</button>}
         <span className="small muted">How {sym} trades: shorts, dark pools, borrow, fails, options flow, buybacks and new shares. Data, not advice.</span>

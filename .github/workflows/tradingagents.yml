@@ -28,9 +28,9 @@ jobs:
       GOOGLE_API_KEY: ${{ secrets.GEMINI_API_KEY }}
       FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
       TRADINGAGENTS_LLM_PROVIDER: google
-      # free-tier models; override with repo Variables TA_DEEP_MODEL / TA_QUICK_MODEL
-      TRADINGAGENTS_DEEP_THINK_LLM: ${{ vars.TA_DEEP_MODEL || 'gemini-2.5-flash' }}
-      TRADINGAGENTS_QUICK_THINK_LLM: ${{ vars.TA_QUICK_MODEL || 'gemini-2.5-flash-lite' }}
+      # free-tier models (Google retired the 2.5 models for new keys in 2026); override with repo Variables TA_DEEP_MODEL / TA_QUICK_MODEL
+      TRADINGAGENTS_DEEP_THINK_LLM: ${{ vars.TA_DEEP_MODEL || 'gemini-3.5-flash-lite' }}
+      TRADINGAGENTS_QUICK_THINK_LLM: ${{ vars.TA_QUICK_MODEL || 'gemini-3.5-flash-lite' }}
       TRADINGAGENTS_LLM_MAX_RETRIES: "6"
       TICKERS: ${{ github.event.inputs.tickers }}
     steps:
