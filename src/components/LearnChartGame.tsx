@@ -74,10 +74,12 @@ export default function LearnChartGame() {
   const [round, setRound] = useState<Round | null>(null);
   const [err, setErr] = useState('');
   const [guess, setGuess] = useState<'up' | 'down' | null>(null);
+  const [callH, setCallH] = useState<5 | 10 | 20>(10); // the horizon you made the call on (after the reveal, h is just the view)
+  const [view, setView] = useState<number | null>(null); // after the reveal: how many days past the cut to show
   const [loading, setLoading] = useState(false);
 
   const deal = async () => {
-    setLoading(true); setErr(''); setGuess(null);
+    setLoading(true); setErr(''); setGuess(null); setView(null);
     for (let tries = 0; tries < 3; tries++) {
       const sym = GAME_SYMBOLS[pickIndex(GAME_SYMBOLS.length)];
       try {
@@ -95,37 +97,40 @@ export default function LearnChartGame() {
   };
   useEffect(() => { void deal(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const pa = useMemo(() => (round ? read(round.bars, guess ? Math.min(round.bars.length, round.cut + h + 1) : round.cut + 1) : null), [round, guess, h]);
-  const why = useMemo(() => (round && guess ? explain(round.bars, round.cut, h) : null), [round, guess, h]);
+  const pa = useMemo(() => (round ? read(round.bars, guess ? Math.min(round.bars.length, round.cut + (view ?? h) + 1) : round.cut + 1) : null), [round, guess, h, view]);
+  const why = useMemo(() => (round && guess ? explain(round.bars, round.cut, Math.max(1, Math.min(view ?? h, round.bars.length - 1 - round.cut))) : null), [round, guess, h, view]);
   const answer = (g: 'up' | 'down') => {
     if (!round || guess) return;
-    setGuess(g);
+    setGuess(g); setCallH(h); setView(h);
     const move = outcome(round.bars, round.cut, h), right = (move > 0) === (g === 'up'), r = right ? 1 : 0;
     const withTrend = round.trend !== 'range' && (g === 'up') === (round.trend === 'bull');
     setRec((s) => { const bh = s.byH[h] ?? [0, 0], streak = right ? s.streak + 1 : 0; return { ...s, calls: s.calls + 1, right: s.right + r, byH: { ...s.byH, [h]: [bh[0] + 1, bh[1] + r] }, withT: withTrend ? [s.withT[0] + 1, s.withT[1] + r] : s.withT, againstT: !withTrend && round.trend !== 'range' ? [s.againstT[0] + 1, s.againstT[1] + r] : s.againstT, streak, best: Math.max(s.best, streak), baseSum: s.baseSum + baseRate(round.bars, h) }; });
   };
 
-  const move = round && guess ? outcome(round.bars, round.cut, h) : NaN, right = guess ? (move > 0) === (guess === 'up') : null;
-  const base = round ? baseRate(round.bars, h) : NaN, date = (t: number) => new Date(t * 1000).toISOString().slice(0, 10);
+  const avail = round ? round.bars.length - 1 - round.cut : 0, vd = Math.min(view ?? h, avail);
+  const move = round && guess ? outcome(round.bars, round.cut, callH) : NaN, right = guess ? (move > 0) === (guess === 'up') : null;
+  const vmove = round && guess ? outcome(round.bars, round.cut, vd) : NaN;
+  const base = round ? baseRate(round.bars, guess ? callH : h) : NaN, date = (t: number) => new Date(t * 1000).toISOString().slice(0, 10);
 
   return (
     <div className="cg">
       <section className="ad-card">
-        <header className="ad-h"><h3>What happens next?</h3><span className="ln-chips">{([5, 10, 20] as const).map((x) => <button key={x} className={`chip sm ${h === x ? 'on' : ''}`} onClick={() => !guess && setH(x)}>{x} days</button>)}</span></header>
+        <header className="ad-h"><h3>What happens next?</h3><span className="ln-chips">{!guess ? ([5, 10, 20] as const).map((x) => <button key={x} className={`chip sm ${h === x ? 'on' : ''}`} onClick={() => setH(x)}>{x} days</button>) : <><span className="small muted">Show:</span>{[1, 2, 3, 5, 10, 20].filter((x) => x <= avail).map((x) => <button key={x} className={`chip sm ${vd === x ? 'on' : ''} ${x === callH ? 'cg-call' : ''}`} title={x === callH ? 'the horizon you called' : `price ${x} trading day${x > 1 ? 's' : ''} after the cut`} onClick={() => setView(x)}>{x}d</button>)}</>}</span></header>
         <div className="ln-chips cg-layers">{LAYERS.map((l) => <button key={l.id} className={`chip sm ${on[l.id] ? 'on' : ''}`} onClick={() => setOn({ ...on, [l.id]: !on[l.id] })}>{l.label}</button>)}</div>
         {err && <p className="small down">{err}</p>}
         {loading && !round && <p className="small muted">Dealing a chart…</p>}
         {round && pa && (
           <>
-            <ChartView bars={round.bars} from={round.cut - SHOW + 1} cut={round.cut} to={guess ? Math.min(round.bars.length - 1, round.cut + h) : round.cut} pa={pa} on={on} />
+            <ChartView bars={round.bars} from={round.cut - SHOW + 1} cut={round.cut} to={guess ? round.cut + vd : round.cut} pa={pa} on={on} />
             <p className="small muted cg-hint">Click and drag the chart to look back; double-click to reset. It won't move past the hidden part.</p>
             <div className="cg-names"><span className="small muted">On this chart:</span>{round.names.length ? round.names.map((n) => <span key={n} className="cg-name" title={PA_DEFS[n.replace(/ \((up|down)\)$/, '')] ?? ''}>{n}</span>) : <span className="small muted">no named pattern near the cut; read the trend and levels.</span>}</div>
             {!guess ? (
               <div className="ln-chips"><span className="small">Next {h} trading days:</span><button className="chip cg-btn up" onClick={() => answer('up')}>Up</button><button className="chip cg-btn dn" onClick={() => answer('down')}>Down</button><span className="small muted">Hover a pattern name for what it means.</span></div>
             ) : (
               <div className={`cg-result ${right ? 'up' : 'down'}`}>
-                <b>{right ? 'Right' : 'Wrong'}:</b> {round.sym} went {move >= 0 ? '+' : ''}{move.toFixed(1)}% over the next {h} trading days (from {date(round.bars[round.cut].time)}).
-                <span className="small"> {Math.round(base * 100)}% of all {h}-day windows in this stock’s history ended higher: that’s what guessing “up” every time would score.</span>
+                <b>{right ? 'Right' : 'Wrong'}:</b> {round.sym} went {move >= 0 ? '+' : ''}{move.toFixed(1)}% over the next {callH} trading days (from {date(round.bars[round.cut].time)}).
+                {vd !== callH && <span className="small cg-view"> Showing {vd} day{vd > 1 ? 's' : ''} after the cut: {vmove >= 0 ? '+' : ''}{vmove.toFixed(1)}%.</span>}
+                <span className="small"> {Math.round(base * 100)}% of all {callH}-day windows in this stock’s history ended higher: that’s what guessing “up” every time would score.</span>
                 <button className="chip on" onClick={() => void deal()}>Next chart</button>
               </div>
             )}
