@@ -3284,11 +3284,9 @@ input:not([type='checkbox']):not([type='radio']):not([type='range']):focus, text
 .chip:hover { color: var(--text); background: color-mix(in srgb, var(--text) 10%, var(--panel-2)); }
 .chip.on { background: var(--accent-bg); color: var(--text); border-color: color-mix(in srgb, var(--accent) 70%, transparent); }
 .tag { border-radius: 999px; }
-/* ---------- company logos on ticker chips (Logos.tsx) ---------- */
+/* ---------- company logos on ticker chips (Logos.tsx): logo only, no background behind it or the ticker ---------- */
 [data-logo='tint'], [data-logo='plain'] { display: inline-flex; align-items: center; gap: 5px; }
-[data-logo='tint']::before, [data-logo='plain']::before { content: ''; flex: none; width: 14px; height: 14px; border-radius: 4px; background: #fff var(--logo) center / 85% no-repeat; box-shadow: 0 0 0 1px rgba(0, 0, 0, .15); }
-.chip[data-logo='tint'], .sym-chip[data-logo='tint'], .peer-sym[data-logo='tint'] { background: color-mix(in srgb, var(--brand) 22%, var(--panel-2)); border-color: color-mix(in srgb, var(--brand) 40%, transparent); color: var(--text); }
-.chip.on[data-logo='tint'] { background: color-mix(in srgb, var(--brand) 38%, var(--panel-2)); border-color: var(--accent); }
+[data-logo='tint']::before, [data-logo='plain']::before { content: ''; flex: none; width: 15px; height: 15px; background: transparent var(--logo) center / contain no-repeat; }
 .wl-sym[data-logo]::before, .hc-h b[data-logo]::before, .pk-sym[data-logo]::before { width: 13px; height: 13px; }
 .overlay-in.rc { position: relative; }
 .rc-over { outline: 2px dashed var(--accent); outline-offset: -6px; }
