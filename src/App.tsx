@@ -50,6 +50,7 @@ const TeslaPage = lazy(() => import('./components/TeslaPage'));
 const AltDataPage = lazy(() => import('./components/AltDataPage'));
 import { SpotifyDock } from './components/SpotifyDock';
 import { InfoDrawer } from './components/InfoDrawer';
+import { LogoDecorator } from './components/Logos';
 import { CompanyPeek, openPeek } from './components/CompanyPeek';
 const QuantLabPage = lazy(() => import('./components/QuantLabPage'));
 const RealEconPage = lazy(() => import('./components/RealEconPage'));
@@ -916,7 +917,7 @@ export default function App() {
   } else if (page === 'calendar') {
     body = <div className="page page-split"><section className="panel cal-page"><Calendars cal={cal} now={now} onSelect={setSel} mySyms={new Set([...wlSyms, ...stars])} mode={dataMode} news={news.items} /></section><div className="center">{chart()}</div></div>;
   } else if (page === 'journal') {
-    body = <div className="page"><Suspense fallback={<section className="panel"><div className="ph-body muted small">Loading journal…</div></section>}><JournalOverlay equity={settings.startBalance == null ? null : g.equity} views={views} setTrades={setTrades} transfers={transfers} setTransfers={setTransfers} onAutoStart={(t) => setSettings((s) => (s.startBalance == null ? { ...s, startBalance: 0, startDate: t } : s))} violations={viols} lastPx={lastPx} settings={settings} onClose={() => setPage('desk')} onSelect={toDesk} onReplay={setReplayId} canSample={!live} /></Suspense></div>;
+    body = <div className="page"><Suspense fallback={<section className="panel"><div className="ph-body muted small">Loading journal…</div></section>}><JournalOverlay equity={settings.startBalance == null ? null : g.equity} views={views} recaps={shownRecaps} onOpenRecap={(d: string) => setRecapOpen(d)} setTrades={setTrades} transfers={transfers} setTransfers={setTransfers} onAutoStart={(t) => setSettings((s) => (s.startBalance == null ? { ...s, startBalance: 0, startDate: t } : s))} violations={viols} lastPx={lastPx} settings={settings} onClose={() => setPage('desk')} onSelect={toDesk} onReplay={setReplayId} canSample={!live} /></Suspense></div>;
   } else if (page === 'messages') {
     body = <div className="page"><section className="panel msgs-page"><div className="phead"><div className="phead-title">Messages: earnings, Fed, White House, economy</div></div><Messages feed={feed} cal={cal} nowMs={now} onChart={toDesk} /></section></div>;
   } else if (page === 'gamma') {
@@ -1035,6 +1036,7 @@ export default function App() {
       <Suspense fallback={null}><HoverCard quotes={quotes} names={OFFLINE_NAMES} /></Suspense>
       <StanceLayer />
       <SpotifyDock />
+      <LogoDecorator />
       <InfoDrawer onLearn={() => setPage('learn')} />
       <CompanyPeek mode={dataMode} quotes={quotes} onChart={toDesk} onCompany={openCompany} />
       {calm && <Suspense fallback={null}><CalmMode onExit={() => setCalm(false)} /></Suspense>}

@@ -1,4 +1,5 @@
 // Full journal (trades, stats, violations, import) and the account drawer.
+import type { Recap } from '../lib/recap';
 import { ResearchTab } from './ResearchTab';
 import { JournalCalendar } from './JournalCalendar';
 import { IMPORT_EVENT, takePendingFiles } from '../lib/importPick';
@@ -25,6 +26,9 @@ const r2 = (x: number | null) => (x == null ? '—' : `${x >= 0 ? '+' : ''}${x.t
 
 export interface JournalProps {
   views: TradeView[];
+  /** end-of-day cards, shown on the calendar; open one with onOpenRecap */
+  recaps?: Recap[];
+  onOpenRecap?: (day: string) => void;
   setTrades: (f: (t: Trade[]) => Trade[]) => void;
   transfers: Transfer[];
   setTransfers: (f: (t: Transfer[]) => Transfer[]) => void;
@@ -61,7 +65,7 @@ export function JournalOverlay(p: JournalProps) {
         <div className="jn-body">
           {tab === 'trades' && <Trades {...p} />}
           {tab === 'research' && <ResearchTab />}
-          {tab === 'calendar' && <JournalCalendar views={p.views} onSelect={p.onSelect} />}
+          {tab === 'calendar' && <JournalCalendar views={p.views} onSelect={p.onSelect} recaps={p.recaps} onOpenRecap={p.onOpenRecap} violations={p.violations} />}
           {tab === 'stats' && <StatsTab views={p.views} />}
           {tab === 'violations' && <ViolationsTab v={p.violations} />}
           {tab === 'discipline' && <Discipline views={p.views} settings={p.settings} equity={p.equity ?? p.settings.startBalance} />}
