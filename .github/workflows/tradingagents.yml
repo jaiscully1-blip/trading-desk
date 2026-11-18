@@ -46,10 +46,13 @@ jobs:
           git clone --depth 1 https://github.com/TauricResearch/TradingAgents.git /tmp/ta
           pip install --quiet /tmp/ta
       - name: Run the analysts
+        id: run
         run: python agents/run.py
       - name: Save results
-        if: always()
+        # save whatever the analysts finished, even if one ticker failed; skip when they never started (e.g. missing key)
+        if: always() && steps.run.outcome != 'skipped'
         run: |
+          [ -d agents/out ] || exit 0
           git config user.name "tradingagents-bot"
           git config user.email "actions@users.noreply.github.com"
           git add agents/out

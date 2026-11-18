@@ -6,7 +6,7 @@ import { createPortal } from 'react-dom';
 import { downloadDesk, exportDesk, importDesk, parseDeskFile, type DeskFile } from '../lib/deskfile';
 import { currentAccount, initials, isOwner, leave, makeOwner, verifyDeskPassword } from '../lib/accounts';
 
-export type Page = 'morning' | 'home' | 'messages' | 'desk' | 'patterns' | 'company' | 'scanner' | 'map' | 'flows' | 'smart' | 'etfs' | 'gamma' | 'odds' | 'journal' | 'calendar' | 'status' | 'distress' | 'insiders' | 'credit' | 'mtf' | 'global' | 'news' | 'essay' | 'tesla' | 'altdata' | 'realecon' | 'plumbing';
+export type Page = 'morning' | 'home' | 'messages' | 'desk' | 'patterns' | 'company' | 'scanner' | 'map' | 'flows' | 'smart' | 'etfs' | 'gamma' | 'odds' | 'journal' | 'calendar' | 'status' | 'distress' | 'insiders' | 'credit' | 'mtf' | 'global' | 'news' | 'essay' | 'tesla' | 'altdata' | 'realecon' | 'plumbing' | 'policy';
 export type GroupId = 'today' | 'charts' | 'scan' | 'flow' | 'alt' | 'journal';
 
 /** 24x24 stroke paths (own drawings, simple shapes) */
@@ -28,6 +28,7 @@ const ICON: Record<Page | 'account', string> = {
   calendar: 'M4 6h16v14H4z M4 10h16 M8 3v4 M16 3v4',
   journal: 'M5 4h11a3 3 0 0 1 3 3v13H8a3 3 0 0 1-3-3z M5 17a3 3 0 0 1 3-3h11',
   essay: 'M4 20h4L19 9l-4-4L4 16z M13.5 6.5l4 4 M4 20h16',
+  policy: 'M4 21h16 M6 18V10 M10 18V10 M14 18V10 M18 18V10 M3 8l9-5 9 5z',
   plumbing: 'M4 6h10a4 4 0 0 1 4 4v8 M4 6v4 M18 18h2 M14 18h6 M9 6v4',
   realecon: 'M2 17l5-5 4 3 7-8 M14 7h4v4 M3 21h18',
   altdata: 'M4 19V9 M10 19V5 M16 19v-7 M22 19H2',
@@ -51,6 +52,7 @@ const P: Record<Page, { label: string; hint: string; key: string }> = {
   scanner: { label: 'Scanner', hint: 'setups, gappers, RS rank', key: 'S' }, flows: { label: 'Rotation', hint: 'sector and theme rotation', key: 'G' }, etfs: { label: 'ETFs and sectors', hint: 'heatmap and holdings', key: 'U' }, smart: { label: '13F Tracker', hint: '13F, ARK, Congress', key: 'I' },
   gamma: { label: 'Gamma and IV', hint: 'dealer gamma, volatility', key: 'V' }, map: { label: 'World map', hint: 'news hotspots, conflicts, shipping', key: 'M' }, odds: { label: 'Econ odds', hint: 'Fed, recession, CPI bets', key: 'Y' }, calendar: { label: 'Calendars', hint: 'economy, earnings, IPOs, Fed', key: 'C' },
   journal: { label: 'Journal', hint: 'trades, rules, review', key: '⇧J' },
+  policy: { label: 'Macro & Policy', hint: 'earnings scoreboard, tariffs, policy odds by sector', key: '⇧O' },
   plumbing: { label: 'Market Plumbing', hint: 'short volume, dark pools, borrow, fails, options flow, buybacks, dilution, lockups, mergers', key: '⇧P' },
   realecon: { label: 'Real Economy', hint: 'air traffic, CEO jets, rail, power, fuel, freight, weather', key: '⇧E' },
   altdata: { label: 'Alt Data', hint: 'hiring, app ranks, interest, GitHub, players, social, prices', key: '⇧A' },
@@ -68,7 +70,7 @@ export const NAV_GROUPS: { id: GroupId; label: string; pages: Page[] }[] = [
   { id: 'today', label: 'Today', pages: ['morning', 'home', 'news', 'messages', 'calendar'] },
   { id: 'charts', label: 'Charts', pages: ['desk', 'mtf', 'patterns', 'company'] },
   { id: 'scan', label: 'Scan', pages: ['scanner', 'flows', 'etfs', 'smart', 'insiders', 'plumbing', 'credit', 'distress'] },
-  { id: 'flow', label: 'Flow and risk', pages: ['global', 'gamma', 'map', 'odds', 'status'] },
+  { id: 'flow', label: 'Flow and risk', pages: ['global', 'policy', 'gamma', 'map', 'odds', 'status'] },
   { id: 'alt', label: 'Alt data', pages: ['altdata', 'tesla', 'realecon'] },
   { id: 'journal', label: 'Journal', pages: ['journal', 'essay'] },
 ];

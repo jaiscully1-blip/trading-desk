@@ -3,7 +3,7 @@
 import { ProviderError } from '../../shared/parse.js';
 import { clock } from '../../shared/clock.js';
 
-export type Provider = 'twelvedata' | 'finnhub' | 'alphavantage' | 'fred' | 'finra' | 'kalshi' | 'gdelt' | 'binance' | 'coingecko' | 'sec' | 'gemini' | 'wikipedia' | 'aisstream' | 'polymarket' | 'github' | 'yahoo' | 'openfigi' | 'ark' | 'tradingview' | 'alpaca' | 'cboe' | 'nasdaq' | 'earningsapi' | 'tradetime' | 'zillow' | 'mempool' | 'dataroma' | 'apewisdom' | 'rdw' | 'copernicus' | 'stocktwits' | 'opensky' | 'eia' | 'noaa';
+export type Provider = 'twelvedata' | 'finnhub' | 'alphavantage' | 'fred' | 'finra' | 'kalshi' | 'gdelt' | 'binance' | 'coingecko' | 'sec' | 'gemini' | 'wikipedia' | 'aisstream' | 'polymarket' | 'github' | 'yahoo' | 'openfigi' | 'ark' | 'tradingview' | 'alpaca' | 'cboe' | 'nasdaq' | 'earningsapi' | 'tradetime' | 'zillow' | 'mempool' | 'dataroma' | 'apewisdom' | 'rdw' | 'copernicus' | 'stocktwits' | 'opensky' | 'eia' | 'noaa' | 'patentsview' | 'courtlistener';
 
 export const KEY_ENV: Record<Provider, string> = {
   twelvedata: 'TWELVEDATA_API_KEY',
@@ -39,6 +39,8 @@ export const KEY_ENV: Record<Provider, string> = {
   opensky: '', // OpenSky Network anonymous REST: 400 credits a day
   eia: 'EIA_API_KEY', // U.S. Energy Information Administration open data, free key
   noaa: '', // api.weather.gov, no key (asks for a User-Agent)
+  patentsview: 'PATENTSVIEW_API_KEY', // USPTO PatentsView search API, free key
+  courtlistener: 'COURTLISTENER_TOKEN', // CourtListener (Free Law Project) API, free account token
   copernicus: 'COPERNICUS_CLIENT_ID', // + COPERNICUS_CLIENT_SECRET; Copernicus Data Space (Sentinel Hub), free account and monthly quota
 };
 
@@ -89,6 +91,8 @@ const LIMITS: Record<Provider, { perMin: number; perDay: number }> = {
   opensky: { perMin: 6, perDay: 300 }, // anonymous: 400 credits a day; answers cached 5-10 minutes
   eia: { perMin: 20, perDay: 1000 },
   noaa: { perMin: 20, perDay: 2000 },
+  patentsview: { perMin: 30, perDay: 1000 }, // free key allows 45 a minute
+  courtlistener: { perMin: 20, perDay: 1000 }, // free token allows 5,000 an hour
   stocktwits: { perMin: 3, perDay: 150 }, // public API allows ~200 an hour; every answer is cached 10 minutes
   copernicus: { perMin: 10, perDay: 300 }, // free quota is processing units per month: every answer is cached a day
 };
@@ -178,7 +182,8 @@ export async function getJson(url: string, provider: Provider, timeoutMs = 8000,
     noteOk(provider);
     return out;
   } catch (e) {
-    if (e instanceof ProviderError) { noteError(provider, e.message); throw e; }
+    // a GitHub file that a job hasn't produced yet (404) is 'not run yet', not a broken provider: don't flag it on Data status
+    if (e instanceof ProviderError) { if (!(provider === 'github' && /HTTP 404/.test(e.message))) noteError(provider, e.message); throw e; }
     const pe = new ProviderError(provider, (e as Error).name === 'AbortError' ? 'timeout' : (e as Error).message, true);
     noteError(provider, pe.message);
     throw pe;

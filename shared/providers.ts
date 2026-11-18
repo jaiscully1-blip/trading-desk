@@ -30,6 +30,8 @@ export const PROVIDER_INFO: Record<string, ProviderInfo> = {
   rdw: { label: 'RDW (Netherlands vehicle register)', feeds: 'Tesla and BYD registrations by month and model', fallback: 'Section left empty' },
   opensky: { label: 'OpenSky Network', feeds: 'Airport and airline traffic, jet tracker (Real Economy)', fallback: 'Sections left empty' },
   eia: { label: 'EIA open data', feeds: 'Electricity demand by grid region, gasoline by state', fallback: 'National gasoline from FRED' },
+  patentsview: { label: 'USPTO PatentsView', feeds: 'Patents granted per year (Company page, Filings Intel)', fallback: 'Setup steps shown' },
+  courtlistener: { label: 'CourtListener', feeds: 'Federal court cases naming the company (Filings Intel)', fallback: 'Setup steps shown' },
   noaa: { label: 'NOAA weather alerts', feeds: 'Severe weather risk by sector', fallback: 'Section left empty' },
   stocktwits: { label: 'StockTwits', feeds: 'Watchers and bullish / bearish tags on the Alt Data page', fallback: 'Section left empty', unofficial: true },
   copernicus: { label: 'Copernicus Data Space (Sentinel-2)', feeds: 'Satellite lot fullness on the Tesla & Lots page', fallback: 'Lots show setup steps' },
