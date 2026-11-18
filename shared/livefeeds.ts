@@ -14,12 +14,20 @@ export const STEAM_GAMES: Record<string, [number, string][]> = {
   NTES: [[2767030, 'Marvel Rivals'], [1203220, 'Naraka: Bladepoint']],
   WBD: [[990080, 'Hogwarts Legacy'], [1971870, 'Mortal Kombat 1']],
 };
-/** CFPB complaint database company names. */
+/** Steam publisher names: the route also pulls each publisher's top games from the store search, so new releases count. */
+export const STEAM_PUBLISHERS: Record<string, string[]> = {
+  TTWO: ['Rockstar Games', '2K'], EA: ['Electronic Arts'], UBSFY: ['Ubisoft'], MSFT: ['Xbox Game Studios', 'Bethesda Softworks', 'Activision'],
+  SONY: ['PlayStation Publishing LLC'], CCOEY: ['CAPCOM Co., Ltd.'], NTES: ['NetEase Games'], WBD: ['Warner Bros. Games'],
+};
+/** Store search JSON -> app ids (read from each item's image URL). */
+export const steamIds = (j: any): number[] => ((j?.items ?? []) as { logo?: string }[]).map((x) => Number(/\/apps\/(\d+)\//.exec(x.logo ?? '')?.[1])).filter((n) => n > 0);
+
+/** CFPB complaint database company names (exact, as the CFPB writes them). */
 export const CFPB_CO: Record<string, string> = {
   JPM: 'JPMORGAN CHASE & CO.', BAC: 'BANK OF AMERICA, NATIONAL ASSOCIATION', WFC: 'WELLS FARGO & COMPANY', C: 'CITIBANK, N.A.', COF: 'CAPITAL ONE FINANCIAL CORPORATION',
   AXP: 'AMERICAN EXPRESS COMPANY', DFS: 'DISCOVER BANK', SYF: 'SYNCHRONY FINANCIAL', USB: 'U.S. BANCORP', ALLY: 'ALLY FINANCIAL INC.', EFX: 'EQUIFAX, INC.',
   TRU: 'TRANSUNION INTERMEDIATE HOLDINGS, INC.', EXPGY: 'Experian Information Solutions Inc.', NAVI: 'Navient Solutions, LLC.', XYZ: 'Block, Inc.', COIN: 'Coinbase, Inc.',
-  TFC: 'TRUIST FINANCIAL CORPORATION', PNC: 'PNC Bank N.A.',
+  TFC: 'TRUIST FINANCIAL CORPORATION', PNC: 'PNC Bank N.A.', PYPL: 'Paypal Holdings, Inc', SOFI: 'SOFI TECHNOLOGIES, INC.', HOOD: 'ROBINHOOD MARKETS INC.',
 };
 /** NHTSA recall "manufacturer" patterns (SQL LIKE, upper case). */
 export const NHTSA_MFR: Record<string, string[]> = {
@@ -33,6 +41,11 @@ export const FDA_FIRM: Record<string, ['food' | 'drug' | 'device', string]> = {
   HRL: ['food', 'hormel'], CPB: ['food', 'campbell'], SJM: ['food', 'smucker'], KDP: ['food', 'keurig'], MKC: ['food', 'mccormick'], KO: ['food', 'coca-cola'], SBUX: ['food', 'starbucks'],
   PFE: ['drug', 'pfizer'], MRK: ['drug', 'merck'], JNJ: ['drug', 'janssen'], LLY: ['drug', 'lilly'], ABBV: ['drug', 'abbvie'], BMY: ['drug', 'bristol'], TEVA: ['drug', 'teva'], VTRS: ['drug', 'viatris'], AMGN: ['drug', 'amgen'], GILD: ['drug', 'gilead'],
   MDT: ['device', 'medtronic'], ABT: ['device', 'abbott'], BSX: ['device', 'boston scientific'], SYK: ['device', 'stryker'], BDX: ['device', 'becton'], BAX: ['device', 'baxter'], ZBH: ['device', 'zimmer'], EW: ['device', 'edwards lifesciences'], ISRG: ['device', 'intuitive surgical'], DXCM: ['device', 'dexcom'], PODD: ['device', 'insulet'],
+};
+/** Recalling-firm names to drop because they share the search word but are a different company. */
+export const FDA_EXCLUDE: Record<string, RegExp> = {
+  MRK: /kgaa|emd|serono|millipore|sigma/i, // Merck KGaA (Germany) is not Merck & Co.
+  ABT: /abbvie/i, KO: /consolidated|bottling(?! company of)/i, LLY: /lilly (?:industries|ink)/i,
 };
 export const LIVE_TICKERS = [...new Set([...Object.keys(STEAM_GAMES), ...Object.keys(CFPB_CO), ...Object.keys(NHTSA_MFR), ...Object.keys(FDA_FIRM)])].sort();
 

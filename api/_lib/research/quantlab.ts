@@ -5,7 +5,7 @@ import { parseSecTickers } from '../../../shared/company.js';
 import { fundSeries } from '../../../shared/fundseries.js';
 import { inflateRawSync } from 'node:zlib';
 import { FACTORS, parseFrench, type FFMonth } from '../../../shared/quantlab.js';
-import { CFPB_CO, FDA_FIRM, LIVE_TICKERS, NHTSA_MFR, STEAM_GAMES, countByQuarter, fdaDate, quarterRange, steamQuarterly, type LiveBlock, type QPoint } from '../../../shared/livefeeds.js';
+import { CFPB_CO, FDA_EXCLUDE, FDA_FIRM, STEAM_PUBLISHERS, steamIds, LIVE_TICKERS, NHTSA_MFR, STEAM_GAMES, countByQuarter, fdaDate, quarterRange, steamQuarterly, type LiveBlock, type QPoint } from '../../../shared/livefeeds.js';
 import { secJson } from '../adapters.js';
 import { SYMBOL_RE, cached, getJson, hasKey, json, key } from '../core.js';
 
@@ -124,11 +124,15 @@ export async function qlevents(req: Request): Promise<Response> {
 // Steam reviews, CFPB complaints, NHTSA recalls, openFDA recalls. Each block lists quarterly series for the
 // relationship finder, dated events for the event study, and the latest readings.
 const pct1 = (v: number) => `${v >= 0 ? '+' : ''}${v.toFixed(0)}%`;
-async function steamBlock(games: [number, string][]): Promise<LiveBlock> {
-  const hist = await Promise.all(games.map(async ([id]) => { try { const j = await getJson(`https://store.steampowered.com/appreviewhistogram/${id}?l=english&review_score_preference=0`, 'steam', 10000); return { rollups: j?.results?.rollups ?? [] }; } catch { return { rollups: [] }; } }));
+async function steamBlock(sym: string, fixed: [number, string][]): Promise<LiveBlock> {
+  // the hand-checked flagship games, plus each publisher's top 15 on the store right now (catches new releases)
+  const found = await Promise.all((STEAM_PUBLISHERS[sym] ?? []).map(async (pub) => { try { return steamIds(await getJson(`https://store.steampowered.com/search/results/?publisher=${encodeURIComponent(pub)}&json=1&count=15`, 'steam', 10000)); } catch { return []; } }));
+  const ids = [...new Set([...fixed.map((g) => g[0]), ...found.flat()])].slice(0, 30);
+  const games = fixed;
+  const hist = await Promise.all(ids.map(async (id) => { try { const j = await getJson(`https://store.steampowered.com/appreviewhistogram/${id}?l=english&review_score_preference=0`, 'steam', 10000); return { rollups: j?.results?.rollups ?? [] }; } catch { return { rollups: [] }; } }));
   const { pos, vol } = steamQuarterly(hist);
   const last = pos[pos.length - 1], yago = pos.find((p) => p[0] === `${+(last?.[0] ?? '0').slice(0, 4) - 1}${(last?.[0] ?? '').slice(4)}`);
-  return { kind: 'Steam reviews', source: `Steam store review histograms for ${games.map((g) => g[1]).join(', ')}`, events: [],
+  return { kind: 'Steam reviews', source: `Steam review histograms for ${ids.length} games, including ${games.map((g) => g[1]).join(', ')} and the publisher's other top sellers`, events: [],
     series: [{ id: 'lv:steam:pos', label: 'Steam % positive (change)', group: 'Live feeds', source: 'Steam', points: pos }, { id: 'lv:steam:vol', label: 'Steam review volume', group: 'Live feeds', source: 'Steam', points: vol }],
     latest: last ? [{ label: `Players positive, ${last[0]}`, value: `${last[1].toFixed(0)}%`, note: yago ? `${(last[1] - yago[1]) >= 0 ? '+' : ''}${(last[1] - yago[1]).toFixed(1)} pts vs a year ago` : undefined }, { label: 'Reviews that quarter', value: (vol[vol.length - 1]?.[1] ?? 0).toLocaleString() }] : [] };
 }
@@ -154,13 +158,16 @@ async function nhtsaBlock(pats: string[]): Promise<LiveBlock> {
     events: ev.filter((r) => r.v >= 50000).map((r) => ({ date: r.date, group: r.v >= 500000 ? 'Huge recall (500k+ vehicles)' : 'Big recall (50k+ vehicles)', label: `${r.subject.slice(0, 70)} · ${r.v.toLocaleString()} vehicles` })),
     latest: [{ label: 'Recalls, last 12 months', value: String(yr.length), note: `${yr.reduce((a, r) => a + r.v, 0).toLocaleString()} vehicles` }, ...(big ? [{ label: 'Biggest', value: big.v.toLocaleString(), note: big.subject.slice(0, 60) }] : [])] };
 }
-async function fdaBlock(kind: 'food' | 'drug' | 'device', firm: string): Promise<LiveBlock> {
+async function fdaBlock(sym: string, kind: 'food' | 'drug' | 'device', firm: string): Promise<LiveBlock> {
   const q = `recalling_firm:"${firm.replace(/ /g, '+')}"`;
   const j = await getJson(`https://api.fda.gov/${kind}/enforcement.json?search=${encodeURIComponent(q).replace(/%2B/g, '+')}&limit=1000&sort=report_date:desc`, 'openfda', 15000).catch((e) => { if (/404/.test((e as Error).message)) return { results: [] }; throw e; });
-  const rows = ((j?.results ?? []) as any[]).map((r) => ({ date: fdaDate(String(r.report_date ?? '')), cls: String(r.classification ?? ''), what: String(r.product_description ?? '').slice(0, 70), why: String(r.reason_for_recall ?? '').slice(0, 80) })).filter((r) => r.date);
+  const ex = FDA_EXCLUDE[sym];
+  const rows = ((j?.results ?? []) as any[]).map((r) => ({ date: fdaDate(String(r.report_date ?? '')), firm: String(r.recalling_firm ?? ''), cls: String(r.classification ?? ''), what: String(r.product_description ?? '').slice(0, 70), why: String(r.reason_for_recall ?? '').slice(0, 80) })).filter((r) => r.date && !(ex && ex.test(r.firm)));
+  const firms = new Map<string, number>(); for (const r of rows) firms.set(r.firm, (firms.get(r.firm) ?? 0) + 1);
+  const firmList = [...firms].sort((a, b) => b[1] - a[1]).slice(0, 5).map(([f, n]) => `${f} (${n})`).join('; ');
   const { n } = countByQuarter(rows), yr = rows.filter((r) => r.date >= new Date(Date.now() - 365 * 86400000).toISOString().slice(0, 10));
-  return { kind: `FDA ${kind} recalls`, source: `openFDA ${kind} enforcement reports (recalling firm contains "${firm}")`,
-    series: n.length >= 12 ? [{ id: 'lv:fda', label: `FDA ${kind} recalls (count, change)`, group: 'Live feeds', source: 'openFDA', points: n }] : [],
+  return { kind: `FDA ${kind} recalls`, source: `openFDA ${kind} enforcement reports. Matched firms: ${firmList || 'none'}${ex ? ' (other companies with the same name left out)' : ''}`,
+    series: n.filter((x) => x[1] > 0).length >= 8 ? [{ id: 'lv:fda', label: `FDA ${kind} recalls (count, change)`, group: 'Live feeds', source: 'openFDA', points: n }] : [],
     events: rows.filter((r) => r.cls === 'Class I' || r.cls === 'Class II').map((r) => ({ date: r.date, group: r.cls === 'Class I' ? 'Class I recall (serious)' : 'Class II recall', label: `${r.what} · ${r.why}` })),
     latest: [{ label: 'Recalls, last 12 months', value: String(yr.length), note: `${yr.filter((r) => r.cls === 'Class I').length} Class I (most serious)` }, ...(rows[0] ? [{ label: `Latest, ${rows[0].date}`, value: rows[0].cls || '—', note: rows[0].what }] : [])] };
 }
@@ -168,10 +175,10 @@ export async function qlfeeds(req: Request): Promise<Response> {
   const sym = (new URL(req.url).searchParams.get('symbol') ?? '').toUpperCase();
   if (!SYMBOL_RE.test(sym)) return json({ error: 'bad symbol' }, { status: 400 });
   const jobs: [string, () => Promise<LiveBlock>][] = [];
-  if (STEAM_GAMES[sym]) jobs.push(['steam', () => steamBlock(STEAM_GAMES[sym])]);
+  if (STEAM_GAMES[sym]) jobs.push(['steam', () => steamBlock(sym, STEAM_GAMES[sym])]);
   if (CFPB_CO[sym]) jobs.push(['cfpb', () => cfpbBlock(CFPB_CO[sym])]);
   if (NHTSA_MFR[sym]) jobs.push(['nhtsa', () => nhtsaBlock(NHTSA_MFR[sym])]);
-  if (FDA_FIRM[sym]) jobs.push(['fda', () => fdaBlock(...FDA_FIRM[sym])]);
-  const blocks = await Promise.all(jobs.map(async ([k, f]) => { try { return (await cached(`ql:feed:${k}:${sym}`, 12 * 3600, f)).val; } catch (e) { return { kind: k, source: '', series: [], events: [], latest: [], error: (e as Error).message.slice(0, 120) } as LiveBlock; } }));
+  if (FDA_FIRM[sym]) jobs.push(['fda', () => fdaBlock(sym, ...FDA_FIRM[sym])]);
+  const blocks = await Promise.all(jobs.map(async ([k, f]) => { try { return (await cached(`ql:feed2:${k}:${sym}`, 12 * 3600, f)).val; } catch (e) { return { kind: k, source: '', series: [], events: [], latest: [], error: (e as Error).message.slice(0, 120) } as LiveBlock; } }));
   return json({ sym, blocks, covered: LIVE_TICKERS, asOf: Date.now() }, { sMaxAge: 3600 });
 }
