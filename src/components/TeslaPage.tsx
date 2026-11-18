@@ -5,6 +5,8 @@ import { PageHero } from './PageHero';
 import { useEffect, useMemo, useState } from 'react';
 import type { DataMode } from '../data/live';
 import { usePersisted } from '../lib/store';
+import { Suggest } from './Suggest';
+import { INVENTORY_TIPS, LOTS, REG_SOURCES } from '../../shared/suggest';
 import { Fresh, Seg } from './common';
 import { DEFAULT_LOTS, changes, quarters, type Lot, type MonthRow } from '../../shared/tesla';
 
@@ -99,6 +101,7 @@ function OtherCountries() {
         <input value={f.note} onChange={(e) => setF({ ...f, note: e.target.value })} placeholder="Source (e.g. OFV press release)" aria-label="Source" />
         <button className="btn primary" type="submit">Add</button>
       </form>
+      <Suggest id="tl-reg" title="Where to find the numbers" items={REG_SOURCES.filter((x) => x.country).map((x) => ({ key: x.label, on: f.country === x.country, title: x.note, label: x.country!, onPick: () => setF({ ...f, country: x.country!, note: x.label }) }))} links={REG_SOURCES.map((x) => ({ label: x.label, url: x.url, note: x.note }))} note="Pick a country to fill it in, then open its source and type the Tesla count for the month." />
       {!log.length ? <p className="small muted">Add a month and country to start your own tracker. Each row shows month over month and year over year once it has the earlier months.</p> : (
         <table className="tl-table"><thead><tr><th>Country</th><th>Month</th><th className="r">Teslas</th><th className="r">MoM</th><th className="r">YoY</th><th>Source</th><th /></tr></thead><tbody>
           {countries.flatMap((c) => { const rows: MonthRow[] = log.filter((r) => r.country === c).map((r) => ({ month: r.month, counts: { T: r.value } })).sort((a, b) => a.month.localeCompare(b.month));
@@ -165,6 +168,8 @@ function Lots({ live }: { live: boolean }) {
         <button className="btn" type="submit">Add lot</button>
         <button className="btn" type="button" onClick={() => setMine(DEFAULT_LOTS)} title="Back to the starting 8 lots">Reset</button>
       </form>
+      <Suggest id="tl-lots" title="Suggested lots" items={LOTS.map((x) => ({ key: x.name, on: mine.some((y) => y.name === x.name), title: `${x.what} · ${x.sym} · ${x.lat}, ${x.lon}`, label: <>{x.name} <span className="muted">{x.sym}</span></>, onPick: () => setMine([...mine, { id: uid(), name: x.name, what: x.what, lat: x.lat, lon: x.lon, size: x.size }]) }))}
+        note="Click to add. Coordinates are each site's centre from OpenStreetMap: use “map” to check and “adjust” to put the box on the parking itself." />
       <details className="tl-setup"><summary>Set up the satellite keys (free, 5 minutes)</summary>
         <ol className="small">
           <li>Make a free account at <a href="https://dataspace.copernicus.eu" target="_blank" rel="noreferrer noopener">dataspace.copernicus.eu</a>.</li>
@@ -191,6 +196,7 @@ function Inventory() {
         <input type="number" min={0} value={f.value} onChange={(e) => setF({ ...f, value: e.target.value })} placeholder="Cars listed (US)" aria-label="Cars listed" />
         <button className="btn primary" type="submit">Log</button>
       </form>
+      <Suggest id="tl-inv" title="How to count" tips={INVENTORY_TIPS} />
       {models.map((m) => { const rows = log.filter((r) => r.model === m).sort((a, b) => a.date.localeCompare(b.date)); const last = rows.at(-1)!, prev = rows.at(-2);
         const yAgo = [...rows].reverse().find((r) => Date.parse(r.date) <= Date.parse(last.date) - 330 * 86400_000);
         return <div key={m} className="tl-inv"><b>{m}</b><span className="num">{last.value.toLocaleString()}</span><span className="small muted">{last.date}</span>

@@ -6,6 +6,8 @@ import type { TradeView } from '../lib/journal';
 import { etDay } from '../lib/journal';
 import { usePersisted } from '../lib/store';
 import { sUsd } from '../lib/format';
+import { Suggest } from './Suggest';
+import { JOURNAL_TAGS } from '../../shared/suggest';
 
 export interface DayNote { text: string; tags: string[]; mood?: string; followed?: 'yes' | 'no' | 'partly'; updated: number }
 const MOODS = ['calm', 'confident', 'fomo', 'revenge', 'anxious', 'bored', 'tired'];
@@ -124,6 +126,7 @@ export function JournalCalendar({ views, onSelect }: { views: TradeView[]; onSel
           <label>Followed my plan?<select value={note?.followed ?? ''} onChange={(e) => setNote({ followed: (e.target.value || undefined) as DayNote['followed'] })}><option value="">–</option><option value="yes">yes</option><option value="partly">partly</option><option value="no">no</option></select></label>
         </div>
         <label className="small">Tags<input value={(note?.tags ?? []).join(', ')} onChange={(e) => setNote({ tags: e.target.value.split(',').map((x) => x.trim()).filter(Boolean) })} placeholder="FOMC, chased, A+ setup" /></label>
+        <Suggest id="jtags" title="Common tags" items={JOURNAL_TAGS.map((t) => ({ key: t, label: t, on: (note?.tags ?? []).includes(t), onPick: () => setNote({ tags: [...(note?.tags ?? []), t] }) }))} />
         {note?.updated ? <span className="small muted">Saved {new Date(note.updated).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}</span> : null}
       </aside>
     </div>
