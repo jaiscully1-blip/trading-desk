@@ -17,3 +17,11 @@ describe('brands and terms', () => {
     expect(lookupTerm('Website')).toBeNull();
   });
 });
+
+import { clock, turnTimes } from '../shared/transcript';
+describe('transcript timeline', () => {
+  it('estimates start times from word counts', () => {
+    const t = turnTimes([{ text: Array(150).fill('w').join(' ') }, { text: 'hi there' }], 150, 3);
+    expect(t).toEqual([0, 63]); expect(clock(63)).toBe('1:03'); expect(clock(3725)).toBe('1:02:05');
+  });
+});

@@ -3214,3 +3214,17 @@ button.chip[data-st="bull"] { color: var(--up); } button.chip[data-st="bear"] { 
 .rs-note header { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
 .rs-body { margin: 0; white-space: pre-wrap; font-size: 13px; } .rs-note textarea { width: 100%; font: inherit; }
 .rs-acts { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+/* Earnings call: replay and live captions */
+.trv-mode { margin-left: auto; }
+.trv-play { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding: 6px 12px; } .trv-play input[type=range] { flex: 1 1 160px; min-width: 120px; }
+.trv-t { display: inline-block; min-width: 46px; color: var(--accent); font-size: 11.5px; }
+.trv-turn.clickable { cursor: pointer; } .trv-turn.clickable:hover { background: var(--panel-2); }
+.lc { display: grid; gap: 8px; padding: 8px 12px 12px; min-height: 0; }
+.lc-bar { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; } .lc-bar input { flex: 1 1 180px; min-width: 0; }
+.lc-live { color: var(--down); font: 600 11px 'IBM Plex Mono', monospace; animation: lc-blink 1.2s ease-in-out infinite; }
+@keyframes lc-blink { 50% { opacity: .35; } }
+.lc-list { display: grid; gap: 2px; max-height: 55vh; overflow-y: auto; align-content: start; }
+.lc-line { all: unset; display: grid; grid-template-columns: 52px minmax(0, 1fr); gap: 8px; padding: 5px 8px; border-radius: 6px; font-size: 13.5px; line-height: 1.45; cursor: pointer; }
+.lc-line:hover { background: var(--panel-2); } .lc-line.hot { background: var(--accent-bg); } .lc-line.interim { color: var(--muted); font-style: italic; cursor: default; }
+.lc-t { color: var(--accent); font-size: 11.5px; padding-top: 2px; }
+@media (prefers-reduced-motion: reduce) { .lc-live { animation: none; } }
