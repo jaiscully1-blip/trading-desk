@@ -52,6 +52,7 @@ const RealEconPage = lazy(() => import('./components/RealEconPage'));
 const PlumbingPage = lazy(() => import('./components/PlumbingPage'));
 const MacroExtraPage = lazy(() => import('./components/MacroExtraPage'));
 const LearnPage = lazy(() => import('./components/LearnPage'));
+const CryptoCharts = lazy(() => import('./components/CryptoCharts'));
 const MtfPage = lazy(() => import('./components/MtfPage'));
 const EtfSectors = lazy(() => import('./components/EtfSectors'));
 const EconOdds = lazy(() => import('./components/EconOdds'));
@@ -729,9 +730,10 @@ export default function App() {
     { id: 'fed', label: 'Fed meeting countdown and rate odds', run: () => setPage('calendar') },
     { id: 'earnings', label: 'Earnings calendar', run: () => setPage('calendar') },
     { id: 'fear', label: 'Show/hide fear strip', hint: 'F', run: () => setLayout({ fearOpen: layout.fearOpen === false }) },
+    { id: 'crypto', label: 'BTC / ETH: live Bitcoin and Ethereum charts (24/7)', run: () => setPage('crypto') },
     { id: 'learn', label: 'Learn: free practice (probability guide, Figgie, Estimathon, puzzles, how an exchange works)', run: () => setPage('learn') },
     { id: 'policy', label: 'Macro & Policy: earnings season scoreboard, tariff tracker, policy odds by sector', hint: 'Shift O', run: () => setPage('policy') },
-    { id: 'plumbing', label: 'Market Plumbing: short volume, dark pools, borrow fee, fails to deliver, unusual options, buybacks, dilution, lockups, mergers', hint: 'Shift P', run: () => setPage('plumbing') },
+    { id: 'plumbing', label: 'Shorts & Supply (was Market Plumbing): short volume, dark pools, borrow fee, fails to deliver, unusual options, buybacks, dilution, lockups, mergers', hint: 'Shift P', run: () => setPage('plumbing') },
     { id: 'realecon', label: 'Real Economy: air traffic, CEO jets, rail, power demand, gas prices, freight, weather', hint: 'Shift E', run: () => setPage('realecon') },
     { id: 'altdata', label: 'Alt Data: hiring, app ranks, Wikipedia interest, GitHub, Steam, Reddit and StockTwits, price basket', hint: 'Shift A', run: () => setPage('altdata') },
     { id: 'tesla', label: 'Tesla & Lots: registrations, satellite lot fullness, inventory', hint: 'Shift T', run: () => setPage('tesla') },
@@ -962,6 +964,8 @@ export default function App() {
     );
   } else if (page === 'news') {
     body = <Suspense fallback={<section className="panel"><div className="ph-body">Loading…</div></section>}><NewsPage mode={dataMode} news={news.items} sel={sel} onChart={toDesk} /></Suspense>;
+  } else if (page === 'crypto') {
+    body = <div className="page"><Suspense fallback={<section className="panel"><div className="ph-body">Loading…</div></section>}><CryptoCharts /></Suspense></div>;
   } else if (page === 'learn') {
     body = <Suspense fallback={<section className="panel"><div className="ph-body">Loading…</div></section>}><LearnPage /></Suspense>;
   } else if (page === 'policy') {

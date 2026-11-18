@@ -2,7 +2,6 @@
 import { JournalCalendar } from './JournalCalendar';
 import { IMPORT_EVENT, takePendingFiles } from '../lib/importPick';
 import { storagePrefix } from '../lib/accounts';
-import CryptoCharts from './CryptoCharts';
 import Discipline from './Discipline';
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { ColorType, LineSeries, createChart, type UTCTimestamp } from 'lightweight-charts';
@@ -19,7 +18,7 @@ import { load, save } from '../lib/store';
 import { ScreenshotInput, uid } from './Trading';
 import { realized } from '../../shared/webull';
 
-type Tab = 'trades' | 'calendar' | 'stats' | 'violations' | 'discipline' | 'crypto' | 'import';
+type Tab = 'trades' | 'calendar' | 'stats' | 'violations' | 'discipline' | 'import';
 const fmtDate = (ms: number) => { const d = etDay(ms); return `${d.slice(5, 7)}/${d.slice(8)} ${etTime(ms)}`; };
 const r2 = (x: number | null) => (x == null ? '—' : `${x >= 0 ? '+' : ''}${x.toFixed(2)}R`);
 
@@ -42,7 +41,7 @@ export interface JournalProps {
 
 export function JournalOverlay(p: JournalProps) {
   // the Daily recap's "Import history" link lands here on the Import tab (one-shot hint in the browser store)
-  const [tab, setTab] = useState<Tab>(() => { const t = load<Tab | null>('journalTab', null); if (t) save('journalTab', null); return t ?? 'trades'; });
+  const [tab, setTab] = useState<Tab>(() => { const t = load<Tab | null>('journalTab', null); if (t) save('journalTab', null); return t && t !== ('crypto' as string) ? t : 'trades'; });
   // "Import broker CSV" while the journal is already open: jump to the Import tab
   useEffect(() => { const go = () => { save('journalTab', null); setTab('import'); }; window.addEventListener(IMPORT_EVENT, go); return () => window.removeEventListener(IMPORT_EVENT, go); }, []);
   const hasDemo = p.views.some((v) => v.t.demo);
@@ -51,7 +50,7 @@ export function JournalOverlay(p: JournalProps) {
       <div className="overlay-in jn">
         <div className="phead">
           <div className="phead-title">
-            <PageTabs<Tab> value={tab} onChange={setTab} options={[{ id: 'trades', label: 'Trades', count: p.views.filter((v) => !v.t.deleted).length || undefined }, { id: 'calendar', label: 'Calendar', hint: 'trades on their close or expiration day, with your notes' }, { id: 'stats', label: 'Stats' }, { id: 'violations', label: 'Violations', count: p.violations.length || undefined }, { id: 'discipline', label: 'Discipline', hint: 'waiting log, size check, what price did after you sold' }, { id: 'crypto', label: 'BTC / ETH', hint: 'live Bitcoin and Ethereum charts, updating on their own' }, { id: 'import', label: 'Import' }]} />
+            <PageTabs<Tab> value={tab} onChange={setTab} options={[{ id: 'trades', label: 'Trades', count: p.views.filter((v) => !v.t.deleted).length || undefined }, { id: 'calendar', label: 'Calendar', hint: 'trades on their close or expiration day, with your notes' }, { id: 'stats', label: 'Stats' }, { id: 'violations', label: 'Violations', count: p.violations.length || undefined }, { id: 'discipline', label: 'Discipline', hint: 'waiting log, size check, what price did after you sold' }, { id: 'import', label: 'Import' }]} />
           </div>
           <div className="phead-ctl">
             {hasDemo && <><Fresh kind="demo" /><button className="chip sm" onClick={() => p.setTrades((ts) => ts.map((t) => (t.demo ? { ...t, deleted: true, updated: Date.now() } : t)))}>Remove sample trades</button></>}
@@ -64,7 +63,6 @@ export function JournalOverlay(p: JournalProps) {
           {tab === 'stats' && <StatsTab views={p.views} />}
           {tab === 'violations' && <ViolationsTab v={p.violations} />}
           {tab === 'discipline' && <Discipline views={p.views} settings={p.settings} equity={p.equity ?? p.settings.startBalance} />}
-          {tab === 'crypto' && <CryptoCharts />}
           {tab === 'import' && <ImportTab {...p} />}
         </div>
       </div>
