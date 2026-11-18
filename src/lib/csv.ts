@@ -2,17 +2,25 @@
 import { etToUtc } from '../../shared/clock';
 import type { Fill, Trade, Transfer } from './journal';
 
+/** Most broker exports use commas; some European or spreadsheet exports use semicolons, tabs or pipes. Count outside quotes on the first lines. */
+export function delimiterOf(text: string): string {
+  const head = text.split(/\r?\n/).filter((l) => l.trim()).slice(0, 5).join('\n').replace(/"[^"]*"/g, '');
+  const counts = [',', ';', '\t', '|'].map((d) => [d, head.split(d).length - 1] as const).sort((a, b) => b[1] - a[1]);
+  return counts[0][1] > 0 ? counts[0][0] : ',';
+}
+
 export function parseCsv(text: string): string[][] {
   const rows: string[][] = [];
   let row: string[] = [], cell = '', q = false;
   const s = text.replace(/^﻿/, '');
+  const d = delimiterOf(s);
   for (let i = 0; i < s.length; i++) {
     const c = s[i];
     if (q) {
       if (c === '"') { if (s[i + 1] === '"') { cell += '"'; i++; } else q = false; }
       else cell += c;
     } else if (c === '"') q = true;
-    else if (c === ',') { row.push(cell); cell = ''; }
+    else if (c === d) { row.push(cell); cell = ''; }
     else if (c === '\n' || c === '\r') {
       if (c === '\r' && s[i + 1] === '\n') i++;
       row.push(cell); cell = '';
