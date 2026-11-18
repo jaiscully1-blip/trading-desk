@@ -205,6 +205,45 @@ export function SpotifyW({ cfg, set }: P) {
   );
 }
 
+/** Live chat from a Discord channel in any server where WidgetBot has been added by a moderator. You read and post as
+ *  yourself after signing in to Discord inside the embed (WidgetBot handles the login; the desk never sees it). */
+export const parseDiscordLink = (s: string): { server: string; channel: string } | null => {
+  const m = /discord(?:app)?\.com\/channels\/(\d{15,22})\/(\d{15,22})/.exec(s) ?? /widgetbot\.io\/channels\/(\d{15,22})\/(\d{15,22})/.exec(s) ?? /^\s*(\d{15,22})\s*[\/ ,]\s*(\d{15,22})\s*$/.exec(s);
+  return m ? { server: m[1], channel: m[2] } : null;
+};
+export function DiscordChatW({ cfg, set }: P) {
+  const saved: { name: string; link: string }[] = cfg.saved ?? [];
+  const link: string = cfg.link ?? '';
+  const ids = parseDiscordLink(link);
+  const [draft, setDraft] = useState(link);
+  const [name, setName] = useState('');
+  const load = (e: React.FormEvent) => { e.preventDefault(); const l = draft.trim(); if (!parseDiscordLink(l)) return; set({ ...cfg, link: l, saved: name.trim() ? [...saved.filter((x) => x.link !== l), { name: name.trim().slice(0, 24), link: l }] : saved }); setName(''); };
+  return (
+    <div className="hw-col">
+      <form className="hw-bar" onSubmit={load}>
+        <input className="br-url" value={draft} onChange={(e) => setDraft(e.target.value)} placeholder="Paste a Discord channel link (right-click channel → Copy Link)" aria-label="Discord channel link" />
+        <input className="dc-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Save as (optional)" aria-label="Name" />
+        <button className="btn" type="submit">Load</button>
+      </form>
+      {saved.length > 0 && <div className="dc-saved">{saved.map((x) => <span key={x.link} className={`chip sm ${x.link === link ? 'on' : ''}`}><button onClick={() => { set({ ...cfg, link: x.link }); setDraft(x.link); }}>{x.name}</button><button className="hw-btn" aria-label={`Remove ${x.name}`} onClick={() => set({ ...cfg, saved: saved.filter((y) => y.link !== x.link) })}>×</button></span>)}</div>}
+      {ids ? <>
+        <iframe className="dc-frame" src={`https://e.widgetbot.io/channels/${ids.server}/${ids.channel}`} title="Discord chat" allow="clipboard-write; fullscreen" loading="lazy" />
+        <p className="note hw-pad">WidgetBot embed: sign in with Discord inside it to post as yourself. Free plan shows the latest 30 messages. If it says the bot isn’t in the server, a moderator still needs to add it (steps below). <a href={`https://discord.com/channels/${ids.server}/${ids.channel}`} target="_blank" rel="noreferrer noopener">Open in Discord ↗</a></p>
+      </> : link ? <p className="small down hw-pad">That isn’t a Discord channel link. It should look like discord.com/channels/123…/456….</p> : null}
+      <details className="dc-setup" open={!ids}>
+        <summary>Set up (one time, needs a moderator)</summary>
+        <ol className="small">
+          <li>Ask a moderator of that server (someone with <b>Manage Server</b>) to add WidgetBot: <a href="https://add.widgetbot.io" target="_blank" rel="noreferrer noopener">add.widgetbot.io</a>, then run <code>/setup</code> in the server. It’s free.</li>
+          <li>They can limit it to the one channel you want; WidgetBot follows the server’s normal channel permissions.</li>
+          <li>In Discord, right-click the channel → <b>Copy Link</b>, paste it above, and Load.</li>
+          <li>Click sign in inside the chat and log in with your Discord account to read and post as yourself.</li>
+        </ol>
+        <p className="small muted">Why a moderator: Discord only lets bots into a server when someone with Manage Server adds them. Using your own login token in a script (a “self-bot”) breaks Discord’s rules and can get your account banned, so the desk doesn’t do it.</p>
+      </details>
+    </div>
+  );
+}
+
 export function XW({ d, cfg, set }: P) {
   const url: string = cfg.url ?? '';
   const [draft, setDraft] = useState(url);

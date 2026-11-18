@@ -8,9 +8,10 @@ import type { Page } from './SideNav';
 import { FlipCard } from './FlipCard';
 import { MiniChart } from './LearnMiniChart';
 import { Calc } from './LearnCalc';
+import { Diagram } from './LearnDiagram';
 import { usePersisted } from '../lib/store';
 import { useLabBars } from '../lib/useLabBars';
-import { INDICATORS, MATH, NOTES, STRATS, type Deeper, type StratStat } from '../../shared/lessons';
+import { INDICATORS, MATH, NOTES, STRATS, VIDEOS, type Deeper, type StratStat } from '../../shared/lessons';
 import { EVIDENCE_NOTE, GLOSSARY, PATH, RESOURCES, STRATEGIES, resourceById, searchResources, type Kind, type Resource, type Topic } from '../../shared/learn';
 import { fvgStats, gapFills, orb, pct, sessions, sweeps, vwapStats } from '../../shared/setuplab';
 
@@ -30,6 +31,11 @@ const TABS: { id: Tab; label: string; blurb: string; icon: string }[] = [
 const OLD_TAB: Record<Topic, Tab> = { start: 'start', strategies: 'strategies', technical: 'indicators', fundamentals: 'concepts', markets: 'concepts', psychology: 'mindset', fund: 'mindset', ai: 'concepts' };
 
 const Go = ({ d }: { d?: Deeper }) => (d ? <a className="fc-deeper" href={d.url} target="_blank" rel="noreferrer noopener">Go deeper: {d.label} ↗</a> : null);
+/** YouTube search links (not single videos): always resolve, and show the most-watched explanations first. */
+export const Yt = ({ q }: { q: string }) => <a className="fc-yt" href={`https://www.youtube.com/results?search_query=${encodeURIComponent(q)}`} target="_blank" rel="noreferrer noopener">▶ Watch on YouTube: “{q}”</a>;
+/** A hand-picked video as a thumbnail tile (opens on YouTube). */
+const Vid = ({ k }: { k: string }) => { const v = VIDEOS[k]; return v ? <a className="fc-vid" href={`https://www.youtube.com/watch?v=${v.v}`} target="_blank" rel="noreferrer noopener"><img src={`https://i.ytimg.com/vi/${v.v}/mqdefault.jpg`} alt="" loading="lazy" /><span className="fc-play">▶</span><span className="fc-vt"><b>{v.title}</b><span className="small muted">{v.by} · YouTube</span></span></a> : null; };
+const YT_STRAT: Record<string, string> = { orb: 'SMB Capital opening range breakout', fvg: 'fair value gap explained trading', volema: '9 EMA pullback volume day trading', vwapr: 'Brian Shannon VWAP reclaim', emax: '9 21 EMA crossover strategy', brr: 'breakout and retest trading strategy', flag: 'bull flag pattern day trading', sweeprev: 'liquidity sweep reversal trading', gapgo: 'gap and go vs gap fill trading', rsi2: 'Larry Connors RSI 2 strategy', trend200: '200 day moving average trend following' };
 const Sec = ({ t, children }: { t: string; children: ReactNode }) => <div className="fc-sec"><h5>{t}</h5>{children}</div>;
 const List = ({ xs }: { xs: string[] }) => <ul>{xs.map((x) => <li key={x}>{x}</li>)}</ul>;
 const f0 = (v: number) => (Number.isFinite(v) ? `${v.toFixed(0)}%` : '—');
@@ -43,8 +49,7 @@ function Indicators() {
     <>
       <div className="ln-chips">{fams.map((f) => <button key={f} className={`chip sm ${fam === f ? 'on' : ''}`} onClick={() => setFam(f)}>{f}</button>)}</div>
       <div className="fc-grid">{INDICATORS.filter((i) => fam === 'All' || i.family === fam).map((i) => (
-        <FlipCard key={i.id} tag={i.family} front={<><h4>{i.name}</h4><p>{i.short}</p></>} back={<>
-          <h4>{i.name}</h4>
+        <FlipCard key={i.id} tag={i.family} title={i.name} front={<><h4>{i.name}</h4><p>{i.short}</p></>} back={<>
           <MiniChart kind={i.chart} daily={d} intraday={last} period={i.period} />
           <div className="fc-cols">
             <Sec t="Formula"><code className="fc-code">{i.formula}</code></Sec>
@@ -54,7 +59,7 @@ function Indicators() {
             <Sec t="Pitfalls"><List xs={i.pitfalls} /></Sec>
             <Sec t="Pairs well with"><p>{i.pair}</p></Sec>
           </div>
-          <p className="fc-tip">💡 {i.tip}</p><Go d={i.deeper} />
+          <p className="fc-tip">💡 {i.tip}</p><div className="fc-links"><Vid k={`i-${i.id}`} /><Yt q={`${i.name} explained trading`} /><Go d={i.deeper} /></div>
         </>} />
       ))}</div>
     </>
@@ -87,8 +92,8 @@ function Strategies() {
     <>
       <div className="ln-chips">{['All', 'Intraday', 'Swing'].map((s) => <button key={s} className={`chip sm ${style === s ? 'on' : ''}`} onClick={() => setStyle(s)}>{s}</button>)}</div>
       <div className="fc-grid">{STRATS.filter((s) => style === 'All' || s.style === style || s.style === 'Both').map((s) => (
-        <FlipCard key={s.id} tag={s.style} front={<><h4>{s.name}</h4><p>{s.short}</p><span className="small muted">{s.tf}</span></>} back={<>
-          <h4>{s.name}</h4>
+        <FlipCard key={s.id} tag={s.style} title={s.name} front={<><h4>{s.name}</h4><Diagram id={s.id} small /><p>{s.short}</p><span className="small muted">{s.tf}</span></>} back={<>
+          <Diagram id={s.id} />
           {s.stat && <p className="fc-stat">{st.line(s.stat) ?? (st.loading ? 'Measuring on SPY…' : 'No measurement right now.')}</p>}
           <div className="fc-rules"><div><span>Setup</span><List xs={s.setup} /></div><div><span>Entry</span><p>{s.entry}</p></div><div><span>Stop</span><p>{s.stop}</p></div><div><span>Target</span><p>{s.target}</p></div></div>
           <div className="fc-cols">
@@ -97,13 +102,12 @@ function Strategies() {
             <Sec t="Common mistakes"><List xs={s.mistakes} /></Sec>
             <Sec t="Evidence"><p>{s.evidence}</p></Sec>
           </div>
-          <Go d={s.deeper} />
+          <div className="fc-links"><Vid k={s.id} /><Yt q={YT_STRAT[s.id] ?? `${s.name} trading strategy explained`} /><Go d={s.deeper} /></div>
         </>} />
       ))}</div>
       <h3 className="ln-sub">Longer-term strategies funds use</h3>
       <div className="fc-grid">{STRATEGIES.map((s) => (
-        <FlipCard key={s.id} tag={s.family} front={<><h4>{s.name}</h4><p>{s.how}</p><span className={`ln-ev ev-${s.evidence.toLowerCase()}`}>{s.evidence}</span></>} back={<>
-          <h4>{s.name}</h4>
+        <FlipCard key={s.id} tag={s.family} title={s.name} front={<><h4>{s.name}</h4><p>{s.how}</p><span className={`ln-ev ev-${s.evidence.toLowerCase()}`}>{s.evidence}</span></>} back={<>
           <div className="fc-cols">
             <Sec t="Why it might work"><p>{s.why}</p></Sec>
             <Sec t="What history shows"><p>{s.history} <span className="muted">({EVIDENCE_NOTE[s.evidence]}.)</span></p></Sec>
@@ -120,17 +124,18 @@ function Strategies() {
 
 function QuickMath() {
   return <div className="fc-grid">{MATH.map((m) => (
-    <FlipCard key={m.id} tag="Calculator" front={<><h4>{m.name}</h4><p>{m.short}</p><code className="fc-code">{m.formula}</code></>} back={<>
-      <h4>{m.name}</h4><code className="fc-code">{m.formula}</code>
+    <FlipCard key={m.id} tag="Calculator" title={m.name} front={<><h4>{m.name}</h4><p>{m.short}</p><code className="fc-code">{m.formula}</code></>} back={<>
+      <code className="fc-code">{m.formula}</code>
       <Calc id={m.id} />
       <div className="fc-cols"><Sec t="Shortcuts"><List xs={m.tricks} /></Sec><Sec t="Example"><p>{m.example}</p></Sec></div>
+      <div className="fc-links"><Yt q={`${m.name} trading explained`} /></div>
     </>} />
   ))}</div>;
 }
 
 function Notes({ deck }: { deck: 'Mindset' | 'Concepts' }) {
   return <div className="fc-grid">{NOTES.filter((n) => n.deck === deck).map((n) => (
-    <FlipCard key={n.id} wide={false} front={<><h4>{n.name}</h4><p>{n.short}</p></>} back={<><h4>{n.name}</h4><List xs={n.points} /><Go d={n.deeper} /></>} />
+    <FlipCard key={n.id} wide={false} title={n.name} front={<><h4>{n.name}</h4><p>{n.short}</p></>} back={<><List xs={n.points} /><Go d={n.deeper} /></>} />
   ))}</div>;
 }
 
@@ -140,7 +145,7 @@ function Glossary() {
   return (
     <>
       <div className="ln-chips"><input className="ln-search" placeholder={`Search ${GLOSSARY.length} terms…`} value={q} onChange={(e) => setQ(e.target.value)} /></div>
-      <div className="fc-grid sm">{xs.map((g) => <FlipCard key={g.term} wide={false} front={<h4 className="fc-term">{g.term}</h4>} back={<><h4>{g.term}</h4><p>{g.def}</p></>} />)}</div>
+      <div className="fc-grid sm">{xs.map((g) => <FlipCard key={g.term} wide={false} title={g.term} front={<h4 className="fc-term">{g.term}</h4>} back={<><p>{g.def}</p></>} />)}</div>
     </>
   );
 }

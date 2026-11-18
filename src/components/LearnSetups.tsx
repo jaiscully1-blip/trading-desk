@@ -6,6 +6,8 @@ import { useLabBars } from '../lib/useLabBars';
 import { gapFills, orb, pct, sessions, sweeps, volumeProfile, vwapStats } from '../../shared/setuplab';
 import { SETUPS, type StatKey } from '../../shared/setups';
 import { usePersisted } from '../lib/store';
+import { Diagram } from './LearnDiagram';
+import { DIAGRAM_FOR } from '../../shared/diagrams';
 
 const f1 = (v: number) => (Number.isFinite(v) ? `${v.toFixed(0)}%` : '—');
 const fr = (v: number) => (Number.isFinite(v) ? `${v >= 0 ? '+' : ''}${v.toFixed(2)}R` : '—');
@@ -122,12 +124,14 @@ export default function LearnSetups() {
             <span className="ln-fam">{s.group}</span>
             <h3>{s.name}{s.aka && <span className="small muted"> · {s.aka}</span>}</h3>
             {line && <p className="sl-stat">{line}</p>}
+            {DIAGRAM_FOR[s.id] && <Diagram id={s.id} />}
             <dl className="ln-dl">
               <dt>What makes it</dt><dd><ul>{s.what.map((x) => <li key={x}>{x}</li>)}</ul></dd>
               <dt>Why it happens</dt><dd>{s.why}</dd>
               <dt>Watch for</dt><dd><ul>{s.watch.map((x) => <li key={x}>{x}</li>)}</ul></dd>
               <dt>How traders handle it</dt><dd>{s.trade}</dd>
               <dt>Wrong when</dt><dd>{s.invalid}</dd>
+              <dt>Watch</dt><dd><a className="fc-yt" href={`https://www.youtube.com/results?search_query=${encodeURIComponent(`${s.name.replace(/\(.*?\)/g, '')} trading explained`)}`} target="_blank" rel="noreferrer noopener">▶ YouTube: {s.name}</a></dd>
               {s.refs && <><dt>Sources</dt><dd><ul>{s.refs.map((r) => <li key={r.url + r.label}><a href={r.url} target="_blank" rel="noreferrer noopener">{r.label}</a></li>)}</ul></dd></>}
             </dl>
           </article>

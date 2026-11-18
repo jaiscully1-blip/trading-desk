@@ -26,7 +26,7 @@ import { StarredList } from './Pings';
 import { Messages } from './Messages';
 import type { FeedState } from '../data/feed';
 import { BrowserW, CommoditiesW, CryptoW, RiskW, SessionsW } from './HomeWidgets2';
-import { BetsW, ClaimsW, SpotifyW, XW } from './Poker';
+import { BetsW, ClaimsW, DiscordChatW, SpotifyW, XW } from './Poker';
 
 export interface HomeData {
   mode: DataMode; theme: string; quotes: Record<string, Quote>; news: NewsState; cal: CalendarState | null; movers: MoversState | null;
@@ -313,6 +313,7 @@ export const WIDGETS = {
   bets: { title: 'Bet board', make: BetsW },
   claims: { title: 'Bull / bear claims', make: ClaimsW },
   spotify: { title: 'Spotify', make: SpotifyW },
+  dchat: { title: 'Discord chat', make: DiscordChatW },
   x: { title: 'X', make: XW },
   news: { title: 'Live news', make: NewsW },
   options: { title: 'Options calculator', make: OptionsW },
