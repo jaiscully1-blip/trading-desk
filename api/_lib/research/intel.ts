@@ -4,6 +4,7 @@
 //                                lawsuits (CourtListener, free token)
 //   fn=intelcalls&symbol=X       the last two earnings calls: tone, management vs analysts, words that changed (Alpha Vantage, 2 calls)
 //   fn=intelguide&symbol=X       guidance in the last earnings releases vs the revenue reported next (Gemini reads the release; SEC XBRL)
+import { applicantName, countOf, grantedQuery, ODP_SEARCH } from '../../../shared/patents.js';
 import { cached, getJson, hasKey, json, key, take } from '../core.js';
 import { finnhubMetrics, finnhubPeers, finnhubRecs, geminiJson, secJson, secText } from '../adapters.js';
 import { htmlToText, parseSecTickers } from '../../../shared/company.js';
@@ -58,15 +59,14 @@ export async function intel(req: Request): Promise<Response> {
     return out;
   }) : null;
 
-  const patents = process.env.PATENTSVIEW_API_KEY ? await safe('patents', async () => (await cached(`pat:${name}`, 7 * 86400, async () => {
+  const patents = hasKey('patentsview') ? await safe('patents', async () => (await cached(`odp:${name}`, 7 * 86400, async () => {
     if (!take('patentsview', 3)) throw new Error('rate limited');
-    const org = name.replace(/,?\s+(inc|corp|corporation|co|ltd|plc|holdings?|group|class [ab])\.?$/gi, '').trim();
+    const org = applicantName(name);
     const y = new Date().getUTCFullYear();
     const out: { year: number; n: number }[] = [];
     for (const yr of [y - 2, y - 1, y]) {
-      const q = { _and: [{ _contains: { 'assignees.assignee_organization': org } }, { _gte: { patent_date: `${yr}-01-01` } }, { _lte: { patent_date: `${yr}-12-31` } }] };
-      const j = await getJson(`https://search.patentsview.org/api/v1/patent/?q=${encodeURIComponent(JSON.stringify(q))}&f=${encodeURIComponent('["patent_id"]')}&o=${encodeURIComponent('{"size":1}')}`, 'patentsview', 15000, { headers: { 'X-Api-Key': key('patentsview') } });
-      out.push({ year: yr, n: Number(j?.total_hits) || 0 });
+      const j = await getJson(ODP_SEARCH, 'patentsview', 20000, { method: 'POST', body: JSON.stringify(grantedQuery(org, yr)), headers: { 'X-API-KEY': key('patentsview') } });
+      out.push({ year: yr, n: countOf(j) });
     }
     return { org, years: out };
   })).val) : null;
@@ -78,7 +78,7 @@ export async function intel(req: Request): Promise<Response> {
     return { org, total: Number(j?.count) || 0, cases: (j?.results ?? []).slice(0, 12).map((c: any) => ({ name: String(c.caseName ?? ''), court: String(c.court ?? ''), filed: String(c.dateFiled ?? ''), nature: String(c.suitNature ?? ''), url: c.docket_absolute_url ? `https://www.courtlistener.com${c.docket_absolute_url}` : null })) };
   })).val) : null;
 
-  return json({ sym, name, execs, risk, recs, peers, patents, lawsuits, keys: { patents: !!process.env.PATENTSVIEW_API_KEY, lawsuits: !!process.env.COURTLISTENER_TOKEN, finnhub: hasKey('finnhub') }, errors, asOf: Date.now() }, { sMaxAge: 3600 });
+  return json({ sym, name, execs, risk, recs, peers, patents, lawsuits, keys: { patents: hasKey('patentsview'), lawsuits: !!process.env.COURTLISTENER_TOKEN, finnhub: hasKey('finnhub') }, errors, asOf: Date.now() }, { sMaxAge: 3600 });
 }
 
 export async function intelcalls(req: Request): Promise<Response> {
