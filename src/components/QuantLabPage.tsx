@@ -5,15 +5,17 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { PageHero } from './PageHero';
 import { Fresh } from './common';
+import { QuantEvents } from './QuantEvents';
+import { LIVE_TICKERS, type LiveBlock } from '../../shared/livefeeds';
 import { usePersisted } from '../lib/store';
 import type { FundPoint } from '../../shared/fundseries';
 import {
   FACTORS, LEVEL_FACTORS, MIN_REVIEWS, align, bestPerSeries, diff, pearson, qKey, quarterEnd, quarterlyReturns, reasonMix, scan,
-  strengthWord, toneCandidates, verdict, yoyPct, type Candidate, type Finding, type Series, type ToneCo,
+  strengthWord, toneCandidates, verdict, yoyPct, factorFit, ffCandidates, granger, monthlyReturns, FF_LABEL, type Candidate, type Finding, type Series, type ToneCo, type FFMonth, type FactorFit,
 } from '../../shared/quantlab';
 
 type C = { t: number; c: number };
-interface QResp { sym: string; stock: C[]; factors: Record<string, C[]>; fund: { name?: string; quarterly?: FundPoint[]; error?: string }; asOf: number; source: string; error?: string }
+interface QResp { sym: string; stock: C[]; factors: Record<string, C[]>; fund: { name?: string; quarterly?: FundPoint[]; error?: string }; ff?: FFMonth[]; wiki?: { title: string; months: [string, number][] } | null; asOf: number; source: string; error?: string }
 interface ToneDoc { source: string; built: string; coverageEnds: string; method: string; companies: Record<string, ToneCo> }
 const SYM_RE = /^[A-Z^][A-Z0-9.\-]{0,9}$/;
 const f2 = (v: number) => (v >= 0 ? '+' : '') + v.toFixed(2);
@@ -80,6 +82,7 @@ function Tile({ k, v, sub, tone }: { k: string; v: ReactNode; sub?: ReactNode; t
 
 function Detail({ f, all, cand, y, ylabel }: { f: Finding; all: Finding[]; cand: Candidate; y: Series; ylabel: string }) {
   const a = align(cand.s, y, f.lag), lags = all.filter((x) => x.id === f.id).sort((p, q) => p.lag - q.lag), [cls, word] = badge(f);
+  const g = f.lag >= 1 ? granger(cand.s, y) : null;
   return (
     <div className="ql-detail">
       <div className="ql-dhead"><span className={`ql-badge ${cls}`}>{word}</span><span className="ql-k">{cand.group} · {lagText(f.lag)}</span></div>
@@ -90,6 +93,8 @@ function Detail({ f, all, cand, y, ylabel }: { f: Finding; all: Finding[]; cand:
         <Tile k="Swings explained" v={`${(f.r * f.r * 100).toFixed(0)}%`} sub="r squared" />
         <Tile k="Luck check (q)" v={pval(f.q)} sub={`raw p ${pval(f.p)}`} />
         <Tile k="Halves" v={`${f.firstHalf == null ? '—' : f2(f.firstHalf)} / ${f.secondHalf == null ? '—' : f2(f.secondHalf)}`} sub={`${f.n}q · ${a.k[0]}–${a.k[a.k.length - 1]}`} />
+        <Tile k="Walk-forward test" v={f.test == null ? '—' : f2(f.test)} sub={f.test == null ? 'not enough history' : f.oos ? `held on unseen years (trained ${f2(f.train ?? 0)})` : `faded on unseen years (trained ${f.train == null ? '—' : f2(f.train)})`} tone={f.oos ? 'up' : 'dn'} />
+        {g && <Tile k="Predicts beyond own past?" v={g.p < 0.05 ? 'Yes' : 'No'} sub={`Granger p ${pval(g.p)} · ${g.n}q`} tone={g.p < 0.05 ? 'up' : 'dn'} />}
       </div>
       <div className="ql-dgrid">
         <Scatter x={a.x} y={a.y} xl={cand.label} yl={ylabel} />
@@ -150,18 +155,79 @@ function ReviewTone({ co, ret, sym, fund }: { co: ToneCo; ret: Series; sym: stri
   );
 }
 
+const PLAIN: Record<string, [string, string]> = {
+  mkt: ['moves more than the market', 'moves less than the market'], smb: ['acts like a small company', 'acts like a large company'],
+  hml: ['acts like a cheap (value) stock', 'acts like an expensive (growth) stock'], rmw: ['acts like a highly profitable company', 'acts like a low-profit company'],
+  cma: ['acts like a company that invests cautiously', 'acts like a company that invests aggressively'], mom: ['rides recent winners', 'acts like a recent loser / rebound play'],
+};
+function FactorCard({ fit, sym }: { fit: FactorFit; sym: string }) {
+  return (
+    <Card title={<>Factor fingerprint <span className="muted">· {sym}</span></>} right={<span className="small muted">Fama-French 5 factors + momentum · {fit.months} months · {fit.from.slice(0, 4)}–{fit.to.slice(0, 4)}</span>}>
+      <div className="ql-tiles four">
+        <Tile k="Explained by factors" v={`${(fit.r2 * 100).toFixed(0)}%`} sub="of monthly moves (R²)" />
+        <Tile k="Left over (alpha)" v={pc(fit.alphaYr)} sub={`a year · ${Math.abs(fit.alphaT) >= 2 ? 'real (t ' + fit.alphaT.toFixed(1) + ')' : 'could be zero (t ' + fit.alphaT.toFixed(1) + ')'}`} tone={fit.alphaYr >= 0 ? 'up' : 'dn'} />
+        {fit.betas.map((b) => <Tile key={b.key} k={FF_LABEL[b.key]} v={b.b.toFixed(2)} sub={Math.abs(b.t) < 2 ? 'no clear tilt' : b.key === 'mkt' ? (b.b > 1 ? PLAIN.mkt[0] : PLAIN.mkt[1]) : (b.b > 0 ? PLAIN[b.key][0] : PLAIN[b.key][1])} />)}
+      </div>
+      <p className="small muted ql-note">Market beta 1.0 = moves with the market; other factors at 0 = no tilt. "After factors" in the finder tests only the part these don't explain, so a link there is about {sym} itself, not the market or its style.</p>
+    </Card>
+  );
+}
+
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+/** Average return by calendar month, beyond the S&P 500, with how often it was positive and a t statistic. */
+function Seasonality({ stock, spy, sym }: { stock: C[]; spy: C[]; sym: string }) {
+  const sr = monthlyReturns(stock), mr = monthlyReturns(spy), cur = new Date().toISOString().slice(0, 7).replace('-', '');
+  const rows = MONTHS.map((name, i) => {
+    const xs = [...sr].filter(([ym]) => +ym.slice(4) === i + 1 && ym !== cur && mr.has(ym)).map(([ym, v]) => v - mr.get(ym)!);
+    const m = xs.reduce((a, b) => a + b, 0) / (xs.length || 1), sd = Math.sqrt(xs.reduce((a, b) => a + (b - m) ** 2, 0) / Math.max(1, xs.length - 1));
+    return { name, n: xs.length, m, up: xs.filter((v) => v > 0).length / (xs.length || 1), t: sd ? m / (sd / Math.sqrt(xs.length)) : 0 };
+  });
+  const lim = Math.max(1, ...rows.map((r) => Math.abs(r.m))), real = rows.filter((r) => Math.abs(r.t) >= 2);
+  return (
+    <Card title={<>Seasonality <span className="muted">· {sym} vs the S&P 500, by calendar month</span></>} right={<span className="small muted">{rows[0].n} years</span>}>
+      <div className="ql-season">
+        {rows.map((r) => <div key={r.name} className="ql-mo" title={`${r.name}: ${pc(r.m, 2)} on average beyond the S&P 500 · beat it ${(r.up * 100).toFixed(0)}% of years · t ${r.t.toFixed(1)}`}>
+          <div className="ql-mobar"><i className={r.m >= 0 ? 'pos' : 'neg'} style={{ height: `${(Math.abs(r.m) / lim) * 50}%` }} /></div>
+          <b className={`num ${Math.abs(r.t) >= 2 ? (r.m >= 0 ? 'up' : 'dn') : 'muted'}`}>{pc(r.m, 1)}</b><span className="small muted">{r.name} · {(r.up * 100).toFixed(0)}%</span>
+        </div>)}
+      </div>
+      <p className="small muted ql-note">{real.length ? `${real.map((r) => r.name).join(', ')} ${real.length === 1 ? 'stands' : 'stand'} out (t ≥ 2), but with 12 months tested about one in twenty will look this strong by chance.` : 'No month stands out from chance (none with t ≥ 2).'} The % under each month is how often {sym} beat the S&P 500 that month.</p>
+    </Card>
+  );
+}
+
+function LiveCard({ blocks, sym }: { blocks: LiveBlock[]; sym: string }) {
+  return (
+    <Card title={<>Live customer signals <span className="muted">· {sym}</span></>} right={<span className="small muted">free public feeds, refreshed every 12 hours</span>}>
+      {blocks.map((b) => (
+        <div key={b.kind} className="ql-live">
+          <div className="ql-k">{b.kind}</div>
+          {b.error ? <p className="small dn">{b.error}</p> : <div className="ql-tiles four">{b.latest.map((l) => <Tile key={l.label} k={l.label} v={l.value} sub={l.note} />)}</div>}
+          <p className="small muted ql-note">{b.source}. {b.series.length ? 'Added to the relationship finder under "Live feeds".' : ''}{b.events.length >= 3 ? ' Dated events are in the event study.' : ''}</p>
+        </div>
+      ))}
+    </Card>
+  );
+}
+
 const GROUP_LABEL: Record<string, string> = { Video_Games: 'Games and gear', Grocery_and_Gourmet_Food: 'Food and drink' };
 
 export default function QuantLabPage({ sel }: { sel?: string }) {
   const [sym, setSym] = usePersisted('qlSym', 'HSY');
   const [draft, setDraft] = useState(sym);
-  const [excess, setExcess] = usePersisted('qlExcess', false);
+  const [target, setTarget] = usePersisted<'raw' | 'spy' | 'ff'>('qlTarget', 'raw');
   const [group, setGroup] = useState('All');
   const [pick, setPick] = useState<string | null>(null);
   const [all, setAll] = useState(false);
   const [d, setD] = useState<QResp | null>(null);
   const [err, setErr] = useState('');
   const [tone, setTone] = useState<ToneDoc | null>(null);
+  const [feeds, setFeeds] = useState<LiveBlock[]>([]);
+  useEffect(() => {
+    let off = false; setFeeds([]);
+    if (LIVE_TICKERS.includes(sym)) fetch(`/api/research?fn=qlfeeds&symbol=${encodeURIComponent(sym)}`).then((r) => r.json()).then((j) => { if (!off) setFeeds(j.blocks ?? []); }).catch(() => {});
+    return () => { off = true; };
+  }, [sym]);
   useEffect(() => { loadTone().then(setTone).catch(() => {}); }, []);
   useEffect(() => {
     let off = false; setD(null); setErr(''); setPick(null);
@@ -175,15 +241,29 @@ export default function QuantLabPage({ sel }: { sel?: string }) {
     if (!d) return null;
     const now = qKey(Date.now()), drop = (s: Series) => { s.delete(now); return s; };
     const raw = drop(quarterlyReturns(d.stock)), spy = drop(quarterlyReturns(d.factors.SPY ?? []));
-    const y: Series = excess ? new Map([...raw].filter(([k]) => spy.has(k)).map(([k, v]) => [k, v - spy.get(k)!])) : raw;
-    const cands: Candidate[] = FACTORS.filter((f) => f.sym !== sym && (d.factors[f.sym]?.length ?? 0) > 24 && !(excess && f.sym === 'SPY'))
+    const fit: FactorFit | null = d.ff?.length ? factorFit(monthlyReturns(d.stock), d.ff) : null;
+    const mode = target === 'ff' && !fit ? 'raw' : target;
+    const y: Series = mode === 'spy' ? new Map([...raw].filter(([k]) => spy.has(k)).map(([k, v]) => [k, v - spy.get(k)!])) : mode === 'ff' ? drop(new Map(fit!.resid)) : raw;
+    const cands: Candidate[] = FACTORS.filter((f) => f.sym !== sym && (d.factors[f.sym]?.length ?? 0) > 24 && !(mode !== 'raw' && ['SPY', 'QQQ', 'IWM'].includes(f.sym)))
       .map((f) => ({ id: f.sym, label: f.label, group: f.group, s: drop(LEVEL_FACTORS.has(f.sym) ? diff(quarterEnd(d.factors[f.sym])) : quarterlyReturns(d.factors[f.sym])) }));
     const fund = fundCands(d.fund.quarterly);
     cands.push(...fund);
     if (co) cands.push(...toneCandidates(co));
+    for (const b of feeds) for (const ls of b.series) {
+      const lv: Series = new Map(ls.points);
+      // counts and volumes: yearly growth (they're seasonal); % positive: change; recall counts: change
+      cands.push({ id: ls.id, label: ls.label, group: 'Live feeds', s: drop(/vol|veh|cfpb/.test(ls.id) ? yoyPct(lv) : diff(lv)) });
+    }
+    if (d.wiki?.months.length) {
+      const m = new Map<string, number>(), c = new Map<string, number>();
+      for (const [ym, v] of d.wiki.months) { const q = `${ym.slice(0, 4)}Q${Math.floor((+ym.slice(4) - 1) / 3) + 1}`; m.set(q, (m.get(q) ?? 0) + v); c.set(q, (c.get(q) ?? 0) + 1); }
+      const full: Series = new Map([...m].filter(([q]) => c.get(q) === 3));
+      cands.push({ id: 'wiki', label: `Wikipedia views of "${d.wiki.title}" (yearly growth)`, group: 'Attention', s: drop(yoyPct(full)) });
+    }
+    if (d.ff?.length && mode !== 'ff') cands.push(...ffCandidates(d.ff).map((c) => ({ ...c, s: drop(c.s) })));
     const tested = scan(sym, y, cands);
-    return { y, raw, cands, fund, all: tested, best: bestPerSeries(tested) };
-  }, [d, co, excess, sym]);
+    return { y, raw, cands, fund, fit, mode, all: tested, best: bestPerSeries(tested) };
+  }, [d, co, target, sym, feeds]);
 
   const groups = ['All', ...new Set(model?.best.map((f) => f.group) ?? [])];
   const shown = (model?.best ?? []).filter((f) => group === 'All' || f.group === group);
@@ -191,7 +271,7 @@ export default function QuantLabPage({ sel }: { sel?: string }) {
   const cur = shown.find((f) => f.id === pick) ?? shown[0];
   const holds = model?.best.filter((f) => f.significant && f.stable) ?? [];
   const top = model?.best[0], ks = model ? [...model.y.keys()].sort() : [];
-  const ylabel = excess ? `${sym} vs S&P 500` : `${sym} return`;
+  const ylabel = model?.mode === 'spy' ? `${sym} vs S&P 500` : model?.mode === 'ff' ? `${sym} after factors` : `${sym} return`;
   const byCat = Object.entries(tone?.companies ?? {}).reduce<Record<string, [string, ToneCo][]>>((m, e) => ((m[e[1].category] ??= []).push(e), m), {});
 
   return (
@@ -202,6 +282,7 @@ export default function QuantLabPage({ sel }: { sel?: string }) {
       </PageHero>
 
       {tone && <div className="ql-cos">
+        <div className="ql-cosg"><span className="ql-k">Live feeds · Steam, CFPB, NHTSA, FDA</span><div className="ql-chips">{LIVE_TICKERS.map((t) => <button key={t} className={`chip sm ${t === sym ? 'on' : ''}`} onClick={() => go(t)}>{t}</button>)}</div></div>
         {Object.entries(byCat).map(([cat, list]) => <div key={cat} className="ql-cosg"><span className="ql-k">{GROUP_LABEL[cat] ?? cat} · review data</span><div className="ql-chips">{list.map(([t, c]) => <button key={t} className={`chip sm ${t === sym ? 'on' : ''}`} title={c.name} onClick={() => go(t)}>{t}</button>)}</div></div>)}
       </div>}
 
@@ -216,7 +297,8 @@ export default function QuantLabPage({ sel }: { sel?: string }) {
           <Tile k="History" v={`${model.y.size} quarters`} sub={`${ks[0]} – ${ks[ks.length - 1]}`} />
         </div>
 
-        <Card title="Relationship finder" right={<>{d && <Fresh kind="eod" at={d.asOf} src={d.source} />}<label className="small ql-tog"><input type="checkbox" checked={excess} onChange={(e) => setExcess(e.target.checked)} /> vs S&P 500</label></>}>
+        {model.fit && <FactorCard fit={model.fit} sym={sym} />}
+        <Card title="Relationship finder" right={<>{d && <Fresh kind="eod" at={d.asOf} src={d.source} />}<div className="ql-seg" role="group" aria-label="What to explain">{([['raw', 'Raw return'], ['spy', 'vs S&P 500'], ['ff', 'After factors']] as const).map(([k, l]) => <button key={k} className={`chip sm ${target === k ? 'on' : ''}`} disabled={k === 'ff' && !model?.fit} title={k === 'ff' ? 'What is left after market, size, value, profitability, investment and momentum factors explain what they can' : undefined} onClick={() => setTarget(k)}>{l}</button>)}</div></>}>
           {(d?.fund.error || !co) && <p className="small muted ql-note">{d?.fund.error ?? ''}{!co ? ' No Amazon review data for this ticker; pick a chip above to include it.' : ''}</p>}
           <div className="ql-groups">{groups.map((g) => <button key={g} className={`chip sm ${g === group ? 'on' : ''}`} onClick={() => { setGroup(g); setPick(null); }}>{g}</button>)}</div>
           <div className="ql-grid">
@@ -246,6 +328,9 @@ export default function QuantLabPage({ sel }: { sel?: string }) {
         </Card>
       </>}
 
+      {d && <Seasonality stock={d.stock} spy={d.factors.SPY ?? []} sym={sym} />}
+      {feeds.length > 0 && <LiveCard blocks={feeds} sym={sym} />}
+      {model && <QuantEvents sym={sym} extra={feeds.map((b) => ({ kind: b.kind, source: b.source, events: b.events }))} />}
       {co && model && <ReviewTone co={co} ret={model.raw} sym={sym} fund={model.fund} />}
       {tone && <p className="small muted ql-foot">Review data: {tone.source}, built {tone.built}, ends {tone.coverageEnds}. Prices: Yahoo Finance (unofficial). Earnings: SEC XBRL (official).</p>}
     </div>

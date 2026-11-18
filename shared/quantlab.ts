@@ -8,7 +8,7 @@ export type Series = Map<string, number>; // "2019Q3" -> value
 export interface Candidate { id: string; label: string; group: string; s: Series; unit?: string }
 export interface Finding {
   id: string; label: string; group: string; lag: number; r: number; rho: number; n: number; p: number; q: number;
-  firstHalf: number | null; secondHalf: number | null; stable: boolean; significant: boolean; sentence: string; strength: string;
+  firstHalf: number | null; secondHalf: number | null; stable: boolean; train: number | null; test: number | null; oos: boolean; significant: boolean; sentence: string; strength: string;
 }
 
 export const qKey = (ms: number) => { const d = new Date(ms); return `${d.getUTCFullYear()}Q${Math.floor(d.getUTCMonth() / 3) + 1}`; };
@@ -98,7 +98,11 @@ export function scan(target: string, y: Series, cands: Candidate[], lags = [-1, 
     const r = pearson(a.x, a.y); if (!Number.isFinite(r)) continue;
     const h = Math.floor(n / 2), r1 = h >= 6 ? pearson(a.x.slice(0, h), a.y.slice(0, h)) : NaN, r2 = n - h >= 6 ? pearson(a.x.slice(h), a.y.slice(h)) : NaN;
     const fh = Number.isFinite(r1) ? r1 : null, sh = Number.isFinite(r2) ? r2 : null;
-    raw.push({ id: c.id, label: c.label, group: c.group, lag, r, rho: spearman(a.x, a.y), n, p: corrP(r, n), firstHalf: fh, secondHalf: sh,
+    // walk-forward: found on the first two thirds, checked on the last third it never saw
+    const cut = Math.floor(n * 2 / 3), tr = cut >= 8 ? pearson(a.x.slice(0, cut), a.y.slice(0, cut)) : NaN, te = n - cut >= 6 ? pearson(a.x.slice(cut), a.y.slice(cut)) : NaN;
+    const train = Number.isFinite(tr) ? tr : null, test = Number.isFinite(te) ? te : null;
+    raw.push({ id: c.id, label: c.label, group: c.group, lag, r, rho: spearman(a.x, a.y), n, p: corrP(r, n), firstHalf: fh, secondHalf: sh, train, test,
+      oos: train != null && test != null && Math.sign(train) === Math.sign(test) && Math.abs(test) >= 0.15,
       stable: fh != null && sh != null && Math.sign(fh) === Math.sign(r) && Math.sign(sh) === Math.sign(r) && Math.abs(fh) >= 0.15 && Math.abs(sh) >= 0.15,
       sentence: sentence(target, c, lag, r), strength: strengthWord(r) });
   }
@@ -163,3 +167,90 @@ export const FACTORS: { sym: string; label: string; group: string }[] = [
 ];
 /** Factors measured in points rather than % return (yield and VIX levels): use the quarter's change. */
 export const LEVEL_FACTORS = new Set(['^TNX', '^VIX']);
+
+/** F-test p-value (upper tail). */
+export function fP(F: number, d1: number, d2: number): number { return !Number.isFinite(F) || F <= 0 || d2 <= 0 ? 1 : ibeta(d2 / (d2 + d1 * F), d2 / 2, d1 / 2); }
+
+/** Least squares y = b0 + b1 x1 + ... ; returns coefficients, standard errors, R squared and residuals. */
+export function ols(X: number[][], y: number[]): { b: number[]; se: number[]; r2: number; resid: number[] } | null {
+  const n = y.length, k = (X[0]?.length ?? 0) + 1;
+  if (n <= k + 2) return null;
+  const A = X.map((r) => [1, ...r]);
+  const XtX = Array.from({ length: k }, (_, i) => Array.from({ length: k }, (_, j) => A.reduce((s, r) => s + r[i] * r[j], 0)));
+  const Xty = Array.from({ length: k }, (_, i) => A.reduce((s, r, t) => s + r[i] * y[t], 0));
+  const inv = invert(XtX); if (!inv) return null;
+  const b = inv.map((row) => row.reduce((s, v, j) => s + v * Xty[j], 0));
+  const fit = A.map((r) => r.reduce((s, v, j) => s + v * b[j], 0)), resid = y.map((v, t) => v - fit[t]);
+  const my = y.reduce((s, v) => s + v, 0) / n, sst = y.reduce((s, v) => s + (v - my) ** 2, 0), sse = resid.reduce((s, v) => s + v * v, 0);
+  const s2 = sse / (n - k);
+  return { b, se: inv.map((row, i) => Math.sqrt(Math.max(0, row[i] * s2))), r2: sst ? 1 - sse / sst : 0, resid };
+}
+function invert(M: number[][]): number[][] | null {
+  const n = M.length, A = M.map((r, i) => [...r, ...Array.from({ length: n }, (_, j) => (i === j ? 1 : 0))]);
+  for (let c = 0; c < n; c++) {
+    let p = c; for (let r = c + 1; r < n; r++) if (Math.abs(A[r][c]) > Math.abs(A[p][c])) p = r;
+    if (Math.abs(A[p][c]) < 1e-12) return null;
+    [A[c], A[p]] = [A[p], A[c]];
+    const d = A[c][c]; for (let j = 0; j < 2 * n; j++) A[c][j] /= d;
+    for (let r = 0; r < n; r++) if (r !== c) { const f = A[r][c]; if (f) for (let j = 0; j < 2 * n; j++) A[r][j] -= f * A[c][j]; }
+  }
+  return A.map((r) => r.slice(n));
+}
+
+/** Granger-style check: does x (one quarter earlier) improve the forecast of y beyond y's own last quarter? */
+export function granger(x: Series, y: Series): { F: number; p: number; n: number } | null {
+  const X1: number[][] = [], X2: number[][] = [], Y: number[] = [];
+  for (const q of [...y.keys()].sort(qSort)) { const yl = y.get(qShift(q, -1)), xl = x.get(qShift(q, -1)), v = y.get(q)!; if (yl != null && xl != null) { X1.push([yl]); X2.push([yl, xl]); Y.push(v); } }
+  const a = ols(X1, Y), b = ols(X2, Y); if (!a || !b) return null;
+  const sse = (r: number[]) => r.reduce((s, v) => s + v * v, 0), n = Y.length, F = ((sse(a.resid) - sse(b.resid)) / 1) / (sse(b.resid) / (n - 3));
+  return { F, p: fP(F, 1, n - 3), n };
+}
+
+// ----- Fama-French factors (Kenneth French data library, free) -----
+export const FF_KEYS = ['mkt', 'smb', 'hml', 'rmw', 'cma', 'mom'] as const;
+export type FFKey = (typeof FF_KEYS)[number];
+export const FF_LABEL: Record<FFKey, string> = { mkt: 'Market', smb: 'Size (small minus big)', hml: 'Value (cheap minus expensive)', rmw: 'Profitability (robust minus weak)', cma: 'Investment (conservative minus aggressive)', mom: 'Momentum (winners minus losers)' };
+export type FFMonth = { ym: string } & Record<FFKey | 'rf', number>;
+
+/** French CSV text -> monthly rows ("YYYYMM" -> percent values). Stops at the annual section. */
+export function parseFrench(csv: string, cols: string[]): Map<string, number[]> {
+  const out = new Map<string, number[]>(); let on = false;
+  for (const line of csv.split(/\r?\n/)) {
+    const t = line.trim();
+    if (/^,/.test(t) && cols.every((c) => t.includes(c))) { on = true; continue; }
+    if (!on) continue;
+    const m = t.match(/^(\d{6}),(.*)$/); if (!m) { if (out.size) break; continue; }
+    out.set(m[1], m[2].split(',').map((v) => Number(v.trim())));
+  }
+  return out;
+}
+
+/** Monthly stock % returns from month-end closes, keyed "YYYYMM". */
+export function monthlyReturns(closes: { t: number; c: number }[]): Map<string, number> {
+  const out = new Map<string, number>(), xs = [...closes].sort((a, b) => a.t - b.t);
+  const ym = (t: number) => { const d = new Date(t); return `${d.getUTCFullYear()}${String(d.getUTCMonth() + 1).padStart(2, '0')}`; };
+  for (let i = 1; i < xs.length; i++) out.set(ym(xs[i].t), (xs[i].c / xs[i - 1].c - 1) * 100);
+  return out;
+}
+const ymQ = (ym: string) => `${ym.slice(0, 4)}Q${Math.floor((+ym.slice(4) - 1) / 3) + 1}`;
+
+export interface FactorFit { betas: { key: FFKey; b: number; t: number }[]; alphaYr: number; alphaT: number; r2: number; months: number; from: string; to: string; resid: Series }
+/** Regress the stock's monthly excess return on the six factors; the leftover (residual) is the part the factors
+ *  don't explain. Residuals are summed by quarter so the relationship finder can test them. */
+export function factorFit(stock: Map<string, number>, ff: FFMonth[], years = 15): FactorFit | null {
+  const rows = ff.filter((m) => stock.has(m.ym)).slice(-years * 12);
+  const fit = ols(rows.map((m) => FF_KEYS.map((k) => m[k])), rows.map((m) => stock.get(m.ym)! - m.rf));
+  if (!fit) return null;
+  const resid: Series = new Map();
+  rows.forEach((m, i) => { const q = ymQ(m.ym); resid.set(q, (resid.get(q) ?? 0) + fit.resid[i] + fit.b[0]); }); // keep alpha in: it's the stock's own part
+  for (const [q] of resid) if (rows.filter((m) => ymQ(m.ym) === q).length < 3) resid.delete(q);
+  return { betas: FF_KEYS.map((key, i) => ({ key, b: fit.b[i + 1], t: fit.se[i + 1] ? fit.b[i + 1] / fit.se[i + 1] : 0 })), alphaYr: fit.b[0] * 12, alphaT: fit.se[0] ? fit.b[0] / fit.se[0] : 0, r2: fit.r2, months: rows.length, from: rows[0]?.ym ?? '', to: rows[rows.length - 1]?.ym ?? '', resid };
+}
+/** The factor returns themselves, compounded by quarter, as candidate series. */
+export function ffCandidates(ff: FFMonth[]): Candidate[] {
+  return FF_KEYS.filter((k) => k !== 'mkt').map((k) => {
+    const g = new Map<string, number>(), c = new Map<string, number>();
+    for (const m of ff) { const q = ymQ(m.ym); g.set(q, (g.get(q) ?? 1) * (1 + m[k] / 100)); c.set(q, (c.get(q) ?? 0) + 1); }
+    return { id: `ff:${k}`, label: `${FF_LABEL[k]} factor`, group: 'Style factors', s: new Map([...g].filter(([q]) => c.get(q) === 3).map(([q, v]) => [q, (v - 1) * 100])) };
+  });
+}

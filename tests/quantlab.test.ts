@@ -54,3 +54,29 @@ describe('quantlab', () => {
     const m = reasonMix(rows); expect(m[0].reason).toBe('taste'); expect(m.find((x) => x.reason === 'price/value')!.negShare).toBeCloseTo(0.75);
   });
 });
+
+import { factorFit, fP, granger, ols, parseFrench, type FFMonth } from '../shared/quantlab';
+describe('quantlab batch 1', () => {
+  it('fits least squares exactly on a clean line', () => {
+    const X = Array.from({ length: 20 }, (_, i) => [i, (i * 7) % 5]), y = X.map(([a, b]) => 2 + 3 * a - b);
+    const f = ols(X, y)!; expect(f.b[0]).toBeCloseTo(2); expect(f.b[1]).toBeCloseTo(3); expect(f.b[2]).toBeCloseTo(-1); expect(f.r2).toBeCloseTo(1);
+  });
+  it('gives F-test p-values in the right range', () => { expect(fP(4.0, 1, 40)).toBeGreaterThan(0.04); expect(fP(4.0, 1, 40)).toBeLessThan(0.06); expect(fP(0.1, 1, 40)).toBeGreaterThan(0.7); });
+  it('Granger: a planted lead passes, noise does not', () => {
+    const q = (i: number) => qShift('2005Q1', i), noise = (i: number) => (Math.sin(i * 12.9898) * 43758.5453) % 1;
+    const x: Series = new Map(Array.from({ length: 60 }, (_, i) => [q(i), noise(i) * 10]));
+    const y: Series = new Map(Array.from({ length: 60 }, (_, i) => [q(i), (x.get(q(i - 1)) ?? 0) * 0.7 + noise(i + 99) * 3]));
+    const junk: Series = new Map(Array.from({ length: 60 }, (_, i) => [q(i), noise(i + 777) * 10]));
+    expect(granger(x, y)!.p).toBeLessThan(0.01); expect(granger(junk, y)!.p).toBeGreaterThan(0.01);
+  });
+  it('reads a French data CSV and stops at the annual table', () => {
+    const csv = 'header\n\n,Mkt-RF,SMB,HML,RMW,CMA,RF\n202001,  1.0, 2.0, 3.0, 4.0, 5.0, 0.1\n202002, -1.0, 0, 0, 0, 0, 0.1\n\n Annual Factors\n,Mkt-RF,SMB,HML,RMW,CMA,RF\n  2020, 9,9,9,9,9,9\n';
+    const m = parseFrench(csv, ['Mkt-RF', 'RF']); expect(m.size).toBe(2); expect(m.get('202001')).toEqual([1, 2, 3, 4, 5, 0.1]);
+  });
+  it('recovers a stock beta from factor data', () => {
+    const noise = (i: number) => (Math.sin(i * 3.3) * 9999) % 1;
+    const ff: FFMonth[] = Array.from({ length: 120 }, (_, i) => ({ ym: `${2010 + Math.floor(i / 12)}${String((i % 12) + 1).padStart(2, '0')}`, mkt: noise(i) * 5, smb: noise(i + 50) * 3, hml: noise(i + 90) * 3, rmw: noise(i + 130) * 2, cma: noise(i + 170) * 2, mom: noise(i + 210) * 4, rf: 0.1 }));
+    const stock = new Map(ff.map((m, i) => [m.ym, 0.1 + 1.5 * m.mkt + 0.5 * m.smb + noise(i + 400) * 0.5]));
+    const f = factorFit(stock, ff)!; expect(f.betas[0].b).toBeCloseTo(1.5, 1); expect(f.betas[1].b).toBeCloseTo(0.5, 1); expect(f.r2).toBeGreaterThan(0.9); expect(f.resid.size).toBe(40);
+  });
+});

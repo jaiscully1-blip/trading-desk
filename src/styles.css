@@ -3162,3 +3162,13 @@ button.chip[data-st="bull"] { color: var(--up); } button.chip[data-st="bear"] { 
 .cg-vol.up { fill: var(--up); opacity: .45; } .cg-vol.dn { fill: var(--down); opacity: .45; }
 .cg-vol.hot { opacity: .95; stroke: var(--text); stroke-width: .6; }
 .cg-hint { margin: 6px 0 2px; }
+.ql-seg { display: inline-flex; gap: 4px; flex-wrap: wrap; }
+.ql-ev0 { stroke: var(--muted); stroke-dasharray: 3 3; }
+.ql-legend { display: inline-flex; align-items: center; gap: 4px; margin-right: 10px; } .ql-legend i { width: 12px; height: 3px; border-radius: 2px; display: inline-block; }
+.ql-live { display: grid; gap: 6px; } .ql-live + .ql-live { border-top: 1px solid var(--line); padding-top: 10px; }
+.ql-season { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 6px; }
+@media (max-width: 700px) { .ql-season { grid-template-columns: repeat(6, minmax(0, 1fr)); } }
+.ql-mo { display: grid; justify-items: center; gap: 2px; text-align: center; } .ql-mo b { font-size: 12px; }
+.ql-mobar { position: relative; width: 100%; height: 70px; background: var(--panel-2); border-radius: 6px; }
+.ql-mobar::after { content: ''; position: absolute; left: 0; right: 0; top: 50%; border-top: 1px solid var(--line-2); }
+.ql-mobar i { position: absolute; left: 25%; right: 25%; border-radius: 3px; } .ql-mobar i.pos { bottom: 50%; background: var(--up); } .ql-mobar i.neg { top: 50%; background: var(--down); }
