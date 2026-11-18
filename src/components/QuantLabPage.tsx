@@ -5,6 +5,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { PageHero } from './PageHero';
 import { Fresh } from './common';
+import { QuantEvents } from './QuantEvents';
 import { usePersisted } from '../lib/store';
 import type { FundPoint } from '../../shared/fundseries';
 import {
@@ -271,6 +272,7 @@ export default function QuantLabPage({ sel }: { sel?: string }) {
         </Card>
       </>}
 
+      {model && <QuantEvents sym={sym} />}
       {co && model && <ReviewTone co={co} ret={model.raw} sym={sym} fund={model.fund} />}
       {tone && <p className="small muted ql-foot">Review data: {tone.source}, built {tone.built}, ends {tone.coverageEnds}. Prices: Yahoo Finance (unofficial). Earnings: SEC XBRL (official).</p>}
     </div>

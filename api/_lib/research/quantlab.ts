@@ -6,7 +6,7 @@ import { fundSeries } from '../../../shared/fundseries.js';
 import { inflateRawSync } from 'node:zlib';
 import { FACTORS, parseFrench, type FFMonth } from '../../../shared/quantlab.js';
 import { secJson } from '../adapters.js';
-import { SYMBOL_RE, cached, getJson, hasKey, json } from '../core.js';
+import { SYMBOL_RE, cached, getJson, hasKey, json, key } from '../core.js';
 
 // Kenneth French's files are zips holding one CSV; read the first entry straight from the zip bytes.
 async function frenchCsv(file: string): Promise<string> {
@@ -59,5 +59,50 @@ export async function quantlab(req: Request): Promise<Response> {
     ]);
     if (stock.length < 24) return json({ error: `Not enough monthly price history for ${sym}.` }, { status: 404 });
     return json({ sym, stock, factors, fund, ff, asOf: Date.now(), source: 'Prices: Yahoo Finance monthly (unofficial, dividend-adjusted). Earnings: SEC XBRL 10-Q and 10-K filings (official). Factors: Kenneth French data library (monthly, about 2 months behind).' }, { sMaxAge: 3600 });
+  } catch (e) { return json({ error: (e as Error).message.slice(0, 160) }, { status: 502 }); }
+}
+
+// GET /api/research?fn=qlevents&symbol=COST -> daily closes for the stock and SPY since 2005, plus dated earnings
+// reports with the surprise (Alpha Vantage, when its key is set; otherwise SEC 10-Q/10-K filing dates, no surprise).
+async function dailyCloses(sym: string): Promise<{ d: string; c: number }[]> {
+  const y = sym.startsWith('^') ? sym : sym.replace('.', '-');
+  const j = await getJson(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(y)}?period1=1104537600&period2=${Math.floor(Date.now() / 1000)}&interval=1d`, 'yahoo', 15000, { headers: { 'user-agent': 'Mozilla/5.0 (trading-desk; personal use)' } });
+  const r = j?.chart?.result?.[0]; if (!r) return [];
+  const ts: number[] = r.timestamp ?? [], adj: (number | null)[] = r.indicators?.adjclose?.[0]?.adjclose ?? [], cl: (number | null)[] = r.indicators?.quote?.[0]?.close ?? [], off = Number(r.meta?.gmtoffset ?? 0);
+  return ts.map((t, i) => ({ d: new Date((t + off) * 1000).toISOString().slice(0, 10), c: Number(adj[i] ?? cl[i]) })).filter((x) => Number.isFinite(x.c) && x.c > 0);
+}
+type ERow = { date: string; eps: number | null; est: number | null; surprisePct: number | null; time?: string };
+async function earningsRows(sym: string): Promise<{ rows: ERow[]; source: string }> {
+  const num = (v: unknown) => { const n = Number(v); return v == null || v === 'None' || !Number.isFinite(n) ? null : n; };
+  if (hasKey('alphavantage')) {
+    try {
+      const j = (await cached(`ql:avearn:${sym}`, 7 * 86400, () => getJson(`https://www.alphavantage.co/query?function=EARNINGS&symbol=${encodeURIComponent(sym)}&apikey=${key('alphavantage')}`, 'alphavantage', 12000))).val;
+      const q = (j?.quarterlyEarnings ?? []) as any[];
+      if (q.length) return { rows: q.map((r) => ({ date: String(r.reportedDate), eps: num(r.reportedEPS), est: num(r.estimatedEPS), surprisePct: num(r.surprisePercentage), time: r.reportTime })), source: 'Alpha Vantage earnings history (reported vs estimated EPS)' };
+    } catch { /* fall through to SEC */ }
+  }
+  if (!hasKey('sec')) return { rows: [], source: 'No earnings source (SEC_USER_AGENT not set)' };
+  const tick = (await cached('sec:tickers', 86400, async () => parseSecTickers(await secJson('https://www.sec.gov/files/company_tickers.json')))).val;
+  const t = tick.find((x) => x.ticker === sym || x.ticker === sym.replace('.', '-')); if (!t) return { rows: [], source: 'Not an SEC filer' };
+  const sub = (await cached(`ql:subs:${t.cik}`, 86400, () => secJson(`https://data.sec.gov/submissions/CIK${String(t.cik).padStart(10, '0')}.json`))).val;
+  // 8-K item 2.02 ("Results of Operations") is the earnings press release itself, filed the day it comes out.
+  // Older filings sit in extra pages; read up to three of them.
+  const pages = [sub?.filings?.recent ?? {}];
+  for (const fl of (sub?.filings?.files ?? []).slice(0, 3)) { try { pages.push((await cached(`ql:subs:${fl.name}`, 7 * 86400, () => secJson(`https://data.sec.gov/submissions/${fl.name}`))).val); } catch { /* skip */ } }
+  const seen = new Set<string>(), rows: ERow[] = [];
+  for (const f of pages) (f.form ?? []).forEach((form: string, i: number) => { const d = f.filingDate?.[i]; if (form === '8-K' && /2\.02/.test(f.items?.[i] ?? '') && d && !seen.has(d)) { seen.add(d); rows.push({ date: d, eps: null, est: null, surprisePct: null, time: (f.acceptanceDateTime?.[i] ?? '').slice(11, 13) >= '16' ? 'post-market' : undefined }); } });
+  return { rows, source: 'SEC 8-K earnings releases (item 2.02), no analyst estimates: add an Alpha Vantage key to split beats from misses' };
+}
+export async function qlevents(req: Request): Promise<Response> {
+  const sym = (new URL(req.url).searchParams.get('symbol') ?? '').toUpperCase();
+  if (!SYMBOL_RE.test(sym)) return json({ error: 'bad symbol' }, { status: 400 });
+  try {
+    const [stock, spy, earn] = await Promise.all([
+      cached(`ql:d:${sym}`, 6 * 3600, () => dailyCloses(sym)).then((x) => x.val),
+      cached('ql:d:SPY', 6 * 3600, () => dailyCloses('SPY')).then((x) => x.val),
+      earningsRows(sym).catch((e) => ({ rows: [] as ERow[], source: `Earnings unavailable: ${(e as Error).message.slice(0, 80)}` })),
+    ]);
+    if (stock.length < 300) return json({ error: `Not enough daily history for ${sym}.` }, { status: 404 });
+    return json({ sym, stock, spy, earnings: earn.rows, earnSource: earn.source, asOf: Date.now(), source: 'Daily prices: Yahoo Finance (unofficial, dividend-adjusted).' }, { sMaxAge: 3600 });
   } catch (e) { return json({ error: (e as Error).message.slice(0, 160) }, { status: 502 }); }
 }

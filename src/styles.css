@@ -3163,3 +3163,5 @@ button.chip[data-st="bull"] { color: var(--up); } button.chip[data-st="bear"] { 
 .cg-vol.hot { opacity: .95; stroke: var(--text); stroke-width: .6; }
 .cg-hint { margin: 6px 0 2px; }
 .ql-seg { display: inline-flex; gap: 4px; flex-wrap: wrap; }
+.ql-ev0 { stroke: var(--muted); stroke-dasharray: 3 3; }
+.ql-legend { display: inline-flex; align-items: center; gap: 4px; margin-right: 10px; } .ql-legend i { width: 12px; height: 3px; border-radius: 2px; display: inline-block; }
