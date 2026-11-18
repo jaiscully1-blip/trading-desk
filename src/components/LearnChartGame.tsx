@@ -16,7 +16,7 @@ const EMPTY: Rec = { calls: 0, right: 0, byH: {}, withT: [0, 0], againstT: [0, 0
 type Layer = 'structure' | 'fvg' | 'ob' | 'liq' | 'ma' | 'vol';
 const LAYERS: { id: Layer; label: string }[] = [{ id: 'structure', label: 'Structure / BOS' }, { id: 'fvg', label: 'FVG / IFVG' }, { id: 'ob', label: 'Order blocks' }, { id: 'liq', label: 'Liquidity / sweeps' }, { id: 'ma', label: '20 EMA / 50 SMA' }, { id: 'vol', label: 'Volume' }];
 
-// View only: drag to scroll back through earlier bars, wheel to zoom, double-click to reset. It never shows bars
+// View only: click and drag to scroll back through earlier bars, double-click to reset. It never shows bars
 // past `limit` (the cut, until you've made your call), so moving around can't give the answer away.
 function ChartView({ bars, from: f0, cut, to: limit, pa, on }: { bars: Bar[]; from: number; cut: number; to: number; pa: PA; on: Record<Layer, boolean> }) {
   const [view, setView] = useState({ off: 0, span: limit - f0 + 1 });
@@ -25,15 +25,6 @@ function ChartView({ bars, from: f0, cut, to: limit, pa, on }: { bars: Bar[]; fr
   const span = Math.min(Math.max(15, view.span), limit + 1), off = Math.min(Math.max(0, view.off), limit + 1 - span);
   const to = limit - off, from = to - span + 1;
   const perBar = () => (svg.current?.clientWidth ?? 900) / (span + 6);
-  useEffect(() => {
-    const el = svg.current; if (!el) return;
-    const wheel = (e: WheelEvent) => {
-      e.preventDefault();
-      setView((v) => { const s = Math.min(Math.max(15, Math.round(v.span * (e.deltaY > 0 ? 1.15 : 1 / 1.15))), limit + 1); return { off: Math.min(v.off, limit + 1 - s), span: s }; });
-    };
-    el.addEventListener('wheel', wheel, { passive: false });
-    return () => el.removeEventListener('wheel', wheel);
-  }, [limit]);
   const handlers = {
     onPointerDown: (e: RPE<SVGSVGElement>) => { drag.current = { x: e.clientX, off }; e.currentTarget.setPointerCapture(e.pointerId); },
     onPointerMove: (e: RPE<SVGSVGElement>) => { const d = drag.current; if (!d) return; const o = Math.round(d.off + (e.clientX - d.x) / perBar()); setView((v) => ({ ...v, off: Math.min(Math.max(0, o), limit + 1 - span) })); },
@@ -127,7 +118,7 @@ export default function LearnChartGame() {
         {round && pa && (
           <>
             <ChartView bars={round.bars} from={round.cut - SHOW + 1} cut={round.cut} to={guess ? Math.min(round.bars.length - 1, round.cut + h) : round.cut} pa={pa} on={on} />
-            <p className="small muted cg-hint">Drag the chart to look back, scroll to zoom, double-click to reset. It won't scroll past the hidden part.</p>
+            <p className="small muted cg-hint">Click and drag the chart to look back; double-click to reset. It won't move past the hidden part.</p>
             <div className="cg-names"><span className="small muted">On this chart:</span>{round.names.length ? round.names.map((n) => <span key={n} className="cg-name" title={PA_DEFS[n.replace(/ \((up|down)\)$/, '')] ?? ''}>{n}</span>) : <span className="small muted">no named pattern near the cut; read the trend and levels.</span>}</div>
             {!guess ? (
               <div className="ln-chips"><span className="small">Next {h} trading days:</span><button className="chip cg-btn up" onClick={() => answer('up')}>Up</button><button className="chip cg-btn dn" onClick={() => answer('down')}>Down</button><span className="small muted">Hover a pattern name for what it means.</span></div>
