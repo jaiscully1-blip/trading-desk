@@ -10,7 +10,7 @@ import { usePersisted } from '../lib/store';
 import { isOwner } from '../lib/accounts';
 
 export interface HomeLayout { main: Widget[]; side: Widget[] }
-export interface Workspace { id: string; name: string; layout: HomeLayout; saved?: HomeLayout; savedAt?: number }
+export interface Workspace { id: string; name: string; layout: HomeLayout; saved?: HomeLayout; savedAt?: number; pinned?: boolean }
 export interface Workspaces { active: string; list: Workspace[] }
 export const EMPTY_HOME: HomeLayout = { main: [], side: [] };
 const ROW = 36, GAP = 8;
@@ -122,9 +122,11 @@ export default function Home({ spaces, setSpaces, d, tickers }: { spaces: Worksp
   const addSpace = () => { const id = uid(); setSpaces((s) => ({ active: id, list: [...s.list, { id, name: `Workspace ${s.list.length + 1}`, layout: EMPTY_HOME }] })); };
   const closeSpace = (id: string) => {
     const w = spaces.list.find((x) => x.id === id)!;
-    if (spaces.list.length === 1 || ((w.layout.main.length || w.layout.side.length) && !confirm(`Close “${w.name}” and its widgets?`))) return;
+    if (w.pinned || spaces.list.length === 1 || ((w.layout.main.length || w.layout.side.length) && !confirm(`Close “${w.name}” and its widgets?`))) return;
     setSpaces((s) => { const list = s.list.filter((x) => x.id !== id); return { active: s.active === id ? list[0].id : s.active, list }; });
   };
+  // a pinned tab hides its × (no accidental close); double-click a pinned tab to unpin it
+  const setPinned = (id: string, pinned: boolean) => setSpaces((s) => ({ ...s, list: s.list.map((w) => (w.id === id ? { ...w, pinned } : w)) }));
   const rename = (id: string, name: string) => setSpaces((s) => ({ ...s, list: s.list.map((w) => (w.id === id ? { ...w, name: name.trim().slice(0, 24) || w.name } : w)) }));
   const savePoint = () => setSpaces((s) => ({ ...s, list: s.list.map((w) => (w.id === s.active ? { ...w, saved: w.layout, savedAt: Date.now() } : w)) }));
   const restore = () => { if (ws.saved) commit(() => ws.saved!); };
@@ -357,11 +359,14 @@ export default function Home({ spaces, setSpaces, d, tickers }: { spaces: Worksp
       <div className="ws-bar">
         <div className="ws-tabs" role="tablist" aria-label="Workspaces">
           {spaces.list.map((w) => (
-            <div key={w.id} className={`ws-tab ${w.id === ws.id ? 'on' : ''}`} role="tab" aria-selected={w.id === ws.id}>
+            <div key={w.id} className={`ws-tab ${w.id === ws.id ? 'on' : ''} ${w.pinned ? 'pinned' : ''}`} role="tab" aria-selected={w.id === ws.id}>
               {renaming === w.id
                 ? <input autoFocus defaultValue={w.name} onBlur={(e) => { rename(w.id, e.target.value); setRenaming(null); }} onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); if (e.key === 'Escape') setRenaming(null); }} aria-label="Workspace name" />
-                : <button onClick={() => setSpaces((s) => ({ ...s, active: w.id }))} onDoubleClick={() => setRenaming(w.id)} title="Double-click to rename">{w.name}</button>}
-              {spaces.list.length > 1 && <button className="ws-x" onClick={() => closeSpace(w.id)} aria-label={`Close ${w.name}`}>×</button>}
+                : <button onClick={() => setSpaces((s) => ({ ...s, active: w.id }))} onDoubleClick={() => (w.pinned ? setPinned(w.id, false) : setRenaming(w.id))} title={w.pinned ? 'Pinned. Double-click to unpin' : 'Double-click to rename'}>
+                    {w.pinned && <svg className="ws-pinmark" viewBox="0 0 24 24" width="11" height="11" aria-label="pinned"><path d="M15 3l6 6-3 1-4 4 1 5-2 2-4-5-5 5-1-1 5-5-5-4 2-2 5 1 4-4z" fill="currentColor" /></svg>}{w.name}</button>}
+              {!w.pinned && renaming !== w.id && <button className="ws-pin" onClick={() => setPinned(w.id, true)} aria-label={`Pin ${w.name}`} title="Pin: hides × so it can't be closed by accident. Double-click the tab to unpin.">
+                <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round"><path d="M15 3l6 6-3 1-4 4 1 5-2 2-4-5-5 5-1-1 5-5-5-4 2-2 5 1 4-4z" /></svg></button>}
+              {!w.pinned && spaces.list.length > 1 && <button className="ws-x" onClick={() => closeSpace(w.id)} aria-label={`Close ${w.name}`}>×</button>}
             </div>
           ))}
           <button className="ws-add" onClick={addSpace} title="New workspace" aria-label="New workspace">+</button>
