@@ -104,7 +104,7 @@ export function CoName({ sym, className = '' }: { sym: string; className?: strin
   const n = names[sym];
   if (!n || n === sym) return null;
   return (
-    <button className={`coname ${className}`} onClick={(e) => { e.stopPropagation(); openInfo(sym, { x: e.clientX, y: e.clientY }); }} title={`${n}: what is it?`}>{n}</button>
+    <button className={`coname ${className}`} data-sym={sym} onClick={(e) => { e.stopPropagation(); openInfo(sym, { x: e.clientX, y: e.clientY }); }} title={`${n}: what is it?`}>{n}</button>
   );
 }
 

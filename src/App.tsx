@@ -50,6 +50,7 @@ const TeslaPage = lazy(() => import('./components/TeslaPage'));
 const AltDataPage = lazy(() => import('./components/AltDataPage'));
 import { SpotifyDock } from './components/SpotifyDock';
 import { InfoDrawer } from './components/InfoDrawer';
+import { CompanyPeek, openPeek } from './components/CompanyPeek';
 const QuantLabPage = lazy(() => import('./components/QuantLabPage'));
 const RealEconPage = lazy(() => import('./components/RealEconPage'));
 const PlumbingPage = lazy(() => import('./components/PlumbingPage'));
@@ -558,7 +559,8 @@ export default function App() {
   const openCompany = useCallback((sym: string) => { setCompanySym(sym); setPage('company'); }, [setCompanySym, setPage]);
   const [article, setArticle] = useState<Article | null>(null);
   const [info, setInfo] = useState<{ sym: string; at: { x: number; y: number } } | null>(null);
-  const openInfo = useCallback((sym: string, at?: { x: number; y: number }) => setInfo({ sym, at: at ?? { x: window.innerWidth / 2 - 170, y: 120 } }), []);
+  // any "what is this company?" click opens the pinned company peek on the right (stays on the current page)
+  const openInfo = useCallback((sym: string, _at?: { x: number; y: number }) => { setInfo(null); openPeek(sym); }, []);
   const [orderReq, setOrderReq] = useState<{ initial: Partial<OrderDraft>; last?: number | null } | null>(null);
   // the Webull ticket belongs to the owner's account only; other accounts never open it
   const openOrder = useCallback((initial: Partial<OrderDraft>, last?: number | null) => { if (isOwner()) setOrderReq({ initial, last }); }, []);
@@ -1036,6 +1038,7 @@ export default function App() {
       <StanceLayer />
       <SpotifyDock />
       <InfoDrawer onLearn={() => setPage('learn')} />
+      <CompanyPeek mode={dataMode} quotes={quotes} onChart={toDesk} onCompany={openCompany} />
       {calm && <Suspense fallback={null}><CalmMode onExit={() => setCalm(false)} /></Suspense>}
       {focus && <button className="focus-chip" onClick={toggleFocus} title="Bring the side bars back (Z)">Focus mode · Z to exit</button>}
       <SideNav compact={iconRail} page={page} onPage={setPage} dataState={dataMode.kind} onCmd={() => setCmdOpen(true)} onHelp={() => setOverlay('help')} onAccount={() => setDrawer((d) => !d)} onCalm={() => setCalm(true)} />

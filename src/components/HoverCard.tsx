@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { Quote } from '../types';
 import { pct, px, tone } from '../lib/format';
 import { Spark } from './common';
+import { openPeek } from './CompanyPeek';
 
 const SEL = '[data-sym], .sym-chip, .wl-row, .wl-sym, .msg-sym, .dx-row, .dx-wrow, .am-ix';
 const SYM = /^[A-Z][A-Z0-9.\-]{0,9}$/;
@@ -21,13 +22,15 @@ export default function HoverCard({ quotes, names }: { quotes: Record<string, Qu
     if (matchMedia('(hover: none)').matches) return; // touch screens: no hover
     const hide = () => { clearTimeout(timer.current); over.current = null; setCard(null); };
     const onOver = (e: MouseEvent) => {
+      if ((e.target as HTMLElement | null)?.closest?.('.hc')) { clearTimeout(timer.current); return; } // moving onto the card keeps it open
       const el = (e.target as HTMLElement | null)?.closest?.(SEL) as HTMLElement | null;
       if (el === over.current) return;
       clearTimeout(timer.current);
       over.current = el;
-      if (!el || el.closest('.hc, .cmd, .scrim')) { setCard(null); return; }
+      // leaving the ticker: wait a moment so the pointer can reach the card (moving onto it cancels this)
+      if (!el || el.closest('.hc, .cmd, .scrim')) { timer.current = setTimeout(() => setCard(null), 350); return; }
       const sym = symOf(el);
-      if (!sym) { setCard(null); return; }
+      if (!sym) { timer.current = setTimeout(() => setCard(null), 350); return; }
       timer.current = setTimeout(() => {
         const r = el.getBoundingClientRect();
         const x = Math.min(window.innerWidth - 250, Math.max(8, r.left));
@@ -37,9 +40,10 @@ export default function HoverCard({ quotes, names }: { quotes: Record<string, Qu
     };
     document.addEventListener('mouseover', onOver);
     window.addEventListener('scroll', hide, true);
-    document.addEventListener('mousedown', hide);
+    const down = (e: MouseEvent) => { if (!(e.target as HTMLElement | null)?.closest?.('.hc')) hide(); };
+    document.addEventListener('mousedown', down);
     document.addEventListener('keydown', hide);
-    return () => { document.removeEventListener('mouseover', onOver); window.removeEventListener('scroll', hide, true); document.removeEventListener('mousedown', hide); document.removeEventListener('keydown', hide); clearTimeout(timer.current); };
+    return () => { document.removeEventListener('mouseover', onOver); window.removeEventListener('scroll', hide, true); document.removeEventListener('mousedown', down); document.removeEventListener('keydown', hide); clearTimeout(timer.current); };
   }, []);
   if (!card) return null;
   const q = quotes[card.sym];
@@ -47,7 +51,7 @@ export default function HoverCard({ quotes, names }: { quotes: Record<string, Qu
   if (!q && !name) return null;
   const has = q && Number.isFinite(q.last);
   return (
-    <div className="hc" style={{ left: card.x, top: card.y }} role="tooltip">
+    <div className="hc pinnable" style={{ left: card.x, top: card.y }} role="button" tabIndex={0} title="Click to pin: what it does, numbers, chart, news and your notes" onClick={() => { openPeek(card.sym); setCard(null); }}>
       <div className="hc-h"><b className="num">{card.sym}</b><span className="hc-n">{name ?? ''}</span></div>
       {has ? (
         <div className="hc-px">
@@ -64,7 +68,7 @@ export default function HoverCard({ quotes, names }: { quotes: Record<string, Qu
       <div className="hc-f small muted">
         {q && Number.isFinite(q.rsRank) && <span>RS rank {q.rsRank}</span>}
         {q?.spark && q.spark.length > 2 && <span>30-day trend</span>}
-        <span>click to open</span><span>right-click: your view</span>
+        <span>click this card to pin</span><span>right-click: your view</span>
       </div>
     </div>
   );
