@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { betaStats, compareSeries, parseApeWisdom, pickWikidata, returnDist, valuation, wikidataQuery, type Closes } from '../shared/analysis';
+import { betaStats, compareSeries, earlierFounding, looksReformed, parseApeWisdom, pickWikidata, plainName, returnDist, valuation, wikidataQuery, type Closes } from '../shared/analysis';
 import { DEFAULT_SIZE } from '../src/lib/grid';
 import { WIDGETS } from '../src/components/HomeWidgets';
 
@@ -41,5 +41,16 @@ describe('analysis', () => {
   });
   it('every Home widget has a default size (else adding it from the library breaks)', () => {
     for (const k of Object.keys(WIDGETS)) expect(DEFAULT_SIZE[k as keyof typeof DEFAULT_SIZE], k).toBeTruthy();
+  });
+});
+
+describe('founding date of a re-formed company', () => {
+  it('spots a recent start date and finds the original company', () => {
+    expect(looksReformed('2025-05-23', new Date('2026-11-17'))).toBe(true);
+    expect(looksReformed('2015-10-02', new Date('2026-11-17'))).toBe(false);
+    expect(plainName('Rocket Lab Corporation')).toBe('Rocket Lab');
+    const j = { results: { bindings: [{ f: { value: '2006-06-29T00:00:00Z' } }] } };
+    expect(earlierFounding(j, '2025-05-23')).toBe('2006-06-29');
+    expect(earlierFounding({ results: { bindings: [] } }, '2025-05-23')).toBeNull();
   });
 });

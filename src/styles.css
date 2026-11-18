@@ -2810,3 +2810,32 @@ button.chip[data-st="bull"] { color: var(--up); } button.chip[data-st="bear"] { 
 /* BTC / ETH on its own page: charts use the height of the screen */
 .page > .cr { padding: 10px 12px; }
 .page > .cr .cr-chart { height: max(340px, calc(100vh - 250px)); }
+
+/* header breathing room: wider gaps between zones and items, dividers between the account numbers, and market chips that
+   drop out whole (instead of being cut mid-number) as the bar narrows */
+.top.top3 { gap: 18px; }
+.top-zone { gap: 12px; }
+.tz-status { gap: 10px; }
+.tz-you { gap: 12px; }
+.mc-chip { padding: 0 10px; gap: 8px; }
+.acct { gap: 0; padding: 4px 4px; }
+.acct > span:not(.pill) { display: inline-flex; align-items: baseline; gap: 5px; padding: 0 10px; }
+.acct > span:not(.pill) + span:not(.pill) { border-left: 1px solid var(--line); }
+.acct > .pill { margin-left: 6px; }
+.fear { gap: 28px; padding: 0 16px; }
+.fs-i { display: inline-flex; align-items: baseline; gap: 6px; white-space: nowrap; }
+@container (max-width: 900px) { .mc-breadth { display: none; } }
+@container (max-width: 760px) { .mc-spark, .mc-spark-empty { display: none; } }
+@container (max-width: 600px) { .tz-status .fresh { display: none; } }
+@container (max-width: 540px) { .mc-chip:nth-child(4) { display: none; } }
+@container (max-width: 440px) { .mc-chip:nth-child(3), .tz-status { display: none; } }
+/* a chip that does not fit wraps onto a hidden second line instead of showing half a price */
+.mp-cell { flex-wrap: wrap; height: 28px; align-content: flex-start; align-items: center; row-gap: 12px; padding-top: 1px; }
+.mc-chip { flex: none; }
+@media (max-width: 1100px) { .top.top3 { grid-template-columns: minmax(0, 1fr) minmax(130px, 200px) auto; gap: 12px; } .top-search kbd { display: none; } }
+
+/* data pages (Learn, Alt data, Macro & Policy, Real economy, Shorts & Supply): sections keep their own height and stack from
+   the top (a shared page rule was stretching each one to an equal share of the screen), on a near-solid backdrop */
+.page.ad > * { flex: none; }
+.page.ad { max-width: 1400px; width: 100%; margin: 0 auto; }
+:root[data-scene='river'] .page.ad { background: rgba(7, 19, 31, .97); border-radius: 8px; }

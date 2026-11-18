@@ -10,7 +10,7 @@ interface TearData {
   sym: string; name: string | null; price: number | null; priceAt: number | null; marketCap: number | null; facts: Tear | null; floatShares: number | null; floatClose: number | null;
   shortInterest: { shares: number; daysToCover: number; changePct: number; settlementDate: string; pctFloat: number | null } | null;
   nextEarnings: { date: string; hour: string; epsEst: number | null } | null; errors: Record<string, string>; sources: Record<string, string>;
-  profile: { label: string; ceo: string | null; employees: number | null; hq: string | null; founded: string | null } | null;
+  profile: { label: string; ceo: string | null; employees: number | null; hq: string | null; founded: string | null; reincorporated?: string | null } | null;
   valuation: Record<'pe' | 'fwdPe' | 'ps' | 'pb' | 'evEbitda' | 'beta' | 'divYield' | 'payout' | 'roe' | 'grossMargin' | 'netMargin' | 'hi52' | 'lo52', number | null> | null;
   dividend: { exDate: string | null; payDate: string | null; amount: number | null } | null;
 }
@@ -82,7 +82,7 @@ export function TearSheet({ sym, mode }: { sym: string; mode: DataMode }) {
   // company facts first (like a DES page), then valuation and dividends
   rows.unshift(
     ['CEO', p?.ceo ?? null, d.sources.profile], ['Employees', p?.employees ? p.employees.toLocaleString('en-US') : null, d.sources.profile],
-    ['HQ', p?.hq ?? null, d.sources.profile], ['Founded', p?.founded ? p.founded.slice(0, 4) : null, d.sources.profile],
+    ['HQ', p?.hq ?? null, d.sources.profile], ['Founded', p?.founded ? `${p.founded.slice(0, 4)}${p.reincorporated ? ` (re-incorporated ${p.reincorporated.slice(0, 4)})` : ''}` : null, d.sources.profile],
   );
   rows.push(
     ['P/E (trailing)', x(v?.pe), d.sources.valuation], ['P/E (forward)', x(v?.fwdPe), d.sources.valuation], ['P/Sales', x(v?.ps), d.sources.valuation], ['P/Book', x(v?.pb), d.sources.valuation],
