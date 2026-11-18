@@ -12,6 +12,7 @@ import { makeCandles } from '../lib/demo';
 import { px } from '../lib/format';
 import { CoName, Star, Q } from './common';
 import type { HomeData } from './HomeWidgets';
+import { playSpotify, useSpotifyNow, useSpotifySlot } from './SpotifyDock';
 
 type Cfg = Record<string, any>;
 interface P { d: HomeData; cfg: Cfg; set: (c: Cfg) => void }
@@ -188,6 +189,11 @@ export function ReaderOverlay({ a, onClose, mode }: { a: Article; onClose: () =>
 }
 
 /* ---------------- Spotify + X embeds ---------------- */
+/** Reserves the widget's space for the app-wide player (SpotifyDock), which keeps playing across workspaces and pages. */
+function SpotifySlot({ src, label }: { src: string; label: string }) {
+  const ref = useSpotifySlot(src, label), now = useSpotifyNow();
+  return <div ref={ref} className="sp-frame sp-slot">{!now && <button className="btn" onClick={() => playSpotify(src, label)}>▶ Start the player</button>}</div>;
+}
 export function SpotifyW({ cfg, set }: P) {
   const url: string = cfg.url ?? 'https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M';
   const m = /open\.spotify\.com\/(?:intl-\w+\/)?(playlist|album|track|episode|show|artist)\/([A-Za-z0-9]+)/.exec(url);
@@ -198,9 +204,9 @@ export function SpotifyW({ cfg, set }: P) {
         <input className="br-url" value={draft} onChange={(e) => setDraft(e.target.value)} placeholder="Paste a Spotify playlist, album, track or podcast link" aria-label="Spotify link" />
         <button className="btn" type="submit">Load</button>
       </form>
-      {m ? <iframe className="sp-frame" src={`https://open.spotify.com/embed/${m[1]}/${m[2]}?theme=0`} title="Spotify" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" loading="lazy" />
+      {m ? <SpotifySlot src={`https://open.spotify.com/embed/${m[1]}/${m[2]}?theme=0`} label={`${m[1]}`} />
         : <p className="small down hw-pad">That isn’t a Spotify link (open.spotify.com/…).</p>}
-      <p className="note hw-pad">Spotify’s official embed: full songs when you’re logged in to Spotify in this browser, 30-second previews otherwise. No API key needed.</p>
+      <p className="note hw-pad">Spotify’s official embed: full songs when you’re logged in to Spotify in this browser, 30-second previews otherwise. Keeps playing when you switch workspace or page (it moves to a mini player in the corner). No API key needed.</p>
     </div>
   );
 }
