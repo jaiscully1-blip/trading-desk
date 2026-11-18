@@ -1,4 +1,5 @@
 // ETFs & sectors: a Finviz-style S&P 500 heatmap, what's inside each ETF, and your own baskets vs SPY.
+import { MoveChart, toMs } from './MoveChart';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { COMPANIES } from '../../shared/data/companies';
 import { ETFS } from '../../shared/etfs';
@@ -180,11 +181,7 @@ function Baskets({ snap, onChart }: { snap: SnapMap; onChart: (s: string) => voi
     setBaskets((xs) => (draft.id ? xs.map((x) => (x.id === draft.id ? b : x)) : [...xs, b]));
     setSelId(b.id); setDraft(null);
   };
-  const W = 640, H = 220;
   const curve = res?.curve ?? [];
-  const lo = Math.min(...curve.flatMap((p) => [p.basket, p.bench]), 100), hi = Math.max(...curve.flatMap((p) => [p.basket, p.bench]), 100);
-  const X = (i: number) => (i / Math.max(1, curve.length - 1)) * W, Y = (v: number) => H - 8 - ((v - lo) / (hi - lo || 1)) * (H - 16);
-  const line = (k: 'basket' | 'bench') => curve.map((p, i) => `${i ? 'L' : 'M'}${X(i).toFixed(1)},${Y(p[k]).toFixed(1)}`).join('');
   const last = curve[curve.length - 1];
   const today = sel ? (() => { const qs = sel.syms.map((s) => snap[s]?.c).filter((v): v is number => v != null); return qs.length ? qs.reduce((a, b) => a + b, 0) / qs.length : null; })() : null;
   return (
@@ -220,11 +217,7 @@ function Baskets({ snap, onChart }: { snap: SnapMap; onChart: (s: string) => voi
             {r.loading && !r.data && <p className="muted">Loading daily closes…</p>}
             {r.error && !r.data && <p className="down small">{r.error}</p>}
             {curve.length > 1 && (
-              <svg viewBox={`0 0 ${W} ${H}`} className="es-chart" preserveAspectRatio="none">
-                <line x1={0} x2={W} y1={Y(100)} y2={Y(100)} className="es-zero" />
-                <path d={line('bench')} className="es-bench" />
-                <path d={line('basket')} className="es-bsk" />
-              </svg>
+              <MoveChart series={[{ pts: curve.map((p) => ({ t: toMs(p.t), v: p.basket - 100 })), label: sel.name, fmt: (v) => `${v >= 0 ? '+' : ''}${v.toFixed(1)}%` }, { pts: curve.map((p) => ({ t: toMs(p.t), v: p.bench - 100 })), label: 'SPY', fmt: (v) => `${v >= 0 ? '+' : ''}${v.toFixed(1)}%` }]} height={200} ranges={false} zero />
             )}
             {curve.length > 1 && <div className="es-key small"><span><i className="es-bsk-k" /> {sel.name} (equal weight)</span><span><i className="es-bench-k" /> SPY</span></div>}
             {res && (

@@ -1,6 +1,7 @@
 // Poker desk: every trade is a bet. Claims (fundamental / technical / news, each with evidence and source), the bet board
 // (historical equity vs pot odds -> raise / call / fold), the article reader, and Spotify / X embeds.
 import { useEffect, useMemo, useState } from 'react';
+import { Linked } from './Linked';
 import type { Bar } from '../types';
 import { consensus, fundamentalClaims, newsClaims, technicalClaims, type Cat, type Claim, type Lean } from '../../shared/claims';
 import { bestBet, type BetOdds } from '../../shared/edge';
@@ -164,7 +165,7 @@ export function ReaderOverlay({ a, onClose, mode }: { a: Article; onClose: () =>
           <span className="small muted">{a.src}{host && host !== a.src ? ` · ${host}` : ''} · {new Date(a.t).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: 'America/New_York' })} ET</span>
           <button className="icon-btn reader-x" onClick={onClose} aria-label="Close article (Esc)" title="Close (Esc)">×</button>
         </div>
-        <h3>{a.title}</h3>
+        <h3><Linked text={a.title} /></h3>
         <div className="reader-tags">
           {w.bull.length > w.bear.length ? <span className="pk-pill bull">BULLISH</span> : w.bear.length > w.bull.length ? <span className="pk-pill bear">BEARISH</span> : <span className="pk-pill mixed">NEUTRAL</span>}
           {(w.bull.length > 0 || w.bear.length > 0) && <span className="small muted">from the headline’s words: {[...w.bull.map((x) => `+${x}`), ...w.bear.map((x) => `−${x}`)].join(', ')}</span>}

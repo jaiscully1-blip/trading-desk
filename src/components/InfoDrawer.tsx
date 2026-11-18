@@ -2,7 +2,7 @@
 // transcript line) with whatever is known about it, plus actions: save to the research notebook, open the company,
 // learn more. <Term> wraps any label so a click explains it.
 import { useEffect, useState, useSyncExternalStore, type ReactNode } from 'react';
-import { lookupTerm, type Term as TermDef } from '../../shared/terms';
+import { loadTermDecks, lookupTerm, onTermDecks, termDecksReady, type Term as TermDef } from '../../shared/terms';
 import { addResearch } from '../lib/research';
 import { save } from '../lib/store';
 import { useDesk } from '../lib/deskctx';
@@ -10,12 +10,16 @@ import { useDesk } from '../lib/deskctx';
 export interface Explain { title: string; sub?: string; sym?: string; what?: string; lines?: string[]; term?: string; src?: string; url?: string; kind?: string; actions?: { label: string; run: () => void }[]; note?: string }
 let cur: Explain | null = null;
 const subs = new Set<() => void>();
-export const openExplain = (x: Explain) => { cur = x; subs.forEach((f) => f()); };
+export const openExplain = (x: Explain) => { cur = x; subs.forEach((f) => f()); if (!termDecksReady()) void loadTermDecks().then(() => subs.forEach((f) => f())); };
+// the Learn decks behind the explanations load once the desk is idle, off the startup path
+if (typeof window !== 'undefined') ((window as any).requestIdleCallback ?? ((f: () => void) => setTimeout(f, 2500)))(() => void loadTermDecks());
+const useDecks = () => useSyncExternalStore(onTermDecks, termDecksReady);
 const close = () => { cur = null; subs.forEach((f) => f()); };
 const useCur = () => useSyncExternalStore((f) => { subs.add(f); return () => subs.delete(f); }, () => cur);
 
 /** A label that explains itself on click (dotted underline). Falls back to plain text when nothing is written for it. */
 export function Term({ k, children, sym }: { k: string; children?: ReactNode; sym?: string }) {
+  useDecks();
   const t = lookupTerm(k);
   if (!t) return <>{children ?? k}</>;
   return <button type="button" className="term" title={`${t.title}: ${t.what}`} onClick={(e) => { e.stopPropagation(); openExplain({ title: t.title, term: k, sym, kind: 'Term' }); }}>{children ?? k}</button>;
@@ -23,6 +27,7 @@ export function Term({ k, children, sym }: { k: string; children?: ReactNode; sy
 
 export function InfoDrawer({ onLearn }: { onLearn: (tab: string) => void }) {
   const x = useCur(), { openCompany, openInfo } = useDesk();
+  useDecks();
   const [saved, setSaved] = useState(false);
   const [note, setNote] = useState('');
   useEffect(() => { setSaved(false); setNote(''); }, [x]);

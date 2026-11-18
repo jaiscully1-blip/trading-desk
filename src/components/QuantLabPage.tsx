@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { PageHero } from './PageHero';
 import { Fresh } from './common';
 import { QuantEvents } from './QuantEvents';
+import { MoveChart } from './MoveChart';
 import { Term } from './InfoDrawer';
 import { LIVE_TICKERS, type LiveBlock } from '../../shared/livefeeds';
 import { usePersisted } from '../lib/store';
@@ -55,18 +56,16 @@ function Scatter({ x, y, xl, yl }: { x: number[]; y: number[]; xl: string; yl: s
 }
 
 /** Two series over time, each scaled to its own range, so the shapes can be compared. */
+const qMs = (q: string) => Date.UTC(+q.slice(0, 4), (+q.slice(5) - 1) * 3 + 1, 15);
+const qLab = (t: number) => { const d = new Date(t); return `${d.getUTCFullYear()} Q${Math.floor(d.getUTCMonth() / 3) + 1}`; };
+/** Two series over time, each scaled to its own average and spread so the shapes compare; the readout shows the real values. */
 function TwoLines({ k, a, b, al, bl }: { k: string[]; a: number[]; b: number[]; al: string; bl: string }) {
-  const W = 600, H = 150, z = (v: number[]) => { const m = v.reduce((s, x) => s + x, 0) / v.length, sd = Math.sqrt(v.reduce((s, x) => s + (x - m) ** 2, 0) / v.length) || 1; return v.map((x) => (x - m) / sd); };
-  const za = z(a), zb = z(b), lim = Math.max(2.5, ...za.map(Math.abs), ...zb.map(Math.abs));
-  const X = (i: number) => 6 + (i / Math.max(1, k.length - 1)) * (W - 12), Y = (v: number) => H / 2 - (v / lim) * (H / 2 - 8);
-  const path = (v: number[]) => v.map((x, i) => `${i ? 'L' : 'M'}${X(i).toFixed(1)},${Y(x).toFixed(1)}`).join('');
+  const z = (v: number[]) => { const m = v.reduce((s, x) => s + x, 0) / v.length, sd = Math.sqrt(v.reduce((s, x) => s + (x - m) ** 2, 0) / v.length) || 1; return v.map((x) => (x - m) / sd); };
+  const za = z(a), zb = z(b), f1 = (v: number) => `${v >= 0 ? '+' : ''}${v.toFixed(2)}`;
   return (
     <figure className="ql-two">
-      <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" role="img" aria-label={`${al} and ${bl} over time`}>
-        <line x1={0} x2={W} y1={H / 2} y2={H / 2} className="ql-ax" />
-        <path d={path(zb)} className="ql-lb" vectorEffect="non-scaling-stroke" /><path d={path(za)} className="ql-la" vectorEffect="non-scaling-stroke" />
-      </svg>
-      <figcaption className="small muted"><span className="ql-key a" /> {al} <span className="ql-key b" /> {bl} · {k[0]} to {k[k.length - 1]}, each scaled to its own average and spread</figcaption>
+      <MoveChart series={[{ pts: k.map((q, i) => ({ t: qMs(q), v: za[i], note: `actual ${f1(a[i])}` })), label: al, fmt: (v) => `${f1(v)}σ` }, { pts: k.map((q, i) => ({ t: qMs(q), v: zb[i], note: `actual ${f1(b[i])}` })), label: bl, fmt: (v) => `${f1(v)}σ` }]} height={170} ranges={false} zero legend xfmt={qLab} />
+      <figcaption className="small muted">Each line scaled to its own average and spread (σ) so the shapes compare; the readout shows actual values.</figcaption>
     </figure>
   );
 }
@@ -108,9 +107,6 @@ function Detail({ f, all, cand, y, ylabel }: { f: Finding; all: Finding[]; cand:
 
 function ReviewTone({ co, ret, sym, fund }: { co: ToneCo; ret: Series; sym: string; fund: Candidate[] }) {
   const rows = co.q.filter((r) => r.n >= MIN_REVIEWS && r.q >= '2010');
-  const W = 900, H = 200, tones = rows.map((r) => r.tone), lo = Math.min(...tones), hi = Math.max(...tones);
-  const rets = rows.map((r) => ret.get(r.q) ?? 0), rmax = Math.max(10, ...rets.map(Math.abs));
-  const X = (i: number) => 8 + (i + 0.5) * ((W - 16) / rows.length), bw = ((W - 16) / rows.length) * 0.6;
   const tone = new Map(rows.map((r) => [r.q, r.tone]));
   const rev = fund.find((c) => c.id === 'f:rev');
   const tests: [string, Series, Series, number][] = [
@@ -128,14 +124,7 @@ function ReviewTone({ co, ret, sym, fund }: { co: ToneCo; ret: Series; sym: stri
       <div className="ql-tiles four">
         {tests.map(([label, x, y, lag]) => { const a = align(x, y, lag), r = pearson(a.x, a.y); return <Tile key={label} k={label} v={Number.isFinite(r) ? f2(r) : '—'} sub={`${a.x.length} quarters · ${Number.isFinite(r) ? strengthWord(r) : ''}`} tone={r >= 0 ? 'up' : 'dn'} />; })}
       </div>
-      <figure className="ql-fig">
-        <svg className="ql-tone" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" role="img" aria-label="Review tone and quarterly return">
-          <line x1={0} x2={W} y1={H / 2} y2={H / 2} className="ql-ax" />
-          {rows.map((r, i) => { const v = ret.get(r.q); if (v == null) return null; const h = (Math.abs(v) / rmax) * (H / 2 - 6); return <rect key={r.q} x={X(i) - bw / 2} width={bw} y={v >= 0 ? H / 2 - h : H / 2} height={h} className={v >= 0 ? 'ql-up' : 'ql-dn'}><title>{r.q}: {sym} {pc(v)}</title></rect>; })}
-          <path d={rows.map((r, i) => `${i ? 'L' : 'M'}${X(i).toFixed(1)},${(8 + (1 - (r.tone - lo) / (hi - lo || 1)) * (H - 16)).toFixed(1)}`).join('')} className="ql-la" vectorEffect="non-scaling-stroke" />
-        </svg>
-        <figcaption className="small muted"><span className="ql-key a" /> review tone (scaled to fit) · <span className="ql-key up" /><span className="ql-key dn" /> {sym} return each quarter · {rows[0]?.q}–{rows[rows.length - 1]?.q}</figcaption>
-      </figure>
+      {(() => { const k = rows.filter((r) => ret.has(r.q)); return <TwoLines k={k.map((r) => r.q)} a={k.map((r) => r.tone)} b={k.map((r) => ret.get(r.q)!)} al="Review tone" bl={`${sym} quarterly return %`} />; })()}
       <div className="ql-split">
         <div className="ql-sub">
           <h4>What people mention <span className="muted small">· last 8 quarters</span></h4>

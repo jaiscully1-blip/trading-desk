@@ -207,7 +207,11 @@ export async function getJson(url: string, provider: Provider, timeoutMs = 8000,
 }
 
 export function json(data: unknown, opts: { status?: number; sMaxAge?: number; swr?: number } = {}) {
-  const { status = 200, sMaxAge = 0, swr = 0 } = opts;
+  const { status = 200, sMaxAge = 0 } = opts;
+  // stale-while-revalidate: after s-maxage the CDN still answers instantly with the last copy while it fetches a fresh
+  // one in the background, so a page opened after a quiet spell doesn't wait seconds on slow upstreams. Ten times the
+  // fresh window (at least 5 minutes, at most a day); errors are never kept that long.
+  const swr = opts.swr || (status === 200 ? Math.min(86400, Math.max(300, sMaxAge * 10)) : sMaxAge);
   return new Response(JSON.stringify(data), {
     status,
     headers: {

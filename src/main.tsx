@@ -5,8 +5,10 @@ import { AccountGate } from './components/AccountGate';
 import { currentAccount, storagePrefix } from './lib/accounts';
 import './styles.css';
 import { reportError, startTelemetry } from './lib/telemetry';
+import { installFetchCache } from './lib/fetchCache';
 
 startTelemetry();
+installFetchCache();
 
 // After a new version is deployed, a tab that was already open asks for old file names that no longer exist
 // ("Failed to fetch dynamically imported module"). Reload once to pick up the new version instead of showing an error.

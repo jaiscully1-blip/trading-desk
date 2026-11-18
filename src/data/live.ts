@@ -208,7 +208,8 @@ export function useQuotes(symbols: string[], mode: DataMode, baseMs = 30_000): Q
         if (!stop) setSt((s) => (s ? { ...s, error: (e as Error).message } : s));
       }
       const inSession = clock().session !== 'Closed';
-      if (!stop) t = setTimeout(tick, inSession ? intervalMs : intervalMs * 10);
+      // hidden tab: no point spending the free quote budget; a visible tab picks up again within seconds
+      if (!stop) t = setTimeout(tick, document.hidden ? Math.max(intervalMs, 120_000) : inSession ? intervalMs : intervalMs * 10);
     };
     tick();
     return () => { stop = true; clearTimeout(t); };

@@ -4,6 +4,7 @@
 // Layers: Market news, Conflicts, Shipping & oil, Deals. (Weather and Lawsuits were taken off the toolbar on Nov 8, 2026; the data
 // code for lawsuits still exists in shared/world.ts, see the Trading Desk Guide for how to bring either back.)
 import { useDesk } from '../lib/deskctx';
+import { Linked } from './Linked';
 import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import { useWorldLayer, type WorldState } from '../data/world';
 import type { DataMode } from '../data/live';
@@ -178,7 +179,7 @@ export default function WorldMap({ data, symbols, names, onSelect, onClose, mode
                 <h4>Tickers it affects</h4>
                 <div className="wm-chips">{affected.length ? affected.map((s) => <button key={s} className="sym-chip" onClick={() => onSelect(s)}>{s}</button>) : <span className="muted small">None of your tickers are named.</span>}</div>
                 <h4>Headlines</h4>
-                <ul className="news">{selHot.articles.slice(0, 20).map((a, i) => <li key={i}><span /><span className="news-t"><button className="link-plain news-hl" onClick={() => openArticle({ title: a.title, url: a.url, src: 'World map', t: a.t ?? Date.now(), syms: affected })} title="Open the article reader">{a.title}</button>{a.t ? <em className="small muted"> · {etTime(a.t)} ET</em> : null}</span></li>)}</ul>
+                <ul className="news">{selHot.articles.slice(0, 20).map((a, i) => <li key={i}><span /><span className="news-t"><button className="link-plain news-hl" onClick={() => openArticle({ title: a.title, url: a.url, src: 'World map', t: a.t ?? Date.now(), syms: affected })} title="Open the article reader"><Linked text={a.title} /></button>{a.t ? <em className="small muted"> · {etTime(a.t)} ET</em> : null}</span></li>)}</ul>
               </>
             ) : selChoke && lay ? (() => { const c = lay.chokepoints.find((x) => x.id === selChoke)!; const near = (lay.ships ?? []).filter((v) => v.lat >= c.box[0][0] && v.lat <= c.box[1][0] && v.lon >= c.box[0][1] && v.lon <= c.box[1][1]); return (
               <>

@@ -50,6 +50,7 @@ const TeslaPage = lazy(() => import('./components/TeslaPage'));
 const AltDataPage = lazy(() => import('./components/AltDataPage'));
 import { SpotifyDock } from './components/SpotifyDock';
 import { InfoDrawer } from './components/InfoDrawer';
+import { CompanyPeek, openPeek } from './components/CompanyPeek';
 const QuantLabPage = lazy(() => import('./components/QuantLabPage'));
 const RealEconPage = lazy(() => import('./components/RealEconPage'));
 const PlumbingPage = lazy(() => import('./components/PlumbingPage'));
@@ -72,14 +73,13 @@ import StanceLayer from './components/StanceLayer';
 const CreditPage = lazy(() => import('./components/CreditPage'));
 const InsiderPage = lazy(() => import('./components/InsiderPage'));
 const CalmMode = lazy(() => import('./components/CalmMode'));
-import DataStatus from './components/DataStatus';
+const DataStatus = lazy(() => import('./components/DataStatus'));
 const RiverScene = lazy(() => import('./components/RiverScene'));
 import { popout, PageTabs } from './components/common';
 import { PingStack, StarredList } from './components/Pings';
 import { Desk, type Article, type DeskCtx } from './lib/deskctx';
 import { pickImportFiles } from './lib/importPick';
 import { isOwner, storagePrefix } from './lib/accounts';
-import TickerInfo from './components/TickerInfo';
 import { OFFLINE_NAMES } from './data/info';
 import { earningsPings, levelPings, movePing, toneOf, watchLevels, type Ping } from './lib/pings';
 import { useEarnings, useNames } from './data/company';
@@ -111,7 +111,7 @@ import type { OrderDraft } from '../shared/orders';
 import { Messages } from './components/Messages';
 import { useFeed } from './data/feed';
 import type { HomeLayout, Workspaces } from './components/Home';
-import { COMMODITIES } from './components/HomeWidgets2';
+import { COMMODITIES } from '../shared/commodities';
 
 const DEMO_QUOTES = makeQuotes();
 /** Deep links like /$SPY or /nvda open that ticker on the desk (Vercel rewrites every page path to the app). */
@@ -557,8 +557,8 @@ export default function App() {
   }, [stars, setStars, flash]);
   const openCompany = useCallback((sym: string) => { setCompanySym(sym); setPage('company'); }, [setCompanySym, setPage]);
   const [article, setArticle] = useState<Article | null>(null);
-  const [info, setInfo] = useState<{ sym: string; at: { x: number; y: number } } | null>(null);
-  const openInfo = useCallback((sym: string, at?: { x: number; y: number }) => setInfo({ sym, at: at ?? { x: window.innerWidth / 2 - 170, y: 120 } }), []);
+  // any "what is this company?" click opens the pinned company peek on the right (stays on the current page)
+  const openInfo = useCallback((sym: string, _at?: { x: number; y: number }) => { openPeek(sym); }, []);
   const [orderReq, setOrderReq] = useState<{ initial: Partial<OrderDraft>; last?: number | null } | null>(null);
   // the Webull ticket belongs to the owner's account only; other accounts never open it
   const openOrder = useCallback((initial: Partial<OrderDraft>, last?: number | null) => { if (isOwner()) setOrderReq({ initial, last }); }, []);
@@ -989,7 +989,7 @@ export default function App() {
   } else if (page === 'global') {
     body = <Suspense fallback={<section className="panel"><div className="ph-body">Loading…</div></section>}><GlobalPage mode={dataMode} onChart={toDesk} /></Suspense>;
   } else if (page === 'status') {
-    body = <div className="page"><DataStatus mode={dataMode} /></div>;
+    body = <div className="page"><Suspense fallback={<section className="panel"><div className="ph-body">Loading…</div></section>}><DataStatus mode={dataMode} /></Suspense></div>;
   } else if (page === 'credit') {
     body = <div className="page"><Suspense fallback={<section className="panel"><div className="ph-body">Loading…</div></section>}><CreditPage mode={dataMode} onPage={(p) => setPage(p)} /></Suspense></div>;
   } else if (page === 'insiders') {
@@ -1036,6 +1036,7 @@ export default function App() {
       <StanceLayer />
       <SpotifyDock />
       <InfoDrawer onLearn={() => setPage('learn')} />
+      <CompanyPeek mode={dataMode} quotes={quotes} onChart={toDesk} onCompany={openCompany} />
       {calm && <Suspense fallback={null}><CalmMode onExit={() => setCalm(false)} /></Suspense>}
       {focus && <button className="focus-chip" onClick={toggleFocus} title="Bring the side bars back (Z)">Focus mode · Z to exit</button>}
       <SideNav compact={iconRail} page={page} onPage={setPage} dataState={dataMode.kind} onCmd={() => setCmdOpen(true)} onHelp={() => setOverlay('help')} onAccount={() => setDrawer((d) => !d)} onCalm={() => setCalm(true)} />
@@ -1068,7 +1069,6 @@ export default function App() {
       {overlay === 'help' && <OverlayView kind="help" onClose={() => setOverlay(null)} />}
       <Suspense fallback={null}>{article && <ReaderOverlay a={article} mode={dataMode} onClose={() => setArticle(null)}  />}</Suspense>
       <Suspense fallback={null}>{orderReq && isOwner() && <OrderTicket initial={orderReq.initial} last={orderReq.last ?? (orderReq.initial.sym && Number.isFinite(quotes[orderReq.initial.sym]?.last) ? quotes[orderReq.initial.sym].last : null)} live={live} equity={settings.startBalance == null ? null : g.equity} onClose={() => setOrderReq(null)} onPlaced={(t) => flash(`Sent to Webull: ${t}`, 5000)} />}</Suspense>
-      {info && <TickerInfo key={info.sym} sym={info.sym} at={info.at} mode={dataMode} onClose={() => setInfo(null)} onChart={toDesk} onCompany={openCompany} />}
       <PingStack pings={pings} onOpen={toDesk} onDismiss={(id) => setPings((x) => x.filter((p) => p.id !== id))} />
     </div>
     </Desk.Provider>

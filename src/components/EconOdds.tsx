@@ -1,4 +1,5 @@
 // Economic odds: what prediction markets (Kalshi, Polymarket) price for the Fed, recession, inflation, jobs and the S&P.
+import { MoveChart, toMs } from './MoveChart';
 import type { ReactNode } from 'react';
 import type { EconCard, EconEvent } from '../../shared/econodds';
 import type { PmEvent } from '../../shared/polymarket';
@@ -23,15 +24,10 @@ function Gauge({ p }: { p: number }) {
 }
 
 function Spark({ pts, label }: { pts: [number, number][]; label: string | null }) {
-  const W = 260, H = 46;
-  const lo = Math.min(...pts.map((p) => p[1])), hi = Math.max(...pts.map((p) => p[1]));
-  const pad = Math.max(0.02, (hi - lo) * 0.1);
-  const y = (v: number) => H - 4 - ((v - (lo - pad)) / (hi - lo + 2 * pad || 1)) * (H - 8);
-  const d = pts.map((p, i) => `${i ? 'L' : 'M'}${((i / Math.max(1, pts.length - 1)) * W).toFixed(1)},${y(p[1]).toFixed(1)}`).join('');
   const chg = pts[pts.length - 1][1] - pts[0][1];
   return (
     <div className="eo-spark">
-      <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none"><path d={d} /></svg>
+      <MoveChart series={[{ pts: pts.map((p) => ({ t: toMs(p[0]), v: p[1] * 100 })), label: 'Chance', fmt: (v) => `${v.toFixed(0)}%` }]} height={70} ranges={false} />
       <span className="small muted">{label ? `“${label}” ` : ''}90 days: {P(pts[0][1])} → {P(pts[pts.length - 1][1])} <b className={chg >= 0 ? 'up' : 'down'}>{chg >= 0 ? '+' : ''}{Math.round(chg * 100)} pts</b></span>
     </div>
   );

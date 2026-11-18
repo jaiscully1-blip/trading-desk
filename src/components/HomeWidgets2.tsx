@@ -132,7 +132,7 @@ function useCrypto(sym: string, tf: TF, d: HomeData): { bars: Bar[]; error?: str
     let stop = false;
     const go = () => fetch(`/api/candles?symbol=${sym}&tf=${tf}`).then(async (r) => { const j = await r.json(); if (!stop) setSt(r.ok ? { bars: j.bars, source: j.source } : { bars: [], error: j.error, source: '' }); }).catch((e) => !stop && setSt({ bars: [], error: String(e), source: '' }));
     go();
-    const id = setInterval(go, 60_000);
+    const id = setInterval(() => { if (!document.hidden) go(); }, 60_000);
     return () => { stop = true; clearInterval(id); };
   }, [sym, tf, d.mode.kind]);
   return st;
@@ -187,7 +187,8 @@ export function CryptoW({ d, cfg, set }: P) {
 }
 
 /* ---------------- commodities (ETF proxies with live quotes) ---------------- */
-export const COMMODITIES: [string, string][] = [['USO', 'WTI crude oil'], ['BNO', 'Brent crude'], ['UNG', 'Natural gas'], ['GLD', 'Gold'], ['SLV', 'Silver'], ['CPER', 'Copper'], ['CORN', 'Corn'], ['WEAT', 'Wheat'], ['UUP', 'US dollar']];
+export { COMMODITIES } from '../../shared/commodities';
+import { COMMODITIES } from '../../shared/commodities';
 export function CommoditiesW({ d }: P) {
   return (
     <div className="hw-col hw-scroll">

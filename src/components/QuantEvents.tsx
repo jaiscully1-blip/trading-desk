@@ -2,6 +2,7 @@
 // (earnings beats and misses, and later recalls and complaint spikes), averaged over every past event.
 import { useEffect, useMemo, useState } from 'react';
 import { Fresh } from './common';
+import { MoveChart } from './MoveChart';
 import { POST, PRE, earningsEvents, eventStudy, summarize, type DayClose, type EventIn, type EventOut } from '../../shared/eventstudy';
 
 interface EResp { stock: DayClose[]; spy: DayClose[]; earnings: { date: string; eps: number | null; est: number | null; surprisePct: number | null; time?: string }[]; earnSource: string; asOf: number; source: string; error?: string }
@@ -37,9 +38,6 @@ export function QuantEvents({ sym, extra = [] }: { sym: string; extra?: { kind: 
   }, [d, kind, extra]);
   const src = kind === 'Earnings' ? d?.earnSource : extra.find((x) => x.kind === kind)?.source;
 
-  const W = 900, H = 220, days = PRE + POST + 1;
-  const all = res?.stats.flatMap((s) => s.path) ?? [0], lim = Math.max(2, ...all.map(Math.abs)) * 1.1;
-  const X = (k: number) => 30 + (k / (days - 1)) * (W - 40), Y = (v: number) => H / 2 - (v / lim) * (H / 2 - 14);
 
   return (
     <section className="ql-card">
@@ -49,13 +47,7 @@ export function QuantEvents({ sym, extra = [] }: { sym: string; extra?: { kind: 
       {res && (res.evs.length < 3 ? <p className="small muted">Fewer than 3 usable events for {sym}{src ? ` (${src})` : ''}.</p> : <>
         <p className="small muted ql-note">Move beyond what the market explains, averaged over {res.evs.length} events, from {PRE} trading days before to {POST} after. {src}</p>
         <figure className="ql-fig">
-          <svg className="ql-tone" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" role="img" aria-label="Average cumulative abnormal return around events">
-            <line x1={30} x2={W - 10} y1={Y(0)} y2={Y(0)} className="ql-ax" />
-            <line x1={X(PRE)} x2={X(PRE)} y1={6} y2={H - 6} className="ql-ev0" />
-            {[-lim * 0.7, lim * 0.7].map((v) => <text key={v} x={4} y={Y(v) + 3} className="ql-tl">{pc(v, 0)}</text>)}
-            {res.stats.map((s, gi) => <path key={s.group} d={s.path.map((v, k) => `${k ? 'L' : 'M'}${X(k).toFixed(1)},${Y(v).toFixed(1)}`).join('')} fill="none" stroke={COLORS[gi % COLORS.length]} strokeWidth={2} vectorEffect="non-scaling-stroke" />)}
-          </svg>
-          <figcaption className="small muted">{res.stats.map((s, gi) => <span key={s.group} className="ql-legend"><i style={{ background: COLORS[gi % COLORS.length] }} />{s.group} ({s.n})</span>)} · dashed line = event day</figcaption>
+          <MoveChart series={res.stats.map((st, gi) => ({ pts: st.path.map((v, k) => ({ t: (k - PRE) * 86400000, v })), label: `${st.group} (${st.n})`, color: COLORS[gi % COLORS.length], fmt: (v) => pc(v, 2) }))} height={220} ranges={false} zero legend xfmt={(t) => { const d = Math.round(t / 86400000); return d === 0 ? 'event day' : `day ${d > 0 ? '+' : ''}${d}`; }} marks={[{ t: 0, label: 'event day' }]} />
         </figure>
         <div className="ql-sub">
           <table className="ql-t"><thead><tr><th>Group</th><th className="r">Events</th><th className="r">Reaction (day −1 to +1)</th><th className="r">Drift after (+2 to +{POST})</th><th className="r">Up on the news</th></tr></thead><tbody>

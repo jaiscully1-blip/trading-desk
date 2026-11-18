@@ -27,7 +27,7 @@ export function LivePlayer({ vid, title, mode, setMode, slot }: { vid: string; t
       setSlotBox((b) => (!r || !r.width ? null : b && Math.abs(b.left - r.left) < 0.5 && Math.abs(b.top - r.top) < 0.5 && Math.abs(b.width - r.width) < 0.5 && Math.abs(b.height - r.height) < 0.5 ? b : { left: r.left, top: r.top, width: r.width, height: r.height }));
     };
     measure();
-    const t = setInterval(measure, 200);
+    const t = setInterval(() => { if (!document.hidden) measure(); }, 500); // layout shifts the window events miss
     window.addEventListener('resize', measure); window.addEventListener('scroll', measure, true);
     return () => { clearInterval(t); window.removeEventListener('resize', measure); window.removeEventListener('scroll', measure, true); };
   }, [docked, mode, slot]);

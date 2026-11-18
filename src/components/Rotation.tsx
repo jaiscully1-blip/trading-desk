@@ -1,5 +1,6 @@
 // Sector rotation page: who is beating the S&P 500, who is lagging, which way each is turning, and how much risk
 // the market is willing to take. Built from daily closes; "money moving in" is read from relative performance.
+import { MoveChart, toMs } from './MoveChart';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import type { FlowsState } from '../data/world';
 import { GROUP_LABEL, WINDOWS, type Quadrant, type RotGroup, type RotRow } from '../../shared/rotation';
@@ -20,8 +21,6 @@ const cell = (v: number | null) => {
 function RiskCard({ risk }: { risk: FlowsState['risk'] }) {
   if (!risk) return null;
   const state = risk.score >= 65 ? 'Risk-on' : risk.score <= 35 ? 'Risk-off' : 'Neutral';
-  const W = 300, H = 56, lo = Math.min(0, ...risk.line.map((p) => p.v)), hi = Math.max(0, ...risk.line.map((p) => p.v));
-  const x = (i: number) => (i / Math.max(1, risk.line.length - 1)) * W, y = (v: number) => H - ((v - lo) / (hi - lo || 1)) * H;
   return (
     <section className="rot-risk">
       <div className="rot-risk-n">
@@ -31,10 +30,7 @@ function RiskCard({ risk }: { risk: FlowsState['risk'] }) {
         <span className="small muted">{risk.score}/100 · {risk.rising ? 'rising' : 'falling'} this week · offense {sp(risk.spread20)} pts vs defense over 20 days</span>
       </div>
       <div className="rot-line-w"><span className="small muted">Offense minus defense, last 3 months</span>
-      <svg viewBox={`0 0 ${W} ${H}`} className="rot-line" role="img" aria-label="Offense minus defense, last 3 months">
-        <line x1={0} x2={W} y1={y(0)} y2={y(0)} className="mc-zero" />
-        <path d={`M${risk.line.map((p, i) => `${x(i)},${y(p.v)}`).join(' L')}`} className="mc-mid" />
-      </svg></div>
+      <MoveChart series={[{ pts: risk.line.map((p: any) => ({ t: toMs(p.day), v: p.v })), label: 'Offense − defense', fmt: (v) => `${v >= 0 ? '+' : ''}${v.toFixed(1)} pts` }]} height={90} ranges={false} zero /></div>
       <p className="note">Offense: {risk.offense.join(', ')}. Defense: {risk.defense.join(', ')}. The score ranks today’s 20-day gap between them against the past year (100 = most risk-on).</p>
     </section>
   );

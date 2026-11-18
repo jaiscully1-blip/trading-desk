@@ -2,6 +2,7 @@
 // (Wikipedia pageviews) around earnings, developer activity (GitHub), players (Steam), Reddit mentions and StockTwits mood.
 // Below: a grocery and energy price basket (BLS via FRED) as an inflation read. Each shows its change over ~1 month and ~1 year.
 import { PageHero } from './PageHero';
+import { MoveChart, toMs } from './MoveChart';
 import { useEffect, useMemo, useState } from 'react';
 import type { DataMode } from '../data/live';
 import { usePersisted } from '../lib/store';
@@ -22,15 +23,7 @@ const BOARD_URL: Record<string, (s: string) => string> = { gh: (s) => `https://b
 
 function Line({ s, marks = [], invert = false, h = 70 }: { s: Pt[]; marks?: { date: string; label: string }[]; invert?: boolean; h?: number }) {
   if (s.length < 2) return <p className="small muted ad-wait">{s.length ? 'One reading so far: the trend line starts tomorrow.' : 'No readings yet.'}</p>;
-  const w = 600, lo = Math.min(...s.map((x) => x.value)), hi = Math.max(...s.map((x) => x.value)), span = hi - lo || 1;
-  const t0 = Date.parse(s[0].date), t1 = Date.parse(s[s.length - 1].date), tw = t1 - t0 || 1;
-  const X = (d: string) => ((Date.parse(d) - t0) / tw) * w, Y = (v: number) => { const f = (v - lo) / span; return 4 + (invert ? f : 1 - f) * (h - 8); };
-  return (
-    <svg className="ad-line" viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" role="img" aria-label="Trend">
-      {marks.filter((m) => m.date >= s[0].date && m.date <= s[s.length - 1].date).map((m) => <line key={m.date} x1={X(m.date)} x2={X(m.date)} y1={0} y2={h} className="ad-mark"><title>{m.label}</title></line>)}
-      <polyline points={s.map((p) => `${X(p.date).toFixed(1)},${Y(p.value).toFixed(1)}`).join(' ')} fill="none" stroke="var(--accent)" strokeWidth="1.5" vectorEffect="non-scaling-stroke" />
-    </svg>
-  );
+  return <MoveChart series={[{ pts: s.map((p) => ({ t: toMs(p.date), v: p.value })), label: 'Value' }]} height={Math.max(90, h + 20)} ranges={s.length > 60} invert={invert} marks={marks.map((m) => ({ t: toMs(m.date), label: m.label }))} />;
 }
 
 function Stat({ label, t, unit = '', invert = false, places = false }: { label: string; t: ReturnType<typeof trend>; unit?: string; invert?: boolean; places?: boolean }) {
