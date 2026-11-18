@@ -731,7 +731,7 @@ export default function App() {
     { id: 'earnings', label: 'Earnings calendar', run: () => setPage('calendar') },
     { id: 'fear', label: 'Show/hide fear strip', hint: 'F', run: () => setLayout({ fearOpen: layout.fearOpen === false }) },
     { id: 'crypto', label: 'BTC / ETH: live Bitcoin and Ethereum charts (24/7)', run: () => setPage('crypto') },
-    { id: 'learn', label: 'Learn: free practice (probability guide, Figgie, Estimathon, puzzles, how an exchange works)', run: () => setPage('learn') },
+    { id: 'learn', label: 'Learn: strategies and their history, YouTube channels, books, papers, glossary, flashcards, learning path, chart game', run: () => setPage('learn') },
     { id: 'policy', label: 'Macro & Policy: earnings season scoreboard, tariff tracker, policy odds by sector', hint: 'Shift O', run: () => setPage('policy') },
     { id: 'plumbing', label: 'Shorts & Supply (was Market Plumbing): short volume, dark pools, borrow fee, fails to deliver, unusual options, buybacks, dilution, lockups, mergers', hint: 'Shift P', run: () => setPage('plumbing') },
     { id: 'realecon', label: 'Real Economy: air traffic, CEO jets, rail, power demand, gas prices, freight, weather', hint: 'Shift E', run: () => setPage('realecon') },
@@ -967,7 +967,7 @@ export default function App() {
   } else if (page === 'crypto') {
     body = <div className="page"><Suspense fallback={<section className="panel"><div className="ph-body">Loading…</div></section>}><CryptoCharts /></Suspense></div>;
   } else if (page === 'learn') {
-    body = <Suspense fallback={<section className="panel"><div className="ph-body">Loading…</div></section>}><LearnPage /></Suspense>;
+    body = <Suspense fallback={<section className="panel"><div className="ph-body">Loading…</div></section>}><LearnPage go={setPage} /></Suspense>;
   } else if (page === 'policy') {
     body = <Suspense fallback={<section className="panel"><div className="ph-body">Loading…</div></section>}><MacroExtraPage mode={dataMode} onChart={toDesk} /></Suspense>;
   } else if (page === 'plumbing') {
