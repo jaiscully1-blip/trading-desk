@@ -1,4 +1,5 @@
 import { usePersisted } from '../lib/store';
+import { Linked } from './Linked';
 import { fuzzyScore } from '../lib/fuzzy';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Board, Freshness, Headline } from '../types';
@@ -45,7 +46,7 @@ export function NewsTicker({
                     <button key={s} className="sym-chip" onClick={() => onSelect(s)} tabIndex={k ? -1 : 0}>{s}</button>
                   ))}{' '}
                   {h.sentiment != null && <span className={`sent ${h.sentiment > 0 ? 'up' : h.sentiment < 0 ? 'down' : 'muted'}`}>● </span>}
-                  <button className="ticker-hl" tabIndex={k ? -1 : 0} onClick={() => openArticle({ title: h.title, url: h.url, src: h.src, t: h.t, syms: h.syms, sentiment: h.sentiment })} title="Open the article reader">{h.title}</button>
+                  <button className="ticker-hl" tabIndex={k ? -1 : 0} onClick={() => openArticle({ title: h.title, url: h.url, src: h.src, t: h.t, syms: h.syms, sentiment: h.sentiment })} title="Open the article reader"><Linked text={h.title} /></button>
                   <span className="muted small"> · {h.src}</span><LeanDot lean={(h as { lean?: import('../../shared/bias').Lean }).lean} />
                 </span>
               ))}

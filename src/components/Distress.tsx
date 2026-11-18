@@ -2,6 +2,7 @@
 // signal with its source, date and link, so nothing is taken on trust. A screen for where to look, not a rating, not advice.
 // Views: Weak names · Turnarounds · Sectors · Big movers (realized volatility, either direction) · US map (HQ dots + state heat).
 import { Fragment, useMemo, useState } from 'react';
+import { Linked } from './Linked';
 import { geoAlbersUsa } from 'd3-geo';
 import type { DataMode } from '../data/live';
 import { useDistress, type CreditPt, type DistressState } from '../data/distress';
@@ -85,7 +86,7 @@ function Detail({ r, onChart, onClose }: { r: DistressRow; onChart: (s: string) 
       {r.jobs && <p className="small"><a href={r.jobs.url} target="_blank" rel="noreferrer noopener">Open its {r.jobs.ats} job board</a>{r.jobs.d90 == null && <span className="muted"> · job counts started {r.jobs.since}; changes show after a few weeks</span>}</p>}
       {r.news.length > 0 && <>
         <h4>Flagged headlines (30 days)</h4>
-        <ul className="news">{r.news.map((n) => <li key={n.url}><span /><span className="news-t"><button className="link-plain news-hl" onClick={() => openArticle({ title: n.title, url: n.url, src: n.src, t: n.t, syms: [r.sym] })}>{n.title}</button><em className="small muted"> · {n.tags.join(', ')}</em></span></li>)}</ul>
+        <ul className="news">{r.news.map((n) => <li key={n.url}><span /><span className="news-t"><button className="link-plain news-hl" onClick={() => openArticle({ title: n.title, url: n.url, src: n.src, t: n.t, syms: [r.sym] })}><Linked text={n.title} /></button><em className="small muted"> · {n.tags.join(', ')}</em></span></li>)}</ul>
       </>}
       {r.missing.length > 0 && <p className="note">Not read for this company: {r.missing.join(', ')}. Missing data counts as nothing, not as good news.</p>}
     </aside>

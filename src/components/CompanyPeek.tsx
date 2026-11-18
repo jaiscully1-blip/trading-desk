@@ -2,6 +2,7 @@
 // name) and this panel opens on the right without leaving the page you're on. Click another company inside it and it
 // stacks, with Back. What it does, the numbers, a 1-year chart you can move along, news, next earnings and your notes.
 import { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
+import { Linked } from './Linked';
 import type { Quote } from '../types';
 import type { DataMode } from '../data/live';
 import { useTickerInfo } from '../data/info';
@@ -59,7 +60,7 @@ function Body({ sym, mode, quotes, onChart, onCompany }: { sym: string; mode: Da
       <section><h4>Key numbers and next earnings</h4><TearSheet sym={sym} mode={mode} /></section>
       <section><h4>Latest news</h4>
         {!live ? <p className="small muted">Live data only.</p> : news == null ? <p className="small muted">Loading…</p> : !news.length ? <p className="small muted">No recent headlines.</p> :
-          <ul className="pk-news">{news.map((n) => <li key={n.title}><button className="link" onClick={() => openArticle({ title: n.title, url: n.url, src: n.src ?? '', t: n.t, summary: n.summary, syms: n.syms })}>{n.title}</button><span className="small muted"> {n.src} · {new Date(n.t).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span></li>)}</ul>}
+          <ul className="pk-news">{news.map((n) => <li key={n.title}><button className="link" onClick={() => openArticle({ title: n.title, url: n.url, src: n.src ?? '', t: n.t, summary: n.summary, syms: n.syms })}><Linked text={n.title} /></button><span className="small muted"> {n.src} · {new Date(n.t).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span></li>)}</ul>}
       </section>
       <section><h4>Your notes {notes.length ? <span className="muted small">· {notes.length}</span> : null}</h4>
         {notes.slice(0, 4).map((n) => <div key={n.id} className="pk-note"><b className="small">{n.title}</b><p className="small">{n.body.slice(0, 240)}{n.body.length > 240 ? '…' : ''}</p></div>)}

@@ -2,6 +2,7 @@
 // Earnings: by day, biggest companies first, with timing, estimates, and actuals + surprise once reported.
 // IPOs: upcoming / priced / filed / withdrawn, then IPO news (fresh SEC S-1 and 424B4 filings, plus IPO headlines from the desk's news feeds).
 import { CallsList } from './Transcript';
+import { Linked } from './Linked';
 import { useMemo, useState } from 'react';
 import type { DataMode } from '../data/live';
 import { useEventCal } from '../data/eventcal';
@@ -128,7 +129,7 @@ export function EarnIpoPanel({ mode, mySyms, news, onSelect, compact = false }: 
           {ipoHeadlines.map((n) => (
             <div key={n.id} className="ei-row ei-filing">
               <span className="num small muted">{etTime(n.t)}</span>
-              <button className="link-plain news-hl ei-name" onClick={() => openArticle({ title: n.title, url: n.url, src: n.src, t: n.t, syms: n.syms, sentiment: n.sentiment })}>{n.title}</button>
+              <button className="link-plain news-hl ei-name" onClick={() => openArticle({ title: n.title, url: n.url, src: n.src, t: n.t, syms: n.syms, sentiment: n.sentiment })}><Linked text={n.title} /></button>
               <span className="small muted">{n.src}</span>
             </div>
           ))}

@@ -3258,3 +3258,4 @@ button.cg-name { color: inherit; font-family: inherit; cursor: pointer; } button
 .mv-mark { stroke: var(--warn); stroke-dasharray: 2 3; vector-effect: non-scaling-stroke; opacity: .8; }
 .mv-mk { background: var(--panel-2); border-radius: 6px; padding: 0 6px; color: var(--warn); }
 .mv-leg { display: flex; gap: 12px; flex-wrap: wrap; }
+.co-link { cursor: pointer; text-decoration: underline dotted; text-decoration-color: var(--muted); text-underline-offset: 2px; } .co-link:hover { color: var(--accent); text-decoration-color: var(--accent); }

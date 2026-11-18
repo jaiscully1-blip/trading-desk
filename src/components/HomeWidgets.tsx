@@ -1,5 +1,6 @@
 // Home page widgets. Each gets its saved config (cfg) and a setter, plus the shared desk data.
 import { AlertsW } from './AlertsW';
+import { Linked } from './Linked';
 import { FundCharts } from './FundCharts';
 import { AnalysisW, TrendingW } from './AnalysisW';
 import { OptActiveW, PerpsW, RatesW } from './OptRatesW';
@@ -102,7 +103,7 @@ export function StockW({ d, cfg, set }: P) {
         <span className="hw-tf"><Seg<TF> value={cfg.tf ?? 'D'} onChange={(tf) => set({ ...cfg, tf })} options={[{ id: '5m', label: '5m' }, { id: 'D', label: 'D' }]} /></span>
       </div>
       <MiniChart sym={sym} tf={cfg.tf ?? 'D'} d={d} />
-      <ul className="hw-news">{items.length ? items.map((n) => <li key={n.id}><span className={`sent ${n.sentiment > 0 ? 'up' : n.sentiment < 0 ? 'down' : 'muted'}`}>●</span><span className="muted num">{etTime(n.t)}</span> <button className="link hw-headline" onClick={() => openArticle({ title: n.title, url: n.url, src: n.src, t: n.t, summary: n.summary, syms: n.syms, sentiment: n.sentiment })}>{n.title}</button></li>) : <li className="muted small">No recent headlines for {sym}.</li>}</ul>
+      <ul className="hw-news">{items.length ? items.map((n) => <li key={n.id}><span className={`sent ${n.sentiment > 0 ? 'up' : n.sentiment < 0 ? 'down' : 'muted'}`}>●</span><span className="muted num">{etTime(n.t)}</span> <button className="link hw-headline" onClick={() => openArticle({ title: n.title, url: n.url, src: n.src, t: n.t, summary: n.summary, syms: n.syms, sentiment: n.sentiment })}><Linked text={n.title} /></button></li>) : <li className="muted small">No recent headlines for {sym}.</li>}</ul>
     </div>
   );
 }
@@ -116,7 +117,7 @@ export function NewsW({ d, cfg, set }: P) {
     <div className="hw-col">
       <div className="hw-bar"><Seg value={f} onChange={(filter) => set({ ...cfg, filter })} options={[{ id: 'all', label: 'All' }, { id: 'macro', label: 'Macro' }, { id: 'starred', label: '★ Starred' }]} /><Fresh kind={d.news.freshness} at={d.news.asOf} /></div>
       <ul className="hw-news grow">{items.map((n) => (
-        <li key={n.id}><span className={`sent ${n.sentiment > 0 ? 'up' : n.sentiment < 0 ? 'down' : 'muted'}`}>●</span><span className="muted num">{etTime(n.t)}</span> <button className="link hw-headline" onClick={() => openArticle({ title: n.title, url: n.url, src: n.src, t: n.t, summary: n.summary, syms: n.syms, sentiment: n.sentiment })}>{n.title}</button>
+        <li key={n.id}><span className={`sent ${n.sentiment > 0 ? 'up' : n.sentiment < 0 ? 'down' : 'muted'}`}>●</span><span className="muted num">{etTime(n.t)}</span> <button className="link hw-headline" onClick={() => openArticle({ title: n.title, url: n.url, src: n.src, t: n.t, summary: n.summary, syms: n.syms, sentiment: n.sentiment })}><Linked text={n.title} /></button>
           <span className="muted small"> · {n.src}</span><LeanDot lean={n.lean} />{n.syms.slice(0, 3).map((s) => <button key={s} className="sym-chip" onClick={() => d.onChart(s)}>{s}</button>)}</li>
       ))}{!items.length && <li className="muted small">Nothing yet.</li>}</ul>
     </div>

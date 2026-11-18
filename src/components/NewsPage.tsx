@@ -2,6 +2,7 @@
 // Search (every headline this browser has seen in the last three weeks, plus what's loaded now), and By ticker (one
 // company's news from Yahoo Finance, Google News and Finnhub). Headlines and links only.
 import { useEffect, useMemo, useState } from 'react';
+import { Linked } from './Linked';
 import type { DataMode } from '../data/live';
 import type { NewsItem } from '../../shared/news';
 import { mergeArchive, searchNews, topStories, type Head } from '../../shared/newsx';
@@ -57,7 +58,7 @@ export default function NewsPage({ mode, news, sel, onChart }: { mode: DataMode;
     <div className="nx-row">
       <span className="num small muted">{ago(h.t)}</span>
       <span className={`sent ${toneCls(h.sentiment)}`}>●</span>
-      <button className="link nx-t" onClick={() => open(h)}>{h.title}</button>
+      <button className="link nx-t" onClick={() => open(h)}><Linked text={h.title} /></button>
       <span className="nx-tags small">{h.syms.slice(0, 3).map((s) => <button key={s} className="chip sm" onClick={() => onChart(s)}>{s}</button>)}<span className="muted"> {h.src}</span></span>
     </div>
   );

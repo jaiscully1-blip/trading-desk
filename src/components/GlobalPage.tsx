@@ -2,6 +2,7 @@
 // market's day has lined up with SPY over two years, and world business headlines tagged by region and US ticker.
 // History, not a forecast; nothing here says to buy or sell.
 import { useEffect, useMemo, useState } from 'react';
+import { Linked } from './Linked';
 import type { DataMode } from '../data/live';
 import type { WorldNews } from '../../shared/global';
 import { useDesk } from '../lib/deskctx';
@@ -87,7 +88,7 @@ export default function GlobalPage({ mode, onChart }: { mode: DataMode; onChart:
           {news.slice(0, 80).map((x) => (
             <div key={x.id} className="gl-row">
               <span className="num small muted">{ago(x.t)}</span>
-              <button className="link gl-t" onClick={() => openArticle({ title: x.title, url: x.url, src: x.src, t: x.t, summary: x.summary, syms: x.syms })}>{x.title}</button>
+              <button className="link gl-t" onClick={() => openArticle({ title: x.title, url: x.url, src: x.src, t: x.t, summary: x.summary, syms: x.syms })}><Linked text={x.title} /></button>
               <span className="gl-tags small">{x.syms.slice(0, 4).map((s) => <button key={s} className="chip sm" onClick={() => onChart(s)}>{s}</button>)}<span className="muted"> {x.src}</span></span>
             </div>
           ))}

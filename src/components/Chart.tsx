@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { Linked } from './Linked';
 import { dayFibs } from '../../shared/dayfib';
 import { useDesk } from '../lib/deskctx';
 import {
@@ -331,7 +332,7 @@ export function ChartPanel({
               <div key={n.id} className="fp-i">
                 <span className={`sent ${n.sentiment > 0 ? 'up' : n.sentiment < 0 ? 'down' : 'muted'}`} title="Keyword sentiment (rough)">●</span>
                 <div>
-                  {n.id.startsWith('cg') ? <span>{n.title}</span> : <button className="link-plain news-hl" onClick={() => openArticle({ title: n.title, url: n.url, src: n.src, t: n.t, syms: n.syms, sentiment: n.sentiment })} title="Open the article reader">{n.title}</button>}
+                  {n.id.startsWith('cg') ? <span>{n.title}</span> : <button className="link-plain news-hl" onClick={() => openArticle({ title: n.title, url: n.url, src: n.src, t: n.t, syms: n.syms, sentiment: n.sentiment })} title="Open the article reader"><Linked text={n.title} /></button>}
                   <div className="small muted">{longTf ? `${new Date(n.t).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: tf === 'D' ? undefined : 'numeric', timeZone: 'America/New_York' })} ` : ''}{etTime(n.t)} ET · {n.src} · {n.sentiment > 0 ? 'bullish' : n.sentiment < 0 ? 'bearish' : 'neutral'}{n.macro ? ' · macro' : ''}
                     {n.syms.filter((s) => s !== sym).map((s) => <button key={s} className="sym-chip" onClick={() => onSelect?.(s)}>{s}</button>)}
                   </div>

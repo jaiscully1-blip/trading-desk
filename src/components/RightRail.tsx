@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { Linked } from './Linked';
 import { useDesk } from '../lib/deskctx';
 import type { Board, Quote, RightTab } from '../types';
 import type { NewsState } from '../data/news';
@@ -88,7 +89,7 @@ function NewsTab({ news, boards, newsFilter, setNewsFilter, onSelect }: Paramete
             <span className="num muted" title={new Date(h.t).toLocaleString()}>{etTime(h.t)}</span>
             <span className="news-t">
               <span className={`sent ${DOT[h.sentiment]}`} title={`Keyword sentiment: ${h.sentiment > 0 ? 'bullish' : h.sentiment < 0 ? 'bearish' : 'neutral'} (rough)`}>●</span>{' '}
-              <button className="link-plain news-hl" onClick={() => openArticle({ title: h.title, url: h.url, src: h.src, t: h.t, syms: h.syms, sentiment: h.sentiment })} title="Open the article reader">{h.title}</button>
+              <button className="link-plain news-hl" onClick={() => openArticle({ title: h.title, url: h.url, src: h.src, t: h.t, syms: h.syms, sentiment: h.sentiment })} title="Open the article reader"><Linked text={h.title} /></button>
             </span>
             <span className="news-m">
               {h.syms.map((s) => (
