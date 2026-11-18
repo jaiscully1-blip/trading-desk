@@ -48,6 +48,7 @@ const NewsPage = lazy(() => import('./components/NewsPage'));
 const EssayPage = lazy(() => import('./components/EssayPage'));
 const TeslaPage = lazy(() => import('./components/TeslaPage'));
 const AltDataPage = lazy(() => import('./components/AltDataPage'));
+import { SpotifyDock } from './components/SpotifyDock';
 const QuantLabPage = lazy(() => import('./components/QuantLabPage'));
 const RealEconPage = lazy(() => import('./components/RealEconPage'));
 const PlumbingPage = lazy(() => import('./components/PlumbingPage'));
@@ -1032,6 +1033,7 @@ export default function App() {
       {river && <Suspense fallback={null}><RiverScene still={scene === 'still'} /></Suspense>}
       <Suspense fallback={null}><HoverCard quotes={quotes} names={OFFLINE_NAMES} /></Suspense>
       <StanceLayer />
+      <SpotifyDock />
       {calm && <Suspense fallback={null}><CalmMode onExit={() => setCalm(false)} /></Suspense>}
       {focus && <button className="focus-chip" onClick={toggleFocus} title="Bring the side bars back (Z)">Focus mode · Z to exit</button>}
       <SideNav compact={iconRail} page={page} onPage={setPage} dataState={dataMode.kind} onCmd={() => setCmdOpen(true)} onHelp={() => setOverlay('help')} onAccount={() => setDrawer((d) => !d)} onCalm={() => setCalm(true)} />
