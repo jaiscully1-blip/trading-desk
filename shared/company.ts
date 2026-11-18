@@ -97,10 +97,38 @@ export function normName(s: string): string {
   return s.toLowerCase().replace(/&/g, ' and ').replace(/[.,'’()/-]/g, ' ').replace(SUFFIX, ' ').replace(/\s+/g, ' ').trim();
 }
 
+/** Brands and subsidiaries that filings name instead of the listed parent (SEC lists Google as "Alphabet Inc."). */
+export const BRAND_PARENT: Record<string, string> = {
+  google: 'GOOGL', 'google cloud': 'GOOGL', youtube: 'GOOGL', android: 'GOOGL', alphabet: 'GOOGL', waymo: 'GOOGL', deepmind: 'GOOGL',
+  aws: 'AMZN', 'amazon web services': 'AMZN', 'amazon web services aws': 'AMZN', amazon: 'AMZN', 'whole foods': 'AMZN', twitch: 'AMZN',
+  microsoft: 'MSFT', 'microsoft azure': 'MSFT', azure: 'MSFT', linkedin: 'MSFT', github: 'MSFT', xbox: 'MSFT', activision: 'MSFT', 'activision blizzard': 'MSFT',
+  facebook: 'META', instagram: 'META', whatsapp: 'META', 'meta platforms': 'META', meta: 'META',
+  apple: 'AAPL', 'apple app store': 'AAPL', 'app store': 'AAPL', iphone: 'AAPL', 'google play': 'GOOGL',
+  tsmc: 'TSM', 'taiwan semiconductor': 'TSM', 'taiwan semiconductor manufacturing': 'TSM', vmware: 'AVGO', broadcom: 'AVGO',
+  'sam s club': 'WMT', walmart: 'WMT', venmo: 'PYPL', paypal: 'PYPL', braintree: 'PYPL', square: 'XYZ', 'cash app': 'XYZ', block: 'XYZ',
+  espn: 'DIS', hulu: 'DIS', disney: 'DIS', nbcuniversal: 'CMCSA', comcast: 'CMCSA', 'at and t': 'T', att: 'T', verizon: 'VZ', 't mobile': 'TMUS',
+  'hewlett packard enterprise': 'HPE', hpe: 'HPE', hp: 'HPQ', 'hp inc': 'HPQ', nvidia: 'NVDA', oracle: 'ORCL', salesforce: 'CRM', slack: 'CRM', tableau: 'CRM',
+  'red hat': 'IBM', ibm: 'IBM', intel: 'INTC', amd: 'AMD', 'advanced micro devices': 'AMD', cisco: 'CSCO', dell: 'DELL', 'dell technologies': 'DELL',
+  ups: 'UPS', 'united parcel service': 'UPS', fedex: 'FDX', costco: 'COST', target: 'TGT', 'home depot': 'HD', lowe: 'LOW', 'lowe s': 'LOW', 'best buy': 'BBY',
+  visa: 'V', mastercard: 'MA', 'american express': 'AXP', uber: 'UBER', doordash: 'DASH', instacart: 'CART', airbnb: 'ABNB', netflix: 'NFLX', spotify: 'SPOT',
+  shopify: 'SHOP', 'pearson vue': 'PSO', pearson: 'PSO', accenture: 'ACN', qualcomm: 'QCOM', 'texas instruments': 'TXN', 'micron': 'MU', 'micron technology': 'MU',
+  'samsung': '', 'samsung electronics': '', 'sk hynix': '', 'foxconn': '', 'hon hai': '', // not US-listed: keep as unlisted
+};
+/** Ticker for a brand or subsidiary name, '' when it's known to be not US-listed, undefined when unknown. */
+export function brandTicker(name: string): string | undefined {
+  const n = normName(name).replace(/\s*\(.*\)\s*/g, ' ').trim();
+  if (n in BRAND_PARENT) return BRAND_PARENT[n];
+  const first2 = n.split(' ').slice(0, 2).join(' '), first = n.split(' ')[0];
+  if (first2 in BRAND_PARENT) return BRAND_PARENT[first2];
+  if (first in BRAND_PARENT && first.length >= 4) return BRAND_PARENT[first];
+  return undefined;
+}
+
 /** Map a company name from the filing to a US-listed ticker using SEC's own ticker list. Exact (normalized) match, then a unique prefix match. */
 export function matchTicker(name: string, list: SecTicker[], index?: Map<string, SecTicker>): string | undefined {
   const n = normName(name);
   if (n.length < 3 || /^customer [a-z]$/.test(n)) return undefined;
+  const b = brandTicker(name); if (b !== undefined) return b || undefined;
   const idx = index ?? nameIndex(list);
   const hit = idx.get(n);
   if (hit) return hit.ticker;
