@@ -65,7 +65,17 @@ export function parseApeWisdom(j: any, max = 40): Trend[] {
 
 /* ---------------- Wikidata company facts ---------------- */
 export const wikidataQuery = (ticker: string) => `SELECT ?c ?cLabel ?ceoLabel ?emp ?hqLabel ?founded WHERE { ?c p:P414 ?st . ?st pq:P249 "${ticker.replace(/[^A-Z0-9.\-]/g, '')}" . OPTIONAL{?c wdt:P169 ?ceo} OPTIONAL{?c wdt:P1128 ?emp} OPTIONAL{?c wdt:P159 ?hq} OPTIONAL{?c wdt:P571 ?founded} SERVICE wikibase:label { bd:serviceParam wikibase:language "en". } } LIMIT 20`;
-export interface CoFacts { entity: string; label: string; ceo: string | null; employees: number | null; hq: string | null; founded: string | null }
+export interface CoFacts { entity: string; label: string; ceo: string | null; employees: number | null; hq: string | null; founded: string | null; reincorporated?: string | null }
+/** A listed company re-formed recently (a new holding company or a move of legal home, e.g. Rocket Lab Corporation, 2025)
+ *  carries the new entity's start date. When it is this recent, look for the original company under its plain name. */
+export const looksReformed = (founded: string | null, now = new Date()) => !!founded && Number(founded.slice(0, 4)) >= now.getUTCFullYear() - 3;
+export const plainName = (label: string) => label.replace(/,?\s+(corporation|corp|incorporated|inc|holdings?|group|company|co|ltd|limited|plc|n\.?v|s\.?a|ag|se)\.?$/i, '').trim();
+export const originQuery = (name: string) => `SELECT ?f WHERE { ?c rdfs:label "${name.replace(/["\\]/g, '')}"@en ; wdt:P571 ?f . { ?c wdt:P452 [] } UNION { ?c wdt:P159 [] } UNION { ?c wdt:P414 [] } } LIMIT 10`;
+/** Earliest founding date among the original-company matches, if it is older than the listed entity's. */
+export function earlierFounding(j: any, founded: string | null): string | null {
+  const ds = (j?.results?.bindings ?? []).map((b: any) => String(b.f?.value ?? '').slice(0, 10)).filter((d: string) => /^\d{4}-/.test(d)).sort();
+  return ds.length && founded && ds[0] < founded ? ds[0] : null;
+}
 /** Several Wikidata items can carry one ticker (Google and Alphabet share GOOGL): prefer the one whose name matches the SEC name. */
 export function pickWikidata(j: any, secName: string | null): CoFacts | null {
   const rows = (j?.results?.bindings ?? []).map((b: any) => ({ entity: b.c?.value ?? '', label: b.cLabel?.value ?? '', ceo: b.ceoLabel?.value ?? null, emp: b.emp ? Number(b.emp.value) : null, hq: b.hqLabel?.value ?? null, founded: b.founded?.value?.slice(0, 10) ?? null }));

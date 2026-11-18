@@ -6,7 +6,7 @@ import { parseYahooBars } from '../../../shared/rotation.js';
 import { closeOn, floatShares, tearFromFacts } from '../../../shared/tearsheet.js';
 import { fundSeries } from '../../../shared/fundseries.js';
 import { finnhubEarnings, finnhubMetrics, finraShortInterest, secJson } from '../adapters.js';
-import { pickWikidata, valuation, wikidataQuery } from '../../../shared/analysis.js';
+import { earlierFounding, looksReformed, originQuery, pickWikidata, plainName, valuation, wikidataQuery } from '../../../shared/analysis.js';
 import { SYMBOL_RE, cached, getJson, hasKey, json } from '../core.js';
 
 const ymd = (ms: number) => new Date(ms).toISOString().slice(0, 10);
@@ -34,7 +34,15 @@ export async function GET(req: Request): Promise<Response> {
   // company facts (Wikidata), valuation ratios (Finnhub basic financials), dividends (Nasdaq's public quote API, unofficial)
   const NQ = { 'user-agent': 'Mozilla/5.0 (trading-desk; personal use)', accept: 'application/json, text/plain, */*', origin: 'https://www.nasdaq.com', referer: 'https://www.nasdaq.com/' };
   const [wd, metric, divs] = await Promise.all([
-    safe('wikidata', async () => (await cached(`wd:${sym}`, 30 * 86400, async () => pickWikidata(await getJson(`https://query.wikidata.org/sparql?query=${encodeURIComponent(wikidataQuery(sym))}`, 'wikipedia', 25000, { headers: { accept: 'application/sparql-results+json', 'user-agent': 'trading-desk/1.0 (personal research tool)' } }), t?.title ?? null))).val),
+    safe('wikidata', async () => (await cached(`wd2:${sym}`, 30 * 86400, async () => {
+      const wd = (q: string) => getJson(`https://query.wikidata.org/sparql?query=${encodeURIComponent(q)}`, 'wikipedia', 25000, { headers: { accept: 'application/sparql-results+json', 'user-agent': 'trading-desk/1.0 (personal research tool)' } });
+      const p = pickWikidata(await wd(wikidataQuery(sym)), t?.title ?? null);
+      // a recently re-formed company: the founding date belongs to the original company, keep the new date as "re-incorporated"
+      if (p && looksReformed(p.founded)) {
+        try { const older = earlierFounding(await wd(originQuery(plainName(p.label))), p.founded); if (older) return { ...p, founded: older, reincorporated: p.founded }; } catch { /* keep what we have */ }
+      }
+      return p;
+    })).val),
     hasKey('finnhub') ? safe('finnhubMetrics', async () => (await cached(`metric:${sym}`, 12 * 3600, () => finnhubMetrics(sym))).val) : Promise.resolve(null),
     safe('dividends', async () => (await cached(`nq:div:${sym}`, 12 * 3600, async () => {
       const j = await getJson(`https://api.nasdaq.com/api/quote/${encodeURIComponent(sym)}/dividends?assetclass=stocks`, 'nasdaq', 10000, { headers: NQ });
