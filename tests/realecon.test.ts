@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { alertStates, chg, countAirlines, countNear, distKm, fredCsv, sectorsFor } from '../shared/realecon';
+import { adsbStates, alertStates, chg, countAirlines, countNear, distKm, fredCsv, sectorsFor } from '../shared/realecon';
 
 const st = (cs: string, lat: number, lon: number, ground = false) => ['abc123', cs, 'United States', 0, 0, lon, lat, 1000, ground];
 
@@ -27,5 +27,22 @@ describe('weather and series', () => {
     expect(s).toEqual([{ date: '2026-01-01', value: 100 }, { date: '2026-03-01', value: 110 }]);
     expect(chg(s, 1)).toBeCloseTo(10);
     expect(chg(s, 5)).toBeNull();
+  });
+});
+
+describe('adsb.lol fallback', () => {
+  it('turns adsb.lol aircraft into OpenSky-shaped rows the counters understand', () => {
+    const ac = [
+      { hex: 'A0433B', flight: 'DAL123 ', lat: 40.64, lon: -73.78, alt_baro: 7500, seen: 1 },
+      { hex: 'a0433b', flight: 'DAL123', lat: 40.64, lon: -73.78, alt_baro: 7500 }, // same plane from an overlapping circle
+      { hex: 'abc001', flight: 'UAL9', lat: 40.65, lon: -73.79, alt_baro: 'ground' },
+      { hex: 'abc002', flight: 'SWA1' }, // no position
+    ];
+    const s = adsbStates(ac, 1_000_000);
+    expect(s).toHaveLength(2);
+    expect(s[0][1]).toBe('DAL123');
+    expect(s[1][8]).toBe(true);
+    expect(countAirlines(s)).toEqual({ DAL: 1 });
+    expect(countNear(s, 40.6413, -73.7781)).toEqual({ airborne: 1, ground: 1 });
   });
 });

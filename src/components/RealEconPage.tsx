@@ -29,18 +29,19 @@ const useJson = <T,>(url: string | null) => {
 };
 
 function Air({ live }: { live: boolean }) {
-  const now = useJson<{ airlines: { prefix: string; name: string; sym: string; airborne: number }[]; airports: { code: string; name: string; airborne: number; ground: number }[]; at: number; total: number; source: string; error?: string }>(live ? '/api/research?fn=air' : null);
+  const now = useJson<{ airlines: { prefix: string; name: string; sym: string; airborne: number }[]; airports: { code: string; name: string; airborne: number; ground: number }[]; at: number; total: number; scope?: 'us' | 'airports'; source: string; error?: string }>(live ? '/api/research?fn=air' : null);
   const hist = useJson<{ series: Record<string, Pt[]> }>(live ? '/api/research?fn=airhist' : null);
   const [pick, setPick] = useState('DAL');
   const t = (k: string) => trend(hist?.series?.[k] ?? []);
   return (
     <Card title="Air traffic · airlines and airports" src={now?.source} at={now?.at}>
       {!live && <p className="small muted">Live data only.</p>}
-      {now?.error && <p className="small down">{now.error}</p>}
+      {now?.error && <p className="small muted">Live air traffic is unavailable right now (both free feeds refused: {now.error}). The other sections still work; try again in a few minutes.</p>}
+      {now && !now.error && now.scope === 'airports' && <p className="small muted">Showing aircraft near the 8 airports only (backup feed), so airline counts are smaller than a nationwide count and have no history to compare.</p>}
       {now && !now.error && (
         <div className="re-two">
-          <table className="ad-table"><thead><tr><th>Airline</th><th className="r">In the air now</th><th className="r">30 days</th><th className="r">1 year</th></tr></thead><tbody>
-            {now.airlines.map((a) => { const x = t(a.prefix); return <tr key={a.prefix} className={pick === a.prefix ? 'on' : ''} onClick={() => setPick(a.prefix)}><td>{a.name} <span className="small muted">{a.sym}</span></td><td className="r num">{a.airborne}</td><td className={`r num ${tn(x.d30)}`}>{pc(x.d30, 0)}</td><td className={`r num ${tn(x.d365)}`}>{pc(x.d365, 0)}</td></tr>; })}
+          <table className="ad-table"><thead><tr><th>Airline</th><th className="r">{now.scope === 'airports' ? 'Near the airports' : 'In the air now'}</th><th className="r">30 days</th><th className="r">1 year</th></tr></thead><tbody>
+            {now.airlines.map((a) => { const x = now.scope === 'airports' ? { d30: null, d365: null } : t(a.prefix); return <tr key={a.prefix} className={pick === a.prefix ? 'on' : ''} onClick={() => setPick(a.prefix)}><td>{a.name} <span className="small muted">{a.sym}</span></td><td className="r num">{a.airborne}</td><td className={`r num ${tn(x.d30)}`}>{pc(x.d30, 0)}</td><td className={`r num ${tn(x.d365)}`}>{pc(x.d365, 0)}</td></tr>; })}
           </tbody></table>
           <table className="ad-table"><thead><tr><th>Airport</th><th className="r">Aircraft within 40 km</th><th className="r">30 days</th><th className="r">1 year</th></tr></thead><tbody>
             {now.airports.map((a) => { const x = t(a.code); return <tr key={a.code} className={pick === a.code ? 'on' : ''} onClick={() => setPick(a.code)}><td>{a.code} <span className="small muted">{a.name}</span></td><td className="r num">{a.airborne + a.ground}</td><td className={`r num ${tn(x.d30)}`}>{pc(x.d30, 0)}</td><td className={`r num ${tn(x.d365)}`}>{pc(x.d365, 0)}</td></tr>; })}

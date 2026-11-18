@@ -62,3 +62,17 @@ export const alertStates = (p: any): string[] => [...new Set(((p?.geocode?.UGC ?
 export const fredCsv = (csv: string) => csv.trim().split('\n').slice(1).map((l) => l.split(',')).filter((r) => r[1] && r[1] !== '.').map((r) => ({ date: r[0], value: Number(r[1]) })).filter((r) => Number.isFinite(r.value));
 /** change vs the value `back` rows earlier, % */
 export const chg = (s: { value: number }[], back: number) => (s.length > back && s[s.length - 1 - back].value ? (s[s.length - 1].value / s[s.length - 1 - back].value - 1) * 100 : null);
+
+/** adsb.fi / adsb.lol (readsb) aircraft -> OpenSky state rows [icao24, callsign, country, timePos, lastContact, lon, lat, baroAlt(m), onGround],
+ *  so the same counters work on both. Drops duplicates (overlapping airport circles) and aircraft with no position. */
+export function adsbStates(ac: any[], now = Date.now()): any[][] {
+  const seen = new Set<string>(), out: any[][] = [];
+  for (const a of Array.isArray(ac) ? ac : []) {
+    const hex = String(a?.hex ?? '').toLowerCase(), lat = Number(a?.lat), lon = Number(a?.lon);
+    if (!hex || seen.has(hex) || !Number.isFinite(lat) || !Number.isFinite(lon)) continue;
+    seen.add(hex);
+    const ground = a.alt_baro === 'ground', alt = ground ? 0 : Number(a.alt_baro);
+    out.push([hex, String(a.flight ?? '').trim(), null, null, Math.round((now - (Number(a.seen) || 0) * 1000) / 1000), lon, lat, Number.isFinite(alt) ? alt * 0.3048 : null, ground]);
+  }
+  return out;
+}
