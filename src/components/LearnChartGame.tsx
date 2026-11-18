@@ -2,7 +2,7 @@
 // with price action the way chart traders read it (structure, BOS / CHoCH, FVGs and inverse FVGs, order blocks,
 // liquidity and sweeps, averages, volume), each layer can be switched off, and every pattern on the chart is named.
 // Call up or down; the reveal explains what the hidden bars did in the same terms. Practice, not advice.
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type PointerEvent as RPE } from 'react';
 import type { Bar } from '../../shared/types';
 import { analyze } from '../../shared/patterns';
 import { baseRate, GAME_SYMBOLS, outcome, pickCut, pickIndex, SHOW } from '../../shared/chartgame';
@@ -16,7 +16,31 @@ const EMPTY: Rec = { calls: 0, right: 0, byH: {}, withT: [0, 0], againstT: [0, 0
 type Layer = 'structure' | 'fvg' | 'ob' | 'liq' | 'ma' | 'vol';
 const LAYERS: { id: Layer; label: string }[] = [{ id: 'structure', label: 'Structure / BOS' }, { id: 'fvg', label: 'FVG / IFVG' }, { id: 'ob', label: 'Order blocks' }, { id: 'liq', label: 'Liquidity / sweeps' }, { id: 'ma', label: '20 EMA / 50 SMA' }, { id: 'vol', label: 'Volume' }];
 
-function ChartView({ bars, from, cut, to, pa, on }: { bars: Bar[]; from: number; cut: number; to: number; pa: PA; on: Record<Layer, boolean> }) {
+// View only: drag to scroll back through earlier bars, wheel to zoom, double-click to reset. It never shows bars
+// past `limit` (the cut, until you've made your call), so moving around can't give the answer away.
+function ChartView({ bars, from: f0, cut, to: limit, pa, on }: { bars: Bar[]; from: number; cut: number; to: number; pa: PA; on: Record<Layer, boolean> }) {
+  const [view, setView] = useState({ off: 0, span: limit - f0 + 1 });
+  useEffect(() => setView({ off: 0, span: limit - f0 + 1 }), [bars, f0, limit]);
+  const svg = useRef<SVGSVGElement>(null), drag = useRef<{ x: number; off: number } | null>(null);
+  const span = Math.min(Math.max(15, view.span), limit + 1), off = Math.min(Math.max(0, view.off), limit + 1 - span);
+  const to = limit - off, from = to - span + 1;
+  const perBar = () => (svg.current?.clientWidth ?? 900) / (span + 6);
+  useEffect(() => {
+    const el = svg.current; if (!el) return;
+    const wheel = (e: WheelEvent) => {
+      e.preventDefault();
+      setView((v) => { const s = Math.min(Math.max(15, Math.round(v.span * (e.deltaY > 0 ? 1.15 : 1 / 1.15))), limit + 1); return { off: Math.min(v.off, limit + 1 - s), span: s }; });
+    };
+    el.addEventListener('wheel', wheel, { passive: false });
+    return () => el.removeEventListener('wheel', wheel);
+  }, [limit]);
+  const handlers = {
+    onPointerDown: (e: RPE<SVGSVGElement>) => { drag.current = { x: e.clientX, off }; e.currentTarget.setPointerCapture(e.pointerId); },
+    onPointerMove: (e: RPE<SVGSVGElement>) => { const d = drag.current; if (!d) return; const o = Math.round(d.off + (e.clientX - d.x) / perBar()); setView((v) => ({ ...v, off: Math.min(Math.max(0, o), limit + 1 - span) })); },
+    onPointerUp: () => { drag.current = null; },
+    onPointerCancel: () => { drag.current = null; },
+    onDoubleClick: () => setView({ off: 0, span: limit - f0 + 1 }),
+  };
   const xs = bars.slice(from, to + 1), n = xs.length;
   const hi = Math.max(...xs.map((b) => b.high)), lo = Math.min(...xs.map((b) => b.low));
   const W = 900, H = 330, VP = on.vol ? 60 : 0, cw = W / (n + 6), X = (i: number) => (i - from) * cw + cw / 2, Y = (p: number) => 10 + ((hi - p) / (hi - lo || 1)) * (H - 20);
@@ -30,7 +54,7 @@ function ChartView({ bars, from, cut, to, pa, on }: { bars: Bar[]; from: number;
   const zones = [...(on.fvg ? pick('FVG') : []), ...(on.ob ? pick('OB') : [])];
   const liq = on.liq ? pa.liq.filter((q) => q.i >= from && (q.taken == null || q.taken >= cut - 20) && q.p <= hi && q.p >= lo).slice(-8) : [];
   return (
-    <svg className="cg-svg" viewBox={`0 0 ${W} ${H + VP}`} preserveAspectRatio="none" role="img" aria-label="Price chart with price-action markings">
+    <svg ref={svg} {...handlers} className="cg-svg cg-pan" viewBox={`0 0 ${W} ${H + VP}`} preserveAspectRatio="none" role="img" aria-label="Price chart with price-action markings">
       {zones.map((z, k) => { const end = z.closedThrough ?? z.filled ?? to, inv = z.kind === 'FVG' && z.closedThrough != null; return <g key={`z${k}`}>
         <rect className={`cg-z ${z.kind === 'OB' ? 'ob' : z.dir}`} x={clampX(z.i) - cw / 2} width={Math.max(cw, clampX(end) - clampX(z.i) + cw / 2)} y={Y(z.top)} height={Math.max(1, Y(z.bot) - Y(z.top))} />
         {inv && end < to && <rect className={`cg-z inv ${z.dir === 'bull' ? 'bear' : 'bull'}`} x={clampX(end)} width={clampX(to) - clampX(end) + cw / 2} y={Y(z.top)} height={Math.max(1, Y(z.bot) - Y(z.top))} />}
@@ -45,7 +69,7 @@ function ChartView({ bars, from, cut, to, pa, on }: { bars: Bar[]; from: number;
       {on.structure && pa.events.filter((e) => e.i >= from && e.i <= to).map((e, k) => <g key={`e${k}`} className={`cg-evt ${e.dir}`}><line x1={clampX(e.from)} x2={X(e.i)} y1={Y(e.level)} y2={Y(e.level)} /><text x={(clampX(e.from) + X(e.i)) / 2} y={Y(e.level) + (e.dir === 'bull' ? -4 : 11)} textAnchor="middle">{e.kind}</text></g>)}
       {on.liq && pa.sweeps.filter((s) => inView(s.i)).map((s, k) => <g key={`w${k}`} className={`cg-sweep ${s.dir}`}><circle cx={X(s.i)} cy={s.dir === 'bear' ? Y(bars[s.i].high) - 7 : Y(bars[s.i].low) + 7} r={4} /><text x={X(s.i)} y={s.dir === 'bear' ? Y(bars[s.i].high) - 14 : Y(bars[s.i].low) + 21} textAnchor="middle">sweep</text></g>)}
       {to > cut && <line className="cg-cut" x1={X(cut) + cw / 2} x2={X(cut) + cw / 2} y1={0} y2={H + VP} />}
-      {on.vol && xs.map((b, k) => { const h = (b.volume / vmax) * (VP - 8), i = from + k; return <rect key={`v${i}`} className={`cg-vol ${pa.volSpikes.includes(i) ? 'hot' : ''} ${i > cut ? 'cg-after' : ''}`} x={X(i) - cw * 0.35} width={cw * 0.7} y={H + VP - 2 - h} height={h} />; })}
+      {on.vol && xs.map((b, k) => { const h = (b.volume / vmax) * (VP - 8), i = from + k; return <rect key={`v${i}`} className={`cg-vol ${b.close >= b.open ? 'up' : 'dn'} ${pa.volSpikes.includes(i) ? 'hot' : ''} ${i > cut ? 'cg-after' : ''}`} x={X(i) - cw * 0.35} width={cw * 0.7} y={H + VP - 2 - h} height={h} />; })}
     </svg>
   );
 }
@@ -103,6 +127,7 @@ export default function LearnChartGame() {
         {round && pa && (
           <>
             <ChartView bars={round.bars} from={round.cut - SHOW + 1} cut={round.cut} to={guess ? Math.min(round.bars.length - 1, round.cut + h) : round.cut} pa={pa} on={on} />
+            <p className="small muted cg-hint">Drag the chart to look back, scroll to zoom, double-click to reset. It won't scroll past the hidden part.</p>
             <div className="cg-names"><span className="small muted">On this chart:</span>{round.names.length ? round.names.map((n) => <span key={n} className="cg-name" title={PA_DEFS[n.replace(/ \((up|down)\)$/, '')] ?? ''}>{n}</span>) : <span className="small muted">no named pattern near the cut; read the trend and levels.</span>}</div>
             {!guess ? (
               <div className="ln-chips"><span className="small">Next {h} trading days:</span><button className="chip cg-btn up" onClick={() => answer('up')}>Up</button><button className="chip cg-btn dn" onClick={() => answer('down')}>Down</button><span className="small muted">Hover a pattern name for what it means.</span></div>

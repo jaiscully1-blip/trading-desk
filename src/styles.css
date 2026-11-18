@@ -3142,3 +3142,8 @@ button.chip[data-st="bull"] { color: var(--up); } button.chip[data-st="bear"] { 
 .ql-t td.dn { color: var(--down); }
 .ql-how { margin-top: 12px; } .ql-how ul { margin: 6px 0; padding-left: 18px; display: grid; gap: 4px; }
 .ql-foot { margin: 10px 2px; }
+/* chart game: view-only pan and zoom, volume colored by candle */
+.cg-pan { cursor: grab; touch-action: none; user-select: none; } .cg-pan:active { cursor: grabbing; }
+.cg-vol.up { fill: var(--up); opacity: .45; } .cg-vol.dn { fill: var(--down); opacity: .45; }
+.cg-vol.hot { opacity: .95; stroke: var(--text); stroke-width: .6; }
+.cg-hint { margin: 6px 0 2px; }
