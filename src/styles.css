@@ -2765,3 +2765,6 @@ button.chip[data-st="bull"] { color: var(--up); } button.chip[data-st="bear"] { 
 :root[data-scene='river'] .ws-phase-pop { background: rgba(8, 21, 35, .97); }
 .ws-phase-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .ws-phase-row select { max-width: 150px; }
+
+.lr-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.lr-list p { margin: 3px 0 0; color: var(--muted); }
