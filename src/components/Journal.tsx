@@ -7,7 +7,7 @@ import Discipline from './Discipline';
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { ColorType, LineSeries, createChart, type UTCTimestamp } from 'lightweight-charts';
 import {
-  EMOTIONS, VIOLATION_LABEL, equityByDay, etDay, stats, timeOfDay, unrealized,
+  EMOTIONS, VIOLATION_LABEL, equityByDay, etDay, impliedStart, stats, timeOfDay, unrealized,
   type AccountSettings, type Fill, type Guard, type Trade, type TradeView, type Transfer, type Violation, type ViolationType,
 } from '../lib/journal';
 import { detect, detectAll, fillsReady, mergeFills, parseCsv, toFills, transfersReady, trimToHeader, toTransfers, type FillField, type Mapping, type TransferField } from '../lib/csv';
@@ -545,8 +545,9 @@ export function AccountDrawer({ open, onClose, theme, views, transfers, settings
 }) {
   const el = useRef<HTMLDivElement>(null);
   const [bal, setBal] = useState('');
-  const [reset, setReset] = useState('');
-  const days = useMemo(() => (settings.startBalance == null ? [] : equityByDay(views, transfers, settings.startBalance)), [views, transfers, settings.startBalance]);
+  const [balKind, setBalKind] = useState<'now' | 'start'>('now');
+  const [editing, setEditing] = useState(false);
+  const days = useMemo(() => equityByDay(views, transfers, settings.startBalance ?? 0), [views, transfers, settings.startBalance]);
   useEffect(() => {
     if (!open || !el.current || days.length < 2) return;
     const v = (n: string) => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
@@ -574,6 +575,35 @@ export function AccountDrawer({ open, onClose, theme, views, transfers, settings
     weeks[weeks.length - 1][wd - 1] = d;
   }
   const demo = views.some((v) => v.t.demo);
+  const hasHistory = days.length > 0 || views.length > 0;
+  const firstDay = days.length ? days[0].time * 1000 : null;
+  // the number typed is either today's broker balance (the start is backed out from the CSV history) or the balance before the first trade
+  const setFrom = () => {
+    const n = Number(bal.replace(/[$,\s]/g, ''));
+    if (!bal.trim() || !Number.isFinite(n)) return;
+    const start = balKind === 'now' ? impliedStart(views, transfers, n) : n;
+    setSettings({ ...settings, startBalance: Math.round(start * 100) / 100, startDate: settings.startDate ?? (firstDay ? firstDay - 1000 : Date.now()) });
+    setBal(''); setEditing(false);
+  };
+  const balForm = (
+    <form className="fb" onSubmit={(e) => { e.preventDefault(); setFrom(); }}>
+      <b>{settings.startBalance == null ? 'Set up your account' : 'Change the balance'}</b>
+      <span className="small muted">Import your broker CSV and equity is worked out from it: every trade and every deposit or withdrawal in the file adds or subtracts. With no deposits in the file the account starts at $0, so a losing history shows as a negative balance. Or type a balance:</span>
+      <div className="fb-row">
+        <select value={balKind} onChange={(e) => setBalKind(e.target.value as 'now' | 'start')} aria-label="Which balance">
+          <option value="now">My broker balance today</option>
+          <option value="start">Balance before my first trade</option>
+        </select>
+        <input inputMode="decimal" placeholder="25000" value={bal} onChange={(e) => setBal(e.target.value)} aria-label="Balance" />
+        <button className="btn primary" disabled={!bal.trim()}>Set</button>
+        {settings.startBalance != null && <button type="button" className="btn" onClick={() => { setEditing(false); setBal(''); }}>Cancel</button>}
+      </div>
+      {balKind === 'now' && bal.trim() && Number.isFinite(Number(bal.replace(/[$,\s]/g, ''))) && hasHistory && (
+        <span className="small muted">Your CSV history adds up to {sUsd(-impliedStart(views, transfers, 0))}, so the starting balance would be {usd(impliedStart(views, transfers, Number(bal.replace(/[$,\s]/g, ''))))}.</span>
+      )}
+      <div className="fb-row"><button type="button" className="btn" onClick={onImport}>Import broker CSV instead</button></div>
+    </form>
+  );
   return (
     <div className="drawer-scrim" onMouseDown={onClose}>
       <aside className="drawer" onMouseDown={(e) => e.stopPropagation()} role="dialog" aria-label="Account">
@@ -582,17 +612,11 @@ export function AccountDrawer({ open, onClose, theme, views, transfers, settings
           {demo && <Fresh kind="demo" src="Includes sample trades" />}
           <button className="icon-btn" onClick={onClose} aria-label="Close">×</button>
         </div>
-        {settings.startBalance == null ? (
-          <form className="fb" onSubmit={(e) => { e.preventDefault(); if (+bal > 0) setSettings({ ...settings, startBalance: +bal, startDate: Date.now() }); }}>
-            <b>Set your starting balance once.</b>
-            <span className="small muted">Equity is then computed from your journal plus deposits and withdrawals from your broker CSV. There is no manual deposit button.</span>
-            <div className="fb-row"><input inputMode="decimal" placeholder="25000" value={bal} onChange={(e) => setBal(e.target.value)} /><button className="btn primary">Set</button></div>
-          </form>
-        ) : (
+        {settings.startBalance == null || editing ? balForm : (
           <>
             <div className="kv wide">
               <span>Starting balance</span><b className="num">{usd(settings.startBalance)}</b>
-              <span>Equity</span><b className="num">{usd(g.equity)}</b>
+              <span>Equity</span><b className={`num ${g.equity < 0 ? 'down' : ''}`}>{usd(g.equity)}</b>
               <span>Net trading</span><b className={`num ${tone(s.net)}`}>{sUsd(s.net)}</b>
               <span>Deposits − withdrawals</span><b className="num">{sUsd(net)}</b>
               <span>Today</span><b className={`num ${tone(g.todayRealized + g.todayUnrealized)}`}>{sUsd(g.todayRealized + g.todayUnrealized)}</b>
@@ -613,9 +637,8 @@ export function AccountDrawer({ open, onClose, theme, views, transfers, settings
             </div>
             <div className="fb-row drawer-foot">
               <button className="btn" onClick={onImport}>Import broker CSV</button>
-              <span className="muted small">Started {settings.startDate ? etDay(settings.startDate) : '—'}</span>
-              <input className="reset" placeholder='Type RESET to change the starting balance' value={reset} onChange={(e) => setReset(e.target.value)} />
-              <button className="btn" disabled={reset !== 'RESET'} onClick={() => { setSettings({ ...settings, startBalance: null, startDate: null }); setReset(''); }}>Reset</button>
+              <span className="muted small">{usd(settings.startBalance)} start {sUsd(net)} transfers {sUsd(days.reduce((a, d) => a + d.pnl, 0))} trading = {usd(g.equity)}{firstDay ? ` · history from ${etDay(firstDay)}` : ''}</span>
+              <button className="btn" onClick={() => setEditing(true)}>Change balance</button>
             </div>
           </>
         )}

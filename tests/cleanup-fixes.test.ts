@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_SETTINGS, expiryCloseMs, guard, viewTrade, type Fill, type Trade } from '../src/lib/journal';
+import { DEFAULT_SETTINGS, expiryCloseMs, guard, viewTrade, type Fill, type Trade, impliedStart, sizeFor } from '../src/lib/journal';
 import { etToUtc } from '../shared/clock';
 import { botWatchlist, tickersIn, type DcMessage } from '../shared/discord';
 import { ratingTone } from '../src/lib/rating';
@@ -37,13 +37,18 @@ describe('expired options', () => {
 });
 
 describe('guard and the start date', () => {
-  it('trades and transfers before the start date are already in the starting balance', () => {
+  it('every imported trade and transfer counts, whatever the start date', () => {
     const old = trade({ fills: [fill(at(10, 0, 2), 'buy', 100, 10), fill(at(11, 0, 2), 'sell', 100, 12)] }); // +200 on Nov 2
     const S = { ...DEFAULT_SETTINGS, startBalance: 10_000, startDate: at(8, 0, 3) };
     const g = guard([viewTrade(old)], [{ id: 'x', t: at(9, 0, 1), amount: 5000, note: '', src: 'manual', updated: 0 }], S, at(12, 0, 4));
-    expect(g.startOfDay).toBe(10_000);
-    const g2 = guard([viewTrade(old)], [], { ...S, startDate: at(8, 0, 1) }, at(12, 0, 4));
-    expect(g2.startOfDay).toBe(10_200);
+    expect(g.startOfDay).toBe(15_200);
+  });
+  it('a losing CSV history takes equity below zero, and the implied start matches the broker balance', () => {
+    const loser = trade({ fills: [fill(at(10, 0, 2), 'buy', 100, 10), fill(at(11, 0, 2), 'sell', 100, 4)] }); // -600
+    const g = guard([viewTrade(loser)], [], { ...DEFAULT_SETTINGS, startBalance: 0, startDate: at(8, 0, 2) }, at(12, 0, 4));
+    expect(g.equity).toBe(-600);
+    expect(impliedStart([viewTrade(loser)], [{ id: 'd', t: at(9, 0, 1), amount: 1000, note: '', src: 'csv', updated: 0 }], 900)).toBe(500);
+    expect(sizeFor(-600, 1, 10, 9).shares).toBe(0);
   });
 });
 

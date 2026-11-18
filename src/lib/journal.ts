@@ -194,6 +194,12 @@ export const etDay = (ms: number) => { const e = et(ms); return `${e.y}-${String
 
 export interface DayPoint { day: string; pnl: number; transfers: number; equity: number; time: number }
 
+/** Starting balance that makes today's equity match the broker: current balance minus every trade and transfer in the journal. */
+export function impliedStart(views: TradeView[], transfers: Transfer[], current: number): number {
+  const days = equityByDay(views, transfers, 0);
+  return current - (days.length ? days[days.length - 1].equity : 0);
+}
+
 /** Equity by ET day: start + realized P&L + deposits - withdrawals. */
 export function equityByDay(views: TradeView[], transfers: Transfer[], start: number): DayPoint[] {
   const m = new Map<string, { pnl: number; transfers: number }>();
@@ -229,8 +235,9 @@ export function guard(views: TradeView[], transfers: Transfer[], s: AccountSetti
   const start = s.startBalance ?? 0;
   const today = etDay(now);
   let before = 0, todayRealized = 0, rToday = 0;
-  // the starting balance already includes every trade and transfer before its start date, so those are not added again
-  const from = s.startBalance != null && s.startDate != null ? s.startDate : -Infinity;
+  // the starting balance is the balance before the first trade or transfer in the journal, so every imported trade and
+  // transfer counts: a losing CSV history makes equity go down (and below zero if the losses are bigger than what went in)
+  const from = -Infinity;
   for (const v of views) for (const e of v.events) {
     if (e.t > now || e.t < from) continue;
     if (etDay(e.t) === today) { todayRealized += e.pnl; if (v.risk) rToday += e.pnl / v.risk; } else before += e.pnl;
@@ -269,7 +276,7 @@ export function guard(views: TradeView[], transfers: Transfer[], s: AccountSetti
 /** Shares allowed for a planned trade: risk % of equity / stop distance (halved on a high-tilt day). */
 export function sizeFor(equity: number, riskPct: number, entry: number, stop: number) {
   const per = Math.abs(entry - stop);
-  const dollars = (equity * riskPct) / 100;
+  const dollars = Math.max(0, (equity * riskPct) / 100);
   return { dollars, shares: per > 0 ? Math.floor(dollars / per) : 0, per };
 }
 
