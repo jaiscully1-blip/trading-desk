@@ -9,7 +9,8 @@ import { pickIndex } from '../../shared/chartgame';
 import { EVIDENCE_NOTE, GLOSSARY, GUIDES, PATH, RESOURCES, STRATEGIES, TOPICS, resourceById, searchResources, type Kind, type Resource, type Topic } from '../../shared/learn';
 
 const ChartGame = lazy(() => import('./LearnChartGame'));
-type Tab = Topic | 'library' | 'glossary' | 'game';
+const Setups = lazy(() => import('./LearnSetups'));
+type Tab = Topic | 'setups' | 'library' | 'glossary' | 'game';
 const SHELVES: { label: string; kinds: Kind[] }[] = [
   { label: 'Watch and listen', kinds: ['Channel', 'Video', 'Podcast', 'Course'] },
   { label: 'Books', kinds: ['Book'] },
@@ -163,7 +164,7 @@ export default function LearnPage({ go }: { go?: (p: Page) => void }) {
   const topic = TOPICS.find((t) => t.id === tab);
   const list = useMemo(() => (topic ? RESOURCES.filter((r) => r.topics.includes(topic.id)) : []), [topic]);
   const terms = topic ? GLOSSARY.filter((g) => g.topic === topic.id) : [];
-  const tabs: { id: Tab; label: string }[] = [...TOPICS.map((t) => ({ id: t.id as Tab, label: t.label })), { id: 'library', label: 'Library' }, { id: 'glossary', label: 'Glossary & cards' }, { id: 'game', label: 'Chart game' }];
+  const tabs: { id: Tab; label: string }[] = [...TOPICS.flatMap((t) => (t.id === 'technical' ? [{ id: t.id as Tab, label: t.label }, { id: 'setups' as Tab, label: 'Setups & traps' }] : [{ id: t.id as Tab, label: t.label }])), { id: 'library', label: 'Library' }, { id: 'glossary', label: 'Glossary & cards' }, { id: 'game', label: 'Chart game' }];
   return (
     <div className="page ad">
       <PageHero page="learn" title="Learn" sub="Channels, books, papers and strategy history, with a learning path, flashcards and a chart game. Links open the original site. Learning material, not advice." />
@@ -181,6 +182,7 @@ export default function LearnPage({ go }: { go?: (p: Page) => void }) {
       {topic && terms.length > 0 && (
         <details className="ad-card ln-terms"><summary><b>Key terms</b> <span className="small muted">{terms.length}</span></summary><dl className="ln-gloss">{terms.map((g) => <div key={g.term}><dt>{g.term}</dt><dd>{g.def}</dd></div>)}</dl></details>
       )}
+      {tab === 'setups' && <><p className="ln-blurb">Opening-range breakouts, fakeouts, liquidity grabs, traps, VWAP and volume: what defines each, why it happens, what to watch for, and how often it happened on real bars for the ticker you pick.</p><Suspense fallback={<section className="ad-card">Loading…</section>}><Setups /></Suspense></>}
       {tab === 'library' && <Library />}
       {tab === 'glossary' && <Glossary />}
       {tab === 'game' && <Suspense fallback={<section className="ad-card">Loading…</section>}><ChartGame /></Suspense>}
