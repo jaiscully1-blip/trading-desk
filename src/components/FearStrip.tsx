@@ -2,6 +2,7 @@ import type { MacroResult, Quote } from '../types';
 import { DEMO_MACRO } from '../lib/demo';
 import { pct, tone } from '../lib/format';
 import { Fresh, Q, type QKind } from './common';
+import { openExplain } from './InfoDrawer';
 
 /** VIX, put/call, Fear & Greed, yield curve, 10Y, oil, dollar, and the SPY daily move implied by VIX. */
 export function FearStrip({ macro, quotes, live }: { macro: MacroResult | null; quotes: Record<string, Quote>; live: boolean }) {
@@ -12,7 +13,7 @@ export function FearStrip({ macro, quotes, live }: { macro: MacroResult | null; 
   const uso = quotes.USO, uup = quotes.UUP;
   // anything without a value is left out entirely (see the desk guide for how to switch each one on)
   const Item = ({ l, v, sub, cls, title, q, qs }: { l: string; v: string; sub?: string; cls?: string; title?: string; q: QKind; qs?: string }) => (v === '—' || v === 'n/a' ? null :
-    <span className="fs-i" title={title}><Q k={live ? q : 'demo'} src={qs} /><span className="tick-l">{l}</span> <span className={`num ${cls ?? ''}`}>{v}</span>{sub && <span className="num small muted"> {sub}</span>}</span>
+    <span className="fs-i clickable" title={`${title ? title + '\n' : ''}Click for what this means`} role="button" tabIndex={0} onClick={() => openExplain({ kind: 'Market stat', title: l, term: l, lines: [`Now: ${v}${sub ? ` (${sub})` : ''}`, ...(title ? [title] : [])], src: qs })} onKeyDown={(e) => { if (e.key === 'Enter') openExplain({ kind: 'Market stat', title: l, term: l, lines: [`Now: ${v}`], src: qs }); }}><Q k={live ? q : 'demo'} src={qs} /><span className="tick-l">{l}</span> <span className={`num ${cls ?? ''}`}>{v}</span>{sub && <span className="num small muted"> {sub}</span>}</span>
   );
   return (
     <div className="fear">

@@ -25,3 +25,10 @@ describe('transcript timeline', () => {
     expect(t).toEqual([0, 63]); expect(clock(63)).toBe('1:03'); expect(clock(3725)).toBe('1:02:05');
   });
 });
+
+describe('terms for clickable stats', () => {
+  it('covers the top strip and Quant Lab labels', () => {
+    for (const k of ['VIX', 'P/C (SPY)', 'Fear & Greed', '2s10s', '3m10y', '10Y', 'Oil (USO)', 'Dollar (UUP)', 'SPY exp. move', 'Walk-forward test', 'Luck check (q)', 'Momentum (winners minus losers)'])
+      expect(lookupTerm(k), k).not.toBeNull();
+  });
+});

@@ -8,6 +8,7 @@ import { analyze } from '../../shared/patterns';
 import { baseRate, GAME_SYMBOLS, outcome, pickCut, pickIndex, SHOW } from '../../shared/chartgame';
 import { explain, namesAt, read, type PA } from '../../shared/priceaction';
 import { PA_DEFS } from '../../shared/pacards';
+import { openExplain } from './InfoDrawer';
 import { usePersisted } from '../lib/store';
 
 interface Round { sym: string; bars: Bar[]; cut: number; names: string[]; trend: PA['trend'] }
@@ -123,7 +124,7 @@ export default function LearnChartGame() {
           <>
             <ChartView bars={round.bars} from={round.cut - SHOW + 1} cut={round.cut} to={guess ? round.cut + vd : round.cut} pa={pa} on={on} />
             <p className="small muted cg-hint">Click and drag the chart to look back; double-click to reset. It won't move past the hidden part.</p>
-            <div className="cg-names"><span className="small muted">On this chart:</span>{round.names.length ? round.names.map((n) => <span key={n} className="cg-name" title={PA_DEFS[n.replace(/ \((up|down)\)$/, '')] ?? ''}>{n}</span>) : <span className="small muted">no named pattern near the cut; read the trend and levels.</span>}</div>
+            <div className="cg-names"><span className="small muted">On this chart:</span>{round.names.length ? round.names.map((n) => { const k = n.replace(/ \((up|down)\)$/, ''); return <button key={n} className="cg-name" title={PA_DEFS[k] ?? ''} onClick={() => openExplain({ kind: 'Pattern', title: n, term: k, what: PA_DEFS[k], src: 'Trade Desk price-action cards' })}>{n}</button>; }) : <span className="small muted">no named pattern near the cut; read the trend and levels.</span>}</div>
             {!guess ? (
               <div className="ln-chips"><span className="small">Next {h} trading days:</span><button className="chip cg-btn up" onClick={() => answer('up')}>Up</button><button className="chip cg-btn dn" onClick={() => answer('down')}>Down</button><span className="small muted">Hover a pattern name for what it means.</span></div>
             ) : (

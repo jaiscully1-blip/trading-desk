@@ -29,7 +29,7 @@ export function InfoDrawer({ onLearn }: { onLearn: (tab: string) => void }) {
   useEffect(() => { if (!x) return; const k = (e: KeyboardEvent) => { if (e.key === 'Escape') close(); }; addEventListener('keydown', k); return () => removeEventListener('keydown', k); }, [x]);
   if (!x) return null;
   const t: TermDef | null = x.term ? lookupTerm(x.term) : null;
-  const what = x.what ?? t?.what, lines = x.lines ?? t?.read ?? [];
+  const what = x.what ?? t?.what, lines = [...(x.lines ?? []), ...(t?.read ?? [])];
   const keep = () => {
     addResearch({ sym: x.sym, title: x.title, body: [what, ...lines.map((l) => `- ${l}`), note && `\nMy note: ${note}`].filter(Boolean).join('\n'), src: x.src ?? (t ? 'Trade Desk explainer' : undefined), url: x.url, kind: x.kind });
     setSaved(true);

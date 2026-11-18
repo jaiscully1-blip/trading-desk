@@ -3228,3 +3228,5 @@ button.chip[data-st="bull"] { color: var(--up); } button.chip[data-st="bear"] { 
 .lc-line:hover { background: var(--panel-2); } .lc-line.hot { background: var(--accent-bg); } .lc-line.interim { color: var(--muted); font-style: italic; cursor: default; }
 .lc-t { color: var(--accent); font-size: 11.5px; padding-top: 2px; }
 @media (prefers-reduced-motion: reduce) { .lc-live { animation: none; } }
+.fs-i.clickable { cursor: pointer; } .fs-i.clickable:hover .tick-l { color: var(--accent); }
+button.cg-name { color: inherit; font-family: inherit; cursor: pointer; } button.cg-name:hover { border-color: var(--pg, var(--accent)); }
