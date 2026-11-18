@@ -2938,3 +2938,25 @@ button.chip[data-st="bull"] { color: var(--up); } button.chip[data-st="bear"] { 
 .sg-chip.on, .sg-chip:disabled { opacity: .5; cursor: default; text-decoration: line-through; }
 .sg-links, .sg-tips { margin: 8px 0 0; padding-left: 18px; display: grid; gap: 4px; font-size: 12.5px; line-height: 1.45; }
 .sg-note { margin: 8px 0 0; }
+
+/* Learn → Setups & traps (prefix sl-) */
+.sl { display: grid; gap: 12px; }
+.sl-sym { flex: 0 0 90px; text-transform: uppercase; font-family: 'IBM Plex Mono', monospace; }
+.sl-sep { width: 1px; height: 18px; background: var(--line-2); margin: 0 4px; }
+.sl-h { margin: 14px 0 8px; font-size: 13px; color: var(--pg, var(--accent)); }
+.sl-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 8px; }
+.sl-grid.three { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+.sl-big { display: grid; gap: 2px; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--panel-2); }
+.sl-big b { font: 700 24px/1.1 'IBM Plex Mono', monospace; }
+.sl-big > span:not(.small) { font-size: 12.5px; color: color-mix(in srgb, var(--text) 80%, var(--muted)); }
+.sl-t { margin-top: 10px; }
+.sl-two { display: grid; grid-template-columns: repeat(auto-fit, minmax(380px, 1fr)); gap: 18px; }
+.sl-vol { display: grid; gap: 6px; }
+.sl-vrow { display: grid; grid-template-columns: 96px 1fr 44px; align-items: center; gap: 8px; }
+.sl-vbar { height: 10px; border-radius: 5px; background: var(--panel-2); overflow: hidden; }
+.sl-vbar i { display: block; height: 100%; background: var(--pg, var(--accent)); }
+.sl-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(440px, 1fr)); gap: 12px; align-items: start; }
+.sl-card h3 { margin: 2px 0 6px; font-size: 16px; }
+.sl-stat { margin: 0 0 8px; padding: 8px 10px; border-left: 3px solid var(--pg, var(--accent)); border-radius: 0 8px 8px 0; background: color-mix(in srgb, var(--pg, var(--accent)) 9%, transparent); font-size: 13px; }
+.sl-card .ln-dl ul { margin: 0; padding-left: 16px; }
+@media (max-width: 600px) { .sl-cards, .sl-two { grid-template-columns: 1fr; } .ln-dl { grid-template-columns: 1fr; } }

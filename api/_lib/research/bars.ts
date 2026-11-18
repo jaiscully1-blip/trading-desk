@@ -11,10 +11,12 @@ export async function GET(req: Request): Promise<Response> {
   const sym = (u.searchParams.get('symbol') ?? '').toUpperCase();
   const tf = u.searchParams.get('tf') as MtfTF;
   if (!(SYMBOL_RE.test(sym) || CRYPTO_RE.test(sym)) || !MTF_TFS.includes(tf)) return json({ error: 'bad symbol or timeframe' }, { status: 400 });
-  const { interval, range } = YAHOO_REQ[tf];
+  // long=1 on 5m: 60 days (Yahoo's limit for 5-minute bars) for the Learn setup statistics
+  const long = u.searchParams.get('long') === '1' && tf === '5m';
+  const { interval } = YAHOO_REQ[tf], range = long ? '60d' : YAHOO_REQ[tf].range;
   const y = sym.startsWith('^') ? sym : sym.replace('.', '-');
   try {
-    const { val } = await cached(`mtf:${sym}:${tf}`, MTF_TTL[tf], async () => {
+    const { val } = await cached(`mtf:${sym}:${tf}${long ? ':60d' : ''}`, long ? 1800 : MTF_TTL[tf], async () => {
       const j = await getJson(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(y)}?range=${range}&interval=${interval}`, 'yahoo', 10000, { headers: { 'user-agent': 'Mozilla/5.0 (trading-desk; personal use)' } });
       const daily = tf === '1d' || tf === '1w';
       const bars = shapeBars(parseYahooBars(j, daily), tf);
