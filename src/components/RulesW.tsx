@@ -4,6 +4,8 @@ import { useState } from 'react';
 import type { AccountSettings, Guard, Violation } from '../lib/journal';
 import { VIOLATION_LABEL, etDay } from '../lib/journal';
 import { LeverageBanner } from './LeverageCheck';
+import { Suggest } from './Suggest';
+import { RULE_PICKS } from '../../shared/suggest';
 
 export interface RulesData { g: Guard; settings: AccountSettings; checkedIn: boolean; viols: Violation[]; hasAccount: boolean }
 
@@ -76,6 +78,9 @@ export function RulesW({ r, now, cfg, set }: { r: RulesData | undefined; now: nu
           <button className="hw-btn" type="submit">Add</button>
           <button type="button" className="link small" onClick={() => set({ ...cfg, rules: DEFAULT_MY_RULES, done: [] })}>reset to defaults</button>
         </form>
+      )}
+      {edit && (
+        <Suggest id="rules" title="Common rules" items={RULE_PICKS.map((r) => ({ key: r, label: r, on: mine.includes(r), onPick: () => set({ ...cfg, rules: [...mine, r] }) }))} />
       )}
     </div>
   );

@@ -2925,3 +2925,16 @@ button.chip[data-st="bull"] { color: var(--up); } button.chip[data-st="bear"] { 
 .cg-result { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--line-2); }
 .cg-result.up { border-color: color-mix(in srgb, var(--up) 50%, transparent); }
 .cg-result.down { border-color: color-mix(in srgb, var(--down) 50%, transparent); }
+
+/* "Suggested" strip under inputs (prefix sg-) */
+.sg { margin-top: 8px; padding: 8px 10px; border: 1px dashed color-mix(in srgb, var(--pg, var(--accent)) 35%, var(--line-2)); border-radius: 8px; background: color-mix(in srgb, var(--pg, var(--accent)) 5%, transparent); }
+.sg summary { cursor: pointer; font-size: 12px; list-style: none; display: flex; align-items: center; gap: 6px; }
+.sg summary::before { content: '▸'; color: var(--pg, var(--accent)); transition: transform .15s; }
+.sg[open] summary::before { transform: rotate(90deg); }
+.sg-t { font: 600 11px 'IBM Plex Mono', monospace; letter-spacing: .06em; text-transform: uppercase; color: var(--pg, var(--accent)); }
+.sg-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.sg-chip { font-size: 12px; padding: 3px 10px; border-radius: 14px; border: 1px solid var(--line-2); color: var(--text); background: var(--panel-2); }
+.sg-chip:hover:not(:disabled) { border-color: var(--pg, var(--accent)); color: var(--pg, var(--accent)); }
+.sg-chip.on, .sg-chip:disabled { opacity: .5; cursor: default; text-decoration: line-through; }
+.sg-links, .sg-tips { margin: 8px 0 0; padding-left: 18px; display: grid; gap: 4px; font-size: 12.5px; line-height: 1.45; }
+.sg-note { margin: 8px 0 0; }

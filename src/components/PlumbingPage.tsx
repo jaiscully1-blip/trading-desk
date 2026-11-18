@@ -5,6 +5,8 @@ import { PageHero } from './PageHero';
 import { useEffect, useMemo, useState } from 'react';
 import type { DataMode } from '../data/live';
 import { usePersisted } from '../lib/store';
+import { Suggest } from './Suggest';
+import { MERGER_TIPS } from '../../shared/suggest';
 import { Fresh } from './common';
 import { arbSpread, offExchangeShare } from '../../shared/plumbing';
 
@@ -130,6 +132,7 @@ function Market({ live }: { live: boolean }) {
           <input type="date" value={f.close} onChange={(e) => setF({ ...f, close: e.target.value })} aria-label="Expected close" />
           <button className="btn" type="submit">Add deal</button>
         </form>
+        <Suggest id="merger" title="Where to find the deal terms" tips={MERGER_TIPS} />
         {deals.length > 0 && <table className="ad-table"><thead><tr><th>Deal</th><th className="r">Target price</th><th className="r">Deal value</th><th className="r">Spread</th><th className="r">Annualized</th><th /></tr></thead><tbody>
           {deals.map((d) => { const s = arbSpread({ targetPx: px[d.target], cash: d.cash, ratio: d.ratio, acquirerPx: px[d.acquirer], closeDate: d.close || undefined });
             return <tr key={d.id}><td><b>{d.target}</b>{d.acquirer ? ` ← ${d.acquirer}` : ''} <span className="small muted">{[d.cash ? `$${d.cash}` : '', d.ratio ? `${d.ratio}×` : ''].filter(Boolean).join(' + ')}{d.close ? ` · close ${d.close}` : ''}</span></td><td className="r num">{px[d.target]?.toFixed(2) ?? '—'}</td><td className="r num">{s ? s.value.toFixed(2) : '—'}</td><td className={`r num ${s && s.spread >= 0 ? 'up' : 'down'}`}>{s ? pc(s.spread, 2) : '—'}</td><td className="r num">{s?.annualized != null ? pc(s.annualized) : '—'}</td><td><button className="hw-btn" onClick={() => setDeals(deals.filter((x) => x.id !== d.id))} aria-label="Remove">×</button></td></tr>; })}

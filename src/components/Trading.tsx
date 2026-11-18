@@ -5,6 +5,8 @@ import type { GradeResult, Playbook } from '../lib/playbook';
 import { critLabel } from './Scanner';
 import { etTime, hms } from '../lib/clock';
 import { pct, px, sUsd, tone, usd } from '../lib/format';
+import { Suggest } from './Suggest';
+import { SETUP_TAGS } from '../../shared/suggest';
 
 export const uid = () => `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
 
@@ -160,6 +162,7 @@ export function TradeTicket(p: TicketProps) {
         <label>Target<input inputMode="decimal" value={f.target} onChange={set('target')} /></label>
         <label>Size (sh)<input inputMode="numeric" value={f.size} onChange={set('size')} placeholder={sz ? String(sz.shares) : ''} /></label>
         <label className="span2">Setup tag<input value={f.setup} onChange={set('setup')} placeholder="ORB, bull flag, gap-and-go…" /></label>
+        <div className="span2"><Suggest id="setup" title="Common setups" items={SETUP_TAGS.map((t) => ({ key: t, label: t, on: f.setup === t, onPick: () => setF((x) => ({ ...x, setup: t })) }))} /></div>
         <label className="span2">Thesis<textarea rows={2} value={f.thesis} onChange={set('thesis')} /></label>
         <div className="span2 emo">
           {EMOTIONS.map((e) => <button type="button" key={e} className={`chip sm ${f.emotion === e ? 'on' : ''}`} onClick={() => setF((x) => ({ ...x, emotion: x.emotion === e ? null : e }))}>{e}</button>)}

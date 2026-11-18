@@ -5,6 +5,8 @@ import { PageHero } from './PageHero';
 import { useEffect, useState } from 'react';
 import type { DataMode } from '../data/live';
 import { usePersisted } from '../lib/store';
+import { Suggest } from './Suggest';
+import { JETS } from '../../shared/suggest';
 import { Fresh } from './common';
 import { trend } from '../../shared/altdata';
 import { chg } from '../../shared/realecon';
@@ -77,6 +79,8 @@ function Jets({ live }: { live: boolean }) {
         <button className="btn" type="submit">Add</button>
         <button className="btn primary" type="button" disabled={!list.length || !live} onClick={check}>Check where they are</button>
       </form>
+      <Suggest id="jets" title="Suggested jets (verified hex codes)" items={JETS.map((x) => ({ key: x.icao, on: list.some((y) => y.icao === x.icao), title: `${x.group}: ${x.note} (hex ${x.icao})`, label: <>{x.group === 'Government' ? '🏛 ' : ''}{x.label}</>, onPick: () => setList([...list.filter((y) => y.icao !== x.icao), { id: uid(), icao: x.icao, label: x.label }]) }))}
+        note="Click to add. Hex codes checked against the FAA registry (civil) and hexdb.io (US Air Force). Military and government jets often fly with position data hidden, and many company jets are registered to anonymous trusts, so a jet may not show every time." />
       {list.length > 0 && <div className="tl-chips">{list.map((j) => <span key={j.id} className="chip sm">{j.label} <span className="muted">{j.icao}</span><button className="hw-btn" onClick={() => setList(list.filter((x) => x.id !== j.id))} aria-label="Remove">×</button></span>)}</div>}
       {res?.error && <p className="small down">{res.error}</p>}
       {res && !res.error && (res.jets.length ? <ul className="es-news">{res.jets.map((x: any) => <li key={x.icao}><b>{list.find((j) => j.icao === x.icao)?.label ?? x.icao}</b> {x.ground ? 'on the ground' : `flying at ${Math.round((x.alt ?? 0) * 3.28)} ft`}{x.near ? <> near <b>{x.near.sym}</b> HQ ({x.near.city}, {x.near.km} km)</> : ' (not near a tracked HQ)'} · <a href={`https://globe.adsbexchange.com/?icao=${x.icao}`} target="_blank" rel="noreferrer noopener">map</a></li>)}</ul> : <p className="small muted">None of these jets are transmitting right now (parked with transponders off, or hidden by the FAA privacy program).</p>)}

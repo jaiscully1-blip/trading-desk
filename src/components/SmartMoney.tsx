@@ -6,6 +6,8 @@ import { MEMBERS } from '../../shared/data/congress';
 import { useApi } from '../data/apis';
 import type { DataMode } from '../data/live';
 import { usePersisted } from '../lib/store';
+import { Suggest } from './Suggest';
+import { FUNDS as FUND_PICKS } from '../../shared/suggest';
 import { Fresh, Seg, PageTabs } from './common';
 
 type Tab = 'funds' | 'patterns' | 'ark' | 'pols';
@@ -50,6 +52,7 @@ function Funds({ onChart }: { onChart: (s: string) => void }) {
           <input className="lib-q" value={addName} onChange={(e) => setAddName(e.target.value)} placeholder="Name (optional)" aria-label="Investor name" />
           <button className="chip sm on" onClick={addOne} disabled={!addCik.trim()}>Add and open</button>
           <p className="small muted">Find a CIK by searching the firm at <a href="https://www.sec.gov/edgar/searchedgar/companysearch" target="_blank" rel="noreferrer noopener">SEC EDGAR</a>; it is the number in the filer URL. The tracker shows the SEC's own filer name, so a wrong number is obvious. Only firms that file 13F-HR work. To include added investors in the Patterns tab too, add their CIKs to the EXTRA_CIKS variable of the “13F patterns” GitHub Action.</p>
+          <Suggest id="f13-add" title="Suggested funds not in the list" items={FUND_PICKS.filter((x) => !all.some((f) => f.cik === x.cik)).map((x) => ({ key: x.cik, title: `${x.note} · CIK ${x.cik}`, label: x.who, onPick: () => { setMine([...mine, { cik: x.cik, who: x.who }]); setCik(x.cik); } }))} note="Click to add and open. CIKs checked on SEC EDGAR." />
         </details>
         {cats.map((c) => (
           <div key={c} className="pt-cat">

@@ -192,7 +192,7 @@ function Baskets({ snap, onChart }: { snap: SnapMap; onChart: (s: string) => voi
       <aside className="sm-list">
         {baskets.map((b) => <button key={b.id} className={`sm-fund ${sel?.id === b.id ? 'on' : ''}`} onClick={() => setSelId(b.id)}><b>{b.name}</b><span className="small muted">{b.syms.join(' · ')}</span></button>)}
         <button className="btn" onClick={() => setDraft({ id: null, name: '', syms: '' })}>+ New basket</button>
-        {!baskets.length && <><p className="small muted">Or start from one of these:</p>{TEMPLATES.map((t) => <button key={t.id} className="chip sm" onClick={() => { const b = { ...t, id: `b${Date.now()}` }; setBaskets((xs) => [...xs, b]); setSelId(b.id); }}>{t.name}</button>)}</>}
+        {<><p className="small muted">{baskets.length ? 'Suggested baskets:' : 'Or start from one of these:'}</p>{TEMPLATES.map((t) => <button key={t.id} className="chip sm" onClick={() => { const b = { ...t, id: `b${Date.now()}` }; setBaskets((xs) => [...xs, b]); setSelId(b.id); }}>{t.name}</button>)}</>}
       </aside>
       <section className="sm-main">
         {draft && (
