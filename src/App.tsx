@@ -70,6 +70,7 @@ const RiverScene = lazy(() => import('./components/RiverScene'));
 import { popout, PageTabs } from './components/common';
 import { PingStack, StarredList } from './components/Pings';
 import { Desk, type Article, type DeskCtx } from './lib/deskctx';
+import { pickImportFiles } from './lib/importPick';
 import { isOwner, storagePrefix } from './lib/accounts';
 import TickerInfo from './components/TickerInfo';
 import { OFFLINE_NAMES } from './data/info';
@@ -731,7 +732,7 @@ export default function App() {
     { id: 'essay', label: 'Essays: write up a stock with a linked chart, news and data', hint: 'Shift W', run: () => setPage('essay') },
     { id: 'journal', label: 'Journal page (trades, stats, violations, import)', hint: 'Shift J', run: () => setPage('journal') },
     { id: 'ticket', label: 'Quick journal / trade ticket', hint: 'Q', run: () => setTab('journal') },
-    { id: 'import', label: 'Import broker CSV', run: () => setPage('journal') },
+    { id: 'import', label: 'Import broker CSV (opens your file picker)', run: () => pickImportFiles(() => setPage('journal')) },
     { id: 'checkin', label: 'Pre-session check-in', run: () => setCiOpen(true) },
     { id: 'recap', label: 'Daily recap (today so far, and past days)', run: openRecap },
     { id: 'replay', label: 'Replay my last trade with ghost exit', run: () => { const last = [...views].filter((v) => v.openedAt != null).sort((a, b) => b.openedAt! - a.openedAt!)[0]; if (last) setReplayId(last.t.id); else flash('No trades to replay yet'); } },
@@ -1031,7 +1032,7 @@ export default function App() {
         open={cmdOpen} onClose={() => setCmdOpen(false)} commands={commands} tickers={tickers} onTicker={setSel} quotes={quotes} pages={NAV_PAGE_IDS}
         allowAny={live ? (s) => SYMBOL_RE.test(s) : undefined}
       />
-      {(drawer || drawerSeen) && <Suspense fallback={null}><AccountDrawer open={drawer} onClose={() => setDrawer(false)} theme={theme} views={views} transfers={liveTransfers} settings={settings} setSettings={setSettings} guard={g} onImport={() => { setDrawer(false); setPage('journal'); }} /></Suspense>}
+      {(drawer || drawerSeen) && <Suspense fallback={null}><AccountDrawer open={drawer} onClose={() => setDrawer(false)} theme={theme} views={views} transfers={liveTransfers} settings={settings} setSettings={setSettings} guard={g} onImport={() => pickImportFiles(() => { setDrawer(false); setPage('journal'); })} /></Suspense>}
       <Suspense fallback={null}>{recapOpen !== false && <RecapOverlay recaps={shownRecaps} initialDay={recapOpen || undefined} onClose={() => setRecapOpen(false)} onReplay={setReplayId} csvFor={csvFor}
         importDeps={{ setTrades, setTransfers, settings, onAutoStart: (t) => setSettings((s) => (s.startBalance == null ? { ...s, startBalance: 0, startDate: t } : s)) }} onOpenImport={() => { setRecapOpen(false); save('journalTab', 'import'); setPage('journal'); }} />}</Suspense>
       <Suspense fallback={null}>{replayView && <ReplayOverlay v={replayView} live={live} theme={theme} rules={exitRules} setRules={setExitRules} onClose={() => setReplayId(null)} />}</Suspense>

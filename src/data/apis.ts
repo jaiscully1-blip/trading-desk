@@ -23,11 +23,16 @@ export function useApi<T>(url: string | null, refreshMs = 0, maxAgeMs = 60_000):
         if (r.ok && !j.error) { memo.set(url, { at: Date.now(), data: j }); setSt({ data: j, loading: false, at: Date.now() }); }
         else setSt((s) => ({ ...s, loading: false, error: j.error ?? `HTTP ${r.status}`, data: s.data ?? (j.error ? null : j) }));
       } catch (e) { if (!stop) setSt((s) => ({ ...s, loading: false, error: String((e as Error).message ?? e) })); }
-      if (!stop && refreshMs) t = setTimeout(go, refreshMs);
+      if (!stop && refreshMs) t = setTimeout(tick, refreshMs);
     };
-    if (hit && Date.now() - hit.at < maxAgeMs) { if (refreshMs) t = setTimeout(go, refreshMs); }
+    // background tabs don't poll: the next refresh waits until the tab is visible again (then runs at once)
+    let waiting = false;
+    const onVis = () => { if (!document.hidden && waiting && !stop) { waiting = false; go(); } };
+    const tick = () => { if (typeof document !== 'undefined' && document.hidden) { waiting = true; return; } go(); };
+    document.addEventListener('visibilitychange', onVis);
+    if (hit && Date.now() - hit.at < maxAgeMs) { if (refreshMs) t = setTimeout(tick, refreshMs); }
     else go();
-    return () => { stop = true; clearTimeout(t); };
+    return () => { stop = true; clearTimeout(t); document.removeEventListener('visibilitychange', onVis); };
   }, [url, refreshMs, maxAgeMs]);
   return st;
 }

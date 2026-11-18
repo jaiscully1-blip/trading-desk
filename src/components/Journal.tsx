@@ -1,5 +1,6 @@
 // Full journal (trades, stats, violations, import) and the account drawer.
 import { JournalCalendar } from './JournalCalendar';
+import { IMPORT_EVENT, takePendingFiles } from '../lib/importPick';
 import { storagePrefix } from '../lib/accounts';
 import CryptoCharts from './CryptoCharts';
 import Discipline from './Discipline';
@@ -42,6 +43,8 @@ export interface JournalProps {
 export function JournalOverlay(p: JournalProps) {
   // the Daily recap's "Import history" link lands here on the Import tab (one-shot hint in the browser store)
   const [tab, setTab] = useState<Tab>(() => { const t = load<Tab | null>('journalTab', null); if (t) save('journalTab', null); return t ?? 'trades'; });
+  // "Import broker CSV" while the journal is already open: jump to the Import tab
+  useEffect(() => { const go = () => { save('journalTab', null); setTab('import'); }; window.addEventListener(IMPORT_EVENT, go); return () => window.removeEventListener(IMPORT_EVENT, go); }, []);
   const hasDemo = p.views.some((v) => v.t.demo);
   return (
     <div className="overlay" role="dialog" aria-label="Journal">
@@ -350,11 +353,18 @@ export function applyImport(p: ImportDeps, name: string, rows: string[][], fills
 /** Read broker CSV files into the journal: built-in column rules first, then the free AI column match (header row only). Files that still
  *  cannot be read come back in `pending` so the Import tab can offer the match-by-hand form. */
 export async function importFiles(p: ImportDeps, list: FileList | File[], onBusy: (s: string) => void = () => {}): Promise<{ out: FileResult[]; pending: PendingFile[] }> {
-  const arr = [...list].filter((f) => /\.(csv|txt)$/i.test(f.name) || /csv|excel|text/i.test(f.type));
+  const arr = [...list];
   const out: FileResult[] = [], pending: PendingFile[] = [];
   for (let i = 0; i < arr.length; i++) {
     const f = arr[i];
     onBusy(`Reading ${f.name}${arr.length > 1 ? ` (${i + 1} of ${arr.length})` : ''}…`);
+    // spreadsheets and PDFs can't be read as text: say how to get a CSV instead of failing quietly
+    const head = new Uint8Array(await f.slice(0, 8).arrayBuffer());
+    const isZip = head[0] === 0x50 && head[1] === 0x4b, isPdf = head[0] === 0x25 && head[1] === 0x50 && head[2] === 0x44 && head[3] === 0x46, isOle = head[0] === 0xd0 && head[1] === 0xcf;
+    if (isZip || isPdf || isOle) {
+      out.push({ ...applyImport(p, f.name, [], { kind: 'fills', cols: {} }, { kind: 'transfers', cols: {} }, '—'), ok: false, why: isPdf ? 'this is a PDF statement: download the CSV (or "export to spreadsheet") version from your broker instead' : 'this is an Excel workbook: open it and choose File → Save As (or Export) → CSV, then import that file' });
+      continue;
+    }
     const rows = trimToHeader(parseCsv(await f.text()));
     if (rows.length < 2) { out.push({ ...applyImport(p, f.name, rows, { kind: 'fills', cols: {} }, { kind: 'transfers', cols: {} }, '—'), ok: false, why: 'the file is empty' }); continue; }
     let { fills, transfers } = detectAll(rows);
@@ -396,6 +406,13 @@ function ImportTab(p: JournalProps) {
   const input = useRef<HTMLInputElement>(null);
 
   const apply = (name: string, rows: string[][], fills: Mapping, transfers: Mapping, via: string) => applyImport(p, name, rows, fills, transfers, via);
+  // files picked from "Import broker CSV" elsewhere on the desk arrive here
+  useEffect(() => {
+    const take = () => { const f = takePendingFiles(); if (f) void read(f); };
+    take();
+    window.addEventListener(IMPORT_EVENT, take);
+    return () => window.removeEventListener(IMPORT_EVENT, take);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const read = async (list: FileList | File[]) => {
     const { out, pending } = await importFiles(p, list, setBusy);
     if (!out.length) return;
@@ -423,9 +440,9 @@ function ImportTab(p: JournalProps) {
         onDragOver={(e) => { e.preventDefault(); setOver(true); }} onDragLeave={() => setOver(false)}
         onDrop={(e) => { e.preventDefault(); setOver(false); read(e.dataTransfer.files); }}>
         <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true"><path d="M12 16V4m0 0l-4 4m4-4l4 4M4 16v3a1 1 0 001 1h14a1 1 0 001-1v-3" /></svg>
-        <b>Drop broker CSVs here</b>
+        <b>Drop broker CSVs here, or click to choose any file</b>
         <span className="muted small">or click to choose. Stocks and options, any number of files: trades, deposits and withdrawals are added to your journal and balance right away.</span>
-        <input ref={input} type="file" accept=".csv,.txt,text/csv" multiple hidden onChange={(e) => { if (e.target.files) read(e.target.files); e.target.value = ''; }} />
+        <input ref={input} type="file" multiple hidden onChange={(e) => { if (e.target.files) read(e.target.files); e.target.value = ''; }} />
       </div>
       {busy && <div className="imp-busy small"><span className="spin" />{busy}</div>}
 
