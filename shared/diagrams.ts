@@ -100,6 +100,46 @@ export const DIAGRAMS: Record<string, Diagram> = {
     return { candles: mk(closes, 96.8, 0.3), overlays: [{ t: 'line', pts: closes.map((_, i) => 98.2 + i * 0.12), label: '200-day SMA', tone: 'mid' }, { t: 'mark', x: 6, y: 99.0, label: 'Close above the 200 = in', tone: 'up', dir: 'up' }],
       caption: 'Hold while price is above the 200-day average; step aside below it.' } as Diagram;
   })(),
+  structure: {
+    candles: mk([100.8, 101.8, 101.2, 100.9, 102.0, 103.0, 102.3, 101.9, 103.2, 104.3], 100, 0.2),
+    overlays: [{ t: 'mark', x: 1, y: 102.0, label: 'HH', tone: 'up', dir: 'down' }, { t: 'mark', x: 3, y: 100.7, label: 'HL', tone: 'up', dir: 'up' }, { t: 'h', y: 102.0, label: 'BOS: close above last high', tone: 'up', from: 1, to: 4 }, { t: 'mark', x: 7, y: 101.7, label: 'HL', tone: 'up', dir: 'up' }],
+    caption: 'Higher highs and higher lows; each close above the last swing high is a break of structure (BOS).',
+  },
+  choch: {
+    candles: mk([101, 102, 101.4, 102.6, 101.9, 102.8, 102.1, 101.2, 100.6, 101.0, 100.2], 100.4, 0.2),
+    overlays: [{ t: 'h', y: 101.7, label: 'Last higher low', tone: 'mid', from: 4 }, { t: 'mark', x: 7, y: 101.0, label: 'CHoCH: close below it', tone: 'down', dir: 'down' }],
+    caption: 'An uptrend’s first close below its last higher low: a change of character.',
+  },
+  ob: {
+    candles: mk([101.5, 101.0, 100.6, 100.3, 101.6, 102.9, 103.4, 102.4, 101.2, 102.2, 103.6], 101.8, 0.2),
+    overlays: [{ t: 'zone', x0: 3, x1: 10, y0: 100.1, y1: 100.8, label: 'Bullish order block', tone: 'up' }, { t: 'mark', x: 3, y: 100.1, label: 'Last down candle before the rally', tone: 'mid', dir: 'up' }, { t: 'mark', x: 8, y: 101.0, label: 'Return = entry', tone: 'up', dir: 'up' }],
+    caption: 'The last down candle before a move that broke structure; traders watch for price to return to it.',
+  },
+  ifvg: {
+    candles: mk([100.4, 102.2, 102.6, 101.8, 100.6, 99.8, 100.7, 100.9, 99.9, 99.2], 100, 0.2, { 0: [100.6, 99.9], 2: [102.9, 101.2] }),
+    overlays: [{ t: 'zone', x0: 0, x1: 9, y0: 100.6, y1: 101.2, label: 'FVG → inverse FVG', tone: 'down' }, { t: 'mark', x: 4, y: 100.4, label: 'Close through the gap', tone: 'down', dir: 'down' }, { t: 'mark', x: 7, y: 101.3, label: 'Retest from below fails', tone: 'down', dir: 'down' }],
+    caption: 'A bullish gap that price closed through now acts as resistance: an inverse FVG.',
+  },
+  dtop: {
+    candles: mk([100, 101.2, 102.4, 101.6, 100.9, 101.8, 102.35, 101.5, 100.6, 99.8], 99.4, 0.2, { 2: [102.6], 6: [102.6] }),
+    overlays: [{ t: 'h', y: 102.6, label: 'Two tops', tone: 'mid', from: 2 }, { t: 'h', y: 100.7, label: 'Neckline', tone: 'down', from: 3 }, { t: 'mark', x: 8, y: 100.4, label: 'Break = confirmed', tone: 'down', dir: 'down' }],
+    caption: 'Two failed tests of the same high, confirmed only by a close below the trough between them.',
+  },
+  hns: {
+    candles: mk([100, 101.3, 100.6, 101.6, 102.7, 101.4, 100.7, 101.6, 100.9, 100.1, 99.4], 99.6, 0.2),
+    overlays: [{ t: 'mark', x: 1, y: 101.5, label: 'Left shoulder', tone: 'mid', dir: 'down' }, { t: 'mark', x: 4, y: 102.9, label: 'Head', tone: 'mid', dir: 'down' }, { t: 'mark', x: 7, y: 101.8, label: 'Right shoulder', tone: 'mid', dir: 'down' }, { t: 'h', y: 100.5, label: 'Neckline', tone: 'down', from: 2 }],
+    caption: 'A higher peak between two lower ones; the break of the neckline completes it.',
+  },
+  engulf: {
+    candles: mk([102, 101.4, 100.9, 100.5, 101.6, 102.2, 102.8], 102.4, 0.15),
+    overlays: [{ t: 'mark', x: 4, y: 100.2, label: 'Bullish engulfing at the low', tone: 'up', dir: 'up' }],
+    caption: 'A down candle followed by a larger up candle whose body covers it.',
+  },
+  hammer: {
+    candles: mk([102, 101.3, 100.7, 100.8, 101.6, 102.3], 102.5, 0.15, { 3: [100.95, 99.4] }),
+    overlays: [{ t: 'mark', x: 3, y: 99.4, label: 'Long lower wick: rejection', tone: 'up', dir: 'up' }],
+    caption: 'A small body with a long lower wick after a decline: sellers pushed down, buyers pushed back.',
+  },
 };
 /** Which diagram each strategy or setup card shows. */
-export const DIAGRAM_FOR: Record<string, string> = { orb: 'orb', fvg: 'fvg', volema: 'volema', vwapr: 'vwapr', emax: 'emax', brr: 'brr', flag: 'flag', sweeprev: 'sweeprev', gapgo: 'gapgo', rsi2: 'rsi2', trend200: 'trend200', fake: 'fake', grab: 'sweeprev', bulltrap: 'fake', beartrap: 'beartrap', vwapreclaim: 'vwapr', gapfill: 'gapgo', pdh: 'sweeprev', drive: 'orb' };
+export const DIAGRAM_FOR: Record<string, string> = { orb: 'orb', fvg: 'fvg', volema: 'volema', vwapr: 'vwapr', emax: 'emax', brr: 'brr', flag: 'flag', sweeprev: 'sweeprev', gapgo: 'gapgo', rsi2: 'rsi2', trend200: 'trend200', fake: 'fake', grab: 'sweeprev', bulltrap: 'fake', beartrap: 'beartrap', vwapreclaim: 'vwapr', gapfill: 'gapgo', pdh: 'sweeprev', drive: 'orb', structure: 'structure', bos: 'structure', choch: 'choch', msr: 'brr', liquidity: 'sweeprev', eqhl: 'sweeprev', sweep: 'sweeprev', inducement: 'sweeprev', judas: 'sweeprev', ifvg: 'ifvg', ob: 'ob', breaker: 'ifvg', sd: 'ob', po3: 'sweeprev', engulf: 'engulf', hammer: 'hammer', dtop: 'dtop', hns: 'hns', flagpennant: 'flag', spring: 'beartrap', wyckoffacc: 'beartrap', gaptypes: 'gapgo' };

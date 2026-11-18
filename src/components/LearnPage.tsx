@@ -9,6 +9,8 @@ import { FlipCard } from './FlipCard';
 import { MiniChart } from './LearnMiniChart';
 import { Calc } from './LearnCalc';
 import { Diagram } from './LearnDiagram';
+import { PA_CARDS, PA_GROUPS } from '../../shared/pacards';
+import { DIAGRAM_FOR } from '../../shared/diagrams';
 import { usePersisted } from '../lib/store';
 import { useLabBars } from '../lib/useLabBars';
 import { INDICATORS, MATH, NOTES, STRATS, VIDEOS, type Deeper, type StratStat } from '../../shared/lessons';
@@ -17,9 +19,10 @@ import { fvgStats, gapFills, orb, pct, sessions, sweeps, vwapStats } from '../..
 
 const Setups = lazy(() => import('./LearnSetups'));
 const ChartGame = lazy(() => import('./LearnChartGame'));
-type Tab = 'start' | 'indicators' | 'strategies' | 'setups' | 'game' | 'math' | 'mindset' | 'concepts' | 'glossary' | 'resources';
+type Tab = 'start' | 'pa' | 'indicators' | 'strategies' | 'setups' | 'game' | 'math' | 'mindset' | 'concepts' | 'glossary' | 'resources';
 const TABS: { id: Tab; label: string; blurb: string; icon: string }[] = [
   { id: 'start', label: 'Start', blurb: 'New to trading? Start with the path below, then flip through the decks.', icon: '◎' },
+  { id: 'pa', label: 'Price action', blurb: 'Structure, BOS and CHoCH, liquidity and sweeps, FVGs and inverse FVGs, order blocks, sessions, candlesticks, chart patterns, volume and Wyckoff: the patterns most chart traders use.', icon: '⟋' },
   { id: 'indicators', label: 'Indicators', blurb: 'Moving averages, VWAP, RSI, MACD, bands, ATR, volume and more, each drawn live on SPY.', icon: '∿' },
   { id: 'strategies', label: 'Strategies', blurb: 'ORB, fair value gaps, volume + EMA, VWAP reclaim and more: exact rules, why they work, and the usual mistakes.', icon: '⇗' },
   { id: 'setups', label: 'Setups & traps', blurb: 'Fakeouts, liquidity grabs, traps, VWAP and volume, measured on real bars.', icon: '⚑' },
@@ -124,6 +127,31 @@ function Strategies() {
   );
 }
 
+function PriceAction() {
+  const [g, setG] = useState<string>('All');
+  const [q, setQ] = useState('');
+  const xs = PA_CARDS.filter((c) => (g === 'All' || c.group === g) && (!q || `${c.name} ${c.short} ${c.what.join(' ')}`.toLowerCase().includes(q.toLowerCase())));
+  return (
+    <>
+      <div className="ln-chips">{['All', ...PA_GROUPS].map((x) => <button key={x} className={`chip sm ${g === x ? 'on' : ''}`} onClick={() => setG(x)}>{x}</button>)}<input className="ln-search" placeholder={`Search ${PA_CARDS.length} patterns…`} value={q} onChange={(e) => setQ(e.target.value)} /></div>
+      <div className="fc-grid">{xs.map((c) => (
+        <FlipCard key={c.id} tag={c.group} title={c.name} front={<><h4>{c.name}</h4>{DIAGRAM_FOR[c.id] && <Diagram id={c.id} small />}<p>{c.short}</p></>} back={<>
+          {DIAGRAM_FOR[c.id] && <Diagram id={c.id} />}
+          <div className="fc-cols">
+            <Sec t="What defines it"><List xs={c.what} /></Sec>
+            <Sec t="Why it forms"><p>{c.why}</p></Sec>
+            <Sec t="How traders use it"><List xs={c.use} /></Sec>
+            <Sec t="Wrong when"><p>{c.wrong}</p></Sec>
+          </div>
+          {c.note && <p className="fc-tip">ℹ {c.note}</p>}
+          <div className="fc-links"><Yt q={`${c.name.replace(/\(.*?\)/g, '').trim()} explained trading`} /></div>
+        </>} />
+      ))}</div>
+      <p className="note">Practise spotting these in the Chart game: it marks structure, FVGs, liquidity and sweeps on real charts. Learning material, not advice.</p>
+    </>
+  );
+}
+
 function QuickMath() {
   return <div className="fc-grid">{MATH.map((m) => (
     <FlipCard key={m.id} tag="Calculator" title={m.name} front={<><h4>{m.name}</h4><p>{m.short}</p><code className="fc-code">{m.formula}</code></>} back={<>
@@ -212,6 +240,7 @@ export default function LearnPage({ go }: { go?: (p: Page) => void }) {
       </nav>
       <p className="ln-blurb">{meta.blurb}</p>
       {tab === 'start' && <Start setTab={setTab} go={go} />}
+      {tab === 'pa' && <PriceAction />}
       {tab === 'indicators' && <Indicators />}
       {tab === 'strategies' && <Strategies />}
       {tab === 'setups' && <Suspense fallback={<section className="ad-card">Loading…</section>}><Setups /></Suspense>}
