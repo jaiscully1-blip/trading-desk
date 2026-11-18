@@ -3,7 +3,7 @@
 import { ProviderError } from '../../shared/parse.js';
 import { clock } from '../../shared/clock.js';
 
-export type Provider = 'twelvedata' | 'finnhub' | 'alphavantage' | 'fred' | 'finra' | 'kalshi' | 'gdelt' | 'binance' | 'coingecko' | 'sec' | 'gemini' | 'wikipedia' | 'aisstream' | 'polymarket' | 'github' | 'yahoo' | 'openfigi' | 'ark' | 'tradingview' | 'alpaca' | 'cboe' | 'nasdaq' | 'earningsapi' | 'tradetime' | 'zillow' | 'mempool' | 'dataroma' | 'apewisdom' | 'rdw' | 'copernicus' | 'stocktwits' | 'opensky' | 'adsblol' | 'adsbfi' | 'eia' | 'noaa' | 'patentsview' | 'courtlistener';
+export type Provider = 'twelvedata' | 'finnhub' | 'alphavantage' | 'fred' | 'finra' | 'kalshi' | 'gdelt' | 'binance' | 'coingecko' | 'sec' | 'gemini' | 'wikipedia' | 'aisstream' | 'polymarket' | 'github' | 'yahoo' | 'openfigi' | 'ark' | 'tradingview' | 'alpaca' | 'cboe' | 'nasdaq' | 'earningsapi' | 'tradetime' | 'zillow' | 'mempool' | 'dataroma' | 'apewisdom' | 'rdw' | 'copernicus' | 'stocktwits' | 'opensky' | 'adsblol' | 'adsbfi' | 'eia' | 'noaa' | 'patentsview' | 'courtlistener' | 'french' | 'steam' | 'cfpb' | 'nhtsa' | 'openfda';
 
 export const KEY_ENV: Record<Provider, string> = {
   twelvedata: 'TWELVEDATA_API_KEY',
@@ -42,6 +42,11 @@ export const KEY_ENV: Record<Provider, string> = {
   eia: 'EIA_API_KEY', // U.S. Energy Information Administration open data, free key
   noaa: '', // api.weather.gov, no key (asks for a User-Agent)
   patentsview: 'USPTO_API_KEY', // USPTO Open Data Portal API key (free; needs a USPTO.gov account verified with ID.me). PatentsView's own API went offline in 2026
+  french: '', // Kenneth French data library (Dartmouth): factor returns, free CSV zips, updated monthly
+  steam: '', // Steam store public review summaries (store.steampowered.com/appreviews), no key
+  cfpb: '', // CFPB consumer complaint database public API, no key
+  nhtsa: '', // NHTSA recalls and complaints public API, no key
+  openfda: '', // openFDA public API, no key (240 requests a minute, 1,000 a day without a key)
   courtlistener: 'COURTLISTENER_TOKEN', // CourtListener (Free Law Project) API, free account token
   copernicus: 'COPERNICUS_CLIENT_ID', // + COPERNICUS_CLIENT_SECRET; Copernicus Data Space (Sentinel Hub), free account and monthly quota
 };
@@ -96,6 +101,11 @@ const LIMITS: Record<Provider, { perMin: number; perDay: number }> = {
   eia: { perMin: 20, perDay: 1000 },
   noaa: { perMin: 20, perDay: 2000 },
   patentsview: { perMin: 30, perDay: 1000 }, // stay well under the ODP key's limits
+  french: { perMin: 4, perDay: 50 }, // two small files, cached a day
+  steam: { perMin: 30, perDay: 1500 },
+  cfpb: { perMin: 20, perDay: 1000 },
+  nhtsa: { perMin: 20, perDay: 1000 },
+  openfda: { perMin: 20, perDay: 900 },
   courtlistener: { perMin: 20, perDay: 1000 }, // free token allows 5,000 an hour
   stocktwits: { perMin: 3, perDay: 150 }, // public API allows ~200 an hour; every answer is cached 10 minutes
   copernicus: { perMin: 10, perDay: 300 }, // free quota is processing units per month: every answer is cached a day

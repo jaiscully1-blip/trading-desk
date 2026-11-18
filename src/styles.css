@@ -3162,3 +3162,4 @@ button.chip[data-st="bull"] { color: var(--up); } button.chip[data-st="bear"] { 
 .cg-vol.up { fill: var(--up); opacity: .45; } .cg-vol.dn { fill: var(--down); opacity: .45; }
 .cg-vol.hot { opacity: .95; stroke: var(--text); stroke-width: .6; }
 .cg-hint { margin: 6px 0 2px; }
+.ql-seg { display: inline-flex; gap: 4px; flex-wrap: wrap; }
