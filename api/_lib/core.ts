@@ -3,7 +3,7 @@
 import { ProviderError } from '../../shared/parse.js';
 import { clock } from '../../shared/clock.js';
 
-export type Provider = 'twelvedata' | 'finnhub' | 'alphavantage' | 'fred' | 'finra' | 'kalshi' | 'gdelt' | 'binance' | 'coingecko' | 'sec' | 'gemini' | 'wikipedia' | 'aisstream' | 'polymarket' | 'github' | 'yahoo' | 'openfigi' | 'ark' | 'tradingview' | 'alpaca' | 'cboe' | 'nasdaq' | 'earningsapi' | 'tradetime' | 'zillow' | 'mempool' | 'dataroma' | 'apewisdom' | 'rdw' | 'copernicus' | 'stocktwits' | 'opensky' | 'eia' | 'noaa' | 'patentsview' | 'courtlistener';
+export type Provider = 'twelvedata' | 'finnhub' | 'alphavantage' | 'fred' | 'finra' | 'kalshi' | 'gdelt' | 'binance' | 'coingecko' | 'sec' | 'gemini' | 'wikipedia' | 'aisstream' | 'polymarket' | 'github' | 'yahoo' | 'openfigi' | 'ark' | 'tradingview' | 'alpaca' | 'cboe' | 'nasdaq' | 'earningsapi' | 'tradetime' | 'zillow' | 'mempool' | 'dataroma' | 'apewisdom' | 'rdw' | 'copernicus' | 'stocktwits' | 'opensky' | 'adsblol' | 'adsbfi' | 'eia' | 'noaa' | 'patentsview' | 'courtlistener';
 
 export const KEY_ENV: Record<Provider, string> = {
   twelvedata: 'TWELVEDATA_API_KEY',
@@ -37,6 +37,8 @@ export const KEY_ENV: Record<Provider, string> = {
   rdw: '', // Netherlands vehicle register (RDW open data, Socrata), free, no key
   stocktwits: '', // StockTwits public symbol streams, no key
   opensky: '', // OpenSky Network anonymous REST: 400 credits a day
+  adsblol: '', // adsb.lol open ADS-B API, no key (ODbL); jet lookups when OpenSky refuses cloud servers
+  adsbfi: '', // adsb.fi open data API, no key, personal non-commercial use, 1 request a second; airport fallback
   eia: 'EIA_API_KEY', // U.S. Energy Information Administration open data, free key
   noaa: '', // api.weather.gov, no key (asks for a User-Agent)
   patentsview: 'USPTO_API_KEY', // USPTO Open Data Portal API key (free; needs a USPTO.gov account verified with ID.me). PatentsView's own API went offline in 2026
@@ -88,6 +90,8 @@ const LIMITS: Record<Provider, { perMin: number; perDay: number }> = {
   dataroma: { perMin: 4, perDay: 100 },
   apewisdom: { perMin: 6, perDay: 300 }, // no published limit; each chain is cached 15 min in session
   rdw: { perMin: 30, perDay: 2000 }, // Socrata asks anonymous callers to stay modest
+  adsblol: { perMin: 2, perDay: 500 }, // allows roughly 2 requests per 30 seconds
+  adsbfi: { perMin: 40, perDay: 3000 }, // 1 request a second; answers cached 10 minutes
   opensky: { perMin: 6, perDay: 300 }, // anonymous: 400 credits a day; answers cached 5-10 minutes
   eia: { perMin: 20, perDay: 1000 },
   noaa: { perMin: 20, perDay: 2000 },

@@ -1,27 +1,50 @@
 // Real Economy routes (through /api/research):
-//   fn=air            aircraft near 8 big US airports and airborne flights per airline right now (OpenSky, anonymous)
+//   fn=air            aircraft near 8 big US airports and airborne flights per airline right now (OpenSky, anonymous; adsb.fi fallback)
 //   fn=jets&icao=..   where specific aircraft are right now (OpenSky), and which public company's HQ city each is near
 //   fn=econ           rail carloads and intermodal (BTS via FRED), US gasoline weekly and deep-sea freight prices (FRED CSVs);
 //                     with EIA_API_KEY also electricity demand by grid region and gasoline by state (EIA, free key)
 //   fn=wx             active severe / extreme weather alerts (NOAA), grouped by event, with the kinds of stocks each touches
 import { cached, getJson, json, take } from '../core.js';
 import { getText } from '../adapters.js';
-import { AIRLINES, AIRPORTS, alertStates, countAirlines, countNear, distKm, fredCsv, sectorsFor } from '../../../shared/realecon.js';
+import { adsbStates, AIRLINES, AIRPORTS, alertStates, countAirlines, countNear, distKm, fredCsv, sectorsFor } from '../../../shared/realecon.js';
 import { COMPANIES } from '../../../shared/data/companies.js';
 
 const UA = { 'user-agent': 'trade-desk-research/0.1 (personal project)' };
 const OS = 'https://opensky-network.org/api/states/all';
+const AL = 'https://api.adsb.lol/v2';
+const FI = 'https://opendata.adsb.fi/api/v2';
+// OpenSky turns away many cloud servers (Vercel included), so the live site falls back to adsb.fi: aircraft within
+// 22 nautical miles (about 40 km) of each airport. Airline counts then cover only those circles, not the whole country.
+async function adsbNearAirports(): Promise<any[][]> {
+  const all: any[] = [];
+  const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
+  // adsb.fi answers one request a second: space the 8 lookups out and retry once after a 429
+  for (const [i, a] of AIRPORTS.entries()) {
+    if (i) await wait(1100);
+    if (!take('adsbfi')) throw new Error('rate limited');
+    const url = `${FI}/lat/${a.lat}/lon/${a.lon}/dist/22`;
+    const j = await getJson(url, 'adsbfi', 10000, { headers: UA }).catch(async (e) => { if (!/429/.test(String(e?.message))) throw e; await wait(2500); return getJson(url, 'adsbfi', 10000, { headers: UA }); });
+    all.push(...(j?.aircraft ?? j?.ac ?? []));
+  }
+  return adsbStates(all);
+}
 
 export async function air(): Promise<Response> {
   try {
     const { val, stale } = await cached('air', 600, async () => {
-      if (!take('opensky')) throw new Error('rate limited');
-      const all = await getJson(OS, 'opensky', 25000);
-      const airlines = countAirlines(all?.states ?? []);
-      const airports = AIRPORTS.map((a) => ({ ...a, ...countNear(all?.states ?? [], a.lat, a.lon) }));
-      return { airlines: AIRLINES.map((a) => ({ ...a, airborne: airlines[a.prefix] ?? 0 })), airports, at: Number(all?.time) * 1000 || Date.now(), total: (all?.states ?? []).length };
+      let states: any[], at = Date.now(), scope: 'us' | 'airports' = 'us', why = '';
+      try {
+        if (!take('opensky')) throw new Error('rate limited');
+        const all = await getJson(OS, 'opensky', 20000);
+        states = all?.states ?? []; at = Number(all?.time) * 1000 || at;
+      } catch (e) { why = (e as Error).message.slice(0, 80); states = await adsbNearAirports(); scope = 'airports'; }
+      const airlines = countAirlines(states);
+      const airports = AIRPORTS.map((a) => ({ ...a, ...countNear(states, a.lat, a.lon) }));
+      return { airlines: AIRLINES.map((a) => ({ ...a, airborne: airlines[a.prefix] ?? 0 })), airports, at, total: states.length, scope, why };
     });
-    return json({ ...val, stale, source: 'OpenSky Network live ADS-B states (anonymous, free; coverage depends on volunteer receivers)' }, { sMaxAge: 600 });
+    const source = val.scope === 'us' ? 'OpenSky Network live ADS-B states (anonymous, free; coverage depends on volunteer receivers)'
+      : `adsb.fi open ADS-B data (free, personal use), aircraft near the 8 airports. OpenSky was unavailable${val.why ? ` (${val.why})` : ''}.`;
+    return json({ ...val, stale, source }, { sMaxAge: 600 });
   } catch (e) { return json({ error: (e as Error).message.slice(0, 160) }, { status: 502 }); }
 }
 
@@ -30,16 +53,22 @@ export async function jets(req: Request): Promise<Response> {
   if (!icao.length) return json({ error: 'icao: 6-character hex codes, comma separated' }, { status: 400 });
   try {
     const { val } = await cached(`jets:${icao.join(',')}`, 300, async () => {
-      if (!take('opensky')) throw new Error('rate limited');
-      const j = await getJson(`${OS}?${icao.map((x) => `icao24=${x}`).join('&')}`, 'opensky', 15000);
-      return (j?.states ?? []).map((s: any[]) => {
+      let states: any[];
+      try {
+        if (!take('opensky')) throw new Error('rate limited');
+        states = (await getJson(`${OS}?${icao.map((x) => `icao24=${x}`).join('&')}`, 'opensky', 12000))?.states ?? [];
+      } catch {
+        if (!take('adsblol')) throw new Error('rate limited');
+        states = adsbStates((await getJson(`${AL}/hex/${icao.join(',')}`, 'adsblol', 12000, { headers: UA }))?.ac ?? []);
+      }
+      return states.map((s: any[]) => {
         const lat = Number(s[6]), lon = Number(s[5]);
         let near: { sym: string; name: string; city: string; km: number } | null = null;
         if (Number.isFinite(lat) && Number.isFinite(lon)) for (const c of COMPANIES) { const km = distKm(lat, lon, c[5], c[6]); if (km < 30 && (!near || km < near.km)) near = { sym: c[0], name: c[1], city: c[4], km: Math.round(km) }; }
         return { icao: s[0], callsign: String(s[1] ?? '').trim(), lat, lon, alt: s[7], ground: !!s[8], seen: Number(s[4]) * 1000, near };
       });
     });
-    return json({ jets: val, asked: icao, source: 'OpenSky Network (anonymous). Aircraft whose owners use the FAA privacy program (LADD / PIA) may be hidden.' }, { sMaxAge: 300 });
+    return json({ jets: val, asked: icao, source: 'OpenSky Network, or adsb.lol (open data, ODbL) when OpenSky is unavailable. Aircraft whose owners use the FAA privacy program (LADD / PIA) may be hidden.' }, { sMaxAge: 300 });
   } catch (e) { return json({ error: (e as Error).message.slice(0, 160) }, { status: 502 }); }
 }
 
