@@ -129,3 +129,22 @@ export function gapFills(d: Bar[]): GapRow[] {
   }
   return rows;
 }
+
+/* ---------------- fair value gaps ---------------- */
+export interface FvgStats { n: number; revisited: number; filled: number; bull: number; bear: number }
+/** Three-candle gaps: bullish when bar[i-2].high < bar[i].low, bearish when bar[i-2].low > bar[i].high, at least
+ *  `minPct` of price wide. "Revisited" = price traded back into the gap within `look` bars (or by the session's end when
+ *  `sessionOnly`); "filled" = price traded all the way through it. */
+export function fvgStats(groups: Bar[][], minPct = 0.05, look = 20): FvgStats {
+  let n = 0, rev = 0, fill = 0, bull = 0, bear = 0;
+  for (const bars of groups) for (let i = 2; i < bars.length - 1; i++) {
+    const a = bars[i - 2], c = bars[i], px = c.close;
+    const up = a.high < c.low && ((c.low - a.high) / px) * 100 >= minPct, dn = a.low > c.high && ((a.low - c.high) / px) * 100 >= minPct;
+    if (!up && !dn) continue;
+    n++; if (up) bull++; else bear++;
+    const top = up ? c.low : a.low, bot = up ? a.high : c.high, after = bars.slice(i + 1, i + 1 + look);
+    if (after.some((b) => (up ? b.low <= top : b.high >= bot))) rev++;
+    if (after.some((b) => (up ? b.low <= bot : b.high >= top))) fill++;
+  }
+  return { n, revisited: pct(rev, n), filled: pct(fill, n), bull, bear };
+}

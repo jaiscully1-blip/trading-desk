@@ -1,192 +1,218 @@
-// Learn hub: topic tabs (each with short guides and Watch / Read / Papers / Tools shelves), strategy cards with what
-// published research found, a searchable library of every resource, a glossary with flashcards, a learning path with
-// saved progress, and a chart game on real historical bars. Links open the original site; nothing here is advice.
-import { lazy, Suspense, useMemo, useState } from 'react';
+// Learn: decks of flip cards. Indicators (with a live SPY mini chart and a period slider), Strategies (rules, why it
+// works, mistakes, and a number measured on real bars where the desk can measure it), Setups & traps (the Setup lab),
+// Quick math (formula, calculator, mental shortcuts), Mindset, Concepts and a Glossary. Outside links are kept to one or
+// two per card, plus a compact Resources tab. Learning material, not advice.
+import { lazy, Suspense, useMemo, useState, type ReactNode } from 'react';
 import { PageHero } from './PageHero';
 import type { Page } from './SideNav';
+import { FlipCard } from './FlipCard';
+import { MiniChart } from './LearnMiniChart';
+import { Calc } from './LearnCalc';
 import { usePersisted } from '../lib/store';
-import { pickIndex } from '../../shared/chartgame';
-import { EVIDENCE_NOTE, GLOSSARY, GUIDES, PATH, RESOURCES, STRATEGIES, TOPICS, resourceById, searchResources, type Kind, type Resource, type Topic } from '../../shared/learn';
+import { useLabBars } from '../lib/useLabBars';
+import { INDICATORS, MATH, NOTES, STRATS, type Deeper, type StratStat } from '../../shared/lessons';
+import { EVIDENCE_NOTE, GLOSSARY, PATH, RESOURCES, STRATEGIES, resourceById, searchResources, type Kind, type Resource, type Topic } from '../../shared/learn';
+import { fvgStats, gapFills, orb, pct, sessions, sweeps, vwapStats } from '../../shared/setuplab';
 
-const ChartGame = lazy(() => import('./LearnChartGame'));
 const Setups = lazy(() => import('./LearnSetups'));
-type Tab = Topic | 'setups' | 'library' | 'glossary' | 'game';
-const SHELVES: { label: string; kinds: Kind[] }[] = [
-  { label: 'Watch and listen', kinds: ['Channel', 'Video', 'Podcast', 'Course'] },
-  { label: 'Books', kinds: ['Book'] },
-  { label: 'Papers and articles', kinds: ['Paper', 'Article', 'PDF'] },
-  { label: 'Tools and practice', kinds: ['Tool', 'Game', 'Puzzle'] },
+type Tab = 'start' | 'indicators' | 'strategies' | 'setups' | 'math' | 'mindset' | 'concepts' | 'glossary' | 'resources';
+const TABS: { id: Tab; label: string; blurb: string; icon: string }[] = [
+  { id: 'start', label: 'Start', blurb: 'New to trading? Start with the path below, then flip through the decks.', icon: '◎' },
+  { id: 'indicators', label: 'Indicators', blurb: 'Moving averages, VWAP, RSI, MACD, bands, ATR, volume and more, each drawn live on SPY.', icon: '∿' },
+  { id: 'strategies', label: 'Strategies', blurb: 'ORB, fair value gaps, volume + EMA, VWAP reclaim and more: exact rules, why they work, and the usual mistakes.', icon: '⇗' },
+  { id: 'setups', label: 'Setups & traps', blurb: 'Fakeouts, liquidity grabs, traps, VWAP and volume, measured on real bars.', icon: '⚑' },
+  { id: 'math', label: 'Quick math', blurb: 'Position size, R, expectancy, drawdowns, expected move and more: formula, calculator and mental shortcuts.', icon: '∑' },
+  { id: 'mindset', label: 'Mindset', blurb: 'The habits and biases that decide most results.', icon: '◐' },
+  { id: 'concepts', label: 'Concepts', blurb: 'How prices are set and move, orders, valuation, filings, AI and backtests.', icon: '▦' },
+  { id: 'glossary', label: 'Glossary', blurb: 'Every term, one card each.', icon: 'Aa' },
+  { id: 'resources', label: 'Resources', blurb: 'Channels, books and papers, if you want to go deeper.', icon: '↗' },
 ];
+const OLD_TAB: Record<Topic, Tab> = { start: 'start', strategies: 'strategies', technical: 'indicators', fundamentals: 'concepts', markets: 'concepts', psychology: 'mindset', fund: 'mindset', ai: 'concepts' };
 
-function Res({ r }: { r: Resource }) {
-  return (
-    <li className="ln-res">
-      <a href={r.url} target="_blank" rel="noreferrer noopener"><b>{r.title}</b></a>
-      <span className="ln-kind">{r.kind}</span>
-      {(r.tags ?? []).filter((t) => t !== 'Free').map((t) => <span key={t} className={`ln-tag ${t === 'Sells courses' ? 'warn' : ''}`}>{t}</span>)}
-      <span className="small muted"> · {r.by}</span>
-      <p className="small">{r.why}</p>
-    </li>
-  );
-}
+const Go = ({ d }: { d?: Deeper }) => (d ? <a className="fc-deeper" href={d.url} target="_blank" rel="noreferrer noopener">Go deeper: {d.label} ↗</a> : null);
+const Sec = ({ t, children }: { t: string; children: ReactNode }) => <div className="fc-sec"><h5>{t}</h5>{children}</div>;
+const List = ({ xs }: { xs: string[] }) => <ul>{xs.map((x) => <li key={x}>{x}</li>)}</ul>;
+const f0 = (v: number) => (Number.isFinite(v) ? `${v.toFixed(0)}%` : '—');
 
-function Shelves({ list }: { list: Resource[] }) {
-  return (
-    <div className="ln-shelves">
-      {SHELVES.map((s) => { const xs = list.filter((r) => s.kinds.includes(r.kind)); return xs.length ? (
-        <section key={s.label} className="ad-card"><header className="ad-h"><h3>{s.label}</h3><span className="small muted">{xs.length}</span></header><ul className="ln-list">{xs.map((r) => <Res key={r.id} r={r} />)}</ul></section>
-      ) : null; })}
-    </div>
-  );
-}
-
-function Strategies({ go }: { go?: (p: Page) => void }) {
-  const families = [...new Set(STRATEGIES.map((s) => s.family))];
-  const [fam, setFam] = useState<string>('All');
-  const [open, setOpen] = useState<string | null>(null);
-  const shown = STRATEGIES.filter((s) => fam === 'All' || s.family === fam);
+function Indicators() {
+  const { m5, d } = useLabBars('SPY');
+  const last = useMemo(() => sessions(m5).at(-1)?.bars ?? [], [m5]);
+  const fams = ['All', ...new Set(INDICATORS.map((i) => i.family))];
+  const [fam, setFam] = useState('All');
   return (
     <>
-      <div className="ln-chips">{['All', ...families].map((f) => <button key={f} className={`chip sm ${fam === f ? 'on' : ''}`} onClick={() => setFam(f)}>{f}</button>)}</div>
-      <div className="ln-strats">
-        {shown.map((s) => { const on = open === s.id; return (
-          <article key={s.id} className={`ad-card ln-strat ${on ? 'open' : ''}`}>
-            <button className="ln-strat-h" onClick={() => setOpen(on ? null : s.id)} aria-expanded={on}>
-              <span className="ln-fam">{s.family}</span>
-              <b>{s.name}</b>
-              <span className={`ln-ev ev-${s.evidence.toLowerCase()}`} title={EVIDENCE_NOTE[s.evidence]}>{s.evidence}</span>
-            </button>
-            <p className="small">{s.how}</p>
-            {on && (
-              <dl className="ln-dl">
-                <dt>Why it might work</dt><dd>{s.why}</dd>
-                <dt>What history shows</dt><dd>{s.history} <span className="muted">({EVIDENCE_NOTE[s.evidence]}.)</span></dd>
-                <dt>Who trades it</dt><dd>{s.who}</dd>
-                <dt>Patterns it shows up in</dt><dd>{s.patterns}</dd>
-                <dt>Try it on the desk</dt><dd>{s.run.text} {s.run.page && go && <button className="chip sm" onClick={() => go(s.run.page as Page)}>Open</button>}</dd>
-                <dt>How it fails</dt><dd>{s.fails}</dd>
-                <dt>Sources</dt><dd><ul className="ln-src">{s.sources.map((id) => { const r = resourceById(id); return r ? <li key={id}><a href={r.url} target="_blank" rel="noreferrer noopener">{r.title}</a> <span className="muted small">· {r.by}</span></li> : null; })}</ul></dd>
-              </dl>
-            )}
-            <button className="ln-more small" onClick={() => setOpen(on ? null : s.id)}>{on ? 'Less' : 'History, who trades it, how to try it →'}</button>
-          </article>
-        ); })}
-      </div>
-      <p className="note">Past results are history, not a forecast. Published edges tend to shrink once widely known, and every backtest leaves out some costs. Learning material, not advice.</p>
+      <div className="ln-chips">{fams.map((f) => <button key={f} className={`chip sm ${fam === f ? 'on' : ''}`} onClick={() => setFam(f)}>{f}</button>)}</div>
+      <div className="fc-grid">{INDICATORS.filter((i) => fam === 'All' || i.family === fam).map((i) => (
+        <FlipCard key={i.id} tag={i.family} front={<><h4>{i.name}</h4><p>{i.short}</p></>} back={<>
+          <h4>{i.name}</h4>
+          <MiniChart kind={i.chart} daily={d} intraday={last} period={i.period} />
+          <div className="fc-cols">
+            <Sec t="Formula"><code className="fc-code">{i.formula}</code></Sec>
+            <Sec t="How to read it"><List xs={i.read} /></Sec>
+            <Sec t="Signals traders use"><List xs={i.signals} /></Sec>
+            <Sec t="Settings"><p>{i.settings}</p></Sec>
+            <Sec t="Pitfalls"><List xs={i.pitfalls} /></Sec>
+            <Sec t="Pairs well with"><p>{i.pair}</p></Sec>
+          </div>
+          <p className="fc-tip">💡 {i.tip}</p><Go d={i.deeper} />
+        </>} />
+      ))}</div>
     </>
   );
 }
 
-function PathCard({ go, setTab }: { go?: (p: Page) => void; setTab: (t: Tab) => void }) {
-  const [done, setDone] = usePersisted<Record<string, boolean>>('learnPath', {});
-  const all = PATH.flatMap((l) => l.steps), n = all.filter((s) => done[s.id]).length;
+function useStratStats(on: boolean) {
+  const { m5, d, loading } = useLabBars('SPY', on);
+  return useMemo(() => {
+    const ss = sessions(m5);
+    if (!ss.length) return { loading, line: () => null as string | null };
+    const o = orb(ss, 15, 2), f5 = fvgStats(ss.map((s) => s.bars), 0.05, 78), fd = fvgStats([d], 0.1, 10), sw = sweeps(d), g = gapFills(d), vw = vwapStats(ss);
+    const gt = (k: 'up' | 'dn') => { const n = g.reduce((a, r) => a + r[k].n, 0); return { n, p: pct(g.reduce((a, r) => a + r[k].filled, 0), n) }; };
+    const small = g[0];
+    const lines: Record<StratStat, string> = {
+      orb: `SPY, last ${ss.length} days, 15-min range, 2R target: ${o.trades.length} trades, ${f0(o.win)} winners, average ${o.avgR >= 0 ? '+' : ''}${o.avgR.toFixed(2)}R; ${f0(o.fake)} were fakeouts.`,
+      fvg: `SPY 5-minute gaps (≥0.05%): ${f5.n} found, ${f0(f5.revisited)} revisited the same day, ${f0(f5.filled)} fully filled. Daily gaps (≥0.1%): ${fd.n}, ${f0(fd.revisited)} revisited within 10 days, ${f0(fd.filled)} filled.`,
+      gap: `SPY, ${d.length} days: ${f0(gt('up').p)} of gaps up and ${f0(gt('dn').p)} of gaps down filled the same day; small gaps (0.25–0.5%) up filled ${f0(pct(small.up.filled, small.up.n))}.`,
+      sweep: `SPY, ${sw.days} days: ${f0(sw.upRejected)} of breaks above yesterday’s high closed back below it; ${f0(sw.dnRejected)} of breaks below yesterday’s low closed back above.`,
+      vwap: `SPY, ${vw.days} days: VWAP retests from below held 30 minutes later ${f0(pct(vw.fromBelow.held, vw.fromBelow.n))} of the time (${vw.fromBelow.n}); from above ${f0(pct(vw.fromAbove.held, vw.fromAbove.n))} (${vw.fromAbove.n}).`,
+    };
+    return { loading, line: (k?: StratStat) => (k ? lines[k] : null) };
+  }, [m5, d, loading]);
+}
+
+function Strategies() {
+  const st = useStratStats(true);
+  const [style, setStyle] = useState('All');
   return (
-    <section className="ad-card ln-path">
-      <header className="ad-h"><h3>Learning path</h3><span className="small muted">{n} of {all.length} done</span></header>
-      <div className="ln-bar"><span style={{ width: `${(n / all.length) * 100}%` }} /></div>
-      <div className="ln-levels">
-        {PATH.map((l) => (
-          <div key={l.level}>
-            <h4>{l.level} <span className="small muted">{l.steps.filter((s) => done[s.id]).length}/{l.steps.length}</span></h4>
-            <ul>{l.steps.map((s) => { const r = s.res ? resourceById(s.res) : undefined; return (
-              <li key={s.id} className={done[s.id] ? 'done' : ''}>
-                <label><input type="checkbox" checked={!!done[s.id]} onChange={(e) => setDone({ ...done, [s.id]: e.target.checked })} /> {s.text}</label>
-                {r && <a className="small" href={r.url} target="_blank" rel="noreferrer noopener">open</a>}
-                {s.tab && <button className="small linkish" onClick={() => setTab(s.tab!)}>go</button>}
-                {s.page && go && <button className="small linkish" onClick={() => go(s.page as Page)}>go</button>}
-              </li>
-            ); })}</ul>
+    <>
+      <div className="ln-chips">{['All', 'Intraday', 'Swing'].map((s) => <button key={s} className={`chip sm ${style === s ? 'on' : ''}`} onClick={() => setStyle(s)}>{s}</button>)}</div>
+      <div className="fc-grid">{STRATS.filter((s) => style === 'All' || s.style === style || s.style === 'Both').map((s) => (
+        <FlipCard key={s.id} tag={s.style} front={<><h4>{s.name}</h4><p>{s.short}</p><span className="small muted">{s.tf}</span></>} back={<>
+          <h4>{s.name}</h4>
+          {s.stat && <p className="fc-stat">{st.line(s.stat) ?? (st.loading ? 'Measuring on SPY…' : 'No measurement right now.')}</p>}
+          <div className="fc-rules"><div><span>Setup</span><List xs={s.setup} /></div><div><span>Entry</span><p>{s.entry}</p></div><div><span>Stop</span><p>{s.stop}</p></div><div><span>Target</span><p>{s.target}</p></div></div>
+          <div className="fc-cols">
+            <Sec t="Why it works"><p>{s.why}</p></Sec>
+            <Sec t="Watch for"><List xs={s.watch} /></Sec>
+            <Sec t="Common mistakes"><List xs={s.mistakes} /></Sec>
+            <Sec t="Evidence"><p>{s.evidence}</p></Sec>
           </div>
-        ))}
-      </div>
-    </section>
+          <Go d={s.deeper} />
+        </>} />
+      ))}</div>
+      <h3 className="ln-sub">Longer-term strategies funds use</h3>
+      <div className="fc-grid">{STRATEGIES.map((s) => (
+        <FlipCard key={s.id} tag={s.family} front={<><h4>{s.name}</h4><p>{s.how}</p><span className={`ln-ev ev-${s.evidence.toLowerCase()}`}>{s.evidence}</span></>} back={<>
+          <h4>{s.name}</h4>
+          <div className="fc-cols">
+            <Sec t="Why it might work"><p>{s.why}</p></Sec>
+            <Sec t="What history shows"><p>{s.history} <span className="muted">({EVIDENCE_NOTE[s.evidence]}.)</span></p></Sec>
+            <Sec t="Who trades it"><p>{s.who}</p></Sec>
+            <Sec t="How it fails"><p>{s.fails}</p></Sec>
+          </div>
+          {(() => { const r = resourceById(s.sources[0]); return r ? <Go d={{ label: r.title, url: r.url }} /> : null; })()}
+        </>} />
+      ))}</div>
+      <p className="note">Measured numbers use real SPY bars (Yahoo, delayed) without costs or slippage. History, not a forecast; learning material, not advice.</p>
+    </>
   );
+}
+
+function QuickMath() {
+  return <div className="fc-grid">{MATH.map((m) => (
+    <FlipCard key={m.id} tag="Calculator" front={<><h4>{m.name}</h4><p>{m.short}</p><code className="fc-code">{m.formula}</code></>} back={<>
+      <h4>{m.name}</h4><code className="fc-code">{m.formula}</code>
+      <Calc id={m.id} />
+      <div className="fc-cols"><Sec t="Shortcuts"><List xs={m.tricks} /></Sec><Sec t="Example"><p>{m.example}</p></Sec></div>
+    </>} />
+  ))}</div>;
+}
+
+function Notes({ deck }: { deck: 'Mindset' | 'Concepts' }) {
+  return <div className="fc-grid">{NOTES.filter((n) => n.deck === deck).map((n) => (
+    <FlipCard key={n.id} wide={false} front={<><h4>{n.name}</h4><p>{n.short}</p></>} back={<><h4>{n.name}</h4><List xs={n.points} /><Go d={n.deeper} /></>} />
+  ))}</div>;
 }
 
 function Glossary() {
   const [q, setQ] = useState('');
-  const [mode, setMode] = useState<'list' | 'cards'>('list');
-  const [stats, setStats] = usePersisted<{ seen: number; known: number; again: string[] }>('learnCards', { seen: 0, known: 0, again: [] });
-  const [i, setI] = useState(() => pickIndex(GLOSSARY.length));
-  const [flip, setFlip] = useState(false);
-  const shown = GLOSSARY.filter((g) => !q || `${g.term} ${g.def}`.toLowerCase().includes(q.toLowerCase()));
-  const next = (known: boolean) => {
-    const t = GLOSSARY[i].term;
-    setStats((s) => ({ seen: s.seen + 1, known: s.known + (known ? 1 : 0), again: known ? s.again.filter((x) => x !== t) : [...new Set([...s.again, t])].slice(-30) }));
-    // terms marked "again" come back more often
-    const pool = stats.again.length && pickIndex(10) < 4 ? GLOSSARY.filter((g) => stats.again.includes(g.term) && g.term !== t) : GLOSSARY;
-    const pick = pool[pickIndex(pool.length)] ?? GLOSSARY[0];
-    setI(GLOSSARY.indexOf(pick)); setFlip(false);
-  };
+  const xs = GLOSSARY.filter((g) => !q || `${g.term} ${g.def}`.toLowerCase().includes(q.toLowerCase()));
   return (
     <>
-      <div className="ln-chips">
-        <button className={`chip sm ${mode === 'list' ? 'on' : ''}`} onClick={() => setMode('list')}>Glossary</button>
-        <button className={`chip sm ${mode === 'cards' ? 'on' : ''}`} onClick={() => setMode('cards')}>Flashcards</button>
-        {mode === 'list' && <input className="ln-search" placeholder={`Search ${GLOSSARY.length} terms…`} value={q} onChange={(e) => setQ(e.target.value)} />}
-      </div>
-      {mode === 'list' ? (
-        <dl className="ad-card ln-gloss">{shown.map((g) => <div key={g.term}><dt>{g.term} <span className="ln-kind">{TOPICS.find((t) => t.id === g.topic)?.label}</span></dt><dd>{g.def}</dd></div>)}</dl>
-      ) : (
-        <div className="ln-cardwrap">
-          <button className={`ln-flash ${flip ? 'back' : ''}`} onClick={() => setFlip(!flip)}>
-            {flip ? <><span className="small muted">{GLOSSARY[i].term}</span><p>{GLOSSARY[i].def}</p></> : <><b>{GLOSSARY[i].term}</b><span className="small muted">Tap to see the meaning</span></>}
-          </button>
-          <div className="ln-chips"><button className="chip" onClick={() => next(false)}>Again</button><button className="chip on" onClick={() => next(true)}>Got it</button></div>
-          <p className="small muted">{stats.seen} cards seen · {stats.known} known · {stats.again.length} to review</p>
-        </div>
-      )}
+      <div className="ln-chips"><input className="ln-search" placeholder={`Search ${GLOSSARY.length} terms…`} value={q} onChange={(e) => setQ(e.target.value)} /></div>
+      <div className="fc-grid sm">{xs.map((g) => <FlipCard key={g.term} wide={false} front={<h4 className="fc-term">{g.term}</h4>} back={<><h4>{g.term}</h4><p>{g.def}</p></>} />)}</div>
     </>
   );
 }
 
-function Library() {
-  const [q, setQ] = usePersisted('learnQ', '');
+function Resources() {
+  const [q, setQ] = useState('');
   const [kind, setKind] = useState<Kind | 'All'>('All');
-  const [freeOnly, setFreeOnly] = useState(false);
   const kinds = [...new Set(RESOURCES.map((r) => r.kind))];
-  const list = searchResources(q).filter((r) => (kind === 'All' || r.kind === kind) && (!freeOnly || !!r.tags?.includes('Free')));
+  const list = searchResources(q).filter((r) => kind === 'All' || r.kind === kind);
   return (
     <>
       <div className="ln-chips">
-        <input className="ln-search" placeholder={`Search ${RESOURCES.length} resources: “momentum”, “options”, “psychology”…`} value={q} onChange={(e) => setQ(e.target.value)} autoFocus />
+        <input className="ln-search" placeholder={`Search ${RESOURCES.length} channels, books and papers…`} value={q} onChange={(e) => setQ(e.target.value)} />
         {(['All', ...kinds] as const).map((k) => <button key={k} className={`chip sm ${kind === k ? 'on' : ''}`} onClick={() => setKind(k)}>{k}</button>)}
-        <label className="small"><input type="checkbox" checked={freeOnly} onChange={(e) => setFreeOnly(e.target.checked)} /> Free only</label>
       </div>
-      <p className="small muted">{list.length} result{list.length === 1 ? '' : 's'}</p>
-      <section className="ad-card"><ul className="ln-list two">{list.map((r) => <Res key={r.id} r={r} />)}</ul></section>
+      <div className="rs-grid">{list.map((r: Resource) => (
+        <a key={r.id} className="rs-tile" href={r.url} target="_blank" rel="noreferrer noopener" title={r.why}>
+          <span className="rs-kind">{r.kind}</span><b>{r.title}</b><span className="small muted">{r.by}</span>
+          {r.tags?.includes('Sells courses') && <span className="ln-tag warn">Sells courses</span>}
+        </a>
+      ))}</div>
+      <p className="note">Hover a tile for why it’s worth it. “Sells courses” = the creator also sells paid products; nothing here is an endorsement.</p>
+    </>
+  );
+}
+
+function Start({ setTab, go }: { setTab: (t: Tab) => void; go?: (p: Page) => void }) {
+  const [done, setDone] = usePersisted<Record<string, boolean>>('learnPath', {});
+  const all = PATH.flatMap((l) => l.steps), n = all.filter((s) => done[s.id]).length;
+  return (
+    <>
+      <div className="lt-grid">{TABS.filter((t) => t.id !== 'start').map((t) => (
+        <button key={t.id} className="lt-tile" onClick={() => setTab(t.id)}><span className="lt-ic">{t.icon}</span><b>{t.label}</b><span className="small muted">{t.blurb}</span></button>
+      ))}</div>
+      <section className="ad-card ln-path">
+        <header className="ad-h"><h3>Your learning path</h3><span className="small muted">{n} of {all.length} done</span></header>
+        <div className="ln-bar"><span style={{ width: `${(n / all.length) * 100}%` }} /></div>
+        <div className="ln-levels">{PATH.map((l) => (
+          <div key={l.level}><h4>{l.level}</h4><ul>{l.steps.map((s) => { const r = s.res ? resourceById(s.res) : undefined; return (
+            <li key={s.id} className={done[s.id] ? 'done' : ''}>
+              <label><input type="checkbox" checked={!!done[s.id]} onChange={(e) => setDone({ ...done, [s.id]: e.target.checked })} /> {s.text}</label>
+              {r && <a className="small" href={r.url} target="_blank" rel="noreferrer noopener">open</a>}
+              {s.tab && <button className="small linkish" onClick={() => setTab(OLD_TAB[s.tab!])}>go</button>}
+              {s.page && go && <button className="small linkish" onClick={() => go(s.page as Page)}>go</button>}
+            </li>
+          ); })}</ul></div>
+        ))}</div>
+      </section>
     </>
   );
 }
 
 export default function LearnPage({ go }: { go?: (p: Page) => void }) {
-  const [tab, setTab] = usePersisted<Tab>('learnTab', 'start');
-  const topic = TOPICS.find((t) => t.id === tab);
-  const list = useMemo(() => (topic ? RESOURCES.filter((r) => r.topics.includes(topic.id)) : []), [topic]);
-  const terms = topic ? GLOSSARY.filter((g) => g.topic === topic.id) : [];
-  const tabs: { id: Tab; label: string }[] = [...TOPICS.flatMap((t) => (t.id === 'technical' ? [{ id: t.id as Tab, label: t.label }, { id: 'setups' as Tab, label: 'Setups & traps' }] : [{ id: t.id as Tab, label: t.label }])), { id: 'library', label: 'Library' }, { id: 'glossary', label: 'Glossary & cards' }, { id: 'game', label: 'Chart game' }];
+  const [saved, setTab] = usePersisted<string>('learnTab2', 'start');
+  const tab = (TABS.some((t) => t.id === saved) ? saved : 'start') as Tab;
+  const meta = TABS.find((t) => t.id === tab)!;
   return (
     <div className="page ad">
-      <PageHero page="learn" title="Learn" sub="Channels, books, papers and strategy history, with a learning path, flashcards and a chart game. Links open the original site. Learning material, not advice." />
-      <nav className="ln-tabs" role="tablist" aria-label="Learn topics">
-        {tabs.map((t) => <button key={t.id} role="tab" aria-selected={tab === t.id} className={tab === t.id ? 'on' : ''} onClick={() => setTab(t.id)}>{t.label}</button>)}
+      <PageHero page="learn" title="Learn" sub="Flip-card lessons on indicators, strategies, setups, quick trading math and mindset, with live examples on real market data. Learning material, not advice." />
+      <nav className="ln-tabs" role="tablist" aria-label="Learn sections">
+        {TABS.map((t) => <button key={t.id} role="tab" aria-selected={tab === t.id} className={tab === t.id ? 'on' : ''} onClick={() => setTab(t.id)}><span className="ln-ti">{t.icon}</span>{t.label}</button>)}
       </nav>
-      {topic && <p className="ln-blurb">{topic.blurb}</p>}
-      {tab === 'start' && <PathCard go={go} setTab={setTab} />}
-      {topic && GUIDES[topic.id] && (
-        <div className="ln-guides">{GUIDES[topic.id]!.map((g) => <section key={g.title} className="ad-card"><header className="ad-h"><h3>{g.title}</h3></header><ul className="ln-points">{g.points.map((p) => <li key={p}>{p}</li>)}</ul></section>)}</div>
-      )}
-      {tab === 'strategies' && <Strategies go={go} />}
-      {tab === 'technical' && <section className="ad-card ln-cta"><b>Practise reading charts</b><span className="small muted">Real historical charts with the ending hidden: call the next move, then see what happened.</span><button className="chip on" onClick={() => setTab('game')}>Play the chart game</button></section>}
-      {topic && <Shelves list={list} />}
-      {topic && terms.length > 0 && (
-        <details className="ad-card ln-terms"><summary><b>Key terms</b> <span className="small muted">{terms.length}</span></summary><dl className="ln-gloss">{terms.map((g) => <div key={g.term}><dt>{g.term}</dt><dd>{g.def}</dd></div>)}</dl></details>
-      )}
-      {tab === 'setups' && <><p className="ln-blurb">Opening-range breakouts, fakeouts, liquidity grabs, traps, VWAP and volume: what defines each, why it happens, what to watch for, and how often it happened on real bars for the ticker you pick.</p><Suspense fallback={<section className="ad-card">Loading…</section>}><Setups /></Suspense></>}
-      {tab === 'library' && <Library />}
+      <p className="ln-blurb">{meta.blurb}</p>
+      {tab === 'start' && <Start setTab={setTab} go={go} />}
+      {tab === 'indicators' && <Indicators />}
+      {tab === 'strategies' && <Strategies />}
+      {tab === 'setups' && <Suspense fallback={<section className="ad-card">Loading…</section>}><Setups /></Suspense>}
+      {tab === 'math' && <QuickMath />}
+      {tab === 'mindset' && <Notes deck="Mindset" />}
+      {tab === 'concepts' && <Notes deck="Concepts" />}
       {tab === 'glossary' && <Glossary />}
-      {tab === 'game' && <Suspense fallback={<section className="ad-card">Loading…</section>}><ChartGame /></Suspense>}
-      <p className="note">Channels tagged “Sells courses” also sell paid products; nothing here is an endorsement. Book links search Open Library; some papers link to a Google Scholar search. The Jane Street practice links came from the community list at <a href="https://jane-street-free.pages.dev/" target="_blank" rel="noreferrer noopener">jane-street-free.pages.dev</a>.</p>
+      {tab === 'resources' && <Resources />}
     </div>
   );
 }

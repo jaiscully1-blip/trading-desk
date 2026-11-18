@@ -1,26 +1,14 @@
 // Learn → Setups & traps: the Setup lab measures ORB, fakeouts, VWAP, volume, sweeps of yesterday's high/low and gap
 // fills on real bars for one ticker (60 days of 5-minute bars, 3 years of daily bars), then each setup card explains what
 // defines it, why it happens, what to watch for and where it is wrong, with the lab's number for that ticker beside it.
-import { useEffect, useMemo, useState } from 'react';
-import type { Bar } from '../../shared/types';
+import { useMemo, useState } from 'react';
+import { useLabBars } from '../lib/useLabBars';
 import { gapFills, orb, pct, sessions, sweeps, volumeProfile, vwapStats } from '../../shared/setuplab';
 import { SETUPS, type StatKey } from '../../shared/setups';
 import { usePersisted } from '../lib/store';
 
 const f1 = (v: number) => (Number.isFinite(v) ? `${v.toFixed(0)}%` : '—');
 const fr = (v: number) => (Number.isFinite(v) ? `${v >= 0 ? '+' : ''}${v.toFixed(2)}R` : '—');
-
-function useBars(sym: string) {
-  const [st, setSt] = useState<{ m5: Bar[]; d: Bar[]; err?: string; loading: boolean }>({ m5: [], d: [], loading: true });
-  useEffect(() => {
-    let stop = false; setSt({ m5: [], d: [], loading: true });
-    Promise.all([fetch(`/api/research?fn=bars&symbol=${sym}&tf=5m&long=1`).then((r) => r.json()), fetch(`/api/candles?symbol=${sym}&tf=D`).then((r) => r.json())])
-      .then(([a, b]) => { if (!stop) setSt({ m5: a.bars ?? [], d: b.bars ?? [], err: a.error ?? b.error, loading: false }); })
-      .catch((e) => { if (!stop) setSt({ m5: [], d: [], err: String(e), loading: false }); });
-    return () => { stop = true; };
-  }, [sym]);
-  return st;
-}
 
 function Big({ v, label, sub, tone }: { v: string; label: string; sub?: string; tone?: 'up' | 'down' }) {
   return <div className="sl-big"><b className={tone ?? ''}>{v}</b><span>{label}</span>{sub && <span className="small muted">{sub}</span>}</div>;
@@ -31,7 +19,7 @@ export default function LearnSetups() {
   const [draft, setDraft] = useState(sym);
   const [orMin, setOrMin] = usePersisted<5 | 15 | 30>('slOr', 15);
   const [tgt, setTgt] = usePersisted<1 | 2 | 'close'>('slTgt', 2);
-  const { m5, d, err, loading } = useBars(sym);
+  const { m5, d, err, loading } = useLabBars(sym);
   const ss = useMemo(() => sessions(m5), [m5]);
   const o = useMemo(() => orb(ss, orMin, tgt), [ss, orMin, tgt]);
   const vw = useMemo(() => vwapStats(ss), [ss]);
