@@ -39,7 +39,7 @@ export const KEY_ENV: Record<Provider, string> = {
   opensky: '', // OpenSky Network anonymous REST: 400 credits a day
   eia: 'EIA_API_KEY', // U.S. Energy Information Administration open data, free key
   noaa: '', // api.weather.gov, no key (asks for a User-Agent)
-  patentsview: 'PATENTSVIEW_API_KEY', // USPTO PatentsView search API, free key
+  patentsview: 'PATENTSVIEW_API_KEY', // USPTO PatentsView search API: offline since the 2026 move to data.uspto.gov, no restart date
   courtlistener: 'COURTLISTENER_TOKEN', // CourtListener (Free Law Project) API, free account token
   copernicus: 'COPERNICUS_CLIENT_ID', // + COPERNICUS_CLIENT_SECRET; Copernicus Data Space (Sentinel Hub), free account and monthly quota
 };

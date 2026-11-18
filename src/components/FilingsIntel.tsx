@@ -93,7 +93,7 @@ export function FilingsIntel({ sym }: { sym: string }) {
           </div>
           <div className="fi-box">
             <h5>Patents granted</h5>
-            {!d.keys.patents ? <p className="small muted">Needs a free USPTO key: request one at <a href="https://patentsview.org/apis/keyrequest" target="_blank" rel="noreferrer noopener">patentsview.org</a>, add <code>PATENTSVIEW_API_KEY</code> in Vercel and redeploy.</p>
+            {!d.keys.patents ? <p className="small muted">Paused: USPTO is moving PatentsView to its <a href="https://data.uspto.gov/support/transition-guide/patentsview" target="_blank" rel="noreferrer noopener">Open Data Portal</a> and the patent search API is offline, with no restart date yet. This box comes back when it does.</p>
               : d.patents ? <div className="pl-q">{d.patents.years.map((y: any) => <span key={y.year}><b className="num">{y.n.toLocaleString()}</b><span className="small muted">{y.year}{y.year === new Date().getFullYear() ? ' so far' : ''}</span></span>)}<span className="small muted">as "{d.patents.org}"</span></div> : <p className="small down">{d.errors?.patents}</p>}
           </div>
           <div className="fi-box">
