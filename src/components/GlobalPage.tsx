@@ -52,7 +52,7 @@ export default function GlobalPage({ mode, onChart }: { mode: DataMode; onChart:
         <div className="gl-grid">
           {g.d.regions.map((r) => (
             <section key={r.id} className={`panel gl-card ${region === r.id ? 'on' : ''}`}>
-              <div className="gl-h"><b>{r.label}</b><button className="link small" onClick={() => setRegion(region === r.id ? 'all' : r.id)}>{region === r.id ? 'all news' : 'its news'}</button></div>
+              <div className="gl-h"><b>{r.label}</b><button className="link small" onClick={() => setRegion(region === r.id ? 'all' : r.id)}>{region === r.id ? 'all news' : 'news'}</button></div>
               {r.indexes.map((i) => (
                 <div key={i.sym} className="gl-idx">
                   <div className="gl-idx-h"><span>{i.label}</span><b className={`num ${tone(i.quote?.chgPct)}`}>{pct(i.quote?.chgPct)}</b></div>

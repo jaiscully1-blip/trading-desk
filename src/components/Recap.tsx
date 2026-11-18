@@ -1,6 +1,7 @@
 // End-of-day recap card: on screen, exportable as a PNG that matches what you see, with the day's journal CSV backup.
 // "Add broker CSV" imports trades you did not log at the time; the card rebuilds from the journal right away.
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { idbGet, idbSet } from '../lib/idb';
 import type { Recap } from '../lib/recap';
 import { sUsd, tone } from '../lib/format';
 import { importFiles, readImportLog, writeImportLog, type ImportDeps } from './Journal';
@@ -78,7 +79,22 @@ export function RecapOverlay({ recaps, initialDay, onClose, onReplay, csvFor, im
   const input = useRef<HTMLInputElement>(null);
   const say = (text: string, bad = false) => { setMsg({ text, bad }); };
 
-  const addCsv = async (files: FileList | null) => {
+  // Chrome remembers a dropped file (a file handle, kept on this device only), so Refresh can read it again later
+  // after your broker export has new rows. Duplicate fills are skipped by the import.
+  const [handle, setHandle] = useState<any>(null), [over, setOver] = useState(false);
+  useEffect(() => { void idbGet<any>('recapCsvHandle').then((h) => h && setHandle(h)).catch(() => {}); }, []);
+  // handles must be requested during the drop event itself (before any await), so collect the promises first
+  const remember = async (pending: Promise<any>[]) => {
+    for (const p of pending) { try { const h = await p; if (h?.kind === 'file' && /\.(csv|txt)$/i.test(h.name)) { setHandle(h); await idbSet('recapCsvHandle', h); return; } } catch { /* not supported */ } }
+  };
+  const refresh = async () => {
+    if (!handle) { say('Cards rebuild from your journal automatically. Drop your broker CSV on this card once and Refresh will re-read it from then on.'); return; }
+    try {
+      if ((await handle.queryPermission?.({ mode: 'read' })) !== 'granted' && (await handle.requestPermission?.({ mode: 'read' })) !== 'granted') { say('Chrome needs permission to read that file again. Press Refresh and choose Allow.', true); return; }
+      await addCsv([await handle.getFile()]);
+    } catch (e) { say(`Could not re-read ${handle.name}: ${(e as Error).message}. Drop the file again.`, true); }
+  };
+  const addCsv = async (files: FileList | File[] | null) => {
     if (!files?.length || !importDeps) return;
     try {
       const { out, pending } = await importFiles(importDeps, files, setBusy);
@@ -98,7 +114,11 @@ export function RecapOverlay({ recaps, initialDay, onClose, onReplay, csvFor, im
 
   return (
     <div className="overlay" role="dialog" aria-label="Daily recap">
-      <div className="overlay-in rc">
+      <div className={`overlay-in rc ${over ? 'rc-over' : ''}`}
+        onDragOver={(e) => { if (importDeps && [...e.dataTransfer.types].includes('Files')) { e.preventDefault(); setOver(true); } }}
+        onDragLeave={(e) => { if (e.currentTarget === e.target) setOver(false); }}
+        onDrop={(e) => { if (!importDeps) return; e.preventDefault(); setOver(false); const files = [...e.dataTransfer.files], hs = [...e.dataTransfer.items].filter((it) => it.kind === 'file' && typeof (it as any).getAsFileSystemHandle === 'function').map((it) => (it as any).getAsFileSystemHandle() as Promise<any>); void remember(hs).then(() => addCsv(files)); }}>
+        {over && <div className="rc-drop">Drop your broker CSV to update the cards</div>}
         <div className="phead">
           <div className="phead-title">Daily recap</div>
           <div className="phead-ctl">
@@ -141,11 +161,12 @@ export function RecapOverlay({ recaps, initialDay, onClose, onReplay, csvFor, im
               <button className="btn" onClick={() => input.current?.click()} disabled={!!busy} title="Trades you did not log at the time: add your broker's export and the cards rebuild">{busy ? 'Reading…' : '+ Add broker CSV'}</button>
               <input ref={input} type="file" accept=".csv,.txt,text/csv" multiple hidden onChange={(e) => { void addCsv(e.target.files); e.target.value = ''; }} />
             </>}
+            {importDeps && <button className="btn" onClick={() => void refresh()} disabled={!!busy} title={handle ? `Re-read ${handle.name} and add any new fills` : 'Drop a CSV once to enable re-reading it'}>↻ Refresh{handle ? ` from ${handle.name.length > 22 ? handle.name.slice(0, 21) + '…' : handle.name}` : ''}</button>}
             {onOpenImport && <button className="link small" onClick={onOpenImport}>Import history and undo</button>}
           </div>
           {busy && <p className="small muted rc-msg"><span className="spin" /> {busy}</p>}
           {msg && <p className={`small rc-msg ${msg.bad ? 'down' : 'up'}`} role="status">{msg.text}</p>}
-          <p className="muted small rc-msg">Grade is process first: broken rules cost points even on green days. Cards rebuild from your journal, so a CSV added later updates the day it belongs to.</p>
+          <p className="muted small rc-msg">Grade is process first: broken rules cost points even on green days. Cards rebuild from your journal, so a CSV added later updates the day it belongs to. Drag a CSV anywhere onto this card to add it.</p>
         </div>
       </div>
     </div>
