@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { brandTicker } from '../shared/company';
-import { lookupTerm } from '../shared/terms';
+import { loadTermDecks, lookupTerm } from '../shared/terms';
+import { beforeAll } from 'vitest';
+beforeAll(() => loadTermDecks());
 
 describe('brands and terms', () => {
   it('maps brands and subsidiaries to the listed parent', () => {

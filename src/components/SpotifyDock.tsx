@@ -36,19 +36,24 @@ export function SpotifyDock() {
   const [box, setBox] = useState<{ x: number; y: number; w: number; h: number; clip: string } | null>(null);
   useEffect(() => {
     if (!s.slot) { setBox(null); return; }
-    let raf = 0, last = '';
-    const tick = () => {
+    let last = '', queued = 0;
+    const measure = () => {
+      queued = 0;
       const el = s.slot!;
       if (!el.isConnected) { setBox(null); return; }
       const r = el.getBoundingClientRect(), c = clipBox(el);
-      const vis = r.width > 20 && r.height > 20 && r.bottom > c.top && r.top < c.bottom && r.right > c.left && r.left < c.right && getComputedStyle(el).visibility !== 'hidden';
+      const vis = r.width > 20 && r.height > 20 && r.bottom > c.top && r.top < c.bottom && r.right > c.left && r.left < c.right;
       const clip = `inset(${Math.max(0, c.top - r.top)}px ${Math.max(0, r.right - c.right)}px ${Math.max(0, r.bottom - c.bottom)}px ${Math.max(0, c.left - r.left)}px round 10px)`;
       const key = vis ? `${r.x}|${r.y}|${r.width}|${r.height}|${clip}` : 'hidden';
       if (key !== last) { last = key; setBox(vis ? { x: r.x, y: r.y, w: r.width, h: r.height, clip } : null); }
-      raf = requestAnimationFrame(tick);
     };
-    tick();
-    return () => cancelAnimationFrame(raf);
+    // measure only when something could have moved it (scroll, resize, drag), at most once a frame, plus a slow check
+    const kick = () => { if (!queued) queued = requestAnimationFrame(measure); };
+    measure();
+    const ro = new ResizeObserver(kick); ro.observe(s.slot);
+    addEventListener('scroll', kick, true); addEventListener('resize', kick); addEventListener('pointermove', kick, { passive: true });
+    const iv = setInterval(() => { if (!document.hidden) kick(); }, 400);
+    return () => { cancelAnimationFrame(queued); ro.disconnect(); removeEventListener('scroll', kick, true); removeEventListener('resize', kick); removeEventListener('pointermove', kick); clearInterval(iv); };
   }, [s.slot]);
   if (!s.src) return null;
   const docked = !box;

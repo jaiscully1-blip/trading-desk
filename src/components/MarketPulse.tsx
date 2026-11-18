@@ -24,7 +24,7 @@ export function MarketChips({ live, quotes, onSelect }: { live: boolean; quotes:
     let stop = false;
     const go = () => fetch('/api/research?fn=pulse').then((r) => (r.ok ? r.json() : null)).then((j) => { if (!stop && j) setD(j); }).catch(() => {});
     go();
-    const t = setInterval(go, 60_000);
+    const t = setInterval(() => { if (!document.hidden) go(); }, 60_000);
     return () => { stop = true; clearInterval(t); };
   }, [live]);
   const b = d?.breadth;

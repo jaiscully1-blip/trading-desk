@@ -38,6 +38,10 @@ export async function GET(req: Request): Promise<Response> {
   const errors: Record<string, string> = {};
   const bucket = Math.floor(Date.now() / 600_000); // 10-minute buckets keep the screener well inside its budget
 
+  // the movers scan, the ETF/watchlist quotes and the headlines don't depend on each other: fetch them together
+  const listSyms = [...new Set([...INDEX_ETFS.map((x) => x[0]), ...SECTOR_ETFS.map((x) => x[0]), ...watch])];
+  const headsP = deskHeadlines();
+  const listP = cached(`am:list:${listSyms.join(',')}`, 600, () => tv(pmListBody(listSyms))).then((x) => x.val).catch((e) => { errors.etfs = (e as Error).message.slice(0, 160); return [] as PmRow[]; });
   let active: PmRow[] = [];
   try { active = (await cached(`am:active:${kind}`, 600, async () => {
     const rows = await tv(kind === 'premarket' ? PM_ACTIVE_BODY : { ...PM_ACTIVE_BODY, filter: PM_ACTIVE_BODY.filter.slice(0, 3), sort: { sortBy: 'volume', sortOrder: 'desc' } });
@@ -45,9 +49,7 @@ export async function GET(req: Request): Promise<Response> {
     return rows;
   })).val; } catch (e) { errors.movers = (e as Error).message.slice(0, 160); }
 
-  const listSyms = [...new Set([...INDEX_ETFS.map((x) => x[0]), ...SECTOR_ETFS.map((x) => x[0]), ...watch])];
-  let list: PmRow[] = [];
-  try { list = (await cached(`am:list:${listSyms.join(',')}`, 600, () => tv(pmListBody(listSyms)))).val; } catch (e) { errors.etfs = (e as Error).message.slice(0, 160); }
+  const list: PmRow[] = await listP;
   const by = new Map(list.map((r) => [r.sym, r]));
   const mv = (r: PmRow) => (kind === 'premarket' ? r.pmChg : r.chg);
 
@@ -57,7 +59,7 @@ export async function GET(req: Request): Promise<Response> {
   // setups: biggest liquid movers + watchlist names that are moving
   const watchRows = watch.map((s) => by.get(s)).filter((r): r is PmRow => !!r);
   const cands = [...new Map([...watchRows.filter((r) => Math.abs(mv(r) ?? 0) >= 1), ...gainers.slice(0, 6), ...losers.slice(0, 6)].map((r) => [r.sym, r])).values()].slice(0, 14);
-  const heads = await deskHeadlines();
+  const heads = await headsP;
   const names = Object.fromEntries(cands.map((r) => [r.sym, r.name.replace(/\b(inc|corp(oration)?|holdings?|ltd|plc|co|class [a-c])\b\.?/gi, '').trim()]));
   const quants = new Map<string, QuantRead | null>();
   await Promise.all(cands.map(async (r) => { try { quants.set(r.sym, (await quantCached(r.sym)).val); } catch { quants.set(r.sym, null); } }));

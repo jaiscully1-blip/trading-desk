@@ -1,8 +1,15 @@
 // One place to look up "what does this mean?" for any label on the desk: tear-sheet numbers, ratios, data labels,
 // plus everything already written for Learn (glossary, basics, price-action patterns). Pure (tested).
-import { GLOSSARY } from './learn';
-import { BASICS } from './basics';
-import { PA_DEFS } from './pacards';
+// The Learn decks (glossary, basics, price-action cards) are big, so they load in the background after startup
+// (loadTermDecks); until then only the desk's own stat labels resolve. Tests load them first.
+type Decks = { GLOSSARY: { term: string; def: string }[]; BASICS: { id: string; name: string; short: string; points: string[]; watch: string }[]; PA_DEFS: Record<string, string> };
+let decks: Decks | null = null, loading: Promise<void> | null = null;
+const ready = new Set<() => void>();
+export const termDecksReady = () => !!decks;
+export const onTermDecks = (f: () => void) => { ready.add(f); return () => { ready.delete(f); }; };
+export function loadTermDecks(): Promise<void> {
+  return (loading ??= Promise.all([import('./learn'), import('./basics'), import('./pacards')]).then(([l, b, p]) => { decks = { GLOSSARY: l.GLOSSARY, BASICS: b.BASICS, PA_DEFS: p.PA_DEFS }; ready.forEach((f) => f()); }));
+}
 
 export interface Term { title: string; what: string; read?: string[]; watch?: string; learn?: string }
 
@@ -77,6 +84,8 @@ export function lookupTerm(label: string): Term | null {
   const k = norm(label);
   STAT_N ??= new Map(Object.entries(STAT_TERMS).map(([a, v]) => [norm(a), v]));
   if (STAT_N.has(k)) return STAT_N.get(k)!;
+  if (!decks) { const loose0 = [...STAT_N.keys()].find((x) => k.startsWith(x + ' ')); return loose0 ? STAT_N.get(loose0)! : null; }
+  const { GLOSSARY, BASICS, PA_DEFS } = decks;
   const g = GLOSSARY.find((x) => norm(x.term) === k || norm(x.term).replace(/\s*\(.*\)/, '') === k);
   if (g) return { title: g.term, what: g.def };
   const b = BASICS.find((x) => norm(x.name) === k || norm(x.id) === k);
