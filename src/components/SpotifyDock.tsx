@@ -54,7 +54,7 @@ export function SpotifyDock() {
   const docked = !box;
   return (
     <div className={`spd ${docked ? 'docked' : 'inslot'}`} style={box ? { left: box.x, top: box.y, width: box.w, height: box.h, clipPath: box.clip } : undefined} aria-label="Spotify player">
-      {docked && <div className="spd-bar"><span className="small">♪ {s.label || 'Spotify'} · keeps playing on every page</span><button className="hw-btn" title="Stop and close the player" aria-label="Stop Spotify" onClick={() => { st = { src: null, slot: st.slot, label: '' }; emit(); }}>×</button></div>}
+      {docked && <button className="spd-x" title={`${s.label || 'Spotify'}: stop and close the player`} aria-label="Stop Spotify" onClick={() => { st = { src: null, slot: st.slot, label: '' }; emit(); }}>×</button>}
       <iframe className="spd-frame" src={s.src} title="Spotify" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" />
     </div>
   );
