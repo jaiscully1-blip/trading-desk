@@ -93,8 +93,8 @@ export function FilingsIntel({ sym }: { sym: string }) {
           </div>
           <div className="fi-box">
             <h5>Patents granted</h5>
-            {!d.keys.patents ? <p className="small muted">Paused: USPTO is moving PatentsView to its <a href="https://data.uspto.gov/support/transition-guide/patentsview" target="_blank" rel="noreferrer noopener">Open Data Portal</a> and the patent search API is offline, with no restart date yet. This box comes back when it does.</p>
-              : d.patents ? <div className="pl-q">{d.patents.years.map((y: any) => <span key={y.year}><b className="num">{y.n.toLocaleString()}</b><span className="small muted">{y.year}{y.year === new Date().getFullYear() ? ' so far' : ''}</span></span>)}<span className="small muted">as "{d.patents.org}"</span></div> : <p className="small down">{d.errors?.patents}</p>}
+            {!d.keys.patents ? <p className="small muted">Needs a free USPTO Open Data Portal key: make a USPTO.gov account, verify it with ID.me, then follow the key steps at <a href="https://data.uspto.gov/apis/getting-started" target="_blank" rel="noreferrer noopener">data.uspto.gov</a>. Add <code>USPTO_API_KEY</code> in Vercel and redeploy.</p>
+              : d.patents ? <div className="pl-q">{d.patents.years.map((y: any) => <span key={y.year}><b className="num">{y.n.toLocaleString()}</b><span className="small muted">{y.year}{y.year === new Date().getFullYear() ? ' so far' : ''}</span></span>)}<span className="small muted">utility patents granted with "{d.patents.org}" as first applicant (USPTO Open Data Portal)</span></div> : <p className="small down">{d.errors?.patents}</p>}
           </div>
           <div className="fi-box">
             <h5>Lawsuits · federal courts</h5>

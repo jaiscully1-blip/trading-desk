@@ -39,7 +39,7 @@ export const KEY_ENV: Record<Provider, string> = {
   opensky: '', // OpenSky Network anonymous REST: 400 credits a day
   eia: 'EIA_API_KEY', // U.S. Energy Information Administration open data, free key
   noaa: '', // api.weather.gov, no key (asks for a User-Agent)
-  patentsview: 'PATENTSVIEW_API_KEY', // USPTO PatentsView search API: offline since the 2026 move to data.uspto.gov, no restart date
+  patentsview: 'USPTO_API_KEY', // USPTO Open Data Portal API key (free; needs a USPTO.gov account verified with ID.me). PatentsView's own API went offline in 2026
   courtlistener: 'COURTLISTENER_TOKEN', // CourtListener (Free Law Project) API, free account token
   copernicus: 'COPERNICUS_CLIENT_ID', // + COPERNICUS_CLIENT_SECRET; Copernicus Data Space (Sentinel Hub), free account and monthly quota
 };
@@ -91,7 +91,7 @@ const LIMITS: Record<Provider, { perMin: number; perDay: number }> = {
   opensky: { perMin: 6, perDay: 300 }, // anonymous: 400 credits a day; answers cached 5-10 minutes
   eia: { perMin: 20, perDay: 1000 },
   noaa: { perMin: 20, perDay: 2000 },
-  patentsview: { perMin: 30, perDay: 1000 }, // free key allows 45 a minute
+  patentsview: { perMin: 30, perDay: 1000 }, // stay well under the ODP key's limits
   courtlistener: { perMin: 20, perDay: 1000 }, // free token allows 5,000 an hour
   stocktwits: { perMin: 3, perDay: 150 }, // public API allows ~200 an hour; every answer is cached 10 minutes
   copernicus: { perMin: 10, perDay: 300 }, // free quota is processing units per month: every answer is cached a day
