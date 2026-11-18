@@ -2851,3 +2851,10 @@ button.chip[data-st="bull"] { color: var(--up); } button.chip[data-st="bear"] { 
 .hero-ctl { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .hero-ctl input { width: 100px; padding: 7px 10px; border-radius: 8px; border: 1px solid color-mix(in srgb, var(--pg, var(--accent)) 40%, var(--line-2)); background: var(--panel-2); color: var(--text); font: 600 14px 'IBM Plex Mono', monospace; text-transform: uppercase; }
 .hero-ctl input:focus { outline: none; border-color: var(--pg, var(--accent)); box-shadow: 0 0 0 3px color-mix(in srgb, var(--pg, var(--accent)) 22%, transparent); }
+
+/* workspace tab pin: the pin shows on hover; a pinned tab drops its × and shows a small filled pin */
+.ws-pin { color: var(--faint); padding: 0 4px; display: grid; place-items: center; opacity: 0; transition: opacity .12s; }
+.ws-tab:hover .ws-pin, .ws-pin:focus-visible { opacity: 1; }
+.ws-pin:hover { color: var(--accent); }
+.ws-tab.pinned button:first-child { display: inline-flex; align-items: center; gap: 5px; padding-right: 12px; }
+.ws-pinmark { color: var(--accent); flex: none; }
