@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { PageHero } from './PageHero';
 import { Fresh } from './common';
 import { QuantEvents } from './QuantEvents';
+import { LIVE_TICKERS, type LiveBlock } from '../../shared/livefeeds';
 import { usePersisted } from '../lib/store';
 import type { FundPoint } from '../../shared/fundseries';
 import {
@@ -172,6 +173,20 @@ function FactorCard({ fit, sym }: { fit: FactorFit; sym: string }) {
   );
 }
 
+function LiveCard({ blocks, sym }: { blocks: LiveBlock[]; sym: string }) {
+  return (
+    <Card title={<>Live customer signals <span className="muted">· {sym}</span></>} right={<span className="small muted">free public feeds, refreshed every 12 hours</span>}>
+      {blocks.map((b) => (
+        <div key={b.kind} className="ql-live">
+          <div className="ql-k">{b.kind}</div>
+          {b.error ? <p className="small dn">{b.error}</p> : <div className="ql-tiles four">{b.latest.map((l) => <Tile key={l.label} k={l.label} v={l.value} sub={l.note} />)}</div>}
+          <p className="small muted ql-note">{b.source}. {b.series.length ? 'Added to the relationship finder under "Live feeds".' : ''}{b.events.length >= 3 ? ' Dated events are in the event study.' : ''}</p>
+        </div>
+      ))}
+    </Card>
+  );
+}
+
 const GROUP_LABEL: Record<string, string> = { Video_Games: 'Games and gear', Grocery_and_Gourmet_Food: 'Food and drink' };
 
 export default function QuantLabPage({ sel }: { sel?: string }) {
@@ -184,6 +199,12 @@ export default function QuantLabPage({ sel }: { sel?: string }) {
   const [d, setD] = useState<QResp | null>(null);
   const [err, setErr] = useState('');
   const [tone, setTone] = useState<ToneDoc | null>(null);
+  const [feeds, setFeeds] = useState<LiveBlock[]>([]);
+  useEffect(() => {
+    let off = false; setFeeds([]);
+    if (LIVE_TICKERS.includes(sym)) fetch(`/api/research?fn=qlfeeds&symbol=${encodeURIComponent(sym)}`).then((r) => r.json()).then((j) => { if (!off) setFeeds(j.blocks ?? []); }).catch(() => {});
+    return () => { off = true; };
+  }, [sym]);
   useEffect(() => { loadTone().then(setTone).catch(() => {}); }, []);
   useEffect(() => {
     let off = false; setD(null); setErr(''); setPick(null);
@@ -205,10 +226,15 @@ export default function QuantLabPage({ sel }: { sel?: string }) {
     const fund = fundCands(d.fund.quarterly);
     cands.push(...fund);
     if (co) cands.push(...toneCandidates(co));
+    for (const b of feeds) for (const ls of b.series) {
+      const lv: Series = new Map(ls.points);
+      // counts and volumes: yearly growth (they're seasonal); % positive: change; recall counts: change
+      cands.push({ id: ls.id, label: ls.label, group: 'Live feeds', s: drop(/vol|veh|cfpb/.test(ls.id) ? yoyPct(lv) : diff(lv)) });
+    }
     if (d.ff?.length && mode !== 'ff') cands.push(...ffCandidates(d.ff).map((c) => ({ ...c, s: drop(c.s) })));
     const tested = scan(sym, y, cands);
     return { y, raw, cands, fund, fit, mode, all: tested, best: bestPerSeries(tested) };
-  }, [d, co, target, sym]);
+  }, [d, co, target, sym, feeds]);
 
   const groups = ['All', ...new Set(model?.best.map((f) => f.group) ?? [])];
   const shown = (model?.best ?? []).filter((f) => group === 'All' || f.group === group);
@@ -227,6 +253,7 @@ export default function QuantLabPage({ sel }: { sel?: string }) {
       </PageHero>
 
       {tone && <div className="ql-cos">
+        <div className="ql-cosg"><span className="ql-k">Live feeds · Steam, CFPB, NHTSA, FDA</span><div className="ql-chips">{LIVE_TICKERS.map((t) => <button key={t} className={`chip sm ${t === sym ? 'on' : ''}`} onClick={() => go(t)}>{t}</button>)}</div></div>
         {Object.entries(byCat).map(([cat, list]) => <div key={cat} className="ql-cosg"><span className="ql-k">{GROUP_LABEL[cat] ?? cat} · review data</span><div className="ql-chips">{list.map(([t, c]) => <button key={t} className={`chip sm ${t === sym ? 'on' : ''}`} title={c.name} onClick={() => go(t)}>{t}</button>)}</div></div>)}
       </div>}
 
@@ -272,7 +299,8 @@ export default function QuantLabPage({ sel }: { sel?: string }) {
         </Card>
       </>}
 
-      {model && <QuantEvents sym={sym} />}
+      {feeds.length > 0 && <LiveCard blocks={feeds} sym={sym} />}
+      {model && <QuantEvents sym={sym} extra={feeds.map((b) => ({ kind: b.kind, source: b.source, events: b.events }))} />}
       {co && model && <ReviewTone co={co} ret={model.raw} sym={sym} fund={model.fund} />}
       {tone && <p className="small muted ql-foot">Review data: {tone.source}, built {tone.built}, ends {tone.coverageEnds}. Prices: Yahoo Finance (unofficial). Earnings: SEC XBRL (official).</p>}
     </div>

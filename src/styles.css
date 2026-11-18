@@ -3165,3 +3165,4 @@ button.chip[data-st="bull"] { color: var(--up); } button.chip[data-st="bear"] { 
 .ql-seg { display: inline-flex; gap: 4px; flex-wrap: wrap; }
 .ql-ev0 { stroke: var(--muted); stroke-dasharray: 3 3; }
 .ql-legend { display: inline-flex; align-items: center; gap: 4px; margin-right: 10px; } .ql-legend i { width: 12px; height: 3px; border-radius: 2px; display: inline-block; }
+.ql-live { display: grid; gap: 6px; } .ql-live + .ql-live { border-top: 1px solid var(--line); padding-top: 10px; }

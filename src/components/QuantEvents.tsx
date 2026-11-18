@@ -4,12 +4,12 @@ import { useEffect, useMemo, useState } from 'react';
 import { Fresh } from './common';
 import { POST, PRE, earningsEvents, eventStudy, summarize, type DayClose, type EventIn, type EventOut } from '../../shared/eventstudy';
 
-interface EResp { stock: DayClose[]; spy: DayClose[]; earnings: { date: string; eps: number | null; est: number | null; surprisePct: number | null; time?: string }[]; earnSource: string; asOf: number; source: string; error?: string; extra?: { kind: string; source: string; events: EventIn[] }[] }
+interface EResp { stock: DayClose[]; spy: DayClose[]; earnings: { date: string; eps: number | null; est: number | null; surprisePct: number | null; time?: string }[]; earnSource: string; asOf: number; source: string; error?: string }
 const pc = (v: number, dp = 1) => `${v >= 0 ? '+' : ''}${v.toFixed(dp)}%`;
 const COLORS = ['var(--up)', 'var(--down)', 'var(--accent)', 'var(--warn)', 'var(--muted)'];
 const sig = (t: number) => (Math.abs(t) >= 2 ? 'real' : Math.abs(t) >= 1.5 ? 'borderline' : 'could be noise');
 
-export function QuantEvents({ sym }: { sym: string }) {
+export function QuantEvents({ sym, extra = [] }: { sym: string; extra?: { kind: string; source: string; events: EventIn[] }[] }) {
   const [d, setD] = useState<EResp | null>(null);
   const [err, setErr] = useState('');
   const [kind, setKind] = useState('Earnings');
@@ -18,7 +18,8 @@ export function QuantEvents({ sym }: { sym: string }) {
     fetch(`/api/research?fn=qlevents&symbol=${encodeURIComponent(sym)}`).then((r) => r.json()).then((j: EResp) => { if (!off) { if (j.error) setErr(j.error); else setD(j); } }).catch((e) => !off && setErr(String(e.message ?? e)));
     return () => { off = true; };
   }, [sym]);
-  const kinds = ['Earnings', ...(d?.extra ?? []).filter((x) => x.events.length).map((x) => x.kind)];
+  const kinds = ['Earnings', ...extra.filter((x) => x.events.length >= 3).map((x) => x.kind)];
+  useEffect(() => { if (!kinds.includes(kind)) setKind('Earnings'); }, [kinds.join('|')]); // eslint-disable-line react-hooks/exhaustive-deps
   const res = useMemo(() => {
     if (!d) return null;
     let evs: EventOut[];
@@ -26,10 +27,15 @@ export function QuantEvents({ sym }: { sym: string }) {
       evs = eventStudy(d.stock, d.spy, earningsEvents(d.earnings));
       // no estimates: split by how the stock reacted (day -1 to +1), then ask whether it kept drifting that way
       if (evs.every((e) => e.group.startsWith('Report'))) evs = evs.map((e) => ({ ...e, group: e.car[PRE + 1] - e.car[PRE - 2] >= 0 ? 'Rose on the report' : 'Fell on the report' }));
-    } else evs = eventStudy(d.stock, d.spy, d.extra?.find((x) => x.kind === kind)?.events ?? []);
+    } else {
+      // one event per day and group (a recall often covers many product lines filed together)
+      const seen = new Map<string, EventIn & { more: number }>();
+      for (const e of extra.find((x) => x.kind === kind)?.events ?? []) { const k = `${e.date}|${e.group}`, c = seen.get(k); if (c) c.more++; else seen.set(k, { ...e, more: 0 }); }
+      evs = eventStudy(d.stock, d.spy, [...seen.values()].map((e) => ({ ...e, label: e.more ? `${e.label} (+${e.more} more)` : e.label })));
+    }
     return { evs, stats: summarize(evs) };
-  }, [d, kind]);
-  const src = kind === 'Earnings' ? d?.earnSource : d?.extra?.find((x) => x.kind === kind)?.source;
+  }, [d, kind, extra]);
+  const src = kind === 'Earnings' ? d?.earnSource : extra.find((x) => x.kind === kind)?.source;
 
   const W = 900, H = 220, days = PRE + POST + 1;
   const all = res?.stats.flatMap((s) => s.path) ?? [0], lim = Math.max(2, ...all.map(Math.abs)) * 1.1;
