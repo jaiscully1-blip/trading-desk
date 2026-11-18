@@ -4,6 +4,8 @@
 //                                lawsuits (CourtListener, free token)
 //   fn=intelcalls&symbol=X       the last two earnings calls: tone, management vs analysts, words that changed (Alpha Vantage, 2 calls)
 //   fn=intelguide&symbol=X       guidance in the last earnings releases vs the revenue reported next (Gemini reads the release; SEC XBRL)
+import { avCounts, consensusScore, upside } from '../../../shared/consensus.js';
+import { yahooDaily } from '../yahoo.js';
 import { applicantName, countOf, grantedQuery, ODP_SEARCH } from '../../../shared/patents.js';
 import { cached, getJson, hasKey, json, key, take } from '../core.js';
 import { finnhubMetrics, finnhubPeers, finnhubRecs, geminiJson, secJson, secText } from '../adapters.js';
@@ -147,4 +149,31 @@ export async function intelguide(req: Request): Promise<Response> {
     });
     return json({ sym, rows: val, source: 'Earnings press releases (8-K exhibit 99) read by Gemini (free tier), revenue reported in SEC XBRL. Fiscal quarters are mapped to calendar quarters, so check odd fiscal years.' }, { sMaxAge: 3600 });
   } catch (e) { return json({ error: (e as Error).message.slice(0, 200) }, { status: 502 }); }
+}
+
+/** fn=consensus&symbol -> analysts' ratings mix (Finnhub, newest month; Alpha Vantage as the fallback) and average price
+ *  target (Alpha Vantage company overview), with the last close (Yahoo). A summary of what analysts publish, not advice. */
+export async function consensus(req: Request): Promise<Response> {
+  const sym = (new URL(req.url).searchParams.get('symbol') ?? '').toUpperCase();
+  if (!/^[A-Z.\-]{1,10}$/.test(sym)) return json({ error: 'bad symbol' }, { status: 400 });
+  const errors: Record<string, string> = {};
+  const safe = async <T,>(k: string, f: () => Promise<T>): Promise<T | null> => { try { return await f(); } catch (e) { errors[k] = (e as Error).message.slice(0, 140); return null; } };
+  const [recs, ov, bars] = await Promise.all([
+    hasKey('finnhub') ? safe('recs', async () => (await cached(`recs:${sym}`, 12 * 3600, () => finnhubRecs(sym))).val) : null,
+    hasKey('alphavantage') ? safe('target', async () => (await cached(`avov:${sym}`, 24 * 3600, async () => {
+      if (!take('alphavantage')) throw new Error('Alpha Vantage daily budget (25 calls) used up; try again tomorrow');
+      const j = await getJson(`https://www.alphavantage.co/query?function=OVERVIEW&symbol=${sym}&apikey=${key('alphavantage')}`, 'alphavantage', 15000);
+      if (j?.Information || j?.Note) throw new Error(String(j.Information ?? j.Note).slice(0, 120));
+      return { target: Number(j?.AnalystTargetPrice) || null, counts: avCounts(j) };
+    })).val) : null,
+    yahooDaily(sym),
+  ]);
+  const latest = recs?.[0] ?? null;
+  const counts = latest ?? ov?.counts ?? null;
+  const last = bars?.length ? bars[bars.length - 1].close : null;
+  return json({
+    sym, counts, period: latest?.period ?? null, countsFrom: latest ? 'Finnhub recommendation trends' : ov?.counts ? 'Alpha Vantage company overview' : null,
+    score: counts ? consensusScore(counts) : null, target: ov?.target ?? null, last, upside: upside(ov?.target ?? null, last),
+    trend: recs ?? [], keys: { finnhub: hasKey('finnhub'), alphavantage: hasKey('alphavantage') }, errors, asOf: Date.now(),
+  }, { sMaxAge: 3600 });
 }

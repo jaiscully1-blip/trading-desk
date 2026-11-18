@@ -2789,3 +2789,18 @@ button.chip[data-st="bull"] { color: var(--up); } button.chip[data-st="bear"] { 
 
 .lr-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
 .lr-list p { margin: 3px 0 0; color: var(--muted); }
+
+/* Company page: analyst consensus */
+.cg { border: 1px solid var(--line-2); border-radius: 10px; background: var(--panel); padding: 12px 14px; margin: 10px 0; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.cg-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; flex-wrap: wrap; }
+.cg-k { display: block; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin-bottom: 2px; }
+.cg-label { font: 600 20px 'Sora', 'IBM Plex Sans', sans-serif; }
+.cg-gauge { position: relative; height: 10px; margin-top: 6px; }
+.cg-bar { position: absolute; inset: 0; border-radius: 5px; background: linear-gradient(90deg, var(--down), #d6c94a 50%, var(--up)); opacity: .85; }
+.cg-gauge i { position: absolute; top: -6px; border-left: 7px solid transparent; border-right: 7px solid transparent; border-top: 9px solid var(--text); transform: translateX(-50%); }
+.cg-ends { display: flex; justify-content: space-between; }
+.cg-split { display: flex; height: 8px; border-radius: 4px; overflow: hidden; gap: 2px; margin-top: 4px; }
+.cg-legend { display: flex; flex-wrap: wrap; gap: 12px; color: var(--muted); }
+.cg-legend b { color: var(--text); }
+.cg-nums { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin-top: 4px; }
+.cg-nums b { font-size: 16px; }

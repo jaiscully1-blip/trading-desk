@@ -1,6 +1,7 @@
 // Company page: what they do, main products, and a clickable supply chain (suppliers -> company -> customers, competitors below).
 // Click any company with a ticker to re-center the diagram on it. Facts come from the latest 10-K, read by free Gemini.
 import { FilingsIntel } from './FilingsIntel';
+import { ConsensusGauge } from './ConsensusGauge';
 import { FundCharts } from './FundCharts';
 import { TranscriptView } from './Transcript';
 import { TearSheet } from './TearSheet';
@@ -162,6 +163,7 @@ export default function CompanyPage({ sym, mode, onOpen, onChart, onPatterns }: 
                 })()}
               </div>
               <TearSheet sym={sym} mode={mode} />
+              <ConsensusGauge sym={sym} live={mode.kind === 'live'} />
               <h4><Q k="calc" src="a year of daily closes, scored on the desk" />Quant read <span className="muted small">bullish or bearish, and why</span></h4>
               <QuantPanel sym={sym} mode={mode} compact />
               <h4><Q k={f?.summary ? 'model' : 'unofficial'} src={f?.summary ? 'AI read of the company’s 10-K (check the filing)' : 'Wikipedia summary'} />What they do</h4>
