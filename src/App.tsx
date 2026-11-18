@@ -48,6 +48,7 @@ const NewsPage = lazy(() => import('./components/NewsPage'));
 const EssayPage = lazy(() => import('./components/EssayPage'));
 const TeslaPage = lazy(() => import('./components/TeslaPage'));
 const AltDataPage = lazy(() => import('./components/AltDataPage'));
+const QuantLabPage = lazy(() => import('./components/QuantLabPage'));
 const RealEconPage = lazy(() => import('./components/RealEconPage'));
 const PlumbingPage = lazy(() => import('./components/PlumbingPage'));
 const MacroExtraPage = lazy(() => import('./components/MacroExtraPage'));
@@ -735,6 +736,7 @@ export default function App() {
     { id: 'policy', label: 'Macro & Policy: earnings season scoreboard, tariff tracker, policy odds by sector', hint: 'Shift O', run: () => setPage('policy') },
     { id: 'plumbing', label: 'Shorts & Supply (was Market Plumbing): short volume, dark pools, borrow fee, fails to deliver, unusual options, buybacks, dilution, lockups, mergers', hint: 'Shift P', run: () => setPage('plumbing') },
     { id: 'realecon', label: 'Real Economy: air traffic, CEO jets, rail, power demand, gas prices, freight, weather', hint: 'Shift E', run: () => setPage('realecon') },
+    { id: 'quant', label: 'Quant Lab: relationship finder, correlations with factors, earnings and Amazon review tone', run: () => setPage('quant') },
     { id: 'altdata', label: 'Alt Data: hiring, app ranks, Wikipedia interest, GitHub, Steam, Reddit and StockTwits, price basket', hint: 'Shift A', run: () => setPage('altdata') },
     { id: 'tesla', label: 'Tesla & Lots: registrations, satellite lot fullness, inventory', hint: 'Shift T', run: () => setPage('tesla') },
     { id: 'essay', label: 'Essays: write up a stock with a linked chart, news and data', hint: 'Shift W', run: () => setPage('essay') },
@@ -974,6 +976,8 @@ export default function App() {
     body = <Suspense fallback={<section className="panel"><div className="ph-body">Loading…</div></section>}><PlumbingPage mode={dataMode} sel={sel} /></Suspense>;
   } else if (page === 'realecon') {
     body = <Suspense fallback={<section className="panel"><div className="ph-body">Loading…</div></section>}><RealEconPage mode={dataMode} /></Suspense>;
+  } else if (page === 'quant') {
+    body = <Suspense fallback={<section className="panel"><div className="ph-body">Loading…</div></section>}><QuantLabPage sel={sel} /></Suspense>;
   } else if (page === 'altdata') {
     body = <Suspense fallback={<section className="panel"><div className="ph-body">Loading…</div></section>}><AltDataPage mode={dataMode} sel={sel} /></Suspense>;
   } else if (page === 'tesla') {

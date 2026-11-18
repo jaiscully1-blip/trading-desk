@@ -6,7 +6,7 @@ import { createPortal } from 'react-dom';
 import { downloadDesk, exportDesk, importDesk, parseDeskFile, type DeskFile } from '../lib/deskfile';
 import { currentAccount, initials, isOwner, leave, makeOwner, verifyDeskPassword } from '../lib/accounts';
 
-export type Page = 'morning' | 'home' | 'messages' | 'desk' | 'patterns' | 'company' | 'scanner' | 'map' | 'flows' | 'smart' | 'etfs' | 'gamma' | 'odds' | 'journal' | 'calendar' | 'status' | 'distress' | 'insiders' | 'credit' | 'mtf' | 'global' | 'news' | 'essay' | 'tesla' | 'altdata' | 'realecon' | 'plumbing' | 'policy' | 'learn' | 'crypto';
+export type Page = 'morning' | 'home' | 'messages' | 'desk' | 'patterns' | 'company' | 'scanner' | 'map' | 'flows' | 'smart' | 'etfs' | 'gamma' | 'odds' | 'journal' | 'calendar' | 'status' | 'distress' | 'insiders' | 'credit' | 'mtf' | 'global' | 'news' | 'essay' | 'tesla' | 'altdata' | 'realecon' | 'plumbing' | 'policy' | 'learn' | 'crypto' | 'quant';
 export type GroupId = 'today' | 'charts' | 'scan' | 'flow' | 'alt' | 'journal';
 
 /** 24x24 stroke paths (own drawings, simple shapes) */
@@ -34,6 +34,7 @@ const ICON: Record<Page | 'account', string> = {
   plumbing: 'M4 6h10a4 4 0 0 1 4 4v8 M4 6v4 M18 18h2 M14 18h6 M9 6v4',
   realecon: 'M2 17l5-5 4 3 7-8 M14 7h4v4 M3 21h18',
   altdata: 'M4 19V9 M10 19V5 M16 19v-7 M22 19H2',
+  quant: 'M5 17l4-5 4 3 6-8 M5 7h.01 M9 5h.01 M17 15h.01 M20 19H4V4',
   tesla: 'M3 13l2-5h14l2 5v5H3z M3 13h18 M7 18v2 M17 18v2 M7 15.5h.01 M17 15.5h.01',
   distress: 'M12 3l9 16H3z M12 9v5 M12 17h.01',
   credit: 'M3 17l5-6 4 3 5-8 4 4 M3 21h18',
@@ -60,6 +61,7 @@ const P: Record<Page, { label: string; hint: string; key: string }> = {
   realecon: { label: 'Real Economy', hint: 'air traffic, CEO jets, rail, power, fuel, freight, weather', key: '⇧E' },
   altdata: { label: 'Alt Data', hint: 'hiring, app ranks, interest, GitHub, players, social, prices', key: '⇧A' },
   tesla: { label: 'Tesla & Lots', hint: 'registrations, satellite lot fullness, inventory', key: '⇧T' },
+  quant: { label: 'Quant Lab', hint: 'find what moves a stock: factors, earnings, Amazon review tone', key: '' },
   learn: { label: 'Learn', hint: 'free practice: probability, Figgie, estimation, puzzles, how exchanges work', key: '' },
   essay: { label: 'Essays', hint: 'write up a stock with a linked chart, news and data', key: '⇧W' },
   mtf: { label: 'Multi-timeframe', hint: '4 linked charts: 3m, 15m, 1h, daily', key: '⇧M' },
@@ -75,7 +77,7 @@ export const NAV_GROUPS: { id: GroupId; label: string; pages: Page[] }[] = [
   { id: 'charts', label: 'Charts', pages: ['desk', 'mtf', 'patterns', 'company', 'crypto'] },
   { id: 'scan', label: 'Scan', pages: ['scanner', 'flows', 'etfs', 'smart', 'insiders', 'plumbing', 'credit', 'distress'] },
   { id: 'flow', label: 'Flow and risk', pages: ['global', 'policy', 'gamma', 'map', 'odds', 'status'] },
-  { id: 'alt', label: 'Alt data', pages: ['altdata', 'tesla', 'realecon'] },
+  { id: 'alt', label: 'Alt data', pages: ['altdata', 'quant', 'tesla', 'realecon'] },
   { id: 'journal', label: 'Journal', pages: ['journal', 'essay', 'learn'] },
 ];
 export const pageGroup = (p: Page): GroupId => NAV_GROUPS.find((g) => g.pages.includes(p))?.id ?? 'today';
