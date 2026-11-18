@@ -3059,3 +3059,18 @@ button.chip[data-st="bull"] { color: var(--up); } button.chip[data-st="bear"] { 
 .dg-vol rect { fill: var(--muted); opacity: .45; } .dg-vol rect.hot { fill: var(--pg, var(--accent)); opacity: .85; }
 .dg-pane line { stroke: var(--line-2); stroke-dasharray: 3 4; } .dg-pane path { fill: none; stroke: var(--warn, #d9a441); stroke-width: 2; }
 .dg-note { opacity: .7; font-style: italic; }
+
+/* Discord chat widget (dc-) */
+.dc-frame { flex: 1; width: 100%; min-height: 360px; border: 0; border-radius: 10px; background: #313338; }
+.dc-name { width: 130px; }
+.dc-saved { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 8px; }
+.dc-saved .chip button { color: inherit; }
+.dc-setup { margin: 0 8px 8px; padding: 8px 10px; border: 1px dashed var(--line-2); border-radius: 8px; }
+.dc-setup summary { cursor: pointer; font-size: 12.5px; color: var(--accent); }
+.dc-setup ol { margin: 6px 0; padding-left: 18px; display: grid; gap: 4px; }
+
+.fc-vid { display: grid; grid-template-columns: 132px 1fr; gap: 10px; align-items: center; padding: 6px; border-radius: 10px; border: 1px solid var(--line); background: var(--panel-2); color: var(--text); text-decoration: none; position: relative; max-width: 460px; flex: 1 1 300px; }
+.fc-vid:hover { border-color: color-mix(in srgb, #ff4d4d 50%, var(--line)); }
+.fc-vid img { width: 132px; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 6px; display: block; }
+.fc-play { position: absolute; left: 6px; top: 6px; width: 132px; aspect-ratio: 16 / 9; display: grid; place-items: center; color: #fff; font-size: 20px; text-shadow: 0 1px 6px #000; }
+.fc-vt { display: grid; gap: 2px; font-size: 12.5px; line-height: 1.35; }

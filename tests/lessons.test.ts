@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { INDICATORS, MATH, NOTES, STRATS } from '../shared/lessons';
+import { INDICATORS, MATH, NOTES, STRATS, VIDEOS } from '../shared/lessons';
 import { calc } from '../shared/quickmath';
 import { fvgStats } from '../shared/setuplab';
 
@@ -33,5 +33,12 @@ describe('fair value gaps', () => {
     const bars = [bar(100, 100.2, 99.9, 100.1), bar(100.1, 101.5, 100.1, 101.4), bar(101.4, 101.8, 101, 101.6), bar(101.6, 101.7, 100.6, 100.8), bar(100.8, 100.9, 100, 100.1)];
     const s = fvgStats([bars], 0.05, 10);
     expect(s).toMatchObject({ n: 1, bull: 1, revisited: 100, filled: 100 });
+  });
+});
+
+describe('videos', () => {
+  it('ids look like YouTube ids and point at real cards', () => {
+    const ids = new Set([...STRATS.map((s) => s.id), ...INDICATORS.map((i) => `i-${i.id}`)]);
+    for (const [k, v] of Object.entries(VIDEOS)) { expect(v.v).toMatch(/^[\w-]{11}$/); expect(ids.has(k), k).toBe(true); }
   });
 });

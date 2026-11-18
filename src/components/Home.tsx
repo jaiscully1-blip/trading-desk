@@ -29,7 +29,7 @@ const ALL_GROUPS: { name: string; items: { type: WidgetType; blurb: string }[] }
   { name: 'Trading tools', items: [{ type: 'alerts', blurb: 'price, % move or volume alerts on any ticker, with sound' }, { type: 'rules', blurb: 'rule lights + before-the-open checklist' }, { type: 'benner', blurb: 'the 1875 Benner cycle card: this year and what is next (folklore, for fun)' }, { type: 'leverage', blurb: 'conviction scale, % of account at risk, option expiry check' }, { type: 'risk', blurb: 'size, R:R, edge, drawdown, calc' }, { type: 'options', blurb: 'Black-Scholes + Greeks' }, { type: 'starred', blurb: 'your ★ list + pings' }, { type: 'sim', blurb: 'odds of your next 50 trades (Monte Carlo)' }, { type: 'backtest', blurb: 'test a playbook on 3 years of history' }] },
   { name: 'My accounts', items: [{ type: 'webull', blurb: 'positions + P&L calendar (read-only)' }, { type: 'discord', blurb: 'bot watchlist + your 3 channels' }] },
   { name: 'Time & notes', items: [{ type: 'sessions', blurb: 'NY / London / Asia open-close' }, { type: 'clock', blurb: 'ET clock + countdown' }, { type: 'notes', blurb: 'sticky notes' }] },
-  { name: 'Media', items: [{ type: 'spotify', blurb: 'playlists, podcasts' }, { type: 'x', blurb: 'embed a post' }] },
+  { name: 'Media', items: [{ type: 'dchat', blurb: 'live chat from a Discord channel, post as yourself' }, { type: 'spotify', blurb: 'playlists, podcasts' }, { type: 'x', blurb: 'embed a post' }] },
 ];
 // the owner's private panels (Webull account, Discord bots) never show in another account's library
 const GROUPS = isOwner() ? ALL_GROUPS : ALL_GROUPS.map((g) => ({ ...g, items: g.items.filter((i) => !OWNER_ONLY.has(i.type)) })).filter((g) => g.items.length);

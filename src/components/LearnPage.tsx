@@ -11,7 +11,7 @@ import { Calc } from './LearnCalc';
 import { Diagram } from './LearnDiagram';
 import { usePersisted } from '../lib/store';
 import { useLabBars } from '../lib/useLabBars';
-import { INDICATORS, MATH, NOTES, STRATS, type Deeper, type StratStat } from '../../shared/lessons';
+import { INDICATORS, MATH, NOTES, STRATS, VIDEOS, type Deeper, type StratStat } from '../../shared/lessons';
 import { EVIDENCE_NOTE, GLOSSARY, PATH, RESOURCES, STRATEGIES, resourceById, searchResources, type Kind, type Resource, type Topic } from '../../shared/learn';
 import { fvgStats, gapFills, orb, pct, sessions, sweeps, vwapStats } from '../../shared/setuplab';
 
@@ -33,6 +33,8 @@ const OLD_TAB: Record<Topic, Tab> = { start: 'start', strategies: 'strategies', 
 const Go = ({ d }: { d?: Deeper }) => (d ? <a className="fc-deeper" href={d.url} target="_blank" rel="noreferrer noopener">Go deeper: {d.label} ↗</a> : null);
 /** YouTube search links (not single videos): always resolve, and show the most-watched explanations first. */
 export const Yt = ({ q }: { q: string }) => <a className="fc-yt" href={`https://www.youtube.com/results?search_query=${encodeURIComponent(q)}`} target="_blank" rel="noreferrer noopener">▶ Watch on YouTube: “{q}”</a>;
+/** A hand-picked video as a thumbnail tile (opens on YouTube). */
+const Vid = ({ k }: { k: string }) => { const v = VIDEOS[k]; return v ? <a className="fc-vid" href={`https://www.youtube.com/watch?v=${v.v}`} target="_blank" rel="noreferrer noopener"><img src={`https://i.ytimg.com/vi/${v.v}/mqdefault.jpg`} alt="" loading="lazy" /><span className="fc-play">▶</span><span className="fc-vt"><b>{v.title}</b><span className="small muted">{v.by} · YouTube</span></span></a> : null; };
 const YT_STRAT: Record<string, string> = { orb: 'SMB Capital opening range breakout', fvg: 'fair value gap explained trading', volema: '9 EMA pullback volume day trading', vwapr: 'Brian Shannon VWAP reclaim', emax: '9 21 EMA crossover strategy', brr: 'breakout and retest trading strategy', flag: 'bull flag pattern day trading', sweeprev: 'liquidity sweep reversal trading', gapgo: 'gap and go vs gap fill trading', rsi2: 'Larry Connors RSI 2 strategy', trend200: '200 day moving average trend following' };
 const Sec = ({ t, children }: { t: string; children: ReactNode }) => <div className="fc-sec"><h5>{t}</h5>{children}</div>;
 const List = ({ xs }: { xs: string[] }) => <ul>{xs.map((x) => <li key={x}>{x}</li>)}</ul>;
@@ -57,7 +59,7 @@ function Indicators() {
             <Sec t="Pitfalls"><List xs={i.pitfalls} /></Sec>
             <Sec t="Pairs well with"><p>{i.pair}</p></Sec>
           </div>
-          <p className="fc-tip">💡 {i.tip}</p><div className="fc-links"><Yt q={`${i.name} explained trading`} /><Go d={i.deeper} /></div>
+          <p className="fc-tip">💡 {i.tip}</p><div className="fc-links"><Vid k={`i-${i.id}`} /><Yt q={`${i.name} explained trading`} /><Go d={i.deeper} /></div>
         </>} />
       ))}</div>
     </>
@@ -100,7 +102,7 @@ function Strategies() {
             <Sec t="Common mistakes"><List xs={s.mistakes} /></Sec>
             <Sec t="Evidence"><p>{s.evidence}</p></Sec>
           </div>
-          <div className="fc-links"><Yt q={YT_STRAT[s.id] ?? `${s.name} trading strategy explained`} /><Go d={s.deeper} /></div>
+          <div className="fc-links"><Vid k={s.id} /><Yt q={YT_STRAT[s.id] ?? `${s.name} trading strategy explained`} /><Go d={s.deeper} /></div>
         </>} />
       ))}</div>
       <h3 className="ln-sub">Longer-term strategies funds use</h3>

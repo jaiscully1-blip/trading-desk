@@ -232,3 +232,27 @@ export const NOTES: Note[] = [
   { deck: 'Concepts', id: 'ai', name: 'Using AI for research', short: 'Give it the source; ask it to argue the other side; check every number.', points: ['Paste the filing or transcript instead of asking it to remember numbers.', 'Ask for the bear case.', 'Ask it to separate what the document says from its own inference.', 'Never let it decide: it can be confidently wrong.'] },
   { deck: 'Concepts', id: 'backtest', name: 'Backtest traps', short: 'Most good-looking backtests are wrong for one of four reasons.', points: ['Look-ahead: using data not known at the time.', 'Overfitting: trying many settings until one looks good.', 'Survivorship: testing only stocks that still exist.', 'Costs: spreads, commissions and slippage left out.'] },
 ];
+
+/* ---------------- hand-picked videos (checked with YouTube oEmbed on 2026-11-18) ---------------- */
+export interface Video { v: string; title: string; by: string }
+export const VIDEOS: Record<string, Video> = {
+  orb: { v: '8P9BHSVD_vI', title: 'How To Trade The Opening Range Breakout (ORB)', by: 'BrandonTrades' },
+  fvg: { v: 'qswlc-I-DuA', title: 'The Only Fair Value Gap Video You Need', by: 'TJR' },
+  volema: { v: 'X62sKUpgZaQ', title: 'I Tested The 9 20 EMA Strategy: Here Is The Truth', by: 'Trading Data' },
+  vwapr: { v: 'ZMp-nvV5Kw0', title: 'VWAP Explained For Beginners In Under 5 Minutes', by: 'MHFIN' },
+  emax: { v: 'b2QpsIdEkfk', title: 'Moving Average Crossover: Don’t Do It', by: 'The Moving Average' },
+  brr: { v: 'NzsXWwqH56M', title: 'The Only Break and Retest Trading Strategy You Will Ever Need', by: 'The Trading Channel' },
+  sweeprev: { v: 'Skn0eSmryO8', title: 'Liquidity Sweep Trading Strategy Explained', by: 'Trader Tips' },
+  gapgo: { v: 'JazyTKxlk4s', title: 'Gap, Give, Go Trading Strategy Explained', by: 'SMB Capital' },
+  rsi2: { v: 'f-WJMtSPevs', title: 'Does Larry Connors’ RSI-2 Strategy Actually Work on SPY?', by: 'BacktestedHub' },
+  trend200: { v: 'LhctbTBJZWM', title: 'How to Use the 200 Day Moving Average', by: 'Brian Shannon' },
+  'i-sma': { v: 'IvvUbh-cnX4', title: 'Stock Trading: Moving Averages', by: 'Charles Schwab' },
+  'i-ema': { v: 'hO0oUSk6SJY', title: 'Trading Up-Close: SMA vs EMA', by: 'Charles Schwab' },
+  'i-cross': { v: 'b2QpsIdEkfk', title: 'Moving Average Crossover: Don’t Do It', by: 'The Moving Average' },
+  'i-vwap': { v: 'xoRVowzJQDI', title: 'Timing Trades to the Minute with VWAP', by: 'Schwab Coaching' },
+  'i-rsi': { v: 'hbcCykbX14U', title: 'How to Use the Relative Strength Index (RSI)', by: 'Charles Schwab' },
+  'i-macd': { v: 'VoI9fzjNWDU', title: 'Trading Stocks with the MACD', by: 'Charles Schwab' },
+  'i-bb': { v: 'j5l5nfvP6Dg', title: 'How to Use Bollinger Bands', by: 'Charles Schwab' },
+  'i-atr': { v: 'zMT1Fs2u9nY', title: 'ATR Explained in Less Than 2 Minutes', by: 'ForexSignals TV' },
+  'i-volume': { v: '_s2vkOOMwo0', title: 'What is Relative Volume and How Do We Use It?', by: 'UKspreadbetting' },
+};
