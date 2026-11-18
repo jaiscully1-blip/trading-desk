@@ -1,6 +1,7 @@
 // Credit market: spreads, yield curve, stress, bank lending, delinquencies and bond ETFs from free public sources (FRED, Yahoo), with
 // the historical pattern and both sides of the argument. Facts and history only: no forecasts, no advice, nothing that can trade.
-import { useMemo, useRef, useState } from 'react';
+import { MoveChart } from './MoveChart';
+import { useMemo } from 'react';
 import { CURVE_SIDES, ETFS, SERIES, SIDES, fmtVal, lastNYears, regimeOf, type Meta, type Pts, type RecRow, type Stats } from '../../shared/credit';
 import { useApi } from '../data/apis';
 import type { DataMode } from '../data/live';
@@ -19,43 +20,13 @@ const dLabel = (d: string) => new Date(`${d}T12:00:00Z`).toLocaleDateString('en-
 
 interface Line { label: string; pts: Pts; color: string }
 function LineChart({ lines, recs, zero, unit, h = 190 }: { lines: Line[]; recs: [string, string][]; zero?: boolean; unit: Meta['unit']; h?: number }) {
-  const W = 1000, P = { l: 44, r: 10, t: 8, b: 22 };
-  const [hov, setHov] = useState<number | null>(null);
-  const ref = useRef<SVGSVGElement>(null);
-  const all = lines.flatMap((l) => l.pts);
-  if (all.length < 2) return <p className="muted small">No data.</p>;
-  const t0 = Math.min(...lines.map((l) => tm(l.pts[0][0]))), t1 = Math.max(...lines.map((l) => tm(l.pts[l.pts.length - 1][0])));
-  let lo = Math.min(...all.map((p) => p[1]), zero ? 0 : Infinity), hi = Math.max(...all.map((p) => p[1]), zero ? 0 : -Infinity);
-  const pad = (hi - lo) * 0.06 || 1; lo -= pad; hi += pad;
-  const x = (d: string) => P.l + ((tm(d) - t0) / (t1 - t0 || 1)) * (W - P.l - P.r), y = (v: number) => P.t + (1 - (v - lo) / (hi - lo)) * (h - P.t - P.b);
-  const ticks = Array.from({ length: 5 }, (_, i) => lo + ((hi - lo) * i) / 4);
-  const yrs: number[] = []; for (let yy = new Date(t0).getUTCFullYear() + 1; yy <= new Date(t1).getUTCFullYear(); yy++) yrs.push(yy);
-  const step = Math.max(1, Math.ceil(yrs.length / 7));
-  const base = lines[0].pts;
-  const onMove = (e: React.MouseEvent) => {
-    const r = ref.current!.getBoundingClientRect(); const px = ((e.clientX - r.left) / r.width) * W;
-    const target = t0 + ((px - P.l) / (W - P.l - P.r)) * (t1 - t0); let best = 0, bd = Infinity;
-    base.forEach((p, i) => { const dd = Math.abs(tm(p[0]) - target); if (dd < bd) { bd = dd; best = i; } });
-    setHov(best);
-  };
-  const hp = hov != null ? base[hov] : null;
-  return (
-    <div className="credit-chart">
-      <div className="credit-hover small">{hp ? <><b>{dLabel(hp[0])}</b>{lines.map((l, k) => { const v = l.pts.find((p) => p[0] === hp[0])?.[1] ?? l.pts.reduce<[string, number] | null>((b, p) => (b == null || Math.abs(tm(p[0]) - tm(hp[0])) < Math.abs(tm(b[0]) - tm(hp[0])) ? p : b), null)?.[1]; return <span key={k} style={{ color: l.color }}> {lines.length > 1 ? `${l.label}: ` : ''}{v == null ? '—' : fmtVal(v, unit)}</span>; })}</> : <span className="muted">Hover for values. Shaded bands are US recessions (NBER).</span>}</div>
-      <svg ref={ref} viewBox={`0 0 ${W} ${h}`} className="credit-svg" onMouseMove={onMove} onMouseLeave={() => setHov(null)} role="img" aria-label={lines.map((l) => l.label).join(', ')}>
-        {recs.map(([s, e], i) => { const a = Math.max(P.l, x(s)), b = Math.min(W - P.r, x(e)); return b > a ? <rect key={i} x={a} y={P.t} width={b - a} height={h - P.t - P.b} className="credit-rec" /> : null; })}
-        {ticks.map((v, i) => <g key={i}><line x1={P.l} x2={W - P.r} y1={y(v)} y2={y(v)} className="credit-grid" /><text x={P.l - 4} y={y(v) + 3} textAnchor="end" className="credit-t">{unit === '%' ? v.toFixed(1) : v.toFixed(Math.abs(hi - lo) > 20 ? 0 : 1)}</text></g>)}
-        {yrs.filter((_, i) => i % step === 0).map((yy) => <text key={yy} x={x(`${yy}-01-01`)} y={h - 5} textAnchor="middle" className="credit-t">{yy}</text>)}
-        {zero && lo < 0 && hi > 0 && <line x1={P.l} x2={W - P.r} y1={y(0)} y2={y(0)} className="credit-zero" />}
-        {lines.map((l, k) => <polyline key={k} fill="none" stroke={l.color} strokeWidth="1.6" points={l.pts.map((p) => `${x(p[0]).toFixed(1)},${y(p[1]).toFixed(1)}`).join(' ')} />)}
-        {hp && <line x1={x(hp[0])} x2={x(hp[0])} y1={P.t} y2={h - P.b} className="credit-cross" />}
-      </svg>
-      {lines.length > 1 && <div className="credit-leg small">{lines.map((l, k) => <span key={k} style={{ color: l.color }}>● {l.label}</span>)}</div>}
-    </div>
-  );
+  if (lines.flatMap((l) => l.pts).length < 2) return <p className="muted small">No data.</p>;
+  const fmt = (v: number) => (unit === '%' ? `${v.toFixed(2)}%` : v.toFixed(2));
+  return <MoveChart series={lines.map((l) => ({ pts: l.pts.map((p) => ({ t: tm(p[0]), v: p[1] })), label: l.label, color: l.color, fmt }))} height={h} zero={zero} bands={recs.map(([s0, e0]) => [tm(s0), tm(e0)] as [number, number])} legend defaultRange="All" />;
 }
 
 const arrow = (v: number | null) => (v == null ? '' : v > 0.0005 ? '▲' : v < -0.0005 ? '▼' : '■');
+
 function Card({ k, d }: { k: string; d: Resp['series'][string] | undefined }) {
   const m = META[k], s = d?.stats;
   if (!m || !d || !s) return null;

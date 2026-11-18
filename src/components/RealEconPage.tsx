@@ -1,6 +1,7 @@
 // Real Economy: what's moving in the physical economy. Air traffic (airlines and airports, live and daily history), a
 // corporate-jet tracker (your list of tail codes; checks which public company's HQ city a jet is near), rail freight, electricity
 // demand by grid region, gasoline nationally and by state, shipping costs, and severe weather with the kinds of stocks it touches.
+import { MoveChart, toMs } from './MoveChart';
 import { PageHero } from './PageHero';
 import { useEffect, useState } from 'react';
 import type { DataMode } from '../data/live';
@@ -17,10 +18,10 @@ const tn = (v: number | null | undefined, invert = false) => (v == null ? '' : (
 const uid = () => Math.random().toString(36).slice(2, 9);
 
 function Line({ s, h = 60 }: { s: Pt[]; h?: number }) {
-  if (s.length < 2) return <p className="small muted ad-wait">{s.length ? 'One daily reading so far: the line starts tomorrow.' : 'No readings yet.'}</p>;
-  const w = 600, lo = Math.min(...s.map((x) => x.value)), hi = Math.max(...s.map((x) => x.value)), span = hi - lo || 1;
-  return <svg className="ad-line" style={{ height: h }} viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" aria-hidden="true"><polyline points={s.map((p, i) => `${((i / (s.length - 1)) * w).toFixed(1)},${(4 + (1 - (p.value - lo) / span) * (h - 8)).toFixed(1)}`).join(' ')} fill="none" stroke="var(--accent)" strokeWidth="1.5" vectorEffect="non-scaling-stroke" /></svg>;
+  if (s.length < 2) return null;
+  return <MoveChart series={[{ pts: s.map((p: any) => ({ t: toMs(p.date ?? p.t ?? p.d), v: p.value ?? p.v })), label: 'Value' }]} height={Math.max(90, h + 20)} ranges={s.length > 60} />;
 }
+
 function Card({ title, src, at, children }: { title: string; src?: string; at?: number; children: React.ReactNode }) {
   return <section className="ad-card"><header className="ad-h"><h3>{title}</h3>{src && <Fresh kind="delayed" at={at} src={src} />}</header>{children}</section>;
 }

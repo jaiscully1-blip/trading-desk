@@ -8,8 +8,12 @@ export interface MSeries { pts: MPoint[]; label: string; color?: string; fmt?: (
 const fd = (t: number, daily: boolean) => new Date(t).toLocaleDateString('en-US', daily ? { month: 'short', day: 'numeric', year: 'numeric' } : { month: 'short', year: 'numeric' });
 const RANGES: [string, number][] = [['1M', 31], ['3M', 92], ['6M', 183], ['1Y', 366], ['5Y', 1830], ['All', 0]];
 
-export function MoveChart({ series, height = 160, ranges = true, defaultRange = 'All', onPick, extra, compare = false, bars = false }: {
+/** Any timestamp (ms, seconds, or "YYYY-MM-DD") to milliseconds. */
+export const toMs = (t: number | string) => (typeof t === 'string' ? Date.parse(t.length === 10 ? `${t}T12:00:00Z` : t) : t < 1e11 ? t * 1000 : t);
+
+export function MoveChart({ series, height = 160, ranges = true, defaultRange = 'All', onPick, extra, compare = false, bars = false, bands = [], marks = [], invert = false, zero = false, xfmt, legend = false }: {
   series: MSeries[]; height?: number; ranges?: boolean; defaultRange?: string; onPick?: (t: number, values: (number | null)[]) => ReactNode; extra?: ReactNode; compare?: boolean; bars?: boolean;
+  bands?: [number, number][]; marks?: { t: number; label: string }[]; invert?: boolean; zero?: boolean; xfmt?: (t: number) => string; legend?: boolean;
 }) {
   const main = series[0]?.pts ?? [];
   const daily = main.length > 2 && main[1].t - main[0].t < 5 * 86400000;
@@ -27,7 +31,8 @@ export function MoveChart({ series, height = 160, ranges = true, defaultRange = 
   const val = (s: MSeries, p: MPoint) => { if (!norm) return p.v; const f = inView(s)[0]?.v; return f ? (p.v / f - 1) * 100 : 0; };
   const all = series.flatMap((s) => inView(s).map((p) => val(s, p)));
   const lo = Math.min(...all, bars ? 0 : Infinity), hi = Math.max(...all, bars ? 0 : -Infinity), pad = (hi - lo) * 0.06 || 1;
-  const X = (t: number) => L + ((t - t0) / (t1 - t0 || 1)) * (W - L - R), Y = (v: number) => T + (1 - (v - (lo - pad)) / (hi - lo + 2 * pad)) * (H - T - B);
+  const X = (t: number) => L + ((t - t0) / (t1 - t0 || 1)) * (W - L - R), Y = (v: number) => { const f = (v - (lo - pad)) / (hi - lo + 2 * pad); return T + (invert ? f : 1 - f) * (H - T - B); };
+  const xl = (t: number) => (xfmt ? xfmt(t) : fd(t, daily));
   const fmt = (s: MSeries, v: number) => (norm ? `${v >= 0 ? '+' : ''}${v.toFixed(1)}%` : (s.fmt ?? ((x: number) => x.toLocaleString('en-US', { maximumFractionDigits: 2 })))(v));
   const nearest = (s: MSeries, t: number) => { let best: MPoint | null = null; for (const p of inView(s)) if (!best || Math.abs(p.t - t) < Math.abs(best.t - t)) best = p; return best; };
   const idxAt = (clientX: number) => { const r = svg.current!.getBoundingClientRect(), x = ((clientX - r.left) / r.width) * W, t = t0 + ((x - L) / (W - L - R)) * (t1 - t0); let i = a; for (let k = a; k <= b; k++) if (Math.abs(main[k].t - t) < Math.abs(main[i].t - t)) i = k; return i; };
@@ -55,15 +60,19 @@ export function MoveChart({ series, height = 160, ranges = true, defaultRange = 
       <svg ref={svg} className="mv-svg" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style={{ height }} tabIndex={0} role="img" aria-label={`${series.map((s) => s.label).join(', ')} chart. Arrow keys move along it.`}
         {...h} onDoubleClick={() => { setWin(null); setPin(null); }}
         onKeyDown={(e) => { if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') { e.preventDefault(); const i = Math.min(b, Math.max(a, (cur ?? b) + (e.key === 'ArrowLeft' ? -1 : 1))); setHov(i); setPin(i); } }}>
+        {bands.map(([s, e], i) => { const x0 = Math.max(L, X(s)), x1 = Math.min(W - R, X(e)); return x1 > x0 ? <rect key={`b${i}`} x={x0} width={x1 - x0} y={T} height={H - T - B} className="mv-band" /> : null; })}
+        {zero && lo - pad < 0 && hi + pad > 0 && <line x1={L} x2={W - R} y1={Y(0)} y2={Y(0)} className="mv-zero" />}
+        {marks.filter((m) => m.t >= t0 && m.t <= t1).map((m) => <line key={`m${m.t}`} x1={X(m.t)} x2={X(m.t)} y1={T} y2={H - B} className="mv-mark"><title>{m.label}</title></line>)}
         {ticks.map((v) => <g key={v}><line x1={L} x2={W - R} y1={Y(v)} y2={Y(v)} className="mv-grid" /><text x={W - R + 4} y={Y(v) + 3} className="mv-tl">{norm ? `${v >= 0 ? '+' : ''}${v.toFixed(0)}%` : fmt(series[0], v)}</text></g>)}
         {bars ? inView(series[0]).map((p) => { const v = val(series[0], p), w = Math.max(1, ((W - L - R) / Math.max(1, view.length)) * 0.7); return <rect key={p.t} x={X(p.t) - w / 2} width={w} y={Math.min(Y(v), Y(0))} height={Math.abs(Y(v) - Y(0))} className={v >= 0 ? 'mv-bu' : 'mv-bd'} />; })
           : series.map((s, i) => <path key={s.label} d={path(s)} fill="none" stroke={s.color ?? (i ? 'var(--warn)' : 'var(--accent)')} strokeWidth={i ? 1.4 : 1.8} vectorEffect="non-scaling-stroke" />)}
         {curT != null && <><line x1={X(curT)} x2={X(curT)} y1={T} y2={H - B} className="mv-x" />{series.map((s, i) => { const p = nearest(s, curT); return p ? <circle key={i} cx={X(p.t)} cy={Y(val(s, p))} r={3.5} fill={s.color ?? (i ? 'var(--warn)' : 'var(--accent)')} /> : null; })}</>}
-        <text x={L} y={H - 4} className="mv-tl">{fd(t0, daily)}</text><text x={W - R} y={H - 4} textAnchor="end" className="mv-tl">{fd(t1, daily)}</text>
+        <text x={L} y={H - 4} className="mv-tl">{xl(t0)}</text><text x={W - R} y={H - 4} textAnchor="end" className="mv-tl">{xl(t1)}</text>
       </svg>
       <div className="mv-read small">
-        {curT != null ? <><b>{fd(curT, daily)}</b>{series.map((s, i) => { const p = nearest(s, curT); return p ? <span key={i}><i className="mv-dot" style={{ background: s.color ?? (i ? 'var(--warn)' : 'var(--accent)') }} />{s.label} <b className="num">{fmt(s, val(s, p))}</b>{p.note ? ` · ${p.note}` : ''}</span> : null; })}</> : <span className="muted">Move along the chart to read values · drag to scroll back · click a point to pin it · double-click to reset</span>}
+        {curT != null ? <><b>{xl(curT)}</b>{marks.filter((m) => Math.abs(m.t - curT) < (t1 - t0) / 80).map((m) => <span key={m.t} className="mv-mk">{m.label}</span>)}{series.map((s, i) => { const p = nearest(s, curT); return p ? <span key={i}><i className="mv-dot" style={{ background: s.color ?? (i ? 'var(--warn)' : 'var(--accent)') }} />{s.label} <b className="num">{fmt(s, val(s, p))}</b>{p.note ? ` · ${p.note}` : ''}</span> : null; })}</> : <span className="muted">Move along the chart to read values · drag to scroll back · click a point to pin it · double-click to reset</span>}
       </div>
+      {legend && series.length > 1 && <div className="mv-leg small">{series.map((s, i) => <span key={s.label}><i className="mv-dot" style={{ background: s.color ?? (i ? 'var(--warn)' : 'var(--accent)') }} />{s.label}</span>)}</div>}
       {pin != null && onPick && <div className="mv-pin">{onPick(main[pin].t, pinVals)}<button className="hw-btn" onClick={() => setPin(null)} aria-label="Unpin">×</button></div>}
       {extra}
     </div>
