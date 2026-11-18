@@ -1,6 +1,7 @@
 // Tesla & Lots: registrations by country (Netherlands official register, plus your own log for other countries),
 // satellite lot fullness for big lots (Sentinel-2 brightness proxy), and inventory (Tesla blocks automated reads, so a log).
 // Every number is shown month over month and year over year. Data, not advice.
+import { PageHero } from './PageHero';
 import { useEffect, useMemo, useState } from 'react';
 import type { DataMode } from '../data/live';
 import { usePersisted } from '../lib/store';
@@ -204,7 +205,7 @@ export default function TeslaPage({ mode }: { mode: DataMode }) {
   const live = mode.kind === 'live';
   return (
     <div className="page tl">
-      <div className="tl-top"><h2>Tesla &amp; Lots</h2><span className="small muted">Registrations, parking-lot fullness and inventory, month over month and year over year. Data to research with, not advice.</span></div>
+      <PageHero page="tesla" title="Tesla & Lots" sub="Registrations, parking-lot fullness and inventory, month over month and year over year. Data to research with, not advice." />
       <Registrations live={live} />
       <Lots live={live} />
       <div className="tl-two"><OtherCountries /><Inventory /></div>

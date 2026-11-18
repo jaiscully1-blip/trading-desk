@@ -192,3 +192,5 @@ export function SideNav({ compact, page, onPage, onCmd, onHelp, onAccount, onCal
     </nav>
   );
 }
+
+export const NAV_ICON = ICON;

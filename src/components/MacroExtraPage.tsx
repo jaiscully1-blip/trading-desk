@@ -1,5 +1,6 @@
 // Macro & Policy: earnings-season beat rates by sector, tariff actions and the companies talking about tariffs most,
 // and policy / macro prediction-market odds next to the sector baskets they tend to move. Data, not advice.
+import { PageHero } from './PageHero';
 import { useEffect, useState } from 'react';
 import type { DataMode } from '../data/live';
 import { Fresh } from './common';
@@ -18,7 +19,7 @@ export default function MacroExtraPage({ mode, onChart }: { mode: DataMode; onCh
   const b = d?.board;
   return (
     <div className="page ad">
-      <div className="ad-top"><h2>Macro &amp; Policy</h2><span className="small muted">Earnings season, tariffs and what the prediction markets expect, with the stocks each touches. Data, not advice.</span></div>
+      <PageHero page="policy" title="Macro & Policy" sub="Earnings season, tariffs and what the prediction markets expect, with the stocks each touches. Data, not advice." />
       {!live && <p className="small muted">Live data only.</p>}
       {live && !d && <p className="small muted">Loading…</p>}
       {d && (

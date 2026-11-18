@@ -1,5 +1,6 @@
 // Learn: a few free outside resources for practising trading thinking (probability, market making, estimation, how
 // exchanges work). Links only: nothing is fetched or stored, and none of it is advice.
+import { PageHero } from './PageHero';
 const LINKS: { group: string; items: { title: string; by: string; kind: string; url: string; why: string }[] }[] = [
   {
     group: 'Read first',
@@ -28,7 +29,7 @@ const LINKS: { group: string; items: { title: string; by: string; kind: string; 
 export default function LearnPage() {
   return (
     <div className="page ad">
-      <div className="ad-top"><h2>Learn</h2><span className="small muted">Free outside resources for practising trading thinking. Links open the original site in a new tab. Learning material, not advice.</span></div>
+      <PageHero page="learn" title="Learn" sub="Free outside resources for practising trading thinking. Links open the original site in a new tab. Learning material, not advice." />
       <div className="ad-grid">
         {LINKS.map((g) => (
           <section key={g.group} className="ad-card">

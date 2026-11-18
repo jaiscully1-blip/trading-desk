@@ -2839,3 +2839,15 @@ button.chip[data-st="bull"] { color: var(--up); } button.chip[data-st="bear"] { 
 .page.ad > * { flex: none; }
 .page.ad { max-width: 1400px; width: 100%; margin: 0 auto; }
 :root[data-scene='river'] .page.ad { background: rgba(7, 19, 31, .97); border-radius: 8px; }
+
+/* page header for the data pages: icon tile and wash in the page's group color (--pg), group label, title, description */
+.hero { position: relative; display: flex; align-items: center; gap: 14px; flex-wrap: wrap; padding: 14px 16px 14px 18px; border-radius: 12px; border: 1px solid color-mix(in srgb, var(--pg, var(--accent)) 30%, var(--line)); background: linear-gradient(110deg, color-mix(in srgb, var(--pg, var(--accent)) 16%, var(--panel)) 0%, var(--panel) 55%); overflow: hidden; }
+.hero::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--pg, var(--accent)); }
+.hero-ic { flex: none; display: grid; place-items: center; width: 44px; height: 44px; border-radius: 12px; color: var(--pg, var(--accent)); background: color-mix(in srgb, var(--pg, var(--accent)) 16%, transparent); border: 1px solid color-mix(in srgb, var(--pg, var(--accent)) 35%, transparent); }
+.hero-txt { flex: 1 1 320px; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.hero-kicker { font: 600 10.5px 'IBM Plex Mono', monospace; letter-spacing: .1em; text-transform: uppercase; color: var(--pg, var(--accent)); }
+.hero h2 { margin: 0; font: 700 24px/1.15 'Sora', 'IBM Plex Sans', sans-serif; color: var(--text); letter-spacing: -.01em; }
+.hero-sub { margin: 2px 0 0; max-width: 90ch; font-size: 13.5px; line-height: 1.5; color: color-mix(in srgb, var(--text) 78%, var(--pg, var(--accent))); }
+.hero-ctl { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.hero-ctl input { width: 100px; padding: 7px 10px; border-radius: 8px; border: 1px solid color-mix(in srgb, var(--pg, var(--accent)) 40%, var(--line-2)); background: var(--panel-2); color: var(--text); font: 600 14px 'IBM Plex Mono', monospace; text-transform: uppercase; }
+.hero-ctl input:focus { outline: none; border-color: var(--pg, var(--accent)); box-shadow: 0 0 0 3px color-mix(in srgb, var(--pg, var(--accent)) 22%, transparent); }
