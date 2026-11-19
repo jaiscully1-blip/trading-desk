@@ -3462,3 +3462,7 @@ a:hover, .link:hover { text-decoration-color: var(--link); }
 /* watchlist: most-traded count and sort chips */
 .wl-n { margin-left: 4px; font: 500 10px 'IBM Plex Mono', ui-monospace, monospace; color: var(--muted); opacity: .8; }
 .wl-sort { margin-left: auto; display: inline-flex; gap: 4px; }
+
+/* chart: dark-pool and phantom print lines */
+:root { --dp: #9d8cf0; --phantom: #e98ac4; }
+:root[data-theme='light'] { --dp: #6a55d8; --phantom: #c24f95; }

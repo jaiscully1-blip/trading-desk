@@ -22,11 +22,13 @@ import { sma, toPts, vwapSeries } from '../lib/indicators';
 import { toolHours } from '../../shared/toolHours';
 import { LEVEL_SHORT, type Level } from '../lib/levels';
 import { usePersisted } from '../lib/store';
+import { usePrints } from '../data/prints';
+import { usdShort } from '../../shared/prints';
 import { Fresh, PanelHead, Seg } from './common';
 import { pct, px, tone } from '../lib/format';
 
 const cssVar = (n: string) => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
-type Overlays = { vwap: boolean; ma: boolean; lvl: boolean; cg?: boolean; gx?: boolean; lad?: boolean; swing?: boolean; zn?: boolean; fib?: boolean };
+type Overlays = { vwap: boolean; ma: boolean; lvl: boolean; cg?: boolean; gx?: boolean; dp?: boolean; ph?: boolean; lad?: boolean; swing?: boolean; zn?: boolean; fib?: boolean };
 const GX_SYMS = ['SPY', 'QQQ', 'IWM'];
 type CgTrade = { who: string; party: string; state: string; type: string; traded: string; filed: string; min: number | null; max: number | null };
 const cgCache = new Map<string, CgTrade[]>();
@@ -274,6 +276,21 @@ export function ChartPanel({
     add(gx.flip, cssVar('--accent'), 'γ flip', LineStyle.SparseDotted);
   }, [gx, gxOn, tf, theme, bars, ladderOn, Math.round(last * 20)]);
 
+  // Dark-pool block levels and phantom prints (Alpaca free plan, SIP tape, 15+ min delayed). Real data only.
+  const dpOn = ov.dp !== false && mode?.kind === 'live' && tf !== 'W' && tf !== 'M', phOn = ov.ph !== false && dpOn;
+  const dp = usePrints(sym, dpOn);
+  const dpLines = useRef<IPriceLine[]>([]);
+  useEffect(() => {
+    const x = s.current;
+    if (!x) return;
+    for (const l of dpLines.current) x.c.removePriceLine(l);
+    dpLines.current = [];
+    if (!dpOn || !dp?.levels) return;
+    const dpc = cssVar('--dp'), phc = cssVar('--phantom');
+    dp.levels.slice(0, 6).forEach((l, i) => dpLines.current.push(x.c.createPriceLine({ price: l.price, color: dpc, lineWidth: i < 2 ? 2 : 1, lineStyle: LineStyle.Dashed, axisLabelVisible: !ladderOn, title: ladderOn ? '' : `DP ${usdShort(l.usd)}${l.n > 1 ? ` ×${l.n}` : ''}` })));
+    if (phOn) for (const p of dp.phantoms ?? []) dpLines.current.push(x.c.createPriceLine({ price: p.price, color: phc, lineWidth: 1, lineStyle: LineStyle.SparseDotted, axisLabelVisible: !ladderOn, title: ladderOn ? '' : `Phantom ${usdShort(p.usd)}` }));
+  }, [dp, dpOn, phOn, tf, theme, bars, ladderOn]);
+
   // level ladder rows
   const ladOn = ov.lad !== false && ov.lvl && tf !== 'W' && tf !== 'M';
   const ladRows = useMemo(() => {
@@ -307,6 +324,8 @@ export function ChartPanel({
         {T('lvl', 'Levels', 'Draw key levels on the chart')}
         <button className={`chip sm ${ov.fib !== false ? 'on' : ''}`} onClick={() => setOv({ ...ov, fib: ov.fib === false })} title="Fibonacci levels for today from yesterday's high and low: 23.6 / 38.2 / 50 / 61.8 / 78.6% inside the range, 1.272 and 1.618 beyond it (50% and 61.8% highlighted)" aria-pressed={ov.fib !== false}>Fib</button>
         {GX_SYMS.includes(sym) && mode?.kind === 'live' && <button className={`chip sm ${ov.gx !== false ? 'on' : ''}`} onClick={() => setOv({ ...ov, gx: ov.gx === false })} title={`Dealer gamma: call wall, put wall and zero-gamma flip for the next 7 days (Cboe delayed ~15 min, estimated from open interest)`} aria-pressed={ov.gx !== false}>Gamma</button>}
+        {mode?.kind === 'live' && tf !== 'W' && tf !== 'M' && <button className={`chip sm ${ov.dp !== false ? 'on' : ''}`} onClick={() => setOv({ ...ov, dp: ov.dp === false })} aria-pressed={ov.dp !== false} title={dp?.needsKey ? 'Dark-pool prints need a free Alpaca key (ALPACA_KEY_ID and ALPACA_SECRET_KEY in Vercel).' : `Dark-pool lines: the price levels with the most off-exchange block dollars ($1M+ or 10,000+ shares) over the last 3 sessions. SIP tape via Alpaca free plan, 15+ min delayed. A print has a buyer and a seller: no direction.${dp?.sessions ? ' Read: ' + dp.sessions.map((x) => `${x.day} ${x.coverage.regularMin}/${x.coverage.regularTotal} min of the session`).join(', ') : ''}`}>Dark pool{dp?.needsKey ? ' (key)' : ''}</button>}
+        {ov.dp !== false && mode?.kind === 'live' && tf !== 'W' && tf !== 'M' && <button className={`chip sm ${ov.ph !== false ? 'on' : ''}`} onClick={() => setOv({ ...ov, ph: ov.ph === false })} aria-pressed={ov.ph !== false} title="Phantom prints (the desk's own rule, no official definition): off-exchange blocks reported late or out of sequence, average-price or derivatively priced, or printed more than 0.5% away from the market at the time">Phantom</button>}
         {ov.lvl && tf !== 'W' && tf !== 'M' && <button className={`chip sm ${ov.lad !== false ? 'on' : ''}`} onClick={() => setOv({ ...ov, lad: ov.lad === false })} title="Ladder: every level in price order beside the chart, with distance from the last price" aria-pressed={ov.lad !== false}>Ladder</button>}
         {ov.lvl && dayTools && tf !== 'W' && tf !== 'M' && <button className={`chip sm ${ov.swing ? 'on' : ''}`} onClick={() => setOv({ ...ov, swing: !ov.swing })} title={ov.swing ? 'Swing preset: prior-day range and gamma walls only. Click for Day (all levels).' : 'Day preset: all levels. Click for Swing (prior-day range and gamma walls only).'} aria-pressed={!!ov.swing}>{ov.swing ? 'Swing' : 'Day'}</button>}
         {longTf && T('cg', 'Congress', 'Arrows under the candles where members of Congress bought (▲) or sold (▼) this stock. Click one for who and how much.')}
