@@ -18,6 +18,15 @@ import { INDICATORS, MATH, NOTES, STRATS, VIDEOS, type Deeper, type StratStat } 
 import { EVIDENCE_NOTE, GLOSSARY, PATH, RESOURCES, STRATEGIES, resourceById, searchResources, type Kind, type Resource, type Topic } from '../../shared/learn';
 import { fvgStats, gapFills, orb, pct, sessions, sweeps, vwapStats } from '../../shared/setuplab';
 
+/** Quiet backgrounds for the Learn cards; pick one at the top of the page. */
+const CARD_STYLES: [string, string, string][] = [
+  ['clean', 'Clean', 'Solid panel, a hairline border, nothing else'],
+  ['paper', 'Paper', 'A faint paper grain, like a printed card'],
+  ['dots', 'Dots', 'A barely-there dot grid, like engineering paper'],
+  ['hairline', 'Hairline', 'Open card with only a thin colored rule on top'],
+  ['tint', 'Tint', 'A flat, very soft wash of the page color'],
+  ['contour', 'Contour', 'Faint topographic lines in one corner'],
+];
 const Setups = lazy(() => import('./LearnSetups'));
 const ChartGame = lazy(() => import('./LearnChartGame'));
 type Tab = 'start' | 'basics' | 'pa' | 'indicators' | 'strategies' | 'setups' | 'game' | 'math' | 'mindset' | 'concepts' | 'glossary' | 'resources';
@@ -283,16 +292,18 @@ function Start({ setTab, go }: { setTab: (t: Tab) => void; go?: (p: Page) => voi
 }
 
 export default function LearnPage({ go }: { go?: (p: Page) => void }) {
+  const [cardStyle, setCardStyle] = usePersisted<string>('learnCardStyle', 'clean');
   const [saved, setTab] = usePersisted<string>('learnTab2', 'start');
   const tab = (TABS.some((t) => t.id === saved) ? saved : 'start') as Tab;
   const meta = TABS.find((t) => t.id === tab)!;
   return (
-    <div className="page ad">
+    <div className="page ad ln-root" data-cs={cardStyle}>
       <PageHero page="learn" title="Learn" sub="Flip-card lessons on indicators, strategies, setups, quick trading math and mindset, with live examples on real market data. Learning material, not advice." />
       <nav className="ln-tabs" role="tablist" aria-label="Learn sections">
         {TABS.map((t) => <button key={t.id} role="tab" aria-selected={tab === t.id} className={tab === t.id ? 'on' : ''} onClick={() => setTab(t.id)}><span className="ln-ti">{t.icon}</span>{t.label}</button>)}
       </nav>
-      <p className="ln-blurb">{meta.blurb}</p>
+      <div className="ln-blurb-row"><p className="ln-blurb">{meta.blurb}</p>
+        <span className="ln-cs" role="group" aria-label="Card style"><span className="small muted">Card style</span>{CARD_STYLES.map(([k, l, hint]) => <button key={k} className={`ln-csb cs-${k} ${cardStyle === k ? 'on' : ''}`} title={hint} aria-pressed={cardStyle === k} onClick={() => setCardStyle(k)}><i />{l}</button>)}</span></div>
       {tab === 'start' && <Start setTab={setTab} go={go} />}
       {tab === 'pa' && <PriceAction />}
       {tab === 'indicators' && <Indicators />}
