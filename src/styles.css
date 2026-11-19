@@ -3386,3 +3386,23 @@ a:hover, .link:hover { text-decoration-color: var(--link); }
 .mcal-key.k-day { --c: var(--k-day); } .mcal-ev.k-day { --c: var(--k-day); font-family: 'IBM Plex Sans', sans-serif; font-weight: 500; } .mcal-dot.k-day { background: var(--k-day); }
 
 .mcal-mv { font-weight: 500; font-size: 10px; margin-left: 3px; padding: 0 4px; border-radius: 999px; background: color-mix(in srgb, var(--k-earn) 25%, transparent); }
+
+/* month calendar: heat, your week, earnings season */
+.mcal { --k-heat: #ff7a59; } :root[data-theme='light'] .mcal { --k-heat: #e2552f; }
+.mcal-key.k-heat { --c: var(--k-heat); }
+.mcal-day.heat { background: color-mix(in srgb, var(--k-heat) calc(var(--h, 0) * 22%), var(--panel-2)); }
+.mcal-day.heat:not(.today) { box-shadow: inset 0 0 calc(var(--h, 0) * 26px) color-mix(in srgb, var(--k-heat) calc(var(--h, 0) * 45%), transparent); }
+.mcal-top { display: grid; grid-template-columns: minmax(0, 1fr) 220px; gap: 10px; align-items: stretch; }
+@media (max-width: 980px) { .mcal-top { grid-template-columns: 1fr; } }
+.mcal-week { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; }
+.mcal-wd { display: flex; flex-direction: column; gap: 4px; padding: 8px; border-radius: 12px; border: 1px solid var(--line); background: color-mix(in srgb, var(--k-heat) calc(var(--h, 0) * 20%), var(--panel)); cursor: pointer; min-width: 0; }
+.mcal-wd.noheat { background: var(--panel); }
+.mcal-wdh { display: flex; justify-content: space-between; gap: 6px; align-items: baseline; }
+.mcal-season { display: grid; gap: 4px; padding: 8px 10px; border-radius: 12px; border: 1px solid var(--line); background: var(--panel); }
+.mcal-sbars { display: flex; align-items: flex-end; gap: 3px; height: 46px; }
+.mcal-sbars i { flex: 1; border-radius: 3px 3px 0 0; background: color-mix(in srgb, var(--k-earn) 55%, transparent); } .mcal-sbars i.now { background: var(--k-earn); }
+
+.mcal-pnl { margin-left: auto; font: 600 10.5px 'IBM Plex Mono', monospace; padding: 0 5px; border-radius: 999px; opacity: var(--s, 1); }
+.mcal-pnl.up { color: var(--up); background: color-mix(in srgb, var(--up) 16%, transparent); } .mcal-pnl.dn { color: var(--down); background: color-mix(in srgb, var(--down) 16%, transparent); }
+.mcal-you { border: 1px solid var(--line); border-radius: 12px; padding: 8px 12px; background: var(--panel); } .mcal-you summary { cursor: pointer; font-weight: 600; }
+.mcal-you tr.thin { opacity: .55; }

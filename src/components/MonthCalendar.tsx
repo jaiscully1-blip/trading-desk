@@ -13,6 +13,9 @@ import { openExplain } from './InfoDrawer';
 import { Fresh } from './common';
 import { historyLines, specialDays } from '../lib/specialDays';
 import { pastReactions } from '../../shared/earnmove';
+import type { TradeView } from '../lib/journal';
+import { eventDayPnl } from '../lib/eventDayPnl';
+import { sUsd } from '../lib/format';
 import type { EventStat } from '../../shared/eventDays';
 
 type Kind = 'earn' | 'econ' | 'fed' | 'ipo' | 'hol' | 'day';
@@ -21,6 +24,15 @@ const KINDS: { k: Kind; label: string }[] = [{ k: 'earn', label: 'Earnings' }, {
 const WHEN: Record<string, string> = { bmo: 'before open', amc: 'after close', dmh: 'during market' };
 const ymd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 const cap = (v: number | null) => (v == null ? '' : v >= 1e12 ? `$${(v / 1e12).toFixed(1)}T` : v >= 1e9 ? `$${(v / 1e9).toFixed(0)}B` : `$${(v / 1e6).toFixed(0)}M`);
+
+/** How market-moving a day looks: Fed and top-tier releases weigh most, then big and your own reports, measured special
+ *  days a little. 0 = quiet; about 10+ = a heavy day. */
+export function heatOf(evs: Ev[]): number {
+  let h = 0;
+  for (const e of evs) h += e.kind === 'fed' ? 6 : e.kind === 'econ' ? (e.big ? 4 : 1.5) : e.kind === 'earn' ? (e.mine ? 2 : 0) + (e.big ? 1.5 : 0.08) : e.kind === 'day' ? (e.big ? 1 : 0.2) : e.kind === 'ipo' ? 0.3 : 0;
+  return h;
+}
+const until = (k: string) => { const ms = Date.parse(`${k}T09:30:00-05:00`) - Date.now(); if (ms <= 0) return 'today'; const d = Math.floor(ms / 86400_000), h = Math.floor((ms % 86400_000) / 3600_000); return d ? `in ${d}d ${h}h` : `in ${h}h`; };
 
 /** Click on an earnings pill: what options price in, and how the stock reacted the last 8 times. */
 async function earningsCard(e: EarnItem, move?: number) {
@@ -37,20 +49,24 @@ async function earningsCard(e: EarnItem, move?: number) {
   } catch { openExplain({ ...base, lines: [...head, 'Past reactions unavailable right now.'] }); }
 }
 
-interface MonthData { earnings: EarnItem[]; ipos: IpoItem[]; asOf: number; from: string; to: string; source: string }
+interface MonthData { earnings: EarnItem[]; ipos: IpoItem[]; asOf: number; from: string; to: string; source: string; totals: Record<string, number> }
 function useMonthEvents(live: boolean, mine: string[]) {
   const [d, setD] = useState<MonthData | null>(null), [err, setErr] = useState('');
   const key = mine.slice(0, 40).join(',');
   useEffect(() => {
     if (!live) return;
     let off = false;
-    fetch(`/api/research?fn=eventcal&span=month&symbols=${encodeURIComponent(key)}`).then((r) => r.json()).then((j) => { if (off) return; if (j.error) setErr(j.error); else setD({ earnings: j.earnings ?? [], ipos: j.ipos ?? [], asOf: j.asOf, from: j.from, to: j.to, source: j.sources?.earnings ?? '' }); }).catch((e) => !off && setErr(String(e.message ?? e)));
+    fetch(`/api/research?fn=eventcal&span=month&symbols=${encodeURIComponent(key)}`).then((r) => r.json()).then((j) => { if (off) return; if (j.error) setErr(j.error); else setD({ earnings: j.earnings ?? [], ipos: j.ipos ?? [], asOf: j.asOf, from: j.from, to: j.to, source: j.sources?.earnings ?? '', totals: j.totals ?? {} }); }).catch((e) => !off && setErr(String(e.message ?? e)));
     return () => { off = true; };
   }, [live, key]);
   return { d, err };
 }
 
-export function MonthCalendar({ live, econ, mySyms }: { live: boolean; econ: EconEvent[] | null; mySyms: Set<string> }) {
+export function MonthCalendar({ live, econ, mySyms, trades = [] }: { live: boolean; econ: EconEvent[] | null; mySyms: Set<string>; trades?: TradeView[] }) {
+  // your realized P&L per day (ET), from the journal
+  const dayPnl = useMemo(() => { const m = new Map<string, number>(); for (const v of trades) { if (v.t.deleted || v.status !== 'closed' || v.closedAt == null) continue; const k = new Date(v.closedAt).toLocaleDateString('en-CA', { timeZone: 'America/New_York' }); m.set(k, (m.get(k) ?? 0) + v.realized); } return m; }, [trades]);
+  const pnlMax = useMemo(() => Math.max(1, ...[...dayPnl.values()].map(Math.abs)), [dayPnl]);
+  const groups = useMemo(() => eventDayPnl(dayPnl), [dayPnl]);
   const now = new Date(), today = ymd(now);
   const [ym, setYm] = useState({ y: now.getFullYear(), m: now.getMonth() });
   const [on0, setOn] = usePersisted<Record<Kind, boolean>>('mcalKinds', { earn: true, econ: true, fed: true, ipo: true, hol: true, day: true });
@@ -93,6 +109,25 @@ export function MonthCalendar({ live, econ, mySyms }: { live: boolean; econ: Eco
     return m;
   }, [d, econ, mySyms, mineOnly, on0, stats, ym.y, ym.m, moves]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const [heatOn, setHeatOn] = usePersisted('mcalHeat', true);
+  const heat = useMemo(() => new Map([...byDay].map(([k, xs]) => [k, heatOf(xs)])), [byDay]);
+  // your week: the next five trading days, your names plus the heaviest events
+  const week = useMemo(() => {
+    const out: { k: string; evs: Ev[] }[] = [];
+    for (let x = new Date(); out.length < 5; x.setDate(x.getDate() + 1)) {
+      const k = ymd(x); if (x.getDay() === 0 || x.getDay() === 6 || NYSE_HOLIDAYS[k]) continue;
+      const xs = (byDay.get(k) ?? []).filter((e) => e.kind !== 'hol');
+      out.push({ k, evs: [...xs.filter((e) => e.mine), ...xs.filter((e) => !e.mine && (e.kind === 'fed' || (e.kind === 'econ' && e.big) || (e.kind === 'earn' && e.big) || (e.kind === 'day' && e.big)))].slice(0, 4) });
+    }
+    return out;
+  }, [byDay]);
+  // earnings season meter: reports per week across the loaded window
+  const season = useMemo(() => {
+    const wk = new Map<string, number>();
+    for (const [k, n] of Object.entries(d?.totals ?? {})) { const x = new Date(`${k}T12:00:00`); x.setDate(x.getDate() - ((x.getDay() + 6) % 7)); const w = ymd(x); wk.set(w, (wk.get(w) ?? 0) + n); }
+    return [...wk].sort((a, b) => a[0].localeCompare(b[0]));
+  }, [d]);
+  const smax = Math.max(1, ...season.map((x) => x[1]));
   const first = new Date(ym.y, ym.m, 1), last = new Date(ym.y, ym.m + 1, 0);
   const start = new Date(first); start.setDate(first.getDate() - ((first.getDay() + 6) % 7));
   const cells: Date[] = []; for (const x = new Date(start); x <= last || cells.length % 5; x.setDate(x.getDate() + 1)) if (x.getDay() > 0 && x.getDay() < 6) cells.push(new Date(x));
@@ -108,8 +143,21 @@ export function MonthCalendar({ live, econ, mySyms }: { live: boolean; econ: Eco
         <button className="btn sm" onClick={() => move(1)} aria-label="Next month">›</button>
         <button className="btn sm" onClick={() => setYm({ y: now.getFullYear(), m: now.getMonth() })}>Today</button>
         <span className="mcal-legend">{KINDS.map((x) => <button key={x.k} className={`mcal-key k-${x.k} ${on[x.k] ? 'on' : ''}`} onClick={() => setOn({ ...on, [x.k]: !on[x.k] })} aria-pressed={on[x.k]}>{x.label}</button>)}
-          <button className={`mcal-key k-mine ${mineOnly ? 'on' : ''}`} onClick={() => setMineOnly(!mineOnly)} aria-pressed={mineOnly}>★ My tickers only</button></span>
+          <button className={`mcal-key k-mine ${mineOnly ? 'on' : ''}`} onClick={() => setMineOnly(!mineOnly)} aria-pressed={mineOnly}>★ My tickers only</button>
+          <button className={`mcal-key k-heat ${heatOn ? 'on' : ''}`} onClick={() => setHeatOn(!heatOn)} aria-pressed={heatOn} title="Tiles glow brighter on market-moving days">Heat</button></span>
         {d && <Fresh kind="delayed" at={d.asOf} src={`${d.source}. Economic dates: FRED release calendar. Fed: Federal Reserve schedule. Earnings dates can move; companies confirm them a few weeks ahead.`} />}
+      </div>
+      <div className="mcal-top">
+        <div className="mcal-week" aria-label="Your week">
+          {week.map((w) => <div key={w.k} className={`mcal-wd ${heatOn ? '' : 'noheat'}`} style={{ ['--h' as string]: Math.min(1, (heat.get(w.k) ?? 0) / 12) }} onClick={() => setDay(w.k)}>
+            <div className="mcal-wdh"><b>{new Date(`${w.k}T12:00:00`).toLocaleDateString('en-US', { weekday: 'short', day: 'numeric' })}</b><span className="small muted">{until(w.k)}</span></div>
+            {w.evs.length ? w.evs.map((e) => <button key={e.key} className={`mcal-ev k-${e.kind} ${e.mine ? 'mine' : ''}`} data-sym={e.kind === 'earn' ? e.sym : undefined} onClick={(ev) => { ev.stopPropagation(); e.run(); }}>{e.mine && '★ '}{e.label}{e.move != null && <span className="mcal-mv">±{e.move.toFixed(1)}%</span>}</button>) : <span className="small muted">quiet</span>}
+          </div>)}
+        </div>
+        {season.length > 1 && <div className="mcal-season" title="Earnings reports per week (Nasdaq calendar): the tall bars are earnings season">
+          <span className="small muted">Earnings season</span>
+          <div className="mcal-sbars">{season.map(([w, n]) => <i key={w} style={{ height: `${Math.max(6, (n / smax) * 100)}%` }} className={w <= today && today < ymd(new Date(Date.parse(`${w}T12:00:00`) + 7 * 86400_000)) ? 'now' : ''} title={`Week of ${w}: ${n} reports`} />)}</div>
+        </div>}
       </div>
       {err && <p className="small down">{err}</p>}
       {!live && <p className="small muted">Live data only: Fed meetings and holidays still show.</p>}
@@ -119,8 +167,8 @@ export function MonthCalendar({ live, econ, mySyms }: { live: boolean; econ: Eco
           const k = ymd(c), evs = byDay.get(k) ?? [], out = c.getMonth() !== ym.m, hol = evs.find((e) => e.kind === 'hol');
           const shown = evs.filter((e) => e.kind !== 'hol').slice(0, 6), more = evs.filter((e) => e.kind !== 'hol').length - shown.length;
           return (
-            <div key={k} className={`mcal-day ${out ? 'out' : ''} ${k === today ? 'today' : ''} ${k < today ? 'past' : ''} ${hol ? 'hol' : ''} ${day === k ? 'sel' : ''}`} onClick={() => setDay(day === k ? null : k)} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter') setDay(k); }}>
-              <div className="mcal-dn"><span>{c.getDate()}</span>{hol && <span className="mcal-hol" title={hol.label}>closed</span>}{!covered(k) && !out && live && <span className="mcal-nc" title="Outside the loaded window (about a week back to five weeks ahead): earnings and IPOs not loaded for this day">·</span>}</div>
+            <div key={k} className={`mcal-day ${out ? 'out' : ''} ${k === today ? 'today' : ''} ${k < today ? 'past' : ''} ${hol ? 'hol' : ''} ${day === k ? 'sel' : ''} ${heatOn ? 'heat' : ''}`} style={heatOn ? { ['--h' as string]: Math.min(1, (heat.get(k) ?? 0) / 12) } : undefined} onClick={() => setDay(day === k ? null : k)} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter') setDay(k); }}>
+              <div className="mcal-dn"><span>{c.getDate()}</span>{dayPnl.has(k) && <span className={`mcal-pnl ${dayPnl.get(k)! >= 0 ? 'up' : 'dn'}`} style={{ ['--s' as string]: 0.45 + 0.55 * Math.min(1, Math.abs(dayPnl.get(k)!) / pnlMax) }} title={`Your realized P&L: ${sUsd(dayPnl.get(k)!)}`}>{sUsd(dayPnl.get(k)!)}</span>}{hol && <span className="mcal-hol" title={hol.label}>closed</span>}{!covered(k) && !out && live && <span className="mcal-nc" title="Outside the loaded window (about a week back to five weeks ahead): earnings and IPOs not loaded for this day">·</span>}</div>
               <div className="mcal-evs">
                 {shown.map((e) => <button key={e.key} className={`mcal-ev k-${e.kind} ${e.mine ? 'mine' : ''} ${e.big ? 'big' : ''}`} data-sym={e.kind === 'earn' ? e.sym : undefined} title={`${e.label}${e.time ? ` · ${e.time}` : ''}${e.sub ? ` · ${e.sub}` : ''}`} onClick={(ev) => { ev.stopPropagation(); e.run(); }}>{e.mine && '★ '}{e.label}{e.move != null && <span className="mcal-mv" title="Options-implied move for the report">±{e.move.toFixed(1)}%</span>}{e.kind !== 'earn' && e.time ? <span className="mcal-t"> {e.time}</span> : null}</button>)}
                 {more > 0 && <span className="mcal-more">+{more} more</span>}
@@ -129,6 +177,13 @@ export function MonthCalendar({ live, econ, mySyms }: { live: boolean; econ: Eco
           );
         })}
       </div>
+      {groups.some((g) => g.days) && <details className="mcal-you">
+        <summary>Your trading on event days <span className="small muted">· from your journal, {dayPnl.size} trading days</span></summary>
+        <table className="ql-t"><thead><tr><th>Kind of day</th><th className="r">Days traded</th><th className="r">Green days</th><th className="r">Average day</th><th className="r">Total</th></tr></thead><tbody>
+          {groups.filter((g) => g.days).map((g) => <tr key={g.key} className={g.days < 3 ? 'thin' : ''}><td>{g.label}</td><td className="r num">{g.days}</td><td className="r num">{Math.round(g.green * 100)}%</td><td className={`r num ${g.avg >= 0 ? 'up' : 'dn'}`}>{sUsd(g.avg)}</td><td className={`r num ${g.total >= 0 ? 'up' : 'dn'}`}>{sUsd(g.total)}</td></tr>)}
+        </tbody></table>
+        <p className="small muted">Compare each row with "All other days". A few days is not a pattern: rows with under 3 days are dimmed. Your history, not advice.</p>
+      </details>}
       {day && <div className="mcal-dayview">
         <div className="mcal-dvh"><b>{new Date(`${day}T12:00:00`).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}</b><span className="small muted">{sel.length} event{sel.length === 1 ? '' : 's'}</span><button className="icon-btn" onClick={() => setDay(null)} aria-label="Close day">×</button></div>
         {!sel.length ? <p className="small muted">Nothing on this day{!covered(day) ? ' (outside the loaded window)' : ''}.</p> :
