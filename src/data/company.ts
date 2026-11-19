@@ -6,6 +6,7 @@ import type { Profile } from '../../shared/parse';
 import { keywordSentiment } from '../../shared/news';
 import { DEMO_AT, rng } from '../lib/demo';
 import { load, save } from '../lib/store';
+import { idbGet, idbSet } from '../lib/idb';
 
 /* ---------------- names (cached in this browser; names rarely change) ---------------- */
 const nameCache: Record<string, string> = load('names', {});
@@ -99,6 +100,33 @@ export interface CompanyData {
   quotes?: { customers: string[]; suppliers: string[] } | null;
 }
 const companyCache = new Map<string, CompanyData>();
+// A finished company read (10-K map included) is also kept on this device for 30 days: 10-Ks change once a year, so
+// opening a company again is instant. The quick part (price, market cap, peers) still refreshes in the background.
+const KEEP_MS = 30 * 86400_000;
+const good = (d: CompanyData) => !d.errors?.gemini && !d.errors?.filing && !d.pending;
+const keep = (sym: string, d: CompanyData) => { companyCache.set(sym, d); if (good(d) && d.facts) void idbSet(`company:${sym}`, { at: Date.now(), d }).catch(() => {}); };
+async function stored(sym: string): Promise<CompanyData | null> {
+  try { const x = await idbGet<{ at: number; d: CompanyData }>(`company:${sym}`); return x && Date.now() - x.at < KEEP_MS ? x.d : null; } catch { return null; }
+}
+const fetchCo = async (sym: string, quick: boolean): Promise<CompanyData> => {
+  const r = await fetch(`/api/research?fn=company&symbol=${encodeURIComponent(sym)}${quick ? '&quick=1' : ''}`);
+  const j = await r.json();
+  if (!r.ok) throw new Error(j.error ?? `HTTP ${r.status}`);
+  return j as CompanyData;
+};
+/** Start reading a company in the background (hovering a ticker, opening the peek) so its page is ready on click. */
+const warming = new Set<string>();
+export async function prefetchCompany(sym: string) {
+  if (!sym || companyCache.has(sym) || warming.has(sym) || warming.size >= 2) return;
+  warming.add(sym);
+  try {
+    const s0 = await stored(sym); if (s0) { companyCache.set(sym, s0); return; }
+    const q = await fetchCo(sym, true);
+    if (good(q)) { keep(sym, q); return; }
+    const full = await fetchCo(sym, false); // the server reads the 10-K now and keeps it, the page then opens from cache
+    if (good(full)) keep(sym, full);
+  } catch { /* a click will try again */ } finally { warming.delete(sym); }
+}
 
 function demoCompany(sym: string, name: string): CompanyData {
   const pick = (xs: string[], n: number, seed: number) => { const r = rng(seed); return [...xs].sort(() => r() - 0.5).slice(0, n); };
@@ -132,31 +160,34 @@ export function useCompany(sym: string, name: string, mode: DataMode): { data: C
     if (hit) { setSt({ data: hit, loading: false }); return; }
     let stop = false;
     setSt({ data: null, loading: true });
-    const get = async (quick: boolean) => {
-      const r = await fetch(`/api/research?fn=company&symbol=${encodeURIComponent(sym)}${quick ? '&quick=1' : ''}`);
-      const j = await r.json();
-      if (!r.ok) throw new Error(j.error ?? `HTTP ${r.status}`);
-      return j as CompanyData;
-    };
+    const get = (quick: boolean) => fetchCo(sym, quick);
     // quick answer first (profile, SEC facts, peers), then the 10-K read if it isn't cached yet
     (async () => {
       try {
+        // saved copy on this device: show it at once, then refresh the quick numbers behind it (the map stays)
+        const saved = await stored(sym);
+        if (stop) return;
+        if (saved) {
+          setSt({ data: saved, loading: false }); companyCache.set(sym, saved);
+          const q = await get(true).catch(() => null);
+          if (!stop && q) { const merged = { ...saved, ...q, facts: q.pending || !q.facts ? saved.facts : q.facts, pending: false }; keep(sym, merged); setSt({ data: merged, loading: false }); }
+          return;
+        }
         const q = await get(true);
         if (stop) return;
-        const good = (d: CompanyData) => !d.errors?.gemini && !d.errors?.filing; // a failed read is never pinned in memory
-        if (!q.pending && good(q)) { companyCache.set(sym, q); setSt({ data: q, loading: false }); return; }
+        if (good(q)) { keep(sym, q); setSt({ data: q, loading: false }); return; }
         setSt({ data: q, loading: false });
         setReading(true);
         let full = await get(false);
         // the free AI is often briefly overloaded: one automatic second try after 20 seconds
         if (!stop && !good(full) && n === 0) { await new Promise((r) => setTimeout(r, 20_000)); if (!stop) full = await get(false); }
         if (stop) return;
-        if (good(full)) companyCache.set(sym, full);
+        if (good(full)) keep(sym, full);
         setSt({ data: full, loading: false });
       } catch (e) { if (!stop) setSt((s) => ({ data: s.data, loading: false, error: (e as Error).message })); }
       if (!stop) setReading(false);
     })();
     return () => { stop = true; setReading(false); };
   }, [sym, mode.kind, n]); // eslint-disable-line react-hooks/exhaustive-deps
-  return { ...st, reading, retry: () => { companyCache.delete(sym); setN((x) => x + 1); } };
+  return { ...st, reading, retry: () => { companyCache.delete(sym); void idbSet(`company:${sym}`, null).catch(() => {}); setN((x) => x + 1); } };
 }

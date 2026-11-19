@@ -18,13 +18,32 @@ const LABEL: Record<Freshness, string> = {
 
 const SHORT: Record<Freshness, string> = { demo: 'DEMO', live: 'LIVE', delayed: 'DELAYED', eod: 'EOD', unavailable: 'N/A FREE', pending: 'TODO', nodata: 'NO DATA' };
 
-/** Source + freshness badge. Required on every panel. */
+const LAG: Record<Freshness, string> = {
+  live: 'Live: within a few seconds of the market.',
+  delayed: 'Delayed: about 15 minutes behind live prices (free feeds are delayed by exchange rules).',
+  eod: 'End of day: the last closing values, updated once after the close (about 4:15 pm ET) or when the source publishes.',
+  demo: 'Demo data: sample numbers, not real market data.',
+  unavailable: 'Not available on the free tier of this source.',
+  pending: 'Not built yet.',
+  nodata: 'No data came back from the source.',
+};
+const ago = (ms: number) => { const m = Math.round(ms / 60000); return m < 1 ? 'just now' : m < 60 ? `${m} min ago` : m < 48 * 60 ? `${Math.round(m / 60)} h ago` : `${Math.round(m / 1440)} days ago`; };
+
+/** Source + freshness badge. Required on every panel. Hover (or focus) shows how far behind it is, when it was last
+ *  updated and where it comes from. */
 export function Fresh({ kind, at, src }: { kind: Freshness; at?: number; src?: string }) {
+  const [now, setNow] = useState(0);
   return (
-    <span className={`fresh fresh-${kind}`} title={[src && `Source: ${src}`, at != null && `As of ${etTime(at, true)} ET`].filter(Boolean).join(' · ') || undefined}>
+    <span className={`fresh fresh-${kind}`} tabIndex={0} onMouseEnter={() => setNow(Date.now())} onFocus={() => setNow(Date.now())} aria-label={`${LABEL[kind]}. ${LAG[kind]}`}>
       <span className="fresh-long">{LABEL[kind]}</span>
       <span className="fresh-short">{SHORT[kind]}</span>
       {at != null && <span className="fresh-at"> · {etTime(at)} ET</span>}
+      {now > 0 && <span className="fresh-pop" role="tooltip">
+        <b>{LABEL[kind]}</b>
+        <span>{LAG[kind]}</span>
+        {at != null && <span>Last updated {etTime(at, true)} ET · <b>{ago(now - at)}</b>{kind === 'delayed' ? ` (so prices reflect about ${etTime(at - 15 * 60000)} ET)` : ''}</span>}
+        {src && <span className="fresh-src">Source: {src}</span>}
+      </span>}
     </span>
   );
 }

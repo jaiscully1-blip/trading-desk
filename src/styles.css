@@ -3191,7 +3191,7 @@ button.chip[data-st="bull"] { color: var(--up); } button.chip[data-st="bear"] { 
 .sp-slot { display: grid; place-items: center; background: var(--panel-2); }
 .spd { position: fixed; z-index: 40; display: flex; flex-direction: column; }
 .spd.inslot .spd-frame { flex: 1; width: 100%; border: 0; border-radius: 10px; }
-.spd.docked { right: 14px; bottom: 44px; width: 240px; height: 64px; border-radius: 10px; box-shadow: 0 6px 18px var(--shadow); overflow: visible; }
+.spd.docked { width: 240px; height: 64px; border-radius: 10px; box-shadow: 0 6px 18px var(--shadow); overflow: visible; }
 /* Spotify's smallest embed is 80px tall; scale it to 80% so the mini player is 240 x 64 with play, skip and save still there */
 .spd.docked .spd-frame { width: 300px; height: 80px; border: 0; border-radius: 12px; transform: scale(.8); transform-origin: top left; }
 .spd-x { position: absolute; top: -7px; left: -7px; z-index: 1; width: 18px; height: 18px; border-radius: 50%; border: 1px solid var(--line-2); background: var(--panel); color: var(--muted); font-size: 12px; line-height: 1; display: grid; place-items: center; cursor: pointer; padding: 0; }
@@ -3330,3 +3330,10 @@ a:hover, .link:hover { text-decoration-color: var(--link); }
 .fc-front, .ln-flash, .lt-tile { background: var(--panel) !important; }
 .nv-logo { background: var(--pg, var(--accent)) !important; }
 :root[data-theme='dark'] body::before { background: none !important; }
+/* freshness badge hover card */
+.fresh { position: relative; cursor: help; }
+.fresh-pop { display: none; position: absolute; z-index: 80; top: calc(100% + 6px); right: 0; width: 280px; padding: 9px 11px; border-radius: 10px; background: var(--panel); border: 1px solid var(--line-2); box-shadow: var(--shadow); color: var(--text); font: 400 12px/1.45 'IBM Plex Sans', sans-serif; letter-spacing: 0; text-transform: none; white-space: normal; text-align: left; flex-direction: column; gap: 4px; }
+.fresh:hover .fresh-pop, .fresh:focus-within .fresh-pop, .fresh:focus .fresh-pop { display: flex; }
+.fresh-pop b { font-weight: 600; } .fresh-src { color: var(--muted); }
+.spd-grip { position: absolute; top: -8px; right: -8px; z-index: 2; width: 20px; height: 20px; display: grid; place-items: center; border-radius: 50%; background: var(--panel); border: 1px solid var(--line-2); color: var(--muted); font-size: 11px; cursor: grab; touch-action: none; user-select: none; }
+.spd-grip:active { cursor: grabbing; color: var(--text); }
