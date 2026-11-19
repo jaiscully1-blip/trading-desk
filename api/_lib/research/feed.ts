@@ -53,8 +53,11 @@ export async function GET(req: Request): Promise<Response> {
   const want = new Set([...mine, ...BIG_CAPS]);
   const items: FeedItem[] = [];
   const sources: { name: string; ok: boolean; count: number; error?: string }[] = [];
+  const waiting = new Set<string>();
   const run = async (name: string, f: () => Promise<FeedItem[]>) => {
+    waiting.add(name);
     try { const r = await f(); items.push(...r); sources.push({ name, ok: true, count: r.length }); } catch (e) { sources.push({ name, ok: false, count: 0, error: (e as Error).message }); }
+    waiting.delete(name);
   };
   const now = Date.now();
   const jobs: Promise<void>[] = [];
@@ -149,7 +152,9 @@ export async function GET(req: Request): Promise<Response> {
     }));
     return live.flat();
   }));
-  await Promise.all(jobs);
-  items.sort((a, b) => a.t - b.t);
-  return json({ items: items.slice(-400), sources, asOf: now }, { sMaxAge: 60 });
+  await Promise.race([Promise.all(jobs), new Promise((r) => setTimeout(r, 5000))]);
+  const slow = [...waiting];
+  for (const name of slow) sources.push({ name, ok: false, count: 0, error: 'slow: still loading, shows on the next refresh' });
+  const out = [...items].sort((a, b) => a.t - b.t);
+  return json({ items: out.slice(-400), sources, asOf: now }, { sMaxAge: slow.length ? 10 : 60 });
 }

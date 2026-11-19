@@ -21,6 +21,7 @@ import { encodeInstant } from '../shared/parse';
 import { patchWithQuote, useDataMode, useLateMode, useMacro, useQuotes, useSeries, type SeriesState } from './data/live';
 import { TopStrip } from './components/TopStrip';
 import { Watchlist, orderedWatchlist } from './components/Watchlist';
+import { mostTraded, topTraded } from './lib/mostTraded';
 import { LevelsPanel, type LevelCol } from './components/Levels';
 import { RightRail, type NewsFilter } from './components/RightRail';
 import { CheckInDialog, OpenPositions, RiskPanel, TradeTicket, uid } from './components/Trading';
@@ -666,7 +667,17 @@ export default function App() {
   const removeSym = (s: string) => setBoards((x) => { const y = { ...x }; delete y[s]; return y; });
   const addSym = (s: string) => { setBoards((x) => (x[s] ? x : { ...x, [s]: 'watching' })); flash(`${s} added to Watching`); };
 
-  const order = useMemo(() => [...INDEXES, ...orderedWatchlist(quotes, boards)], [quotes, boards]);
+  // the tickers you trade most (journal / broker CSV) go on the watchlist once, and sort to the top of their board.
+  // One you remove stays removed: it is remembered in wlAutoAdded and never re-added.
+  const traded = useMemo(() => mostTraded(trades), [trades]);
+  useEffect(() => {
+    if (!jLoaded) return;
+    const seen = new Set(load<string[]>('wlAutoAdded', [])), add = topTraded(traded, 8).filter((s) => !seen.has(s) && /^[A-Z.]{1,6}$/.test(s));
+    if (!add.length) return;
+    setBoards((x) => { const y = { ...x }; for (const s of add) if (!y[s]) y[s] = 'watching'; return y; });
+    save('wlAutoAdded', [...seen, ...add]);
+  }, [traded, jLoaded, setBoards]);
+  const order = useMemo(() => [...INDEXES, ...orderedWatchlist(quotes, boards, traded)], [quotes, boards, traded]);
   const move = (d: 1 | -1) => {
     const i = order.indexOf(sel);
     const n = order[Math.max(0, Math.min(order.length - 1, (i < 0 ? 0 : i) + d))];
@@ -858,7 +869,7 @@ export default function App() {
   const q = quotes[sel] ?? blankQuote(sel);
   const quoteFresh: Freshness = live ? (qs ? (qs.error && !Object.keys(qs.quotes).length ? 'nodata' : 'live') : 'pending') : 'demo';
   const wlProps = {
-    quotes, boards, setBoard, removeSym, sel, onSelect: setSel,
+    quotes, boards, setBoard, removeSym, sel, onSelect: setSel, traded,
     fresh: quoteFresh, asOf: live ? qs?.asOf : DEMO_AT, source: live ? qs?.source : 'Generated sample quotes', rsPending: live,
   };
   const scanner = (

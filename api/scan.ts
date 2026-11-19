@@ -66,8 +66,10 @@ export async function GET(req: Request): Promise<Response> {
 
   // Short interest (FINRA, keyless) + shares outstanding (Finnhub profile) for % of shares out
   const names = bases.map((b) => b.sym).filter((s) => s !== 'SPY' && s !== 'QQQ');
-  const si = names.length ? await shortInterest(names) : new Map();
+  const siP = names.length ? shortInterest(names) : Promise.resolve(new Map());
   const shares = new Map<string, number | null>();
+  const floats = new Map<string, { shares: number; asOf: string } | null>();
+  const phaseFloat = (async () => {
   if (hasKey('finnhub')) {
     await Promise.all(names.map(async (s) => {
       try { shares.set(s, (await cached(`prof:${s}`, 7 * 86400, () => finnhubProfile(s))).val.sharesOut); } catch { /* optional */ }
@@ -75,7 +77,6 @@ export async function GET(req: Request): Promise<Response> {
   }
 
   // Float (estimated): SEC public float (dollar value held by non-affiliates on one date, from 10-K covers) ÷ that day's close.
-  const floats = new Map<string, { shares: number; asOf: string } | null>();
   if (hasKey('sec')) {
     try {
       const [tick, pf] = await Promise.all([
@@ -95,10 +96,11 @@ export async function GET(req: Request): Promise<Response> {
       }));
     } catch { /* optional */ }
   }
+  })();
 
   // 5-year low from weekly bars (one small call per ticker a day)
   const lo5 = new Map<string, number | null>();
-  await Promise.all(names.slice(0, 80).map(async (s) => {
+  const phaseLow = Promise.all(names.slice(0, 80).map(async (s) => {
     try {
       const { val } = await cached(`yh:5ylow:${s}`, 86400, async () => {
         const j = await getJson(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(s.replace('.', '-'))}?range=5y&interval=1wk`, 'yahoo', 8000, { headers: YH_HEADERS });
@@ -111,7 +113,7 @@ export async function GET(req: Request): Promise<Response> {
 
   // Catalyst: any company news in the last 24h (Finnhub)
   const catalysts = new Map<string, ScanBase['catalyst']>();
-  if (hasKey('finnhub')) {
+  const phaseNews = !hasKey('finnhub') ? Promise.resolve() : (async () => {
     await Promise.all(names.map(async (s) => {
       try {
         const { val } = await cached(`news:${s}`, ttl(1800, 3 * 3600), () => finnhubNews(s));
@@ -119,7 +121,8 @@ export async function GET(req: Request): Promise<Response> {
         catalysts.set(s, { count: recent.length, latest: recent[0]?.headline, latestAt: recent[0]?.t });
       } catch { /* leave undefined = unknown */ }
     }));
-  }
+  })();
+  const [si] = await Promise.all([siP, phaseFloat, phaseLow, phaseNews]);
 
   for (const b of bases) {
     if (b.sym === 'SPY' || b.sym === 'QQQ') continue;
