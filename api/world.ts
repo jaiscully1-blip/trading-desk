@@ -5,7 +5,7 @@ import { CHOKEPOINTS, LAYER_QUERY, LAYER_WORDS, REGIONS, headlineHotspots, layer
 import { keywordSentiment } from '../shared/news.js';
 import { placeOf } from '../shared/places.js';
 import { FEEDS, aisSnapshot, finnhubMarketNews, gdeltCooling, gdeltHotspots, gdeltLayer, geoIsDown, rssFeed, QUOTE_CHAIN } from './_lib/adapters.js';
-import { cached, getCached, hasKey, json, ttl } from './_lib/core.js';
+import { cached, getCached, hasKey, json, ttl, markFresh } from './_lib/core.js';
 import { snapshot } from './_lib/research/markets.js';
 
 export const maxDuration = 30;
@@ -86,6 +86,7 @@ async function etfMoves(errors: Record<string, string>): Promise<{ chg: Record<s
 }
 
 export async function GET(req?: Request): Promise<Response> {
+  markFresh(req);
   const layer = req ? new URL(req.url).searchParams.get('layer') : null;
   if (layer && layer in LAYER_QUERY) return extra(layer as ExtraLayer);
   const errors: Record<string, string> = {};

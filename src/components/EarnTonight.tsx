@@ -74,8 +74,8 @@ export function EarnTonight({ earnings, days, mySyms, onSelect, compact }: { ear
         <span className="chips"><button className={`chip sm ${sortBy === 'size' ? 'on' : ''}`} onClick={() => setSortBy('size')}>Biggest companies</button><button className={`chip sm ${sortBy === 'move' ? 'on' : ''}`} onClick={() => setSortBy('move')}>Biggest moves</button></span>
         {asOf > 0 && <Fresh kind="delayed" at={asOf} src="After-hours / premarket prices: Yahoo Finance extended-hours chart data (unofficial, delayed). Estimates and actuals: Nasdaq's calendar (unofficial) + Finnhub." />}
       </div>
-      <Section title={`After the close · ${dayName(win.tonight.day)}`} sub="moves are after-hours vs that day's close" rows={win.tonight.rows} out={passed(win.tonight.day, 16 * 3600 + 300)} />
-      <Section title={`Before the open · ${dayName(win.morning.day)}`} sub="moves are premarket vs the previous close, once trading starts at 4:00 ET" rows={win.morning.rows} out={passed(win.morning.day, 9.5 * 3600)} />
+      {Section({ title: `After the close · ${dayName(win.tonight.day)}`, sub: "moves are after-hours vs that day's close", rows: win.tonight.rows, out: passed(win.tonight.day, 16 * 3600 + 300) })}
+      {Section({ title: `Before the open · ${dayName(win.morning.day)}`, sub: "moves are premarket vs the previous close, once trading starts at 4:00 ET", rows: win.morning.rows, out: passed(win.morning.day, 9.5 * 3600) })}
       <p className="note">Companies with no announced time are on the Earnings tab. Extended-hours prices are thin and can swing; this is information, not a signal.</p>
     </div>
   );

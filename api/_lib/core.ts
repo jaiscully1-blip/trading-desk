@@ -157,9 +157,13 @@ export function setCached(k: string, val: unknown, ttlSec: number) {
   mem.set(k, { exp: Date.now() + ttlSec * 1000, val });
 }
 /** Fresh cache hit, else one shared in-flight fetch; on failure fall back to stale cache if present. */
+/** "Reload all data" on the desk adds _fresh to its requests: for a few seconds this server skips its saved copies
+ *  and asks the sources again (results are saved as usual, rate limits still apply). */
+let freshUntil = 0;
+export function markFresh(req?: Request) { try { if (req && new URL(req.url).searchParams.has('_fresh')) freshUntil = Date.now() + 15_000; } catch { /* no url */ } }
 export async function cached<T>(k: string, ttlSec: number, fn: () => Promise<T>): Promise<{ val: T; stale: boolean }> {
   const hit = getCached<T>(k);
-  if (hit?.fresh) return { val: hit.val, stale: false };
+  if (hit?.fresh && Date.now() > freshUntil) return { val: hit.val, stale: false };
   let p = inflight.get(k) as Promise<T> | undefined;
   if (!p) {
     p = fn().finally(() => inflight.delete(k));

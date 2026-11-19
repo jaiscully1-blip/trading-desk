@@ -14,7 +14,9 @@ export async function GET(req: Request): Promise<Response> {
   const errors: Record<string, string> = {};
   const now = Date.now();
   const days: string[] = [];
-  for (let k = -1; k <= 9; k++) { const d = ymd(now + k * 86400_000); const wd = new Date(`${d}T12:00:00Z`).getUTCDay(); if (wd !== 0 && wd !== 6) days.push(d); }
+  // span=month (the Calendars month view): a week back through about five weeks ahead; default: the next two weeks
+  const month = new URL(req.url).searchParams.get('span') === 'month';
+  for (let k = month ? -7 : -1; k <= (month ? 38 : 9); k++) { const d = ymd(now + k * 86400_000); const wd = new Date(`${d}T12:00:00Z`).getUTCDay(); if (wd !== 0 && wd !== 6) days.push(d); }
   const from = days[0], to = days[days.length - 1];
 
   // earnings

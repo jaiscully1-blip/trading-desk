@@ -3,9 +3,11 @@
 import { NYSE_HOLIDAYS, NYSE_EARLY, setMarketCalendar, ymdKey } from '../shared/marketCalendar.js';
 import { clock, et } from '../shared/clock.js';
 import { alphaMarketStatus, finnhubHolidays, finnhubMarketStatus, type LiveStatus } from './_lib/adapters.js';
-import { cached, hasKey, json } from './_lib/core.js';
+import { cached, hasKey, json, markFresh } from './_lib/core.js';
 
-export async function GET(): Promise<Response> {
+export async function GET(req?: Request): Promise<Response> {
+  markFresh(req);
+  markFresh(req);
   const sources: { name: string; ok: boolean; error?: string }[] = [];
   let extra: { holidays: Record<string, string>; early: Record<string, { close: number; name: string }> } = { holidays: {}, early: {} };
   if (hasKey('finnhub')) {

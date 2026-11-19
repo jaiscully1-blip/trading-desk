@@ -12,6 +12,7 @@ import { addResearch, useResearch } from '../lib/research';
 import { Star } from './common';
 import { TearSheet } from './TearSheet';
 import { MoveChart, type MPoint } from './MoveChart';
+import { prefetchCompany } from '../data/company';
 
 let stack: string[] = [];
 const subs = new Set<() => void>();
@@ -29,6 +30,7 @@ function Body({ sym, mode, quotes, onChart, onCompany }: { sym: string; mode: Da
   const [bars, setBars] = useState<MPoint[] | null>(null), [news, setNews] = useState<Head[] | null>(null), [note, setNote] = useState(''), [keptAt, setKeptAt] = useState(0);
   const notes = useResearch().filter((n) => n.sym === sym);
   const live = mode.kind === 'live', q = quotes[sym];
+  useEffect(() => { if (live) void prefetchCompany(sym); }, [sym, live]);
   useEffect(() => {
     let off = false; setBars(null); setNews(null);
     if (!live) return;

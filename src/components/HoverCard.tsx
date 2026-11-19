@@ -6,6 +6,7 @@ import type { Quote } from '../types';
 import { pct, px, tone } from '../lib/format';
 import { Spark } from './common';
 import { openPeek } from './CompanyPeek';
+import { prefetchCompany } from '../data/company';
 
 const SEL = '[data-sym], .sym-chip, .wl-row, .wl-sym, .msg-sym, .dx-row, .dx-wrow, .am-ix';
 const SYM = /^[A-Z][A-Z0-9.\-]{0,9}$/;
@@ -36,6 +37,8 @@ export default function HoverCard({ quotes, names }: { quotes: Record<string, Qu
         const x = Math.min(window.innerWidth - 250, Math.max(8, r.left));
         const y = r.bottom + 160 > window.innerHeight ? r.top - 150 : r.bottom + 6;
         setCard({ sym, x, y });
+        // resting on a ticker is a good hint you may open it: start reading its company map in the background
+        timer.current = setTimeout(() => void prefetchCompany(sym), 900);
       }, 420);
     };
     document.addEventListener('mouseover', onOver);

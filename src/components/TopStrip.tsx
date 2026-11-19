@@ -1,3 +1,4 @@
+import { ReloadButton } from './HealthPanel';
 import type { Freshness, MacroResult, Mode, Quote } from '../types';
 import { MarketChips } from './MarketPulse';
 import type { ClockState } from '../lib/clock';
@@ -89,6 +90,7 @@ export function TopStrip({
           <span className={`pill ${account.guard.lockout === 'Clear' ? 'ok' : 'bad'}`} title={account.guard.reason ?? undefined}>{account.guard.lockout}</span>
           {(account.demo || account.demoPrices) && <span title={account.demo ? 'Includes sample trades' : 'Open positions priced with demo quotes'}><Fresh kind="demo" /></span>}
         </button>
+        <ReloadButton />
         <button className="icon-btn" onClick={onTheme} title="Toggle theme (T)" aria-label="Toggle theme" data-key="T">
           {theme === 'dark' ? '☀' : '☾'}
         </button>

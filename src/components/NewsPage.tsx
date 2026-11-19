@@ -1,7 +1,7 @@
 // News page: Top stories (headlines from different outlets grouped into one story, ranked by how many outlets carry it),
 // Search (every headline this browser has seen in the last three weeks, plus what's loaded now), and By ticker (one
 // company's news from Yahoo Finance, Google News and Finnhub). Headlines and links only.
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, Fragment } from 'react';
 import { Linked } from './Linked';
 import type { DataMode } from '../data/live';
 import type { NewsItem } from '../../shared/news';
@@ -81,7 +81,7 @@ export default function NewsPage({ mode, news, sel, onChart }: { mode: DataMode;
                 {s.tone != null && <span className={toneCls(s.tone)}> · tone {s.tone > 0.2 ? 'positive' : s.tone < -0.2 ? 'negative' : 'mixed'}</span>}
                 {s.syms.map((x) => <button key={x} className="chip sm" onClick={() => onChart(x)}>{x}</button>)}
               </div>
-              <details className="small"><summary>{s.sources.join(', ')}</summary>{s.items.map((h) => <Row key={h.id} h={h} />)}</details>
+              <details className="small"><summary>{s.sources.join(', ')}</summary>{s.items.map((h) => <Fragment key={h.id}>{Row({ h: h })}</Fragment>)}</details>
             </div>
           ))}
           {!stories.length && <p className="hw-pad small muted">{current.length ? 'No story is being carried by two or more outlets yet.' : 'Loading headlines…'}</p>}
@@ -91,7 +91,7 @@ export default function NewsPage({ mode, news, sel, onChart }: { mode: DataMode;
       {tab === 'search' && (
         <div className="nx-list">
           <div className="nx-search"><input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder='Search headlines: tariffs chips, "rate cut", $NVDA' aria-label="Search headlines" /><span className="small muted">{q.trim() ? `${results.length} found` : `${archive.length.toLocaleString('en-US')} headlines kept (last 21 days, this browser only)`}</span></div>
-          {results.map((h) => <Row key={h.id} h={h} />)}
+          {results.map((h) => <Fragment key={h.id}>{Row({ h: h })}</Fragment>)}
           {q.trim() && !results.length && <p className="hw-pad small muted">Nothing matches. Every word has to appear; put exact phrases in quotes.</p>}
         </div>
       )}
@@ -104,7 +104,7 @@ export default function NewsPage({ mode, news, sel, onChart }: { mode: DataMode;
           {!live && <p className="hw-pad small muted">Needs the live desk.</p>}
           {live && !tk && <p className="hw-pad small muted">Loading {sym} news…</p>}
           {tk?.err && <p className="hw-pad small down">{tk.err}</p>}
-          {tk?.items.map((h) => <Row key={h.id} h={h} />)}
+          {tk?.items.map((h) => <Fragment key={h.id}>{Row({ h: h })}</Fragment>)}
           {tk && !tk.items.length && !tk.err && <p className="hw-pad small muted">No headlines for {sym} in the last few days.</p>}
         </div>
       )}

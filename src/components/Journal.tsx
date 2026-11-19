@@ -256,13 +256,13 @@ function StatsTab({ views }: { views: TradeView[] }) {
   return (
     <div className="jn-scroll stats">
       <div className="cards">
-        <Card l="Closed trades" v={String(s.trades)} />
-        <Card l="Win rate" v={s.winRate == null ? '—' : `${s.winRate.toFixed(1)}%`} />
-        <Card l="Expectancy" v={r2(s.expectancyR)} c={tone(s.expectancyR ?? 0)} />
-        <Card l="Expectancy $" v={s.expectancy$ == null ? '—' : sUsd(s.expectancy$)} c={tone(s.expectancy$ ?? 0)} />
-        <Card l="Avg win / loss" v={`${r2(s.avgWinR)} / ${r2(s.avgLossR)}`} />
-        <Card l="Profit factor" v={s.profitFactor == null ? '—' : Number.isFinite(s.profitFactor) ? s.profitFactor.toFixed(2) : '∞'} />
-        <Card l="Net" v={sUsd(s.net)} c={tone(s.net)} />
+        {Card({ l: "Closed trades", v: String(s.trades) })}
+        {Card({ l: "Win rate", v: s.winRate == null ? '—' : `${s.winRate.toFixed(1)}%` })}
+        {Card({ l: "Expectancy", v: r2(s.expectancyR), c: tone(s.expectancyR ?? 0) })}
+        {Card({ l: "Expectancy $", v: s.expectancy$ == null ? '—' : sUsd(s.expectancy$), c: tone(s.expectancy$ ?? 0) })}
+        {Card({ l: "Avg win / loss", v: `${r2(s.avgWinR)} / ${r2(s.avgLossR)}` })}
+        {Card({ l: "Profit factor", v: s.profitFactor == null ? '—' : Number.isFinite(s.profitFactor) ? s.profitFactor.toFixed(2) : '∞' })}
+        {Card({ l: "Net", v: sUsd(s.net), c: tone(s.net) })}
       </div>
       <h4>Time of day (entry, ET)</h4>
       <table className="grid tod">
@@ -273,9 +273,9 @@ function StatsTab({ views }: { views: TradeView[] }) {
         ))}</tbody>
       </table>
       <div className="stats-grid">
-        <G title="By setup" rows={group((v) => v.t.setup)} />
-        <G title="By grade" rows={group((v) => v.t.grade?.grade.replace('*', '') ?? '')} />
-        <G title="By emotion" rows={group((v) => v.t.emotion ?? '')} />
+        {G({ title: "By setup", rows: group((v) => v.t.setup) })}
+        {G({ title: "By grade", rows: group((v) => v.t.grade?.grade.replace('*', '') ?? '') })}
+        {G({ title: "By emotion", rows: group((v) => v.t.emotion ?? '') })}
       </div>
     </div>
   );

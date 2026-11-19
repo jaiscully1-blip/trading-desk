@@ -1,7 +1,9 @@
 // GET /api/health -> which providers have keys configured (never the keys themselves).
-import { hasKey, json } from './_lib/core.js';
+import { hasKey, json, markFresh } from './_lib/core.js';
 
-export async function GET(): Promise<Response> {
+export async function GET(req?: Request): Promise<Response> {
+  markFresh(req);
+  markFresh(req);
   return json({
     ok: true,
     providers: {

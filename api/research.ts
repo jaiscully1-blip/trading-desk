@@ -44,7 +44,7 @@ import { GET as tape } from './_lib/research/tape.js';
 import { btcnet, hisi, hours, housing, reactions, transcript, trending } from './_lib/research/extras.js';
 import { halts, idxmovers, optactive, perps, pulse, rates, world } from './_lib/research/worldmkt.js';
 import { global, globalnews, tickernews } from './_lib/research/global.js';
-import { cached, json } from './_lib/core.js';
+import { cached, json, markFresh } from './_lib/core.js';
 import { denyPrivate } from './_lib/private.js';
 import { finnhubCryptoNews, finnhubMetrics, finnhubRecs, frameCheck, xOembed } from './_lib/adapters.js';
 import { SYMBOL_RE } from './_lib/core.js';
@@ -91,6 +91,7 @@ export const maxDuration = 60;
 
 const ROUTES: Record<string, (req: Request) => Promise<Response>> = { deskcheck: async (req) => denyPrivate(req) ?? json({ ok: true }), names, earnings, 'company-news': companyNews, company, feed, 'crypto-news': () => cryptoNews(), frame, fundamentals, x: xEmbed, webull, discord, info, congress, premarket: () => premarket(), morning, gamma, 'webull-orders': webullOrdersGet, insider, polymarket, agents, kronos, 'econ-odds': () => econOdds(), eventcal, status, distress, credit, daycases: () => daycases(), lookup, bars, earnmoves, tearsheet, tape, hours: () => hours(), housing: () => housing(), btcnet: () => btcnet(), hisi: () => hisi(), reactions, world, halts: () => halts(), idxmovers, transcript, optactive: () => optactive(), trending: () => trending(), global: () => global(), globalnews: () => globalnews(), fundseries: fundseriesRoute, tickernews, rates: () => rates(), perps: () => perps(), pulse: () => pulse(), range: essayRange, teslareg, lot, altdata, wikiviews, stocktwits, pricebasket: () => pricebasket(), air: () => air(), airhist: () => airhist(), jets, econ: () => econ(), wx: () => wx(), plumb, plumbmkt: () => plumbmkt(), intel, intelcalls, intelguide, consensus, quantlab, qlevents, qlfeeds, macroextra: () => macroextra(), ...SMART_ROUTES, ...MARKET_ROUTES };
 export async function GET(req: Request): Promise<Response> {
+  markFresh(req);
   const fn = new URL(req.url).searchParams.get('fn') ?? '';
   const h = ROUTES[fn];
   return h ? h(req) : json({ error: `unknown fn; use one of ${Object.keys(ROUTES).join(', ')}` }, { status: 404 });

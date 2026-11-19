@@ -3,6 +3,7 @@
 // shrinks to a mini player in the corner when it isn't. The iframe is never moved in the page (moving an iframe
 // reloads it and stops the music), only repositioned with CSS.
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { load, save } from '../lib/store';
 
 type St = { src: string | null; slot: HTMLElement | null; label: string };
 let st: St = { src: null, slot: null, label: '' };
@@ -55,10 +56,22 @@ export function SpotifyDock() {
     const iv = setInterval(() => { if (!document.hidden) kick(); }, 400);
     return () => { cancelAnimationFrame(queued); ro.disconnect(); removeEventListener('scroll', kick, true); removeEventListener('resize', kick); removeEventListener('pointermove', kick); clearInterval(iv); };
   }, [s.slot]);
+  // where you dragged the mini player (offset from the bottom-right corner), kept between visits
+  const [pos, setPos] = useState<{ r: number; b: number }>(() => load('spdPos', { r: 14, b: 44 }));
+  const drag = useRef<{ x: number; y: number; r: number; b: number } | null>(null);
+  const clampPos = (p: { r: number; b: number }) => ({ r: Math.min(Math.max(4, p.r), innerWidth - 250), b: Math.min(Math.max(4, p.b), innerHeight - 74) });
+  useEffect(() => { const f = () => setPos((p) => clampPos(p)); addEventListener('resize', f); return () => removeEventListener('resize', f); }, []);
   if (!s.src) return null;
   const docked = !box;
+  const grip = {
+    onPointerDown: (e: React.PointerEvent) => { drag.current = { x: e.clientX, y: e.clientY, ...pos }; (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId); },
+    onPointerMove: (e: React.PointerEvent) => { const d = drag.current; if (d) setPos(clampPos({ r: d.r - (e.clientX - d.x), b: d.b - (e.clientY - d.y) })); },
+    onPointerUp: () => { if (drag.current) { drag.current = null; save('spdPos', pos); } },
+    onDoubleClick: () => { const p = { r: 14, b: 44 }; setPos(p); save('spdPos', p); },
+  };
   return (
-    <div className={`spd ${docked ? 'docked' : 'inslot'}`} style={box ? { left: box.x, top: box.y, width: box.w, height: box.h, clipPath: box.clip } : undefined} aria-label="Spotify player">
+    <div className={`spd ${docked ? 'docked' : 'inslot'}`} style={box ? { left: box.x, top: box.y, width: box.w, height: box.h, clipPath: box.clip } : { right: pos.r, bottom: pos.b }} aria-label="Spotify player">
+      {docked && <div className="spd-grip" title="Drag to move the player · double-click to put it back in the corner" {...grip}>⠿</div>}
       {docked && <button className="spd-x" title={`${s.label || 'Spotify'}: stop and close the player`} aria-label="Stop Spotify" onClick={() => { st = { src: null, slot: st.slot, label: '' }; emit(); }}>×</button>}
       <iframe className="spd-frame" src={s.src} title="Spotify" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" />
     </div>

@@ -51,7 +51,10 @@ const AltDataPage = lazy(() => import('./components/AltDataPage'));
 import { SpotifyDock } from './components/SpotifyDock';
 import { InfoDrawer } from './components/InfoDrawer';
 import { LogoDecorator } from './components/Logos';
+import { HealthPanel, openHealth } from './components/HealthPanel';
 import { CompanyPeek, openPeek } from './components/CompanyPeek';
+const MonthCalendar = lazy(() => import('./components/MonthCalendar').then((m) => ({ default: m.MonthCalendar })));
+const CalViewSwitch = ({ v, set }: { v: 'list' | 'month'; set: (x: 'list' | 'month') => void }) => <div className="cal-switch" role="tablist" aria-label="Calendar view">{(['list', 'month'] as const).map((x) => <button key={x} role="tab" aria-selected={v === x} className={`chip sm ${v === x ? 'on' : ''}`} onClick={() => set(x)}>{x === 'list' ? 'List' : 'Month calendar'}</button>)}</div>;
 const QuantLabPage = lazy(() => import('./components/QuantLabPage'));
 const RealEconPage = lazy(() => import('./components/RealEconPage'));
 const PlumbingPage = lazy(() => import('./components/PlumbingPage'));
@@ -248,6 +251,7 @@ export default function App() {
   const [autoBackup, setAutoBackup] = usePersisted('autoBackup', true);
   const [replayId, setReplayId] = useState<string | null>(null);
   const [recapOpen, setRecapOpen] = useState<string | false>(false);
+  const [calView, setCalView] = usePersisted<'list' | 'month'>('calView', 'list');
   const [syncOpen, setSyncOpen] = useState(false);
   const [watchOnly, setWatchOnly] = usePersisted('tickerWatchOnly', false);
   const [orMin, setOrMin] = usePersisted<OrMinutes>('orMinutes', 15);
@@ -739,6 +743,8 @@ export default function App() {
     { id: 'policy', label: 'Macro & Policy: earnings season scoreboard, tariff tracker, policy odds by sector', hint: 'Shift O', run: () => setPage('policy') },
     { id: 'plumbing', label: 'Shorts & Supply (was Market Plumbing): short volume, dark pools, borrow fee, fails to deliver, unusual options, buybacks, dilution, lockups, mergers', hint: 'Shift P', run: () => setPage('plumbing') },
     { id: 'realecon', label: 'Real Economy: air traffic, CEO jets, rail, power demand, gas prices, freight, weather', hint: 'Shift E', run: () => setPage('realecon') },
+    { id: 'health', label: 'Desk health report: failed or slow data, errors, sources (copy for Claude)', run: () => openHealth() },
+    { id: 'reloadall', label: 'Reload all data (skip every cache)', run: () => { import('./lib/health').then((m) => m.reloadAll()); } },
     { id: 'quant', label: 'Quant Lab: relationship finder, correlations with factors, earnings and Amazon review tone', run: () => setPage('quant') },
     { id: 'altdata', label: 'Alt Data: hiring, app ranks, Wikipedia interest, GitHub, Steam, Reddit and StockTwits, price basket', hint: 'Shift A', run: () => setPage('altdata') },
     { id: 'tesla', label: 'Tesla & Lots: registrations, satellite lot fullness, inventory', hint: 'Shift T', run: () => setPage('tesla') },
@@ -915,7 +921,9 @@ export default function App() {
   if (page === 'scanner') {
     body = <div className="page page-split"><section className="panel rr"><div className="rr-body">{scanner}</div></section><div className="center">{chart()}</div></div>;
   } else if (page === 'calendar') {
-    body = <div className="page page-split"><section className="panel cal-page"><Calendars cal={cal} now={now} onSelect={setSel} mySyms={new Set([...wlSyms, ...stars])} mode={dataMode} news={news.items} /></section><div className="center">{chart()}</div></div>;
+    body = calView === 'month'
+      ? <div className="page"><section className="panel cal-page cal-month"><CalViewSwitch v={calView} set={setCalView} /><Suspense fallback={<div className="ph-body">Loading…</div>}><MonthCalendar live={dataMode.kind === 'live'} econ={cal?.econ ?? null} mySyms={new Set([...wlSyms, ...stars])} /></Suspense></section></div>
+      : <div className="page page-split"><section className="panel cal-page"><CalViewSwitch v={calView} set={setCalView} /><Calendars cal={cal} now={now} onSelect={setSel} mySyms={new Set([...wlSyms, ...stars])} mode={dataMode} news={news.items} /></section><div className="center">{chart()}</div></div>;
   } else if (page === 'journal') {
     body = <div className="page"><Suspense fallback={<section className="panel"><div className="ph-body muted small">Loading journal…</div></section>}><JournalOverlay equity={settings.startBalance == null ? null : g.equity} views={views} recaps={shownRecaps} onOpenRecap={(d: string) => setRecapOpen(d)} setTrades={setTrades} transfers={transfers} setTransfers={setTransfers} onAutoStart={(t) => setSettings((s) => (s.startBalance == null ? { ...s, startBalance: 0, startDate: t } : s))} violations={viols} lastPx={lastPx} settings={settings} onClose={() => setPage('desk')} onSelect={toDesk} onReplay={setReplayId} canSample={!live} /></Suspense></div>;
   } else if (page === 'messages') {
@@ -1037,6 +1045,7 @@ export default function App() {
       <StanceLayer />
       <SpotifyDock />
       <LogoDecorator />
+      <HealthPanel />
       <InfoDrawer onLearn={() => setPage('learn')} />
       <CompanyPeek mode={dataMode} quotes={quotes} onChart={toDesk} onCompany={openCompany} />
       {calm && <Suspense fallback={null}><CalmMode onExit={() => setCalm(false)} /></Suspense>}

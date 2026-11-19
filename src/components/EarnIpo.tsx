@@ -3,7 +3,7 @@
 // IPOs: upcoming / priced / filed / withdrawn, then IPO news (fresh SEC S-1 and 424B4 filings, plus IPO headlines from the desk's news feeds).
 import { CallsList } from './Transcript';
 import { Linked } from './Linked';
-import { useMemo, useState } from 'react';
+import { useMemo, useState, Fragment } from 'react';
 import type { DataMode } from '../data/live';
 import { useEventCal } from '../data/eventcal';
 import { useDesk } from '../lib/deskctx';
@@ -92,7 +92,7 @@ export function EarnIpoPanel({ mode, mySyms, news, onSelect, compact = false }: 
             <span className="chips ei-only"><button className={`chip sm ${only === 'all' ? 'on' : ''}`} onClick={() => setOnly('all')}>All</button><button className={`chip sm ${only === 'mine' ? 'on' : ''}`} onClick={() => setOnly('mine')} title="Your starred and watchlist tickers">Mine</button></span>
           </div>
           <div className="ei-list">
-            {rows.map((e) => <EarnRow key={e.date + e.sym} e={e} />)}
+            {rows.map((e) => <Fragment key={e.date + e.sym}>{EarnRow({ e: e })}</Fragment>)}
             {!rows.length && <p className="muted small hw-pad">{only === 'mine' ? 'None of your tickers report this day.' : 'Nobody reports this day.'}</p>}
             {only === 'all' && total > rows.length && <p className="muted small hw-pad">Showing the {rows.length} biggest of {total} reporting. Your starred tickers are always included.</p>}
           </div>
@@ -102,15 +102,15 @@ export function EarnIpoPanel({ mode, mySyms, news, onSelect, compact = false }: 
       {tab === 'ipo' && (
         <div className="ei-list">
           <div className="ei-sec">Upcoming <span className="muted">expected pricing date</span></div>
-          {upcoming.map((i) => <IpoRow key={i.key} i={i} />)}
+          {upcoming.map((i) => <Fragment key={i.key}>{IpoRow({ i: i })}</Fragment>)}
           {!upcoming.length && <p className="muted small hw-pad">No IPOs on the calendar for the coming weeks.</p>}
           <div className="ei-sec">Priced, last 3 weeks</div>
-          {priced.map((i) => <IpoRow key={i.key} i={i} />)}
+          {priced.map((i) => <Fragment key={i.key}>{IpoRow({ i: i })}</Fragment>)}
           {!priced.length && <p className="muted small hw-pad">None.</p>}
           <div className="ei-sec">Filed <span className="muted">registered, no pricing date yet</span></div>
-          {filed.slice(0, compact ? 8 : 20).map((i) => <IpoRow key={i.key} i={i} />)}
+          {filed.slice(0, compact ? 8 : 20).map((i) => <Fragment key={i.key}>{IpoRow({ i: i })}</Fragment>)}
           {!filed.length && <p className="muted small hw-pad">None.</p>}
-          {ipos('withdrawn').length > 0 && <details className="small muted"><summary>Withdrawn ({ipos('withdrawn').length})</summary>{ipos('withdrawn').map((i) => <IpoRow key={i.key} i={i} />)}</details>}
+          {ipos('withdrawn').length > 0 && <details className="small muted"><summary>Withdrawn ({ipos('withdrawn').length})</summary>{ipos('withdrawn').map((i) => <Fragment key={i.key}>{IpoRow({ i: i })}</Fragment>)}</details>}
         </div>
       )}
 
