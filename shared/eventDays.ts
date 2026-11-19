@@ -28,9 +28,21 @@ export const KINDS: EventKind[] = [
   { id: 'veterans', label: 'Veterans Day (bond market closed)', cat: 'federal' },
   { id: 'columbus', label: 'Columbus / Indigenous Peoples Day (bond market closed)', cat: 'federal' },
   { id: 'rosh-hashanah', label: 'Rosh Hashanah', cat: 'religious' },
+  { id: 'rosh-hashanah-2', label: 'Rosh Hashanah (second day)', cat: 'religious' },
+  { id: 'erev-yom-kippur', label: 'Erev Yom Kippur (eve)', cat: 'religious' },
   { id: 'yom-kippur', label: 'Yom Kippur', cat: 'religious' },
-  { id: 'passover', label: 'Passover (first day)', cat: 'religious' },
+  { id: 'sukkot', label: 'Sukkot (first day)', cat: 'religious' },
+  { id: 'shemini-atzeret', label: 'Shemini Atzeret', cat: 'religious' },
+  { id: 'simchat-torah', label: 'Simchat Torah', cat: 'religious' },
   { id: 'hanukkah', label: 'Hanukkah (first day)', cat: 'religious' },
+  { id: 'hanukkah-end', label: 'Hanukkah (last day)', cat: 'religious' },
+  { id: 'tu-bishvat', label: "Tu BiShvat", cat: 'religious' },
+  { id: 'purim', label: 'Purim', cat: 'religious' },
+  { id: 'passover', label: 'Passover (first day)', cat: 'religious' },
+  { id: 'passover-end', label: 'Passover (last day)', cat: 'religious' },
+  { id: 'lag-baomer', label: 'Lag BaOmer', cat: 'religious' },
+  { id: 'shavuot', label: 'Shavuot', cat: 'religious' },
+  { id: 'tisha-bav', label: "Tisha B'Av", cat: 'religious' },
   { id: 'good-friday-eve', label: 'Day before Good Friday', cat: 'religious' },
   { id: 'easter-monday', label: 'Easter Monday (Europe closed)', cat: 'religious' },
   { id: 'orthodox-easter', label: 'Orthodox Easter Monday', cat: 'religious' },
@@ -40,6 +52,24 @@ export const KINDS: EventKind[] = [
   { id: 'eid-adha', label: 'Eid al-Adha', cat: 'religious' },
   { id: 'lunar-new-year', label: 'Lunar (Chinese) New Year', cat: 'religious', note: 'Asian markets close for several days' },
   { id: 'diwali', label: 'Diwali', cat: 'religious', approx: true, note: 'date from the new moon; may be a day off' },
+  { id: 'year-start', label: 'First trading day of the year', cat: 'market' },
+  { id: 'year-end', label: 'Last trading day of the year', cat: 'market' },
+  { id: 'quarter-start', label: 'First trading day of the quarter', cat: 'market' },
+  { id: 'pre-thanksgiving', label: 'Day before Thanksgiving', cat: 'market' },
+  { id: 'tax-day', label: 'Tax day (April 15 or next business day)', cat: 'market' },
+  { id: 'sell-in-may', label: 'First trading day of May ("sell in May")', cat: 'market' },
+  { id: 'halloween', label: 'Halloween (start of the "best six months")', cat: 'market' },
+  { id: 'jackson-hole', label: 'Jackson Hole Fed symposium (Friday)', cat: 'market', approx: true, note: 'usually the last full week of August' },
+  { id: 'russell', label: 'Russell index rebalance day', cat: 'market', approx: true, note: 'last Friday of June (fourth Friday in some years)' },
+  { id: 'post-election', label: 'Day after a US election', cat: 'market' },
+  { id: 'inauguration', label: 'US presidential inauguration', cat: 'federal' },
+  { id: 'mlk-week', label: 'Day after MLK Day', cat: 'federal' },
+  { id: 'presidents-week', label: "Day after Presidents' Day", cat: 'federal' },
+  { id: 'dst-monday', label: 'Monday after the clocks change', cat: 'market', note: 'one hour less sleep (spring) or more (fall)' },
+  { id: 'super-bowl-monday', label: 'Monday after the Super Bowl', cat: 'market', approx: true },
+  { id: 'full-moon', label: 'Full moon', cat: 'market', approx: true, note: 'studied in behavioral finance; date to the nearest day' },
+  { id: 'new-moon', label: 'New moon', cat: 'market', approx: true, note: 'studied in behavioral finance; date to the nearest day' },
+  { id: 'friday-13', label: 'Friday the 13th', cat: 'market' },
 ];
 export const kindOf = (id: string) => KINDS.find((k) => k.id === id);
 
@@ -93,10 +123,34 @@ export function diwali(y: number): string {
   return ymd(y, 11, 1);
 }
 
+/** Full and new moons of a year (mean synodic month from a known new moon; to the nearest day, UTC). */
+export function moonDays(y: number): EventDay[] {
+  const synodic = 29.530588853, ref = Date.UTC(2000, 0, 6, 18, 14), out: EventDay[] = [];
+  const lo = Date.UTC(y, 0, 1), hi = Date.UTC(y + 1, 0, 1);
+  for (let k = Math.floor((lo - ref) / 86400_000 / synodic) - 1; ; k++) {
+    const nm = ref + k * synodic * 86400_000, fm = nm + (synodic / 2) * 86400_000;
+    if (nm >= hi) break;
+    if (nm >= lo) out.push({ date: new Date(nm).toISOString().slice(0, 10), kind: 'new-moon' });
+    if (fm >= lo && fm < hi) out.push({ date: new Date(fm).toISOString().slice(0, 10), kind: 'full-moon' });
+  }
+  return out;
+}
+
 /** Religious and federal days for a year (calendar days; whether markets trade is decided later from the price history). */
 export function calendarEvents(y: number): EventDay[] {
   const out: EventDay[] = [];
-  out.push(...scanCalendar(y, 'hebrew', (m, d) => (m === 'Tishri' && d === 1 ? 'rosh-hashanah' : m === 'Tishri' && d === 10 ? 'yom-kippur' : m === 'Nisan' && d === 15 ? 'passover' : m === 'Kislev' && d === 25 ? 'hanukkah' : null)));
+  // Jewish holidays (diaspora dates, the first day of each; the evening before is when they begin)
+  const hebrew = scanCalendar(y, 'hebrew', (m, d) => {
+    const map: Record<string, Record<number, string>> = {
+      Tishri: { 1: 'rosh-hashanah', 2: 'rosh-hashanah-2', 9: 'erev-yom-kippur', 10: 'yom-kippur', 15: 'sukkot', 22: 'shemini-atzeret', 23: 'simchat-torah' },
+      Kislev: { 25: 'hanukkah' }, Shevat: { 15: 'tu-bishvat' }, Adar: { 14: 'purim' }, 'Adar II': { 14: 'purim' },
+      Nisan: { 15: 'passover', 22: 'passover-end' }, Iyar: { 18: 'lag-baomer' }, Sivan: { 6: 'shavuot' }, Av: { 9: 'tisha-bav' },
+    };
+    return map[m]?.[d] ?? null;
+  });
+  out.push(...hebrew);
+  // Hanukkah's last (8th) day: 7 days after the first, wherever the first falls (also catches one starting late last year)
+  for (const h of [...scanCalendar(y - 1, 'hebrew', (m, d) => (m === 'Kislev' && d === 25 ? 'hanukkah' : null)), ...hebrew.filter((x) => x.kind === 'hanukkah')]) { const e = addDays(h.date, 7); if (e.startsWith(`${y}-`)) out.push({ date: e, kind: 'hanukkah-end' }); }
   out.push(...scanCalendar(y, 'islamic-umalqura', (m, d) => (m === '9' && d === 1 ? 'ramadan' : m === '10' && d === 1 ? 'eid-fitr' : m === '12' && d === 10 ? 'eid-adha' : null)));
   out.push(...scanCalendar(y, 'chinese', (m, d) => (m === '1' && d === 1 ? 'lunar-new-year' : null)));
   const e = easter(y);
@@ -106,7 +160,21 @@ export function calendarEvents(y: number): EventDay[] {
   const v = ymd(y, 11, 11), vd = dow(v);
   out.push({ date: vd === 6 ? addDays(v, -1) : vd === 0 ? addDays(v, 1) : v, kind: 'veterans' });
   out.push({ date: nthWeekday(y, 10, 1, 2), kind: 'columbus' });
-  if (y % 2 === 0) out.push({ date: addDays(nthWeekday(y, 11, 1, 1), 1), kind: 'election' });
+  if (y % 2 === 0) { const ed = addDays(nthWeekday(y, 11, 1, 1), 1); out.push({ date: ed, kind: 'election' }, { date: addDays(ed, 1), kind: 'post-election' }); }
+  if (y % 4 === 1 && y >= 1937) out.push({ date: ymd(y, 1, 20), kind: 'inauguration' });
+  out.push({ date: ymd(y, 4, 15), kind: 'tax-day' }, { date: ymd(y, 10, 31), kind: 'halloween' });
+  out.push({ date: addDays(nthWeekday(y, 1, 1, 3), 1), kind: 'mlk-week' }, { date: addDays(nthWeekday(y, 2, 1, 3), 1), kind: 'presidents-week' });
+  out.push({ date: addDays(nthWeekday(y, 11, 4, 4), -1), kind: 'pre-thanksgiving' });
+  // Jackson Hole: the Friday of the last full Mon-Fri week of August
+  const lastFri = nthWeekday(y, 8, 5, -1); out.push({ date: Number(lastFri.slice(8)) >= 25 ? lastFri : addDays(lastFri, -7), kind: 'jackson-hole' });
+  out.push({ date: nthWeekday(y, 6, 5, -1), kind: 'russell' });
+  // clocks change: 2nd Sunday of March / 1st Sunday of November since 2007, last Sunday of April / of October before
+  const spring = y >= 2007 ? nthWeekday(y, 3, 0, 2) : nthWeekday(y, 4, 0, -1), fall = y >= 2007 ? nthWeekday(y, 11, 0, 1) : nthWeekday(y, 10, 0, -1);
+  if (y >= 1967) out.push({ date: addDays(spring, 1), kind: 'dst-monday' }, { date: addDays(fall, 1), kind: 'dst-monday' });
+  // Super Bowl: first Sunday of February from 2004 (second from 2022), January before; the Monday after
+  if (y >= 1967) { const sb = y >= 2022 ? nthWeekday(y, 2, 0, 2) : y >= 2004 ? nthWeekday(y, 2, 0, 1) : nthWeekday(y, 1, 0, -1); out.push({ date: addDays(sb, 1), kind: 'super-bowl-monday' }); }
+  out.push(...moonDays(y));
+  for (let m = 1; m <= 12; m++) if (dow(ymd(y, m, 13)) === 5) out.push({ date: ymd(y, m, 13), kind: 'friday-13' });
   return out;
 }
 
@@ -121,7 +189,8 @@ export function tradingCalendarEvents(tradingDays: string[]): EventDay[] {
     const opex = set.has(third) ? third : addDays(third, -1);
     if (d === opex) out.push({ date: d, kind: [3, 6, 9, 12].includes(m) ? 'quad' : 'opex' });
     if (next && next.slice(0, 7) !== d.slice(0, 7)) { out.push({ date: d, kind: 'month-end' }); if ([3, 6, 9, 12].includes(m)) out.push({ date: d, kind: 'quarter-end' }); }
-    if (prev && prev.slice(0, 7) !== d.slice(0, 7)) out.push({ date: d, kind: 'month-start' });
+    if (prev && prev.slice(0, 7) !== d.slice(0, 7)) { out.push({ date: d, kind: 'month-start' }); if ([1, 4, 7, 10].includes(m)) out.push({ date: d, kind: 'quarter-start' }); if (m === 1) out.push({ date: d, kind: 'year-start' }); if (m === 5) out.push({ date: d, kind: 'sell-in-may' }); }
+    if (next && next.slice(0, 4) !== d.slice(0, 4)) out.push({ date: d, kind: 'year-end' });
     // a weekday with no trading between two trading days = a market holiday
     const gap = (a: string, b: string) => { for (let x = addDays(a, 1); x < b; x = addDays(x, 1)) if (dow(x) !== 0 && dow(x) !== 6) return true; return false; };
     if (next && gap(d, next)) out.push({ date: d, kind: 'pre-holiday' });

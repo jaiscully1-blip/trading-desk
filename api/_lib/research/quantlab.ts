@@ -4,6 +4,8 @@
 import { parseSecTickers } from '../../../shared/company.js';
 import { fundSeries } from '../../../shared/fundseries.js';
 import { inflateRawSync } from 'node:zlib';
+import { parseCboe } from '../../../shared/gamma.js';
+import { impliedMove, reactionDay } from '../../../shared/earnmove.js';
 import { FACTORS, parseFrench, type FFMonth } from '../../../shared/quantlab.js';
 import { CFPB_CO, FDA_EXCLUDE, FDA_FIRM, STEAM_PUBLISHERS, steamIds, LIVE_TICKERS, NHTSA_MFR, STEAM_GAMES, countByQuarter, fdaDate, quarterRange, steamQuarterly, type LiveBlock, type QPoint } from '../../../shared/livefeeds.js';
 import { secJson } from '../adapters.js';
@@ -181,4 +183,18 @@ export async function qlfeeds(req: Request): Promise<Response> {
   if (FDA_FIRM[sym]) jobs.push(['fda', () => fdaBlock(sym, ...FDA_FIRM[sym])]);
   const blocks = await Promise.all(jobs.map(async ([k, f]) => { try { return (await cached(`ql:feed2:${k}:${sym}`, 12 * 3600, f)).val; } catch (e) { return { kind: k, source: '', series: [], events: [], latest: [], error: (e as Error).message.slice(0, 120) } as LiveBlock; } }));
   return json({ sym, blocks, covered: LIVE_TICKERS, asOf: Date.now() }, { sMaxAge: 3600 });
+}
+
+// GET /api/research?fn=qlimpmove&items=NVDA:2026-11-19:amc,WMT:2026-11-20:bmo -> options-implied earnings move per name
+// (at-the-money straddle on the first expiry after the reaction day). Cboe public delayed chains, at most 12 names.
+export async function qlimpmove(req: Request): Promise<Response> {
+  const items = (new URL(req.url).searchParams.get('items') ?? '').split(',').map((x) => x.split(':')).filter(([s, d]) => SYMBOL_RE.test((s ?? '').toUpperCase()) && /^\d{4}-\d{2}-\d{2}$/.test(d ?? '')).slice(0, 12);
+  const out = await Promise.all(items.map(async ([s, d, w]) => {
+    const sym = s.toUpperCase();
+    try {
+      const ch = (await cached(`imp:${sym}`, 1800, async () => parseCboe(await getJson(`https://cdn.cboe.com/api/global/delayed_quotes/options/${sym}.json`, 'cboe', 20000), sym))).val;
+      const m = impliedMove(ch, reactionDay(d, w ?? '')); return { sym, date: d, ...(m ?? {}), asOf: ch.asOf };
+    } catch (e) { return { sym, date: d, error: (e as Error).message.slice(0, 80) }; }
+  }));
+  return json({ moves: out, source: 'Cboe delayed option quotes (about 15 min delayed): at-the-money straddle ÷ price', asOf: Date.now() }, { sMaxAge: 900 });
 }

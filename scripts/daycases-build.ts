@@ -22,7 +22,7 @@ const readJson = (p: string) => { try { return JSON.parse(readFileSync(p, 'utf8'
 
 // ---------- daily history (Yahoo, unofficial) ----------
 async function daily(sym: string): Promise<Bar[]> {
-  const j = await get(`https://query1.finance.yahoo.com/v8/finance/chart/${sym}?period1=0&period2=9999999999&interval=1d`);
+  const j = await get(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym)}?period1=-1325635200&period2=9999999999&interval=1d`);
   const r = j.chart.result[0], q = r.indicators.quote[0], adj: number[] | undefined = r.indicators.adjclose?.[0]?.adjclose;
   // dividend-adjusted: SPY, QQQ and IWM go ex-dividend on quarterly expiry Fridays, which raw closes would show as a drop
   return r.timestamp.map((t: number, i: number) => { const f = adj && Number.isFinite(adj[i]) && q.close[i] > 0 ? adj[i] / q.close[i] : 1; return { date: new Date((t + r.meta.gmtoffset) * 1000).toISOString().slice(0, 10), open: q.open[i] * f, high: q.high[i] * f, low: q.low[i] * f, close: q.close[i] * f }; })
@@ -90,6 +90,15 @@ if (process.env.FRED_API_KEY) {
 // ---------- measure every day type, per index ----------
 const stats: Record<string, EventStat[]> = {};
 for (const s of SYMS) if (hist[s]) stats[s] = measureEvents(dayRows(hist[s]), events, s);
+// the S&P 500 index itself goes back to 1928: the long record for calendar and religious days (price only, no dividends)
+try {
+  const gspc = await daily('^GSPC');
+  const gDays = gspc.map((b) => b.date);
+  const gEvents: EventDay[] = [...tradingCalendarEvents(gDays), ...events.filter((e) => e.kind === 'fomc' || e.kind === 'pre-fomc' || e.kind === 'cpi' || e.kind === 'jobs')];
+  for (let y = Number(gDays[0].slice(0, 4)); y < Number(spyDays[0].slice(0, 4)); y++) gEvents.push(...calendarEvents(y));
+  gEvents.push(...events.filter((e) => !['fomc', 'pre-fomc', 'cpi', 'jobs'].includes(e.kind) && e.date >= spyDays[0]));
+  stats['^GSPC'] = measureEvents(dayRows(gspc), gEvents, 'S&P 500 index');
+} catch (e) { errors['^GSPC'] = String((e as Error).message); }
 
 // ---------- cases ----------
 const preOpen = target === now.day && now.min < 9 * 60 + 30 && now.min >= 4 * 60;

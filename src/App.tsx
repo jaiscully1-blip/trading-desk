@@ -578,6 +578,11 @@ export default function App() {
     beep();
     try { if (Notification.permission === 'granted' && document.hidden && !isMuted()) for (const p of ps) new Notification(`★ ${p.sym}: ${p.text}`, { tag: p.id }); } catch { /* not supported */ }
   }, [setPingLog]);
+  // calendar bells: ping 10 minutes before belled events (Calendars -> Month / Week)
+  useEffect(() => {
+    const tick = () => import('./lib/eventAlerts').then(({ takeDue }) => { const due = takeDue(); if (due.length) pushPings(due.map((a) => ({ id: `cal:${a.id}`, t: Date.now(), sym: a.sym ?? '', kind: 'alert' as const, text: `In about 10 minutes: ${a.label}` }))); });
+    tick(); const id = setInterval(tick, 30_000); return () => clearInterval(id);
+  }, [pushPings]);
   // rotation: ping when a sector / theme / country turns (Lagging->Improving, Improving->Leading, Leading->Weakening, Weakening->Lagging)
   useEffect(() => {
     if (!live || !flowsData?.rows.length) return;
@@ -922,7 +927,7 @@ export default function App() {
     body = <div className="page page-split"><section className="panel rr"><div className="rr-body">{scanner}</div></section><div className="center">{chart()}</div></div>;
   } else if (page === 'calendar') {
     body = calView === 'month'
-      ? <div className="page"><section className="panel cal-page cal-month"><CalViewSwitch v={calView} set={setCalView} /><Suspense fallback={<div className="ph-body">Loading…</div>}><MonthCalendar live={dataMode.kind === 'live'} econ={cal?.econ ?? null} mySyms={new Set([...wlSyms, ...stars])} /></Suspense></section></div>
+      ? <div className="page"><section className="panel cal-page cal-month"><CalViewSwitch v={calView} set={setCalView} /><Suspense fallback={<div className="ph-body">Loading…</div>}><MonthCalendar live={dataMode.kind === 'live'} econ={cal?.econ ?? null} mySyms={new Set([...wlSyms, ...stars])} trades={views} onWatch={addSym} /></Suspense></section></div>
       : <div className="page page-split"><section className="panel cal-page"><CalViewSwitch v={calView} set={setCalView} /><Calendars cal={cal} now={now} onSelect={setSel} mySyms={new Set([...wlSyms, ...stars])} mode={dataMode} news={news.items} /></section><div className="center">{chart()}</div></div>;
   } else if (page === 'journal') {
     body = <div className="page"><Suspense fallback={<section className="panel"><div className="ph-body muted small">Loading journal…</div></section>}><JournalOverlay equity={settings.startBalance == null ? null : g.equity} views={views} recaps={shownRecaps} onOpenRecap={(d: string) => setRecapOpen(d)} setTrades={setTrades} transfers={transfers} setTransfers={setTransfers} onAutoStart={(t) => setSettings((s) => (s.startBalance == null ? { ...s, startBalance: 0, startDate: t } : s))} violations={viols} lastPx={lastPx} settings={settings} onClose={() => setPage('desk')} onSelect={toDesk} onReplay={setReplayId} canSample={!live} /></Suspense></div>;
