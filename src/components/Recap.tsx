@@ -6,6 +6,7 @@ import type { Recap } from '../lib/recap';
 import { sUsd, tone } from '../lib/format';
 import { importFiles, readImportLog, writeImportLog, type ImportDeps } from './Journal';
 import { download } from '../lib/download';
+import { REVIEW_QS, reviewGrade, saveReview, useDayReviews } from '../lib/dayReview';
 
 const dayLabel = (d: string) => new Date(`${d}T12:00:00Z`).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
 const cssVar = (n: string, fallback: string) => getComputedStyle(document.documentElement).getPropertyValue(n).trim() || fallback;
@@ -31,7 +32,7 @@ export function recapPng(r: Recap): Promise<Blob> {
   // grade
   const gc = { A: up, B: accent, C: warn, D: down, F: down }[r.grade];
   g.strokeStyle = gc; g.lineWidth = 6; g.beginPath(); g.arc(1060, 110, 64, 0, Math.PI * 2); g.stroke();
-  g.fillStyle = gc; g.font = `700 64px ${sans}`; g.textAlign = 'center'; g.fillText(r.grade, 1060, 133);
+  g.fillStyle = gc; g.font = `700 64px ${sans}`; g.textAlign = 'center'; g.fillText(r.reviewed === false ? '?' : r.gradeLabel ?? r.grade, 1060, 133);
   g.fillStyle = muted; g.font = `500 14px ${sans}`; g.fillText(`process ${r.score}/100`, 1060, 200); g.textAlign = 'left';
   // metrics
   const cells: [string, string, string?][] = [
@@ -78,6 +79,13 @@ export function RecapOverlay({ recaps, initialDay, onClose, onReplay, csvFor, im
   const [busy, setBusy] = useState('');
   const input = useRef<HTMLInputElement>(null);
   const say = (text: string, bad = false) => { setMsg({ text, bad }); };
+  // end-of-day questions: the grade comes from these, not from an automatic score
+  const reviews = useDayReviews();
+  const [draft, setDraft] = useState<Record<string, string>>({});
+  const [editing, setEditing] = useState(false);
+  useEffect(() => { setDraft(r ? reviews[r.day]?.answers ?? {} : {}); setEditing(false); }, [r?.day]); // eslint-disable-line react-hooks/exhaustive-deps
+  const asking = !!r && (r.reviewed === false || editing);
+  const preview = r && REVIEW_QS.every((q) => draft[q.id]) ? reviewGrade(draft, r.pnl) : null;
 
   // Chrome remembers a dropped file (a file handle, kept on this device only), so Refresh can read it again later
   // after your broker export has new rows. Duplicate fills are skipped by the import.
@@ -133,8 +141,26 @@ export function RecapOverlay({ recaps, initialDay, onClose, onReplay, csvFor, im
             <div className="rc-card" id="recap-card">
               <div className="rc-top">
                 <div><div className="muted small">DAILY RECAP{r.partial ? ' · DAY IN PROGRESS' : ''}</div><div className="rc-day">{dayLabel(r.day)}</div></div>
-                <div className={`rc-grade g-${r.grade}`} title={r.reasons.join('\n')}>{r.grade}<span className="small">process {r.score}/100</span></div>
+                {r.reviewed === false
+                  ? <div className="rc-grade g-none" title="Answer the questions below to grade this day">?<span className="small">not graded</span></div>
+                  : <div className={`rc-grade g-${r.grade}`} title={r.reasons.join('\n')}>{r.gradeLabel ?? r.grade}<span className="small">{r.reviewed ? 'your review' : 'process'} {r.score}/100</span></div>}
               </div>
+              {asking && (
+                <div className="rc-review">
+                  <div className="rc-review-h"><b>How did today go?</b><span className="small muted">4 questions · saved to your journal so the Patterns tab can match them to your P&amp;L{r.pnl > 0 ? ' · green day: at least B+' : ''}</span></div>
+                  {REVIEW_QS.map((q) => (
+                    <div key={q.id} className="rc-q">
+                      <span className="rc-qt"><span className={`rc-qk k-${q.kind}`}>{q.kind === 'trading' ? 'Trading' : 'Mindset'}</span>{q.q}</span>
+                      <span className="chips">{q.opts.map(([l]) => <button key={l} className={`chip sm ${draft[q.id] === l ? 'on' : ''}`} aria-pressed={draft[q.id] === l} onClick={() => setDraft((d) => ({ ...d, [q.id]: l }))}>{l}</button>)}</span>
+                    </div>
+                  ))}
+                  <div className="fb-row">
+                    <button className="btn primary" disabled={!preview} onClick={() => { saveReview(r.day, draft, r.pnl); setEditing(false); say(`Saved: ${preview!.grade} for ${dayLabel(r.day)}. It's in your journal now.`); }}>{preview ? `Submit · ${preview.grade}` : `Answer all ${REVIEW_QS.length}`}</button>
+                    {editing && <button className="btn" onClick={() => { setEditing(false); setDraft(reviews[r.day]?.answers ?? {}); }}>Cancel</button>}
+                  </div>
+                </div>
+              )}
+              {r.reviewed && !editing && <p className="small muted rc-answers">{REVIEW_QS.map((q) => reviews[r.day]?.answers[q.id]).filter(Boolean).join(' · ')} <button className="link" onClick={() => setEditing(true)}>Edit answers</button></p>}
               <div className="cards">
                 <div className="card"><span className="muted small">P&amp;L</span><b className={`num ${tone(r.pnl)}`}>{sUsd(r.pnl)}</b></div>
                 {r.r !== 0 && <div className="card" title="R = profit divided by the risk you planned. Trades imported with no stop have no R."><span className="muted small">R</span><b className={`num ${tone(r.r)}`}>{r.r >= 0 ? '+' : ''}{r.r.toFixed(2)}R</b></div>}
@@ -166,7 +192,7 @@ export function RecapOverlay({ recaps, initialDay, onClose, onReplay, csvFor, im
           </div>
           {busy && <p className="small muted rc-msg"><span className="spin" /> {busy}</p>}
           {msg && <p className={`small rc-msg ${msg.bad ? 'down' : 'up'}`} role="status">{msg.text}</p>}
-          <p className="muted small rc-msg">Grade is process first: broken rules cost points even on green days. Cards rebuild from your journal, so a CSV added later updates the day it belongs to. Drag a CSV anywhere onto this card to add it.</p>
+          <p className="muted small rc-msg">The grade comes from your answers to the 4 questions (trading and mindset, weighted); a green day is at least B+. Broken rules are still listed. Cards rebuild from your journal, so a CSV added later updates the day it belongs to. Drag a CSV anywhere onto this card to add it.</p>
         </div>
       </div>
     </div>

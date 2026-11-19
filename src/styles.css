@@ -3466,3 +3466,13 @@ a:hover, .link:hover { text-decoration-color: var(--link); }
 /* chart: dark-pool and phantom print lines */
 :root { --dp: rgba(242, 77, 77, .42); --phantom: rgba(242, 77, 77, .28); --dp-tag: rgba(242, 77, 77, .5); --dp-tag-text: #fff; --dp-zone: #f24d4d; }
 :root[data-theme='light'] { --dp: rgba(214, 48, 48, .45); --phantom: rgba(214, 48, 48, .3); --dp-tag: rgba(214, 48, 48, .6); --dp-tag-text: #fff; --dp-zone: #d63030; }
+
+/* daily recap: end-of-day questions */
+.rc-grade.g-none { color: var(--muted); border-style: dashed; }
+.rc-review { display: grid; gap: 10px; padding: 14px 16px; border-radius: 12px; border: 1px solid var(--line-2); background: var(--panel-2); margin: 4px 0 12px; }
+.rc-review-h { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: baseline; }
+.rc-q { display: grid; gap: 6px; }
+.rc-qt { display: flex; gap: 8px; align-items: baseline; font-size: 13.5px; }
+.rc-qk { flex: none; font: 600 9.5px 'IBM Plex Sans', sans-serif; letter-spacing: .06em; text-transform: uppercase; padding: 2px 6px; border-radius: 5px; color: var(--muted); border: 1px solid var(--line-2); }
+.rc-qk.k-mind { color: var(--link); }
+.rc-answers { margin: -4px 0 10px; }

@@ -19,6 +19,10 @@ export interface Recap {
   worst: { id: string; sym: string; pnl: number; r: number | null } | null;
   violations: { n: number; cost: number; top: string | null };
   grade: 'A' | 'B' | 'C' | 'D' | 'F';
+  /** the full letter from your end-of-day answers (e.g. B+) */
+  gradeLabel?: string;
+  /** false until you answer the end-of-day questions; the grade comes from those answers */
+  reviewed?: boolean;
   score: number;
   reasons: string[];
   lesson: string;

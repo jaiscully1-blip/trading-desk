@@ -7,7 +7,9 @@ import type { Violation } from '../lib/journal';
 import { journalPatterns, MIN_N } from '../lib/journalPatterns';
 import type { TradeView } from '../lib/journal';
 import { etDay } from '../lib/journal';
-import { usePersisted } from '../lib/store';
+import { load, usePersisted } from '../lib/store';
+
+const reviewOf = (d: string) => load<Record<string, { answers: Record<string, string> }>>('journalDayReviews', {})[d];
 import { sUsd } from '../lib/format';
 import { Suggest } from './Suggest';
 import { JOURNAL_TAGS } from '../../shared/suggest';
@@ -87,7 +89,7 @@ export function JournalCalendar({ views, onSelect, recaps = [], onOpenRecap, vio
           {[...recaps].sort((a, b) => b.day.localeCompare(a.day)).slice(0, 40).map((r) => (
             <button key={r.day} className={`jc-card ${r.day === sel ? 'on' : ''}`} title="Click to select the day · double-click to open the card" onClick={() => { const d = new Date(`${r.day}T12:00:00`); setYm({ y: d.getFullYear(), m: d.getMonth() }); setSel(r.day); setSide('day'); }} onDoubleClick={() => onOpenRecap?.(r.day)}>
               <span className="jc-card-d">{new Date(`${r.day}T12:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
-              <span className={`rc-grade-sm g-${r.grade}`}>{r.grade}</span>
+              <span className={`rc-grade-sm g-${r.reviewed === false ? 'none' : r.grade}`}>{r.reviewed === false ? '?' : r.gradeLabel ?? r.grade}</span>
               <b className={`num ${r.pnl > 0 ? 'up' : r.pnl < 0 ? 'down' : ''}`}>{sUsd(r.pnl)}</b>
               <span className="small muted">{r.trades} closed{r.violations.n ? ` · ${r.violations.n} rule${r.violations.n > 1 ? 's' : ''}` : ''}</span>
             </button>
@@ -109,7 +111,7 @@ export function JournalCalendar({ views, onSelect, recaps = [], onOpenRecap, vio
                 const k = ymd(d), x = dayStats(k), n = notes[k];
                 return (
                   <button key={k} className={`jc-day ${d.getMonth() !== ym.m ? 'out' : ''} ${k === today ? 'today' : ''} ${k === sel ? 'sel' : ''} ${x.closed.length ? (x.pnl > 0 ? 'up' : x.pnl < 0 ? 'down' : '') : ''}`} onClick={() => setSel(k)} aria-label={k}>
-                    <span className="jc-d">{d.getDate()}{recapBy.get(k) && <span className={`rc-grade-sm g-${recapBy.get(k)!.grade}`} title={`Day card grade ${recapBy.get(k)!.grade}`}>{recapBy.get(k)!.grade}</span>}</span>
+                    <span className="jc-d">{d.getDate()}{recapBy.get(k) && (recapBy.get(k)!.reviewed === false ? <span className="rc-grade-sm g-none" title="Not graded yet: open the day card and answer 4 questions">?</span> : <span className={`rc-grade-sm g-${recapBy.get(k)!.grade}`} title={`Your grade ${recapBy.get(k)!.gradeLabel ?? recapBy.get(k)!.grade}`}>{recapBy.get(k)!.gradeLabel ?? recapBy.get(k)!.grade}</span>)}</span>
                     {x.closed.length > 0 && <span className={`num jc-p ${x.pnl > 0 ? 'up' : x.pnl < 0 ? 'down' : ''}`}>{sUsd(x.pnl)}</span>}
                     <span className="jc-m">{x.closed.length > 0 && <span>{x.closed.length} closed</span>}{x.open.length > 0 && <span title="Open options expiring this day">⏳{x.open.length}</span>}{n?.text && <span title={n.text.slice(0, 80)}>✎</span>}{n?.followed && <span title="Followed plan?">{n.followed === 'yes' ? '✓' : n.followed === 'no' ? '✗' : '~'}</span>}</span>
                   </button>
@@ -124,7 +126,7 @@ export function JournalCalendar({ views, onSelect, recaps = [], onOpenRecap, vio
       <aside className="jc-side">
         <div className="chips jc-sidetabs"><button className={`chip sm ${side === 'day' ? 'on' : ''}`} onClick={() => setSide('day')}>Day</button><button className={`chip sm ${side === 'patterns' ? 'on' : ''}`} onClick={() => setSide('patterns')}>Patterns</button></div>
         {side === 'patterns' ? <Patterns views={views} recaps={recaps} notes={notes} violations={violations} /> : <>
-        {recapBy.get(sel) && <button className="btn sm jc-open" onClick={() => onOpenRecap?.(sel)}>Open this day’s card · grade {recapBy.get(sel)!.grade}</button>}
+        {recapBy.get(sel) && <button className="btn sm jc-open" onClick={() => onOpenRecap?.(sel)}>{recapBy.get(sel)!.reviewed === false ? 'Grade this day (4 questions)' : `Open this day’s card · grade ${recapBy.get(sel)!.gradeLabel ?? recapBy.get(sel)!.grade}`}</button>}
         <b>{new Date(`${sel}T12:00:00`).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' })}</b>
         {s.vs.length > 0 ? (
           <div className="jc-list">
@@ -157,7 +159,7 @@ function Patterns({ views, recaps, notes, violations }: { views: TradeView[]; re
   const pat = useMemo(() => {
     const days = new Set([...recaps.map((r) => r.day), ...Object.keys(notes)]);
     void violations;
-    return journalPatterns(views, [...days].map((d) => ({ day: d, violations: recapBy0(recaps, d), followed: notes[d]?.followed, mood: notes[d]?.mood })));
+    return journalPatterns(views, [...days].map((d) => ({ day: d, violations: recapBy0(recaps, d), followed: notes[d]?.followed, mood: notes[d]?.mood ?? reviewOf(d)?.answers.state, grade: (() => { const r = recaps.find((x) => x.day === d); return r?.reviewed ? r.gradeLabel : undefined; })() })));
   }, [views, recaps, notes, violations]);
   const [open, setOpen] = useState<string | null>(null);
   if (pat.n < 10) return <p className="small muted">Patterns need at least 10 closed trades in the journal (you have {pat.n}). Import your broker CSV to fill it in.</p>;
