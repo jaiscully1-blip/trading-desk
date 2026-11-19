@@ -38,6 +38,15 @@ async function premarket(sym: string, day: string): Promise<Premarket | null> {
   return { last: pts[pts.length - 1].c, high: Math.max(...pts.map((p: any) => p.h).filter(Number.isFinite)), low: Math.min(...pts.map((p: any) => p.l).filter(Number.isFinite)), at: pts[pts.length - 1].t };
 }
 
+/** During the session: the price now and today's high / low so far (5-minute bars). */
+async function intraday(sym: string, day: string): Promise<Premarket | null> {
+  const j = await get(`https://query1.finance.yahoo.com/v8/finance/chart/${sym}?range=1d&interval=5m`);
+  const r = j.chart.result[0], q = r.indicators.quote[0];
+  const pts = (r.timestamp ?? []).map((t: number, i: number) => ({ t: t * 1000, c: q.close[i], h: q.high[i], l: q.low[i] })).filter((p: any) => new Date(p.t + r.meta.gmtoffset * 1000).toISOString().slice(0, 10) === day && Number.isFinite(p.c));
+  if (!pts.length) return null;
+  return { last: pts[pts.length - 1].c, high: Math.max(...pts.map((p: any) => p.h).filter(Number.isFinite)), low: Math.min(...pts.map((p: any) => p.l).filter(Number.isFinite)), at: pts[pts.length - 1].t, kind: 'intraday' };
+}
+
 const now = etNow();
 const hist: Record<string, Bar[]> = {};
 for (const s of SYMS) { try { hist[s] = await daily(s); } catch (e) { errors[s] = String((e as Error).message); } }
@@ -102,11 +111,13 @@ try {
 
 // ---------- cases ----------
 const preOpen = target === now.day && now.min < 9 * 60 + 30 && now.min >= 4 * 60;
+const midSession = target === now.day && now.min >= 9 * 60 + 30 && now.min < 16 * 60;
 const indexes: SymCases[] = [];
 for (const s of SYMS) {
   if (!hist[s]) continue;
   let pm: Premarket | null = null;
   if (preOpen) { try { pm = await premarket(s, target); } catch (e) { errors[`${s}-premarket`] = String((e as Error).message); } }
+  if (midSession) { try { pm = await intraday(s, target); } catch (e) { errors[`${s}-intraday`] = String((e as Error).message); } }
   const c = dayCases(s, hist[s], target, pm, events, stats[s]);
   if (c) indexes.push(c);
 }
@@ -117,8 +128,8 @@ const log: LogRow[] = readJson('published/daycases-log.json')?.rows ?? [];
 for (const c of indexes) {
   const row = log.find((r) => r.date === c.date && r.sym === c.sym);
   const v = { bull: +c.blend.bull.toFixed(3), stag: +c.blend.stag.toFixed(3), bear: +c.blend.bear.toFixed(3) };
-  if (!row) log.push({ date: c.date, sym: c.sym, ...v });
-  else if (!row.outcome) Object.assign(row, v); // the premarket run refines the evening preview
+  if (!row && !midSession) log.push({ date: c.date, sym: c.sym, ...v });
+  else if (!row.outcome && !midSession) Object.assign(row, v); // the premarket run refines the evening preview
 }
 for (const r of log) {
   if (r.outcome || !hist[r.sym]) continue;
@@ -150,7 +161,7 @@ const upcoming = future.filter((d) => d >= target).slice(0, 10).map((d) => ({
 const nonTrading = events.filter((e) => e.date >= target && e.date <= (future[9] ?? target) && !idx.has(e.date) && kindOf(e.kind)?.cat !== 'market').map((e) => ({ date: e.date, kind: e.kind, label: kindOf(e.kind)?.label ?? e.kind }));
 
 const file = {
-  version: 1, asOf: Date.now(), date: target, premarket: preOpen && indexes.some((c) => c.gapPct != null), indexes, upcoming, offDays: nonTrading, stats, record, kinds: KINDS,
+  version: 1, asOf: Date.now(), date: target, premarket: preOpen && indexes.some((c) => c.gapPct != null), stage: midSession ? 'intraday' : preOpen ? 'premarket' : 'preview', indexes, upcoming, offDays: nonTrading, stats, record, kinds: KINDS,
   sources: {
     prices: 'Yahoo Finance daily and 5-minute bars (unofficial, delayed)',
     fomc: `Federal Reserve FOMC calendars (${fomc[0]?.slice(0, 4)} on)`,

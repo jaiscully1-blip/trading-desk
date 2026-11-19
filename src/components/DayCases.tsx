@@ -9,7 +9,7 @@ import { Fresh, PageTabs, Q } from './common';
 
 interface UpDay { kind: string; label: string; cat: string; measured: boolean; verdict: string; n: number; approx?: boolean }
 export interface DayCasesFile {
-  version: 1; asOf: number; date: string; premarket: boolean; indexes: SymCases[]; upcoming: { date: string; days: UpDay[] }[];
+  version: 1; asOf: number; date: string; premarket: boolean; stage?: 'preview' | 'premarket' | 'intraday'; indexes: SymCases[]; upcoming: { date: string; days: UpDay[] }[];
   offDays: { date: string; kind: string; label: string }[]; stats: Record<string, EventStat[]>; record: { n: number; topCaseHit: number | null; brier: number | null };
   sources: Record<string, string>; method: string; errors: Record<string, string>;
 }
@@ -51,7 +51,7 @@ function IndexCases({ c, open, onToggle }: { c: SymCases; open: boolean; onToggl
     <div className="dc-ix">
       <div className="dc-ix-h">
         <b className="num">{c.sym}</b>
-        <span className="small muted num">close {c.prevClose.toFixed(2)} · normal day ±{c.sigmaPct.toFixed(2)}%{c.gapPct != null ? ` · premarket ${c.gapPct >= 0 ? '+' : ''}${c.gapPct.toFixed(2)}% (${c.gapBucket})` : ''} · {c.volRegime} volatility</span>
+        <span className="small muted num">close {c.prevClose.toFixed(2)} · normal day ±{c.sigmaPct.toFixed(2)}%{c.gapPct != null ? ` · ${c.pmKind === 'intraday' ? 'now' : 'premarket'} ${c.gapPct >= 0 ? '+' : ''}${c.gapPct.toFixed(2)}% (${c.gapBucket})` : ''} · {c.volRegime} volatility</span>
       </div>
       <Bar3 d={c.blend} />
       <ul className="dc-cases">
@@ -112,7 +112,7 @@ export function DayCasesPanel({ mode, compact = false }: { mode: DataMode; compa
     <div className={`dc ${compact ? 'compact' : ''}`}>
       <div className="hw-bar">
         <PageTabs value={c.sym} onChange={setSym} label="Index" options={f.indexes.map((x) => ({ id: x.sym, label: x.sym }))} />
-        <span className="small muted">{f.date === new Date().toISOString().slice(0, 10) ? 'Today' : dayLabel(f.date)}{f.premarket ? ' · with premarket gap' : ' · before premarket'}</span>
+        <span className="small muted">{f.date === new Date().toISOString().slice(0, 10) ? 'Today' : dayLabel(f.date)}{f.stage === 'intraday' ? ` · midday update ${new Date(f.asOf).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'America/New_York' })} ET (price now)` : f.premarket ? ' · with premarket gap' : ' · before premarket'}</span>
         <Fresh kind="eod" at={f.asOf} src={`CALCULATED base rates. ${Object.values(f.sources).join(' · ')}`} />
       </div>
       <IndexCases c={c} open={open} onToggle={() => setOpen((o) => !o)} />

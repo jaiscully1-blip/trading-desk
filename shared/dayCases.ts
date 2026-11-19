@@ -12,9 +12,10 @@ export type Case = 'bull' | 'stag' | 'bear';
 export interface Dist { bull: number; stag: number; bear: number; n: number }
 export interface Factor { id: string; label: string; dist: Dist }
 export interface Bar { date: string; open: number; high: number; low: number; close: number }
-export interface Premarket { last: number; high: number | null; low: number | null; at: number }
+/** kind 'intraday': a run during the session, where last/high/low are the price now and today's high/low so far. */
+export interface Premarket { last: number; high: number | null; low: number | null; at: number; kind?: 'premarket' | 'intraday' }
 export interface SymCases {
-  sym: string; date: string; prevClose: number; prevHigh: number; prevLow: number; sigmaPct: number; gapPct: number | null; gapBucket: string | null;
+  sym: string; date: string; prevClose: number; prevHigh: number; prevLow: number; sigmaPct: number; gapPct: number | null; gapBucket: string | null; pmKind?: 'premarket' | 'intraday';
   volRegime: 'calm' | 'normal' | 'stormy'; blend: Dist; base: Dist; factors: Factor[];
   levels: { up1: number; down1: number; flatHi: number; flatLo: number; pmHigh: number | null; pmLow: number | null };
   cases: { id: Case; label: string; p: number; confirms: string; range: string }[];
@@ -89,7 +90,7 @@ export function dayCases(sym: string, history: Bar[], today: string, pm: Premark
   const factors: Factor[] = [];
   const wd = dow(today);
   factors.push({ id: 'weekday', label: `${WEEKDAY[wd]}s`, dist: dist(days.filter((d) => dow(d.date) === wd)) });
-  if (gb) factors.push({ id: 'gap', label: `Days that opened with a ${gb}`, dist: dist(days.filter((d) => gapBucket(d.gapSig) === gb)) });
+  if (gb) factors.push({ id: 'gap', label: pm?.kind === 'intraday' ? `Days that opened with a ${gb} (used for where price is now; approximate)` : `Days that opened with a ${gb}`, dist: dist(days.filter((d) => gapBucket(d.gapSig) === gb)) });
   factors.push({ id: 'vol', label: `${regime[0].toUpperCase()}${regime.slice(1)} volatility (by the last 20 days vs the past year)`, dist: dist(days.filter((d) => volRegime(d.volPct) === regime)) });
   const measured = new Map(stats.filter((s) => s.measured).map((s) => [s.kind, s]));
   for (const e of events.filter((x) => x.date === today && measured.has(x.kind))) {
@@ -101,12 +102,12 @@ export function dayCases(sym: string, history: Bar[], today: string, pm: Premark
   const up1 = last.close * (1 + sigma), down1 = last.close * (1 - sigma);
   const flatHi = last.close * (1 + CASE_THRESHOLD * sigma), flatLo = last.close * (1 - CASE_THRESHOLD * sigma);
   return {
-    sym, date: today, prevClose: last.close, prevHigh: last.high, prevLow: last.low, sigmaPct: sigma * 100, gapPct, gapBucket: gb, volRegime: regime, blend: b, base, factors,
+    sym, date: today, prevClose: last.close, prevHigh: last.high, prevLow: last.low, sigmaPct: sigma * 100, gapPct, gapBucket: gb, pmKind: pm ? pm.kind ?? 'premarket' : undefined, volRegime: regime, blend: b, base, factors,
     levels: { up1, down1, flatHi, flatLo, pmHigh: pm?.high ?? null, pmLow: pm?.low ?? null },
     cases: [
-      { id: 'bull', label: 'Bull case', p: b.bull, confirms: `holds above ${px(last.close)} (yesterday's close) and clears ${px(last.high)} (yesterday's high)${pm?.high ? ` and ${px(pm.high)} (premarket high)` : ''}`, range: `a normal up day reaches about ${px(up1)}` },
+      { id: 'bull', label: 'Bull case', p: b.bull, confirms: `holds above ${px(last.close)} (yesterday's close) and clears ${px(last.high)} (yesterday's high)${pm?.high ? ` and ${px(pm.high)} (${pm.kind === 'intraday' ? "today's high so far" : 'premarket high'})` : ''}`, range: `a normal up day reaches about ${px(up1)}` },
       { id: 'stag', label: 'Stagnant case', p: b.stag, confirms: `stays between ${px(flatLo)} and ${px(flatHi)} at the close (within ±${(CASE_THRESHOLD * sigma * 100).toFixed(2)}%), likely inside ${px(last.low)} to ${px(last.high)}`, range: `a quiet day: option premium decays` },
-      { id: 'bear', label: 'Bear case', p: b.bear, confirms: `loses ${px(last.close)} and breaks ${px(last.low)} (yesterday's low)${pm?.low ? ` and ${px(pm.low)} (premarket low)` : ''}`, range: `a normal down day reaches about ${px(down1)}` },
+      { id: 'bear', label: 'Bear case', p: b.bear, confirms: `loses ${px(last.close)} and breaks ${px(last.low)} (yesterday's low)${pm?.low ? ` and ${px(pm.low)} (${pm.kind === 'intraday' ? "today's low so far" : 'premarket low'})` : ''}`, range: `a normal down day reaches about ${px(down1)}` },
     ],
   };
 }
