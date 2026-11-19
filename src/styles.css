@@ -35,14 +35,14 @@
   --faint: #70655a;
   --accent: #ee9a45;
   --link: #f1ece6;
-  --accent-bg: #2b1b0e;
+  --accent-bg: #222930;
   --accent-ink: #0a0807;
   --vwap: #5cc8f5;
   --up: #46d69a;
   --down: #ff5a4d;
   --warn: #ffb347;
   --warn-bg: #2d1d10;
-  --sel: #20160f;
+  --sel: #1b2026;
   --demo: #c4a5ff;
   --demo-bg: #241b38;
   --ember: #ff7a2f;
@@ -1745,11 +1745,11 @@ body:has(.hw.dragging)::before { animation-play-state: paused; }
   --faint: #829ba6;
   --accent: #f6b26b;
   --link: #eef5f7;
-  --accent-bg: rgba(246, 178, 107, .16);
+  --accent-bg: rgba(234, 242, 244, .08); /* neutral highlight: gold at low alpha read as brown on the navy */
   --accent-ink: #10202f;
   --up: #7fe3c4;
   --down: #ff9d8a;
-  --sel: rgba(246, 178, 107, .12);
+  --sel: rgba(234, 242, 244, .06);
   --ember: #f6b26b;
   --chart-bg: #0a1a2a;
   --shadow: 0 12px 32px rgba(0, 8, 16, .55);
@@ -3269,15 +3269,18 @@ a, .link { color: var(--link); text-decoration: underline; text-decoration-thick
 a:hover, .link:hover { text-decoration-color: var(--link); }
 .link-plain:hover, .ticker-hl:hover { color: var(--link); text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 3px; }
 
-/* ---------- text boxes and inputs: rounded, dark fill, soft focus glow ---------- */
-input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='color']):not([type='file']), textarea, select {
+/* ---------- text boxes and inputs: rounded, dark fill, soft focus glow ----------
+   :where() keeps these at zero specificity, so any component's own input styling (borderless search boxes inside a
+   framed wrapper, compact table inputs) still wins. */
+:where(input:not([type='checkbox'], [type='radio'], [type='range'], [type='color'], [type='file']), textarea, select) {
   background: color-mix(in srgb, var(--panel-2) 80%, transparent); color: var(--text); border: 1px solid var(--line-2); border-radius: 8px; padding: 6px 10px;
   transition: border-color .15s, box-shadow .15s, background .15s; outline: none;
 }
-input:not([type='checkbox']):not([type='radio']):not([type='range'])::placeholder, textarea::placeholder { color: var(--faint, var(--muted)); opacity: .9; }
-input:not([type='checkbox']):not([type='radio']):not([type='range']):hover, textarea:hover, select:hover { border-color: color-mix(in srgb, var(--text) 30%, var(--line-2)); }
-input:not([type='checkbox']):not([type='radio']):not([type='range']):focus, textarea:focus, select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent); background: var(--panel); }
-.cmd input, .cmd input:focus { border-radius: 0; box-shadow: none; background: transparent; border-width: 0 0 1px; }
+:where(input, textarea)::placeholder { color: var(--faint, var(--muted)); opacity: .9; }
+:where(input:not([type='checkbox'], [type='radio'], [type='range']), textarea, select):hover { border-color: color-mix(in srgb, var(--text) 30%, var(--line-2)); }
+:where(input:not([type='checkbox'], [type='radio'], [type='range']), textarea, select):focus { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent); }
+/* inputs that sit inside their own framed box: no second frame */
+:where(.co-search, .ln-search-w, .cmd) input, :where(.co-search, .cmd) input:focus, :where(.co-search) input:hover { border-color: transparent; box-shadow: none; background: transparent; }
 
 /* ---------- chips and tags: filled pills instead of outlines ---------- */
 .chip { border-radius: 999px; border-color: transparent; background: color-mix(in srgb, var(--panel-2) 85%, transparent); color: var(--muted); padding: 3px 10px; transition: background .15s, color .15s, border-color .15s; }
@@ -3305,3 +3308,25 @@ input:not([type='checkbox']):not([type='radio']):not([type='range']):focus, text
 .jp-lens { border: 1px solid var(--line); border-radius: 10px; padding: 6px 10px; background: var(--panel); } .jp-lens summary { cursor: pointer; font-weight: 600; font-size: 13px; }
 .jp-t { width: 100%; border-collapse: collapse; font-size: 12.5px; margin-top: 6px; } .jp-t th, .jp-t td { padding: 4px 4px; border-bottom: 1px solid var(--line); text-align: left; } .jp-t th { color: var(--muted); font-weight: 500; } .jp-t .r { text-align: right; } .jp-t tr.thin { opacity: .55; }
 .jp-bar { display: inline-block; width: 40px; height: 5px; margin-right: 6px; border-radius: 3px; background: var(--panel-2); overflow: hidden; vertical-align: middle; } .jp-bar i { display: block; height: 100%; } .jp-bar i.up { background: var(--up); } .jp-bar i.down { background: var(--down); }
+
+/* ---------- no brownish fills: ticker pills, badges and tags are transparent with a thin edge ---------- */
+:root[data-scene='river'], :root[data-theme='dark'] { --warn-bg: transparent; }
+.sym-chip { background: transparent; padding: 0 3px; }
+.sym-chip:hover { background: color-mix(in srgb, var(--text) 8%, transparent); }
+.fresh { background: transparent !important; border: 1px solid color-mix(in srgb, currentColor 35%, transparent); }
+.tag { background: transparent; border-color: var(--line-2); }
+.chip.on { background: color-mix(in srgb, var(--text) 10%, transparent); }
+/* ---------- page banners: compact, flat (no gradient), still easy to read ---------- */
+.hero { padding: 8px 12px 8px 14px; gap: 10px; border-radius: 10px; background: var(--panel) !important; border-color: var(--line); box-shadow: none; }
+.hero::before { width: 3px; }
+.hero-ic { width: 32px; height: 32px; border-radius: 9px; background: transparent; }
+.hero-ic svg { width: 18px; height: 18px; }
+.hero-txt { gap: 0; }
+.hero-kicker { font-size: 9.5px; color: var(--muted); }
+.hero h2 { font-size: 18px; }
+.hero-sub { font-size: 12.5px; line-height: 1.4; color: var(--muted); max-width: 110ch; }
+.hero-ctl input { padding: 5px 9px; font-size: 13px; }
+/* ---------- flat colors instead of decorative gradients ---------- */
+.fc-front, .ln-flash, .lt-tile { background: var(--panel) !important; }
+.nv-logo { background: var(--pg, var(--accent)) !important; }
+:root[data-theme='dark'] body::before { background: none !important; }
