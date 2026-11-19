@@ -12,8 +12,13 @@ import { MacroClock } from './MacroClock';
 
 const dow = (d: string) => new Date(`${d}T12:00:00Z`).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' });
 
+function FomcCountdown({ at }: { at: number }) {
+  const now = useTick(1000) || Date.now();
+  return <div className="num fomc-cd">{at > now ? hms(Math.round((at - now) / 1000)) : 'today'}</div>;
+}
+
 export function Calendars({ cal, now: appNow, onSelect, mySyms, mode, news }: { cal: CalendarState | null; now: number; onSelect: (s: string) => void; mySyms: Set<string>; mode: DataMode; news: NewsItem[] }) {
-  const now = useTick(1000) || appNow; // the Fed countdown shows seconds
+  const now = appNow; // only the Fed countdown ticks every second (FomcCountdown), so the rest of the page stays still
   const f = nextFomc(now);
   const fomcAt = f ? etToUtc(+f.date.slice(0, 4), +f.date.slice(5, 7), +f.date.slice(8, 10), 14, 0) : null;
   const fr = cal?.freshness ?? 'pending';
@@ -26,7 +31,7 @@ export function Calendars({ cal, now: appNow, onSelect, mySyms, mode, news }: { 
         {f && fomcAt ? (
           <div className="fomc">
             <div><b>{dow(f.date)}</b>{f.sep && <span className="tag" title="Summary of Economic Projections (dot plot)">SEP</span>}{f.tentative && <span className="tag">tentative</span>}</div>
-            <div className="num fomc-cd">{fomcAt > now ? hms(Math.round((fomcAt - now) / 1000)) : 'today'}</div>
+            <FomcCountdown at={fomcAt} />
           </div>
         ) : <p className="muted small">No upcoming meeting in the schedule.</p>}
         <div className="odds">

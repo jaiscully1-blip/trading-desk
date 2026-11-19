@@ -4,7 +4,7 @@
 import { useEffect } from 'react';
 import { load, save } from '../lib/store';
 
-const SEL = '.sym-chip, .wl-sym, .peer-sym, .pk-sym, .ql-chips .chip, .ql-cos .chip, [data-sym].chip, .hc-h b';
+const SEL = '.mcal-ev[data-sym], .mcal-sym[data-sym], .sym-chip, .wl-sym, .peer-sym, .pk-sym, .ql-chips .chip, .ql-cos .chip, [data-sym].chip, .hc-h b';
 const SYM = /^[A-Z][A-Z0-9.\-]{0,9}$/;
 const url = (s: string) => `https://financialmodelingprep.com/image-stock/${encodeURIComponent(s)}.png`;
 type Brand = { c: string | null; ok: boolean };
