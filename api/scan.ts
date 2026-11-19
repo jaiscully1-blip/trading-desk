@@ -8,7 +8,7 @@ import { finnhubNews, finnhubProfile, finraShortInterest, secJson } from './_lib
 import { parseSecTickers } from '../shared/company.js';
 import { closeOn, floatShares, latestByCik, recentInstantPeriods } from '../shared/tearsheet.js';
 import { frameUrl } from '../shared/distressGather.js';
-import { SYMBOL_RE, cached, getCached, getJson, hasKey, json, setCached, ttl } from './_lib/core.js';
+import { SYMBOL_RE, cached, getCached, getJson, hasKey, json, setCached, ttl, markFresh } from './_lib/core.js';
 import { loadSeries } from './_lib/series.js';
 import { YH_HEADERS, longDaily, yahooDaily } from './_lib/yahoo.js';
 
@@ -38,6 +38,7 @@ async function shortInterest(symbols: string[]): Promise<Map<string, FinraSI | n
 }
 
 export async function GET(req: Request): Promise<Response> {
+  markFresh(req);
   const u = new URL(req.url);
   const symbols = [...new Set((u.searchParams.get('symbols') ?? '').toUpperCase().split(',').map((s) => s.trim()).filter(Boolean))];
   if (!symbols.length || symbols.length > MAX || !symbols.every((s) => SYMBOL_RE.test(s))) {

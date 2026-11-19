@@ -3,12 +3,14 @@
 // Daily bars come from Yahoo's public chart API (no key, one fast call per ticker), else Twelve Data / Binance.
 import type { Bar } from '../shared/types.js';
 import { ROT_ASSETS, riskAppetite, rotationRows } from '../shared/rotation.js';
-import { cached, json } from './_lib/core.js';
+import { cached, json, markFresh } from './_lib/core.js';
 import { dailyBars } from './_lib/yahoo.js';
 
 export const maxDuration = 30;
 
-export async function GET(): Promise<Response> {
+export async function GET(req?: Request): Promise<Response> {
+  markFresh(req);
+  markFresh(req);
   try {
     const { val } = await cached('rotation', 3 * 3600, async () => {
       const syms = ['SPY', ...ROT_ASSETS.map((a) => a.sym)];

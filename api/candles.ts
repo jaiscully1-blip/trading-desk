@@ -1,6 +1,6 @@
 // GET /api/candles?symbol=SPY&tf=5m|15m|1H|D|W|M
 import type { ApiError, TF } from '../shared/types.js';
-import { cached, json, SYMBOL_RE } from './_lib/core.js';
+import { cached, json, SYMBOL_RE, markFresh } from './_lib/core.js';
 import { loadSeries } from './_lib/series.js';
 import { cryptoBars } from './_lib/adapters.js';
 
@@ -8,6 +8,7 @@ import { cryptoBars } from './_lib/adapters.js';
 const CRYPTO_RE = /^[A-Z0-9]{2,10}-USD$/;
 
 export async function GET(req: Request): Promise<Response> {
+  markFresh(req);
   const u = new URL(req.url);
   const symbol = (u.searchParams.get('symbol') ?? '').toUpperCase();
   const tf = u.searchParams.get('tf') as TF;

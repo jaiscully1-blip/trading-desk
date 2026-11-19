@@ -1,11 +1,12 @@
 // GET /api/quotes?symbols=SPY,QQQ,NVDA
 import type { ApiError, QuoteResult } from '../shared/types.js';
 import { QUOTE_CHAIN, alpacaQuotes } from './_lib/adapters.js';
-import { SYMBOL_RE, getCached, hasKey, json, setCached, ttl } from './_lib/core.js';
+import { SYMBOL_RE, getCached, hasKey, json, setCached, ttl, markFresh } from './_lib/core.js';
 
 const MAX = 40;
 
 export async function GET(req: Request): Promise<Response> {
+  markFresh(req);
   const u = new URL(req.url);
   const symbols = [...new Set((u.searchParams.get('symbols') ?? '').toUpperCase().split(',').map((s) => s.trim()).filter(Boolean))];
   if (!symbols.length || symbols.length > MAX || !symbols.every((s) => SYMBOL_RE.test(s))) {

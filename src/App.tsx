@@ -51,6 +51,7 @@ const AltDataPage = lazy(() => import('./components/AltDataPage'));
 import { SpotifyDock } from './components/SpotifyDock';
 import { InfoDrawer } from './components/InfoDrawer';
 import { LogoDecorator } from './components/Logos';
+import { HealthPanel, openHealth } from './components/HealthPanel';
 import { CompanyPeek, openPeek } from './components/CompanyPeek';
 const QuantLabPage = lazy(() => import('./components/QuantLabPage'));
 const RealEconPage = lazy(() => import('./components/RealEconPage'));
@@ -739,6 +740,8 @@ export default function App() {
     { id: 'policy', label: 'Macro & Policy: earnings season scoreboard, tariff tracker, policy odds by sector', hint: 'Shift O', run: () => setPage('policy') },
     { id: 'plumbing', label: 'Shorts & Supply (was Market Plumbing): short volume, dark pools, borrow fee, fails to deliver, unusual options, buybacks, dilution, lockups, mergers', hint: 'Shift P', run: () => setPage('plumbing') },
     { id: 'realecon', label: 'Real Economy: air traffic, CEO jets, rail, power demand, gas prices, freight, weather', hint: 'Shift E', run: () => setPage('realecon') },
+    { id: 'health', label: 'Desk health report: failed or slow data, errors, sources (copy for Claude)', run: () => openHealth() },
+    { id: 'reloadall', label: 'Reload all data (skip every cache)', run: () => { import('./lib/health').then((m) => m.reloadAll()); } },
     { id: 'quant', label: 'Quant Lab: relationship finder, correlations with factors, earnings and Amazon review tone', run: () => setPage('quant') },
     { id: 'altdata', label: 'Alt Data: hiring, app ranks, Wikipedia interest, GitHub, Steam, Reddit and StockTwits, price basket', hint: 'Shift A', run: () => setPage('altdata') },
     { id: 'tesla', label: 'Tesla & Lots: registrations, satellite lot fullness, inventory', hint: 'Shift T', run: () => setPage('tesla') },
@@ -1037,6 +1040,7 @@ export default function App() {
       <StanceLayer />
       <SpotifyDock />
       <LogoDecorator />
+      <HealthPanel />
       <InfoDrawer onLearn={() => setPage('learn')} />
       <CompanyPeek mode={dataMode} quotes={quotes} onChart={toDesk} onCompany={openCompany} />
       {calm && <Suspense fallback={null}><CalmMode onExit={() => setCalm(false)} /></Suspense>}

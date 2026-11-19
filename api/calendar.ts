@@ -1,7 +1,7 @@
 // GET /api/calendar?symbols=NVDA,AMD -> economic releases (FRED) with "what usually happens", FOMC + Kalshi odds, earnings, IPOs
 import { ECON, FOMC, usualMove, type Earning, type Ipo, type Odds, type Usual } from '../shared/calendar.js';
 import { alphaEarnings, alphaIpos, fredReleaseDates, fredReleases, kalshiFedOdds } from './_lib/adapters.js';
-import { SYMBOL_RE, cached, hasKey, json } from './_lib/core.js';
+import { SYMBOL_RE, cached, hasKey, json, markFresh } from './_lib/core.js';
 import { loadSeries } from './_lib/series.js';
 
 const ymd = (ms: number) => new Date(ms).toISOString().slice(0, 10);
@@ -26,6 +26,7 @@ async function econ(): Promise<EconEvent[]> {
 }
 
 export async function GET(req: Request): Promise<Response> {
+  markFresh(req);
   const u = new URL(req.url);
   const symbols = new Set((u.searchParams.get('symbols') ?? '').toUpperCase().split(',').filter((s) => SYMBOL_RE.test(s)));
   const errors: Record<string, string> = {};

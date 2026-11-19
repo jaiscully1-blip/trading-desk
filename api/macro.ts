@@ -2,9 +2,11 @@
 import type { MacroResult } from '../shared/types.js';
 import { alphaPutCall, fredHistory, fredLatest } from './_lib/adapters.js';
 import { fearGreed } from '../shared/feargreed.js';
-import { cached, hasKey, json, ttl } from './_lib/core.js';
+import { cached, hasKey, json, ttl, markFresh } from './_lib/core.js';
 
-export async function GET(): Promise<Response> {
+export async function GET(req?: Request): Promise<Response> {
+  markFresh(req);
+  markFresh(req);
   try {
     const { val } = await cached<MacroResult>('macro', 3 * 3600, async () => {
       const [vix, tnx, c2, c3] = await Promise.allSettled([fredLatest('VIXCLS'), fredLatest('DGS10'), fredLatest('T10Y2Y'), fredLatest('T10Y3M')]);

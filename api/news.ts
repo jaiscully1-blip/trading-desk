@@ -1,7 +1,7 @@
 // GET /api/news?symbols=NVDA,AMD   -> merged 24/7 headlines: Finnhub market + company news, plus RSS (CNBC, MarketWatch, Yahoo, Fed, BLS)
 import { isMacro, keywordSentiment, mergeNews, tagSymbols, type NewsItem } from '../shared/news.js';
 import { FEEDS, finnhubMarketNews, finnhubNews, finnhubProfile, rssFeed } from './_lib/adapters.js';
-import { SYMBOL_RE, cached, getCached, hasKey, json, setCached, take, ttl } from './_lib/core.js';
+import { SYMBOL_RE, cached, getCached, hasKey, json, setCached, take, ttl, markFresh } from './_lib/core.js';
 import { LEAN_PROMPT, LEAN_SCHEMA, leanOf, isPolitical, titleKey, type ArticleLean } from '../shared/bias.js';
 import { alpacaNews, geminiJson } from './_lib/adapters.js';
 
@@ -24,6 +24,7 @@ async function classifyPolitical(items: NewsItem[]) {
 const MAX_COMPANY = 15; // company-news calls per request (Finnhub free: 60/min, shared with quotes)
 
 export async function GET(req: Request): Promise<Response> {
+  markFresh(req);
   const u = new URL(req.url);
   const symbols = [...new Set((u.searchParams.get('symbols') ?? '').toUpperCase().split(',').map((s) => s.trim()).filter((s) => SYMBOL_RE.test(s)))].slice(0, 60);
   // company names let "Nvidia ..." headlines tag NVDA; profiles are cached a week, so this is ~1 call per ticker per week

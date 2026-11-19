@@ -3337,3 +3337,10 @@ a:hover, .link:hover { text-decoration-color: var(--link); }
 .fresh-pop b { font-weight: 600; } .fresh-src { color: var(--muted); }
 .spd-grip { position: absolute; top: -8px; right: -8px; z-index: 2; width: 20px; height: 20px; display: grid; place-items: center; border-radius: 50%; background: var(--panel); border: 1px solid var(--line-2); color: var(--muted); font-size: 11px; cursor: grab; touch-action: none; user-select: none; }
 .spd-grip:active { cursor: grabbing; color: var(--text); }
+/* desk health panel */
+.hp { width: min(640px, calc(100vw - 32px)); }
+.hp-body { padding: 12px 14px 16px; display: grid; gap: 12px; max-height: 70vh; overflow-y: auto; }
+.hp-body h4 { margin: 0 0 4px; font-size: 13px; } .hp-body ul { margin: 0; padding-left: 18px; display: grid; gap: 3px; font-size: 13px; }
+.hp-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px; }
+.hp-tile { display: grid; gap: 2px; padding: 8px 10px; border-radius: 10px; background: var(--panel-2); } .hp-tile b { font-size: 20px; }
+.hp-acts { display: flex; flex-wrap: wrap; gap: 6px; }

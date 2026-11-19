@@ -1,8 +1,9 @@
 // GET /api/movers -> Alpha Vantage top gainers / most active / losers (filtered), to discover names outside your list.
 import { alphaMovers } from './_lib/adapters.js';
-import { cached, json, ttl } from './_lib/core.js';
+import { cached, json, ttl, markFresh } from './_lib/core.js';
 
 export async function GET(req: Request): Promise<Response> {
+  markFresh(req);
   const u = new URL(req.url);
   const minPrice = Math.max(0, Number(u.searchParams.get('minPrice') ?? 2) || 2);
   const minVol = Math.max(0, Number(u.searchParams.get('minVolume') ?? 500_000) || 500_000);
