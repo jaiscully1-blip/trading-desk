@@ -286,10 +286,12 @@ export function ChartPanel({
     for (const l of dpLines.current) x.c.removePriceLine(l);
     dpLines.current = [];
     if (!dpOn || !dp?.levels) return;
-    const dpc = cssVar('--dp'), phc = cssVar('--phantom');
-    dp.levels.slice(0, 6).forEach((l, i) => dpLines.current.push(x.c.createPriceLine({ price: l.price, color: dpc, lineWidth: i < 2 ? 2 : 1, lineStyle: LineStyle.Dashed, axisLabelVisible: !ladderOn, title: ladderOn ? '' : `DP ${usdShort(l.usd)}${l.n > 1 ? ` ×${l.n}` : ''}` })));
-    if (phOn) for (const p of dp.phantoms ?? []) dpLines.current.push(x.c.createPriceLine({ price: p.price, color: phc, lineWidth: 1, lineStyle: LineStyle.SparseDotted, axisLabelVisible: !ladderOn, title: ladderOn ? '' : `Phantom ${usdShort(p.usd)}` }));
-  }, [dp, dpOn, phOn, tf, theme, bars, ladderOn]);
+    // background look: thin faint red dots across the chart, only a small dollar tag on the price axis
+    const dpc = cssVar('--dp'), phc = cssVar('--phantom'), tag = cssVar('--dp-tag'), tagText = cssVar('--dp-tag-text');
+    const line = (price: number, color: string, style: LineStyle, usd: number) => dpLines.current.push(x.c.createPriceLine({ price, color, lineWidth: 1, lineStyle: style, axisLabelVisible: true, axisLabelColor: tag, axisLabelTextColor: tagText, title: usdShort(usd) }));
+    for (const l of dp.levels.slice(0, 6)) line(l.price, dpc, LineStyle.Dotted, l.usd);
+    if (phOn) for (const p of dp.phantoms ?? []) line(p.price, phc, LineStyle.SparseDotted, p.usd);
+  }, [dp, dpOn, phOn, tf, theme, bars]);
 
   // level ladder rows
   const ladOn = ov.lad !== false && ov.lvl && tf !== 'W' && tf !== 'M';
