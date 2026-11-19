@@ -752,7 +752,7 @@ export default function App() {
     { id: 'reloadall', label: 'Reload all data (skip every cache)', run: () => { import('./lib/health').then((m) => m.reloadAll()); } },
     { id: 'quant', label: 'Quant Lab: relationship finder, correlations with factors, earnings and Amazon review tone', run: () => setPage('quant') },
     { id: 'altdata', label: 'Alt Data: hiring, app ranks, Wikipedia interest, GitHub, Steam, Reddit and StockTwits, price basket', hint: 'Shift A', run: () => setPage('altdata') },
-    { id: 'tesla', label: 'Tesla & Lots: registrations, satellite lot fullness, inventory', hint: 'Shift T', run: () => setPage('tesla') },
+    { id: 'tesla', label: 'Lots (Tesla, ports, retailers): registrations, satellite lot fullness, inventory', hint: 'Shift T', run: () => setPage('tesla') },
     { id: 'essay', label: 'Essays: write up a stock with a linked chart, news and data', hint: 'Shift W', run: () => setPage('essay') },
     { id: 'journal', label: 'Journal page (trades, stats, violations, import)', hint: 'Shift J', run: () => setPage('journal') },
     { id: 'ticket', label: 'Quick journal / trade ticket', hint: 'Q', run: () => setTab('journal') },

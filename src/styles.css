@@ -3429,3 +3429,32 @@ a:hover, .link:hover { text-decoration-color: var(--link); }
 .mcal-replay { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; padding: 6px 8px; border-radius: 8px; background: var(--panel-2); }
 .mcal-watch { flex: none; border: 1px solid var(--line-2); background: transparent; color: var(--muted); border-radius: 999px; font-size: 11px; padding: 1px 8px; cursor: pointer; } .mcal-watch:hover { color: var(--text); border-color: var(--k-earn); }
 .mcal-row { grid-template-columns: 10px auto minmax(0, 1fr) auto auto; }
+
+/* page banners never stretch or get squeezed inside a scrolling column */
+.hero { flex: none !important; }
+/* journal calendar: the day panel scrolls on its own so Tags and the rest are always reachable */
+.jc-side { position: sticky; top: 0; max-height: calc(100vh - 230px); overflow-y: auto; overscroll-behavior: contain; }
+
+/* ---------- Learn card styles (picker on the Learn page) ---------- */
+.ln-blurb-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; justify-content: space-between; }
+.ln-blurb-row .ln-blurb { margin: 0; }
+.ln-cs { display: inline-flex; flex-wrap: wrap; gap: 5px; align-items: center; }
+.ln-csb { display: inline-flex; align-items: center; gap: 6px; padding: 3px 9px 3px 4px; border-radius: 999px; border: 1px solid var(--line); background: transparent; color: var(--muted); font-size: 11.5px; cursor: pointer; }
+.ln-csb:hover { color: var(--text); } .ln-csb.on { color: var(--text); border-color: var(--line-2); background: color-mix(in srgb, var(--text) 7%, transparent); }
+.ln-csb i { width: 18px; height: 14px; border-radius: 4px; border: 1px solid var(--line-2); background: var(--panel); }
+.ln-root .fc-front::after { display: none; }   /* the old corner circle */
+.ln-root .fc-face { transition: border-color .15s, transform .15s, background-color .15s; }
+/* paper: a faint grain from an SVG noise tile */
+.cs-paper i, .ln-root[data-cs='paper'] .fc-face { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 .05 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E") !important; background-color: var(--panel) !important; }
+/* dots: engineering-paper dot grid */
+.cs-dots i, .ln-root[data-cs='dots'] .fc-face { background-color: var(--panel) !important; background-image: radial-gradient(color-mix(in srgb, var(--text) 9%, transparent) 1px, transparent 1.2px) !important; background-size: 14px 14px !important; }
+/* hairline: open card, thin colored rule on top */
+.cs-hairline i, .ln-root[data-cs='hairline'] .fc-face { background: transparent !important; border-color: var(--line) !important; border-top: 2px solid color-mix(in srgb, var(--pg, var(--accent)) 65%, transparent) !important; }
+.ln-root[data-cs='hairline'] .fc-face { border-radius: 4px 4px 12px 12px; }
+/* tint: a flat soft wash of the page color */
+.cs-tint i, .ln-root[data-cs='tint'] .fc-face { background: color-mix(in srgb, var(--pg, var(--accent)) 7%, var(--panel)) !important; border-color: color-mix(in srgb, var(--pg, var(--accent)) 18%, var(--line)) !important; }
+/* contour: faint topo lines in the lower-right corner */
+.cs-contour i, .ln-root[data-cs='contour'] .fc-face { background-color: var(--panel) !important; background-repeat: no-repeat !important; background-position: right -40px bottom -50px !important; background-size: 260px 220px !important;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 260 220' fill='none' stroke='%23ffffff' stroke-opacity='.07' stroke-width='1'%3E%3Cpath d='M130 30c55 0 100 35 100 80s-45 80-100 80-100-35-100-80 45-80 100-80z'/%3E%3Cpath d='M130 50c44 0 78 27 78 60s-34 60-78 60-78-27-78-60 34-60 78-60z'/%3E%3Cpath d='M132 70c32 0 56 18 56 40s-24 40-56 40-58-17-58-40 26-40 58-40z'/%3E%3Cpath d='M134 90c20 0 34 9 34 20s-14 20-34 20-36-8-36-20 16-20 36-20z'/%3E%3Cpath d='M20 200c40-30 90-20 120-40s60-60 110-50'/%3E%3C/svg%3E") !important; }
+:root[data-theme='light'] .ln-root[data-cs='contour'] .fc-face { filter: invert(0); }
+.cs-clean i, .ln-root[data-cs='clean'] .fc-face { background: var(--panel) !important; }

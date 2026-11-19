@@ -211,7 +211,7 @@ export default function TeslaPage({ mode }: { mode: DataMode }) {
   const live = mode.kind === 'live';
   return (
     <div className="page tl">
-      <PageHero page="tesla" title="Tesla & Lots" sub="Registrations, parking-lot fullness and inventory, month over month and year over year. Data to research with, not advice." />
+      <PageHero page="tesla" title="Lots" sub="Registrations, parking-lot fullness and inventory, month over month and year over year. Data to research with, not advice." />
       <Registrations live={live} />
       <Lots live={live} />
       <div className="tl-two"><OtherCountries /><Inventory /></div>
