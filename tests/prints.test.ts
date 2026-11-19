@@ -27,3 +27,14 @@ describe('dark-pool and phantom prints', () => {
   });
   it('formats dollars', () => { expect(usdShort(14_900_000)).toBe('$14.9M'); expect(usdShort(2.1e9)).toBe('$2.1B'); });
 });
+
+import { clusterLevels } from '../shared/prints';
+describe('print zones', () => {
+  it('merges nearby levels into one zone and keeps far ones apart', () => {
+    const L = (price: number, usd: number) => ({ price, usd, shares: 1, n: 2, phantom: 0, last: 0 });
+    const z = clusterLevels([L(732.16, 4.9e9), L(729.99, 1.2e8), L(730.44, 5.7e9), L(732.44, 1.2e9), L(719.75, 1.4e9)]);
+    expect(z.length).toBe(2);
+    expect(z[1]).toMatchObject({ lo: 729.99, hi: 732.44, levels: 4, n: 8 });
+    expect(z[0].levels).toBe(1);
+  });
+});

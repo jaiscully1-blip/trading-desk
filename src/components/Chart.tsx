@@ -23,7 +23,7 @@ import { toolHours } from '../../shared/toolHours';
 import { LEVEL_SHORT, type Level } from '../lib/levels';
 import { usePersisted } from '../lib/store';
 import { usePrints } from '../data/prints';
-import { usdShort } from '../../shared/prints';
+import { clusterLevels, usdShort } from '../../shared/prints';
 import { Fresh, PanelHead, Seg } from './common';
 import { pct, px, tone } from '../lib/format';
 
@@ -280,17 +280,25 @@ export function ChartPanel({
   const dpOn = ov.dp !== false && mode?.kind === 'live' && tf !== 'W' && tf !== 'M', phOn = ov.ph !== false && dpOn;
   const dp = usePrints(sym, dpOn);
   const dpLines = useRef<IPriceLine[]>([]);
+  const dpz = useRef<ZonePrimitive | null>(null);
   useEffect(() => {
     const x = s.current;
     if (!x) return;
     for (const l of dpLines.current) x.c.removePriceLine(l);
     dpLines.current = [];
+    if (!dpz.current) { dpz.current = new ZonePrimitive(); x.c.attachPrimitive(dpz.current); }
+    dpz.current.set([]);
     if (!dpOn || !dp?.levels) return;
     // background look: thin faint red dots across the chart, only a small dollar tag on the price axis
     const dpc = cssVar('--dp'), phc = cssVar('--phantom'), tag = cssVar('--dp-tag'), tagText = cssVar('--dp-tag-text');
     const line = (price: number, color: string, style: LineStyle, usd: number) => dpLines.current.push(x.c.createPriceLine({ price, color, lineWidth: 1, lineStyle: style, axisLabelVisible: true, axisLabelColor: tag, axisLabelTextColor: tagText, title: usdShort(usd) }));
-    for (const l of dp.levels.slice(0, 6)) line(l.price, dpc, LineStyle.Dotted, l.usd);
-    if (phOn) for (const p of dp.phantoms ?? []) line(p.price, phc, LineStyle.SparseDotted, p.usd);
+    // prints close together (within 0.25%) become one translucent box spanning their prices; a lone level stays a dotted line
+    const zones = clusterLevels(dp.levels.slice(0, 8));
+    const boxes = zones.filter((z) => z.levels > 1);
+    for (const z of zones) if (z.levels === 1) line(z.lo, dpc, LineStyle.Dotted, z.usd);
+    if (phOn) for (const p of dp.phantoms ?? []) if (!boxes.some((z) => p.price >= z.lo && p.price <= z.hi)) line(p.price, phc, LineStyle.SparseDotted, p.usd);
+    const pad = (v: number) => v * 0.0003; // a hair of height so a tight cluster still shows
+    dpz.current?.set(boxes.map((z) => ({ lo: z.lo - pad(z.lo), hi: z.hi + pad(z.hi), color: cssVar('--dp-zone'), label: `Dark pool ${usdShort(z.usd)} · ${z.n} prints · ${z.lo.toFixed(2)}–${z.hi.toFixed(2)}` })));
   }, [dp, dpOn, phOn, tf, theme, bars]);
 
   // level ladder rows

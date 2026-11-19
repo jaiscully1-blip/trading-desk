@@ -46,3 +46,15 @@ export function printLevels(prints: Print[], top = 10): PrintLevel[] {
 }
 
 export const usdShort = (v: number) => (v >= 1e9 ? `$${(v / 1e9).toFixed(1)}B` : v >= 1e6 ? `$${(v / 1e6).toFixed(1)}M` : `$${(v / 1e3).toFixed(0)}K`);
+
+export interface PrintZone { lo: number; hi: number; usd: number; n: number; levels: number }
+/** Levels within `gapPct` % of each other merge into one zone; a zone of one level stays a single line on the chart. */
+export function clusterLevels(levels: PrintLevel[], gapPct = 0.25): PrintZone[] {
+  const xs = [...levels].sort((a, b) => a.price - b.price), out: PrintZone[] = [];
+  for (const l of xs) {
+    const z = out[out.length - 1];
+    if (z && (l.price / z.hi - 1) * 100 <= gapPct) { z.hi = l.price; z.usd += l.usd; z.n += l.n; z.levels++; }
+    else out.push({ lo: l.price, hi: l.price, usd: l.usd, n: l.n, levels: 1 });
+  }
+  return out;
+}
