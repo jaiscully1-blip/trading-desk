@@ -28,6 +28,7 @@ import { CheckInDialog, OpenPositions, RiskPanel, TradeTicket, uid } from './com
 import { download } from './lib/download';
 import { DEFAULT_RULES, type ExitRules } from './lib/replay';
 import { buildRecap, journalCsv, liveRecaps, type Recap } from './lib/recap';
+import { useDayReviews, withReview } from './lib/dayReview';
 import { useIdbState } from './lib/idb';
 import { DEFAULT_SETTINGS, etDay, guard, viewTrade, violations as findViolations, type AccountSettings, type CheckIn, type Trade, type Transfer } from './lib/journal';
 import { Scanner } from './components/Scanner';
@@ -509,7 +510,7 @@ export default function App() {
     setRecaps((x) => [...x.filter((y) => y.day !== today), r]);
     if (autoBackup) download(`desk-journal-${today}.csv`, journalCsv(views, viols)); // full journal, once a day at the close
     setRecapOpen(today);
-    flash(`Daily recap ready: grade ${r.grade}`, 6000);
+    flash('Daily recap ready: answer 4 quick questions to grade the day', 6000);
   }, [Math.floor(now / 60_000), rcLoaded, jLoaded]); // eslint-disable-line react-hooks/exhaustive-deps
   const openRecap = () => {
     const r = buildRecap(today, views, viols, checkin);
@@ -517,7 +518,8 @@ export default function App() {
     setRecapOpen(today);
   };
   // what the recap overlay shows: rebuilt from the journal as it is now, so a CSV added late updates that day's card
-  const shownRecaps = useMemo(() => liveRecaps(recaps, views, viols, today, checkin, et(now).sod < clk.closeSod), [recaps, views, viols, today, checkin, Math.floor(now / 60_000)]); // eslint-disable-line react-hooks/exhaustive-deps
+  const reviews = useDayReviews();
+  const shownRecaps = useMemo(() => liveRecaps(recaps, views, viols, today, checkin, et(now).sod < clk.closeSod).map((r) => withReview(r, reviews[r.day])), [recaps, views, viols, today, checkin, reviews, Math.floor(now / 60_000)]); // eslint-disable-line react-hooks/exhaustive-deps
   const replayView = replayId ? views.find((v) => v.t.id === replayId) : undefined;
 
   /* ---------------- level alerts (touch / break) ---------------- */
