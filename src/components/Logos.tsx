@@ -111,25 +111,32 @@ function decorate(el: HTMLElement) {
   const sym = (el.dataset.sym || el.textContent || '').trim().toUpperCase().replace(/^[☆★]\s*/, '');
   if (el.dataset.logo && el.dataset.logoSym === sym) return; // already done (a reused chip with a new ticker is redone)
   if (!SYM.test(sym)) { if (el.dataset.logo) { delete el.dataset.logo; el.style.removeProperty('--logo'); el.style.removeProperty('--brand'); } return; }
-  el.dataset.logo = 'loading'; el.dataset.logoSym = sym;
-  void brand(sym).then((b) => {
-    if (!el.isConnected || el.dataset.logoSym !== sym) return;
+  el.dataset.logoSym = sym;
+  const apply = (b: Brand) => {
     if (!b.ok) { el.dataset.logo = 'none'; return; }
     if (!clean.has(sym) && b.ok) void brandClean(sym); // after a reload the color is cached but the cleaned image isn't
     el.style.setProperty('--logo', `url("${clean.get(sym) ?? url(sym)}")`);
     if (b.c) el.style.setProperty('--brand', b.c);
     el.dataset.logo = b.c ? 'tint' : 'plain';
-  });
+  };
+  const known = brands.get(sym);
+  if (known) { apply(known); return; } // seen before: logo goes on in the same frame, so nothing shifts later
+  el.dataset.logo = 'loading';
+  void brand(sym).then((b) => { if (el.isConnected && el.dataset.logoSym === sym) apply(b); });
 }
 
 export function LogoDecorator() {
   useEffect(() => {
-    // batched: at most one pass every 300 ms however busy the page is
-    let t: ReturnType<typeof setTimeout> | undefined;
-    const scan = () => { t = undefined; document.querySelectorAll<HTMLElement>(SEL).forEach(decorate); };
-    const mo = new MutationObserver(() => { t ??= setTimeout(scan, 300); });
-    scan(); mo.observe(document.body, { childList: true, subtree: true, characterData: true });
-    return () => { mo.disconnect(); clearTimeout(t); };
+    // only look at what was just added or changed, once per frame (before it is painted)
+    const todo = new Set<Element>(); let raf = 0;
+    const run = () => { raf = 0; for (const n of todo) { if (!n.isConnected) continue; if (n.matches(SEL)) decorate(n as HTMLElement); n.querySelectorAll<HTMLElement>(SEL).forEach(decorate); } todo.clear(); };
+    const mo = new MutationObserver((ms) => {
+      for (const m of ms) { const t = m.type === 'characterData' ? m.target.parentElement : (m.target as Element); if (t) todo.add(t.closest(SEL) ?? t); m.addedNodes.forEach((a) => { if (a.nodeType === 1) todo.add(a as Element); }); }
+      if (!raf) raf = requestAnimationFrame(run);
+    });
+    document.querySelectorAll<HTMLElement>(SEL).forEach(decorate);
+    mo.observe(document.body, { childList: true, subtree: true, characterData: true });
+    return () => { mo.disconnect(); cancelAnimationFrame(raf); };
   }, []);
   return null;
 }

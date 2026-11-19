@@ -62,9 +62,9 @@ export function CheckInDialog({ day, onSave, onClose, existing }: { day: string;
       <div className="cmd ci" onMouseDown={(e) => e.stopPropagation()} role="dialog" aria-label="Pre-session check-in">
         <div className="phead"><div className="phead-title">Pre-session check-in · {day}</div><div className="phead-ctl" /><button className="icon-btn" onClick={onClose} aria-label="Close">×</button></div>
         <div className="ci-body">
-          <Scale k="sleep" label="Sleep" lo="bad" hi="great" />
-          <Scale k="mood" label="Mood" lo="low" hi="good" />
-          <Scale k="stress" label="Stress" lo="calm" hi="high" />
+          {Scale({ k: "sleep", label: "Sleep", lo: "bad", hi: "great" })}
+          {Scale({ k: "mood", label: "Mood", lo: "low", hi: "good" })}
+          {Scale({ k: "stress", label: "Stress", lo: "calm", hi: "high" })}
           <label className="ci-row"><input type="checkbox" checked={c.chasing} onChange={(e) => setC({ ...c, chasing: e.target.checked })} /> I want to make back a recent loss today</label>
           <textarea rows={2} placeholder="Anything on your mind?" value={c.note} onChange={(e) => setC({ ...c, note: e.target.value })} />
           <div className={`ci-score ${tilt >= TILT_HIGH ? 'down' : ''}`}>

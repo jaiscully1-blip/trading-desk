@@ -102,13 +102,13 @@ export function Scanner(p: ScannerProps) {
       <table className="grid sc">
         <thead>
           <tr>
-            <H k="sym">Sym</H>
-            <H k="chgPct">Chg</H>
-            <H k="gapPct">Gap</H>
-            <H k="rvol" title="Relative volume, time-of-day adjusted">RVOL</H>
-            <H k="floatM" title="Estimated float, millions of shares: SEC public float (value held by non-insiders on one date) ÷ that day's close">Float</H>
-            <H k="rsRank" title="RS percentile vs SPY over 5/20/60 days, within the universe">RS</H>
-            <H k="grade" title="Playbook grade">Gr</H>
+            {H({ k: "sym", children: "Sym" })}
+            {H({ k: "chgPct", children: "Chg" })}
+            {H({ k: "gapPct", children: "Gap" })}
+            {H({ k: "rvol", title: "Relative volume, time-of-day adjusted", children: "RVOL" })}
+            {H({ k: "floatM", title: "Estimated float, millions of shares: SEC public float (value held by non-insiders on one date) ÷ that day's close", children: "Float" })}
+            {H({ k: "rsRank", title: "RS percentile vs SPY over 5/20/60 days, within the universe", children: "RS" })}
+            {H({ k: "grade", title: "Playbook grade", children: "Gr" })}
             <th aria-label="Add" />
           </tr>
         </thead>

@@ -30,23 +30,23 @@ export function MovementBadge({ m, vol, stats }: { m: MovementRead; vol?: VolRea
         <div className="mv-pop" role="dialog" aria-label="Movement watch">
           <div className="mv-h"><Q k="calc" src="from SPY, VIX and the option premium; estimates, not quotes" /><b>Movement watch</b><span className="muted small">big moves either way help long options; quiet days let theta burn them</span></div>
           <div className="mv-grid">
-            <Cell l="Priced-in move" v={`±${usd(m.priced.usd)}`} sub={`${m.priced.pct.toFixed(2)}% from VIX`} />
-            <Cell l="Last 10 days avg" v={`${m.recent.avgPct.toFixed(2)}%`} sub={`${m.recent.ratio.toFixed(2)}x priced in`} cls={m.tone === 'theta' ? 'mv-theta' : m.tone === 'move' ? 'mv-move' : ''} />
-            <Cell l={`Chop days, last ${m.chop.of}`} v={String(m.chop.n)} sub={`normal is about ${m.chop.normal} · under half the priced-in move`} cls="mv-theta" />
-            <Cell l={`Big days, last ${m.big.of}`} v={String(m.big.n)} sub={`normal is about ${m.big.normal} · 1.5x or more`} cls="mv-move" />
-            {m.latest && <Cell l="Latest session" v={`${m.latest.pct.toFixed(2)}%`} sub={`${m.latest.x.toFixed(1)}x priced in · ${m.latest.kind === 'quiet' ? 'quiet day' : m.latest.kind === 'big' ? 'big day' : 'normal day'}`} cls={m.latest.kind === 'quiet' ? 'mv-theta' : m.latest.kind === 'big' ? 'mv-move' : ''} />}
-            <Cell l={m.breakEven.forNext ? 'Break-even, next session' : 'Break-even, bought now'} v={`±${usd(m.breakEven.usd)}`} sub={`${m.breakEven.pct.toFixed(2)}% move for an ATM contract held to the close · recent avg ${usd(m.recent.avgUsd)}`} />
+            {Cell({ l: "Priced-in move", v: `±${usd(m.priced.usd)}`, sub: `${m.priced.pct.toFixed(2)}% from VIX` })}
+            {Cell({ l: "Last 10 days avg", v: `${m.recent.avgPct.toFixed(2)}%`, sub: `${m.recent.ratio.toFixed(2)}x priced in`, cls: m.tone === 'theta' ? 'mv-theta' : m.tone === 'move' ? 'mv-move' : '' })}
+            {Cell({ l: `Chop days, last ${m.chop.of}`, v: String(m.chop.n), sub: `normal is about ${m.chop.normal} · under half the priced-in move`, cls: "mv-theta" })}
+            {Cell({ l: `Big days, last ${m.big.of}`, v: String(m.big.n), sub: `normal is about ${m.big.normal} · 1.5x or more`, cls: "mv-move" })}
+            {m.latest && Cell({ l: "Latest session", v: `${m.latest.pct.toFixed(2)}%`, sub: `${m.latest.x.toFixed(1)}x priced in · ${m.latest.kind === 'quiet' ? 'quiet day' : m.latest.kind === 'big' ? 'big day' : 'normal day'}`, cls: m.latest.kind === 'quiet' ? 'mv-theta' : m.latest.kind === 'big' ? 'mv-move' : '' })}
+            {Cell({ l: m.breakEven.forNext ? 'Break-even, next session' : 'Break-even, bought now', v: `±${usd(m.breakEven.usd)}`, sub: `${m.breakEven.pct.toFixed(2)}% move for an ATM contract held to the close · recent avg ${usd(m.recent.avgUsd)}` })}
           </div>
           <div className="mv-sec">ATM option premium burned (0DTE opens at {usd(m.atm0, 0)} per contract)</div>
-          <Row t="0DTE" rows={m.decay0} /><Row t="1DTE" rows={m.decay1} />
+          {Row({ t: "0DTE", rows: m.decay0 })}{Row({ t: "1DTE", rows: m.decay1 })}
           {vol && (
             <>
               <div className="mv-sec">Volatility <span className="tag">CALCULATED</span></div>
               <div className="mv-grid">
-                <Cell l="VIX, one-year rank" v={vol.vixRank ? `${vol.vixRank.rank.toFixed(0)}` : '-'} sub={vol.vixRank ? `percentile ${vol.vixRank.percentile.toFixed(0)} · range ${vol.vixRank.lo.toFixed(1)} to ${vol.vixRank.hi.toFixed(1)}` : ''} />
-                <Cell l="SPY realized, 20 days" v={vol.realized.yangZhang != null ? `${(vol.realized.yangZhang * 100).toFixed(1)}%` : '-'} sub={`Yang-Zhang (counts gaps) · range-based ${vol.realized.parkinson != null ? (vol.realized.parkinson * 100).toFixed(1) : '-'}% · close-close ${vol.realized.cc != null ? (vol.realized.cc * 100).toFixed(1) : '-'}%`} />
-                <Cell l="VIX minus realized" v={vol.premium != null ? `${vol.premium >= 0 ? '+' : '−'}${Math.abs(vol.premium).toFixed(1)} pts` : '-'} sub="what options charge over what the tape did" cls={vol.premium != null && vol.premium > 3 ? 'mv-theta' : ''} />
-                <Cell l="Vol of vol, 20 days" v={vol.vixOfVol != null ? `${(vol.vixOfVol * 100).toFixed(1)}%` : '-'} sub="typical daily % swing in VIX" />
+                {Cell({ l: "VIX, one-year rank", v: vol.vixRank ? `${vol.vixRank.rank.toFixed(0)}` : '-', sub: vol.vixRank ? `percentile ${vol.vixRank.percentile.toFixed(0)} · range ${vol.vixRank.lo.toFixed(1)} to ${vol.vixRank.hi.toFixed(1)}` : '' })}
+                {Cell({ l: "SPY realized, 20 days", v: vol.realized.yangZhang != null ? `${(vol.realized.yangZhang * 100).toFixed(1)}%` : '-', sub: `Yang-Zhang (counts gaps) · range-based ${vol.realized.parkinson != null ? (vol.realized.parkinson * 100).toFixed(1) : '-'}% · close-close ${vol.realized.cc != null ? (vol.realized.cc * 100).toFixed(1) : '-'}%` })}
+                {Cell({ l: "VIX minus realized", v: vol.premium != null ? `${vol.premium >= 0 ? '+' : '−'}${Math.abs(vol.premium).toFixed(1)} pts` : '-', sub: "what options charge over what the tape did", cls: vol.premium != null && vol.premium > 3 ? 'mv-theta' : '' })}
+                {Cell({ l: "Vol of vol, 20 days", v: vol.vixOfVol != null ? `${(vol.vixOfVol * 100).toFixed(1)}%` : '-', sub: "typical daily % swing in VIX" })}
               </div>
             </>
           )}

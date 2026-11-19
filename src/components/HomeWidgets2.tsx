@@ -1,5 +1,5 @@
 // More Home widgets: risk calculator, session clock, crypto, commodities, browser.
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, Fragment } from 'react';
 import { CandlestickSeries, ColorType, createChart, type IChartApi, type ISeriesApi, type UTCTimestamp } from 'lightweight-charts';
 import type { Bar, TF } from '../types';
 import { calc, expectancy, kelly, positionSize, recoverPct, rr, streakOdds } from '../../shared/risk';
@@ -41,35 +41,35 @@ export function RiskW({ cfg, set }: P) {
   } else if (tab === 'size') {
     const r = positionSize(v('acct', 1250), v('riskPct', 1), v('entry', 50), v('stop', 48), v('bp', Infinity) || Infinity);
     body = (<>
-      <div className="hw-grid"><In k="acct" label="Account" dflt={1250} unit="$" /><In k="riskPct" label="Risk per trade" dflt={1} step={0.25} unit="%" /><In k="entry" label="Entry" dflt={50} step={0.01} /><In k="stop" label="Stop" dflt={48} step={0.01} /><In k="bp" label="Buying power" dflt={0} unit="$, 0 = none" /></div>
+      <div className="hw-grid">{In({ k: "acct", label: "Account", dflt: 1250, unit: "$" })}{In({ k: "riskPct", label: "Risk per trade", dflt: 1, step: 0.25, unit: "%" })}{In({ k: "entry", label: "Entry", dflt: 50, step: 0.01 })}{In({ k: "stop", label: "Stop", dflt: 48, step: 0.01 })}{In({ k: "bp", label: "Buying power", dflt: 0, unit: "$, 0 = none" })}</div>
       <div className="rk-big"><span>Buy</span><b className="num">{r.shares}</b><span>shares</span></div>
-      <div className="rk-grid"><Out label="Max loss at stop" value={money(r.riskUsd)} cls="down" /><Out label="Risk per share" value={money(r.perShare)} /><Out label="Position cost" value={money(r.cost)} /><Out label="Share of account" value={`${((r.cost / v('acct', 1250)) * 100).toFixed(0)}%`} /></div>
+      <div className="rk-grid">{Out({ label: "Max loss at stop", value: money(r.riskUsd), cls: "down" })}{Out({ label: "Risk per share", value: money(r.perShare) })}{Out({ label: "Position cost", value: money(r.cost) })}{Out({ label: "Share of account", value: `${((r.cost / v('acct', 1250)) * 100).toFixed(0)}%` })}</div>
       {r.cappedBy && <p className="small warn-txt rk-pad">Capped by buying power.</p>}
       <p className="note rk-pad">Shares = (account × risk %) ÷ |entry − stop|. Keep risk at 1–2% so a losing streak can’t sink the account.</p>
     </>);
   } else if (tab === 'rr') {
     const r = rr(v('e2', 100), v('s2', 95), v('t2', 115));
     body = (<>
-      <div className="hw-grid"><In k="e2" label="Entry" dflt={100} step={0.01} /><In k="s2" label="Stop" dflt={95} step={0.01} /><In k="t2" label="Target" dflt={115} step={0.01} /></div>
+      <div className="hw-grid">{In({ k: "e2", label: "Entry", dflt: 100, step: 0.01 })}{In({ k: "s2", label: "Stop", dflt: 95, step: 0.01 })}{In({ k: "t2", label: "Target", dflt: 115, step: 0.01 })}</div>
       <div className="rk-big"><span>Reward : risk</span><b className={`num ${r.ratio >= 2 ? 'up' : r.ratio < 1 ? 'down' : ''}`}>{Number.isFinite(r.ratio) ? `${r.ratio.toFixed(2)} : 1` : '—'}</b></div>
-      <div className="rk-grid">{r.targets.map((t, i) => <Out key={i} label={`${i + 1}R target`} value={px(t)} />)}<Out label="Win rate to break even" value={Number.isFinite(r.ratio) ? `${(100 / (1 + r.ratio)).toFixed(0)}%` : '—'} /></div>
+      <div className="rk-grid">{r.targets.map((t, i) => <Fragment key={i}>{Out({ label: `${i + 1}R target`, value: px(t) })}</Fragment>)}{Out({ label: "Win rate to break even", value: Number.isFinite(r.ratio) ? `${(100 / (1 + r.ratio)).toFixed(0)}%` : '—' })}</div>
       <p className="note rk-pad">1R = the distance from entry to stop. A 3:1 trade only needs to win 25% of the time to break even.</p>
     </>);
   } else if (tab === 'edge') {
     const e = expectancy(v('wp', 45), v('aw', 200), v('al', 100));
     const k = kelly(v('wp', 45), e.payoff);
     body = (<>
-      <div className="hw-grid"><In k="wp" label="Win rate" dflt={45} unit="%" /><In k="aw" label="Avg win" dflt={200} unit="$" /><In k="al" label="Avg loss" dflt={100} unit="$" /><In k="n" label="Next trades" dflt={20} /><In k="streak" label="Losing streak" dflt={5} /></div>
+      <div className="hw-grid">{In({ k: "wp", label: "Win rate", dflt: 45, unit: "%" })}{In({ k: "aw", label: "Avg win", dflt: 200, unit: "$" })}{In({ k: "al", label: "Avg loss", dflt: 100, unit: "$" })}{In({ k: "n", label: "Next trades", dflt: 20 })}{In({ k: "streak", label: "Losing streak", dflt: 5 })}</div>
       <div className="rk-big"><span>Expectancy</span><b className={`num ${tone(e.perTrade)}`}>{money(e.perTrade)}</b><span>per trade ({Number.isFinite(e.perR) ? `${e.perR.toFixed(2)}R` : '—'})</span></div>
-      <div className="rk-grid"><Out label="Payoff (win ÷ loss)" value={Number.isFinite(e.payoff) ? e.payoff.toFixed(2) : '—'} /><Out label="Break-even win rate" value={`${e.breakevenWinPct.toFixed(0)}%`} /><Out label="Kelly (half)" value={Number.isFinite(k.half) ? `${Math.max(0, k.half).toFixed(1)}% of account` : '—'} cls={k.full <= 0 ? 'down' : ''} /><Out label={`Odds of ${v('streak', 5)} losses in a row within ${v('n', 20)} trades`} value={`${streakOdds(v('wp', 45), v('streak', 5), v('n', 20)).toFixed(0)}%`} /><Out label={`Expected over ${v('n', 20)} trades`} value={money(e.perTrade * v('n', 20))} cls={tone(e.perTrade)} /></div>
+      <div className="rk-grid">{Out({ label: "Payoff (win ÷ loss)", value: Number.isFinite(e.payoff) ? e.payoff.toFixed(2) : '—' })}{Out({ label: "Break-even win rate", value: `${e.breakevenWinPct.toFixed(0)}%` })}{Out({ label: "Kelly (half)", value: Number.isFinite(k.half) ? `${Math.max(0, k.half).toFixed(1)}% of account` : '—', cls: k.full <= 0 ? 'down' : '' })}{Out({ label: `Odds of ${v('streak', 5)} losses in a row within ${v('n', 20)} trades`, value: `${streakOdds(v('wp', 45), v('streak', 5), v('n', 20)).toFixed(0)}%` })}{Out({ label: `Expected over ${v('n', 20)} trades`, value: money(e.perTrade * v('n', 20)), cls: tone(e.perTrade) })}</div>
       <p className="note rk-pad">Positive expectancy = an edge. Half Kelly is the most anyone should risk; most traders use far less.</p>
     </>);
   } else {
     const dd = v('dd', 20);
     body = (<>
-      <div className="hw-grid"><In k="dd" label="Drawdown" dflt={20} unit="%" /></div>
+      <div className="hw-grid">{In({ k: "dd", label: "Drawdown", dflt: 20, unit: "%" })}</div>
       <div className="rk-big"><span>Gain needed to recover</span><b className="num down">{Number.isFinite(recoverPct(dd)) ? `${recoverPct(dd).toFixed(1)}%` : '∞'}</b></div>
-      <div className="rk-grid">{[10, 20, 30, 50].map((x) => <Out key={x} label={`−${x}% needs`} value={`+${recoverPct(x).toFixed(0)}%`} />)}</div>
+      <div className="rk-grid">{[10, 20, 30, 50].map((x) => <Fragment key={x}>{Out({ label: `−${x}% needs`, value: `+${recoverPct(x).toFixed(0)}%` })}</Fragment>)}</div>
       <p className="note rk-pad">Losses compound against you: a 50% drawdown needs a 100% gain to get back to even.</p>
     </>);
   }

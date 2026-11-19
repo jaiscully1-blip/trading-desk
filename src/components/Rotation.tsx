@@ -1,7 +1,7 @@
 // Sector rotation page: who is beating the S&P 500, who is lagging, which way each is turning, and how much risk
 // the market is willing to take. Built from daily closes; "money moving in" is read from relative performance.
 import { MoveChart, toMs } from './MoveChart';
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode, Fragment } from 'react';
 import type { FlowsState } from '../data/world';
 import { GROUP_LABEL, WINDOWS, type Quadrant, type RotGroup, type RotRow } from '../../shared/rotation';
 import { COMPANIES } from '../../shared/data/companies';
@@ -103,7 +103,7 @@ function Drill({ row, onChart }: { row: RotRow; onChart: (s: string) => void }) 
       {members.length > 0 ? (
         <>
           <div className="small muted">Today’s biggest moves among its {members.length} S&P 500 members{loaded < members.length ? ` (loaded ${loaded}/${members.length}…)` : ''}</div>
-          {ranked.length > 0 && <div className="rot-mvs"><div><h5>Up most</h5>{ranked.slice(0, 6).map((m) => <Row key={m.sym} m={m} />)}</div><div><h5>Down most</h5>{ranked.slice(-6).reverse().map((m) => <Row key={m.sym} m={m} />)}</div></div>}
+          {ranked.length > 0 && <div className="rot-mvs"><div><h5>Up most</h5>{ranked.slice(0, 6).map((m) => <Fragment key={m.sym}>{Row({ m: m })}</Fragment>)}</div><div><h5>Down most</h5>{ranked.slice(-6).reverse().map((m) => <Fragment key={m.sym}>{Row({ m: m })}</Fragment>)}</div></div>}
         </>
       ) : <p className="small muted">Not an S&P sector, so there’s no member list here. Open its chart for the detail.</p>}
     </section>
