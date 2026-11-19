@@ -3382,3 +3382,5 @@ a:hover, .link:hover { text-decoration-color: var(--link); }
 .mcal-dot { width: 10px; height: 10px; border-radius: 50%; } .mcal-dot.k-earn { background: var(--k-earn); } .mcal-dot.k-econ { background: var(--k-econ); } .mcal-dot.k-fed { background: var(--k-fed); } .mcal-dot.k-ipo { background: var(--k-ipo); } .mcal-dot.k-hol { background: var(--k-hol); }
 @media (max-width: 760px) { .mcal-grid { grid-template-columns: repeat(5, minmax(64px, 1fr)); overflow-x: auto; } .mcal-day { min-height: 96px; } }
 @media (prefers-reduced-motion: reduce) { .mcal-day { transition: none; } .mcal-day:hover { transform: none; } }
+.mcal { --k-day: #ff9fd0; } :root[data-theme='light'] .mcal { --k-day: #c2378a; }
+.mcal-key.k-day { --c: var(--k-day); } .mcal-ev.k-day { --c: var(--k-day); font-family: 'IBM Plex Sans', sans-serif; font-weight: 500; } .mcal-dot.k-day { background: var(--k-day); }

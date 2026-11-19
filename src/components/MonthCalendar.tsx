@@ -11,10 +11,12 @@ import { usePersisted } from '../lib/store';
 import { openPeek } from './CompanyPeek';
 import { openExplain } from './InfoDrawer';
 import { Fresh } from './common';
+import { historyLines, specialDays } from '../lib/specialDays';
+import type { EventStat } from '../../shared/eventDays';
 
-type Kind = 'earn' | 'econ' | 'fed' | 'ipo' | 'hol';
+type Kind = 'earn' | 'econ' | 'fed' | 'ipo' | 'hol' | 'day';
 interface Ev { kind: Kind; key: string; label: string; sub?: string; sym?: string; mine?: boolean; big?: boolean; time?: string; rank: number; run: () => void }
-const KINDS: { k: Kind; label: string }[] = [{ k: 'earn', label: 'Earnings' }, { k: 'econ', label: 'Economy' }, { k: 'fed', label: 'Fed' }, { k: 'ipo', label: 'IPOs' }, { k: 'hol', label: 'Holidays' }];
+const KINDS: { k: Kind; label: string }[] = [{ k: 'earn', label: 'Earnings' }, { k: 'econ', label: 'Economy' }, { k: 'fed', label: 'Fed' }, { k: 'ipo', label: 'IPOs' }, { k: 'hol', label: 'Holidays' }, { k: 'day', label: 'Special days' }];
 const WHEN: Record<string, string> = { bmo: 'before open', amc: 'after close', dmh: 'during market' };
 const ymd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 const cap = (v: number | null) => (v == null ? '' : v >= 1e12 ? `$${(v / 1e12).toFixed(1)}T` : v >= 1e9 ? `$${(v / 1e9).toFixed(0)}B` : `$${(v / 1e6).toFixed(0)}M`);
@@ -35,7 +37,11 @@ function useMonthEvents(live: boolean, mine: string[]) {
 export function MonthCalendar({ live, econ, mySyms }: { live: boolean; econ: EconEvent[] | null; mySyms: Set<string> }) {
   const now = new Date(), today = ymd(now);
   const [ym, setYm] = useState({ y: now.getFullYear(), m: now.getMonth() });
-  const [on, setOn] = usePersisted<Record<Kind, boolean>>('mcalKinds', { earn: true, econ: true, fed: true, ipo: true, hol: true });
+  const [on0, setOn] = usePersisted<Record<Kind, boolean>>('mcalKinds', { earn: true, econ: true, fed: true, ipo: true, hol: true, day: true });
+  const on = { ...on0, day: on0.day ?? true } as Record<Kind, boolean>;
+  // measured history of each day type (S&P 500 since 1928, SPY since 1993), built daily by the day-cases job
+  const [stats, setStats] = useState<Record<string, EventStat[]> | null>(null);
+  useEffect(() => { fetch('/api/research?fn=daycases').then((r) => r.json()).then((j) => setStats(j.file?.stats ?? null)).catch(() => {}); }, []);
   const [mineOnly, setMineOnly] = usePersisted('mcalMine', false);
   const [day, setDay] = useState<string | null>(null);
   const { d, err } = useMonthEvents(live, [...mySyms]);
@@ -52,9 +58,16 @@ export function MonthCalendar({ live, econ, mySyms }: { live: boolean; econ: Eco
       for (const i of d?.ipos ?? []) if (i.date) add(i.date, { kind: 'ipo', key: `i:${i.key}`, label: i.sym || i.name.slice(0, 10), sym: i.sym || undefined, sub: `${i.name} · ${i.status}${i.price ? ` · ${i.price}` : ''}${i.exchange ? ` · ${i.exchange}` : ''}`, rank: 1e12, run: () => openExplain({ kind: 'IPO', title: i.name, sym: i.sym || undefined, sub: `${i.date} · ${i.status}`, lines: [i.price && `Price range: ${i.price}`, i.exchange && `Exchange: ${i.exchange}`, i.shares && `Shares: ${i.shares.toLocaleString()}`, i.amount && `Deal size: ${cap(i.amount)}`].filter(Boolean) as string[], src: 'Nasdaq IPO calendar (unofficial) + Finnhub' }) });
       for (const [h, name] of Object.entries(NYSE_HOLIDAYS)) add(h, { kind: 'hol', key: `h:${h}`, label: name, rank: 6e12, run: () => openExplain({ kind: 'Market holiday', title: name, sub: `${h} · US stock market closed`, what: 'NYSE and Nasdaq are closed. Futures and some bond markets can have shortened hours.' }) });
     }
+    if (!mineOnly) {
+      const from = ymd(new Date(ym.y, ym.m - 1, 20)), to = ymd(new Date(ym.y, ym.m + 1, 10));
+      for (const sd of specialDays(from, to)) {
+        const h = historyLines(sd.kind, stats);
+        add(sd.date, { kind: 'day', key: `d:${sd.kind}:${sd.date}`, label: sd.label.replace(/\s*\(.*?\)\s*/g, ' ').trim(), big: h.measured, sub: h.lines[0], rank: 2e12 + (h.measured ? 1 : 0), run: () => openExplain({ kind: sd.cat === 'religious' ? 'Religious holiday' : sd.cat === 'federal' ? 'Federal day (market open)' : 'Market day', title: sd.label, sub: `${sd.date}${sd.approx ? ' · approximate date' : ''}`, what: sd.note, lines: h.lines.length ? h.lines : ['History not loaded yet (built daily by the day-cases job).'], src: 'Calculated from daily closes: S&P 500 index (Yahoo, 1928 on, price only) and SPY / QQQ (dividend-adjusted). History, not a forecast.' }) });
+      }
+    }
     for (const [k, xs] of m) m.set(k, xs.filter((e) => on[e.kind]).sort((a, b) => b.rank - a.rank));
     return m;
-  }, [d, econ, mySyms, mineOnly, on]);
+  }, [d, econ, mySyms, mineOnly, on0, stats, ym.y, ym.m]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const first = new Date(ym.y, ym.m, 1), last = new Date(ym.y, ym.m + 1, 0);
   const start = new Date(first); start.setDate(first.getDate() - ((first.getDay() + 6) % 7));
