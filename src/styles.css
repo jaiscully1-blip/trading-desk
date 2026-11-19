@@ -3421,3 +3421,11 @@ a:hover, .link:hover { text-decoration-color: var(--link); }
 .mcal-card .small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .mcal-cardh { display: flex; align-items: center; gap: 4px; min-width: 0; } .mcal-cardh b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .mcal-bell { margin-left: auto; flex: none; border: 0; background: transparent; cursor: pointer; font-size: 12px; opacity: .45; padding: 0 2px; } .mcal-bell:hover, .mcal-bell.on { opacity: 1; }
+
+/* month calendar: beats, replay, watch */
+.mcal-ev.beat { box-shadow: 0 0 10px color-mix(in srgb, var(--up) 55%, transparent); border-color: var(--up); }
+.mcal-ev.miss { border-style: dashed; opacity: .85; }
+.mcal-ev.beat::after { content: ' ✓'; color: var(--up); } .mcal-ev.miss::after { content: ' ✗'; color: var(--down); }
+.mcal-replay { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; padding: 6px 8px; border-radius: 8px; background: var(--panel-2); }
+.mcal-watch { flex: none; border: 1px solid var(--line-2); background: transparent; color: var(--muted); border-radius: 999px; font-size: 11px; padding: 1px 8px; cursor: pointer; } .mcal-watch:hover { color: var(--text); border-color: var(--k-earn); }
+.mcal-row { grid-template-columns: 10px auto minmax(0, 1fr) auto auto; }

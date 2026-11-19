@@ -17,10 +17,11 @@ import type { TradeView } from '../lib/journal';
 import { eventDayPnl } from '../lib/eventDayPnl';
 import { sUsd } from '../lib/format';
 import { alertTime, toggleEventAlert, useEventAlerts } from '../lib/eventAlerts';
+import { addResearch } from '../lib/research';
 import type { EventStat } from '../../shared/eventDays';
 
 type Kind = 'earn' | 'econ' | 'fed' | 'ipo' | 'hol' | 'day';
-interface Ev { kind: Kind; key: string; label: string; sub?: string; sym?: string; mine?: boolean; big?: boolean; time?: string; move?: number; rank: number; run: () => void }
+interface Ev { kind: Kind; key: string; label: string; sub?: string; sym?: string; mine?: boolean; big?: boolean; time?: string; move?: number; result?: 'beat' | 'miss'; rank: number; run: () => void }
 const KINDS: { k: Kind; label: string }[] = [{ k: 'earn', label: 'Earnings' }, { k: 'econ', label: 'Economy' }, { k: 'fed', label: 'Fed' }, { k: 'ipo', label: 'IPOs' }, { k: 'hol', label: 'Holidays' }, { k: 'day', label: 'Special days' }];
 const WHEN: Record<string, string> = { bmo: 'before open', amc: 'after close', dmh: 'during market' };
 const ymd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -41,6 +42,27 @@ const slotOf = (e: Ev): 'pre' | 'mid' | 'post' | 'all' => {
   const x = /(\d{1,2}):(\d{2})/.exec(t); if (x) { const h = +x[1] + (/pm/.test(t) && +x[1] < 12 ? 12 : 0); return h < 9 || (h === 9 && +x[2] < 30) ? 'pre' : h >= 16 ? 'post' : 'mid'; }
   return 'all';
 };
+/** A past day: how SPY and QQQ closed, and which reports beat or missed. */
+function DayReplay({ day, evs }: { day: string; evs: Ev[] }) {
+  const [m, setM] = useState<Record<string, number> | null>(null);
+  useEffect(() => {
+    let off = false;
+    Promise.all(['SPY', 'QQQ'].map((s) => fetch(`/api/research?fn=bars&symbol=${s}&tf=1d`).then((r) => r.json()).then((j) => {
+      const bars: { time: number; close: number }[] = j.bars ?? [], i = bars.findIndex((b) => new Date(b.time * 1000).toISOString().slice(0, 10) === day);
+      return [s, i > 0 ? (bars[i].close / bars[i - 1].close - 1) * 100 : NaN] as const;
+    }))).then((xs) => { if (!off) setM(Object.fromEntries(xs)); }).catch(() => {});
+    return () => { off = true; };
+  }, [day]);
+  const beats = evs.filter((e) => e.result === 'beat').length, misses = evs.filter((e) => e.result === 'miss').length;
+  return (
+    <div className="mcal-replay">
+      <span className="small muted">That day:</span>
+      {m ? ['SPY', 'QQQ'].map((s) => Number.isFinite(m[s]) ? <b key={s} className={`num ${m[s] >= 0 ? 'up' : 'dn'}`}>{s} {m[s] >= 0 ? '+' : ''}{m[s].toFixed(2)}%</b> : <span key={s} className="small muted">{s} n/a</span>) : <span className="small muted">loading…</span>}
+      {(beats + misses) > 0 && <span className="small">{beats} beat · {misses} missed estimates</span>}
+    </div>
+  );
+}
+
 function Bell({ e, day }: { e: Ev; day: string }) {
   const alerts = useEventAlerts(), on = alerts.some((a) => a.id === `${day}:${e.key}`), at = alertTime(day, e.kind === 'fed' ? '2:00 pm' : e.time ?? '');
   if (at < Date.now()) return null;
@@ -77,7 +99,7 @@ function useMonthEvents(live: boolean, mine: string[]) {
   return { d, err };
 }
 
-export function MonthCalendar({ live, econ, mySyms, trades = [] }: { live: boolean; econ: EconEvent[] | null; mySyms: Set<string>; trades?: TradeView[] }) {
+export function MonthCalendar({ live, econ, mySyms, trades = [], onWatch }: { live: boolean; econ: EconEvent[] | null; mySyms: Set<string>; trades?: TradeView[]; onWatch?: (sym: string) => void }) {
   // your realized P&L per day (ET), from the journal
   const dayPnl = useMemo(() => { const m = new Map<string, number>(); for (const v of trades) { if (v.t.deleted || v.status !== 'closed' || v.closedAt == null) continue; const k = new Date(v.closedAt).toLocaleDateString('en-CA', { timeZone: 'America/New_York' }); m.set(k, (m.get(k) ?? 0) + v.realized); } return m; }, [trades]);
   const pnlMax = useMemo(() => Math.max(1, ...[...dayPnl.values()].map(Math.abs)), [dayPnl]);
@@ -105,10 +127,11 @@ export function MonthCalendar({ live, econ, mySyms, trades = [] }: { live: boole
     for (const e of d?.earnings ?? []) {
       const mine = mySyms.has(e.sym); if (mineOnly && !mine) continue;
       const mv = moves[e.sym];
-      add(e.date, { kind: 'earn', key: `e:${e.sym}`, label: e.sym, sym: e.sym, mine, big: (e.mcap ?? 0) >= 1e11, move: mv, time: WHEN[e.when] ?? '', sub: `${e.name}${e.epsEst != null ? ` · EPS est $${e.epsEst.toFixed(2)}` : ''}${e.mcap ? ` · ${cap(e.mcap)}` : ''}${mv ? ` · options price ±${mv.toFixed(1)}%` : ''}`, rank: (mine ? 3e12 : 0) + (e.mcap ?? 0), run: () => void earningsCard(e, mv) });
+      const result = e.epsAct != null && e.epsEst != null ? (e.epsAct >= e.epsEst ? 'beat' as const : 'miss' as const) : undefined;
+      add(e.date, { kind: 'earn', key: `e:${e.sym}`, label: e.sym, sym: e.sym, mine, big: (e.mcap ?? 0) >= 1e11, move: mv, result, time: WHEN[e.when] ?? '', sub: `${e.name}${e.epsEst != null ? ` · EPS est $${e.epsEst.toFixed(2)}` : ''}${e.mcap ? ` · ${cap(e.mcap)}` : ''}${mv ? ` · options price ±${mv.toFixed(1)}%` : ''}`, rank: (mine ? 3e12 : 0) + (e.mcap ?? 0), run: () => void earningsCard(e, mv) });
     }
     if (!mineOnly) {
-      for (const x of econ ?? []) add(x.date, { kind: 'econ', key: `c:${x.key}:${x.date}`, label: x.label, time: x.time, big: x.impact >= 3, rank: 4e12 + x.impact, run: () => openExplain({ kind: 'Economic release', title: x.label, sub: `${x.date}${x.time ? ` · ${x.time} ET` : ''} · impact ${'●'.repeat(x.impact)}`, what: x.note, lines: x.usual ? [`How SPY usually moves that day: ${JSON.stringify(x.usual).slice(0, 160)}`] : [], src: 'FRED release calendar' }) });
+      for (const x of econ ?? []) add(x.date, { kind: 'econ', key: `c:${x.key}:${x.date}`, label: x.label, time: x.time, big: x.impact >= 3, rank: 4e12 + x.impact, run: () => openExplain({ kind: 'Economic release', title: x.label, sub: `${x.date}${x.time ? ` · ${x.time} ET` : ''} · impact ${'●'.repeat(x.impact)}`, what: x.note, lines: x.usual ? [`On the last ${x.usual.n} of these days SPY moved ${(x.usual.avgAbsMove * 100).toFixed(2)}% on average (either way), vs ${(x.usual.baseline * 100).toFixed(2)}% on a normal day, and closed up ${(x.usual.upPct * 100).toFixed(0)}% of the time.`] : [], src: 'FRED release calendar' }) });
       for (const f of FOMC) add(f.date, { kind: 'fed', key: `f:${f.date}`, label: `FOMC${f.sep ? ' + dots' : ''}`, time: '2:00 pm', big: true, rank: 5e12, run: () => openExplain({ kind: 'Fed meeting', title: `FOMC decision${f.sep ? ' with projections (dot plot)' : ''}`, sub: `${f.date} · statement 2:00 pm ET, press conference 2:30 pm${f.tentative ? ' · tentative date' : ''}`, what: 'The Federal Reserve announces its interest-rate decision. Stocks, bonds and the dollar often move sharply at 2:00 pm and again during the press conference.', src: 'Federal Reserve meeting calendar' }) });
       for (const i of d?.ipos ?? []) if (i.date) add(i.date, { kind: 'ipo', key: `i:${i.key}`, label: i.sym || i.name.slice(0, 10), sym: i.sym || undefined, sub: `${i.name} · ${i.status}${i.price ? ` · ${i.price}` : ''}${i.exchange ? ` · ${i.exchange}` : ''}`, rank: 1e12, run: () => openExplain({ kind: 'IPO', title: i.name, sym: i.sym || undefined, sub: `${i.date} · ${i.status}`, lines: [i.price && `Price range: ${i.price}`, i.exchange && `Exchange: ${i.exchange}`, i.shares && `Shares: ${i.shares.toLocaleString()}`, i.amount && `Deal size: ${cap(i.amount)}`].filter(Boolean) as string[], src: 'Nasdaq IPO calendar (unofficial) + Finnhub' }) });
       for (const [h, name] of Object.entries(NYSE_HOLIDAYS)) add(h, { kind: 'hol', key: `h:${h}`, label: name, rank: 6e12, run: () => openExplain({ kind: 'Market holiday', title: name, sub: `${h} · US stock market closed`, what: 'NYSE and Nasdaq are closed. Futures and some bond markets can have shortened hours.' }) });
@@ -209,7 +232,7 @@ export function MonthCalendar({ live, econ, mySyms, trades = [] }: { live: boole
             <div key={k} className={`mcal-day ${out ? 'out' : ''} ${k === today ? 'today' : ''} ${k < today ? 'past' : ''} ${hol ? 'hol' : ''} ${day === k ? 'sel' : ''} ${heatOn ? 'heat' : ''}`} style={heatOn ? { ['--h' as string]: Math.min(1, (heat.get(k) ?? 0) / 12) } : undefined} onClick={() => setDay(day === k ? null : k)} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter') setDay(k); }}>
               <div className="mcal-dn"><span>{c.getDate()}</span>{dayPnl.has(k) && <span className={`mcal-pnl ${dayPnl.get(k)! >= 0 ? 'up' : 'dn'}`} style={{ ['--s' as string]: 0.45 + 0.55 * Math.min(1, Math.abs(dayPnl.get(k)!) / pnlMax) }} title={`Your realized P&L: ${sUsd(dayPnl.get(k)!)}`}>{sUsd(dayPnl.get(k)!)}</span>}{hol && <span className="mcal-hol" title={hol.label}>closed</span>}{!covered(k) && !out && live && <span className="mcal-nc" title="Outside the loaded window (about a week back to five weeks ahead): earnings and IPOs not loaded for this day">·</span>}</div>
               <div className="mcal-evs">
-                {shown.map((e) => <button key={e.key} className={`mcal-ev k-${e.kind} ${e.mine ? 'mine' : ''} ${e.big ? 'big' : ''}`} data-sym={e.kind === 'earn' ? e.sym : undefined} title={`${e.label}${e.time ? ` · ${e.time}` : ''}${e.sub ? ` · ${e.sub}` : ''}`} onClick={(ev) => { ev.stopPropagation(); e.run(); }}>{e.mine && '★ '}{e.label}{e.move != null && <span className="mcal-mv" title="Options-implied move for the report">±{e.move.toFixed(1)}%</span>}{e.kind !== 'earn' && e.time ? <span className="mcal-t"> {e.time}</span> : null}</button>)}
+                {shown.map((e) => <button key={e.key} className={`mcal-ev k-${e.kind} ${e.mine ? 'mine' : ''} ${e.big ? 'big' : ''} ${e.result ?? ''}`} data-sym={e.kind === 'earn' ? e.sym : undefined} title={`${e.label}${e.time ? ` · ${e.time}` : ''}${e.sub ? ` · ${e.sub}` : ''}`} onClick={(ev) => { ev.stopPropagation(); e.run(); }}>{e.mine && '★ '}{e.label}{e.move != null && <span className="mcal-mv" title="Options-implied move for the report">±{e.move.toFixed(1)}%</span>}{e.kind !== 'earn' && e.time ? <span className="mcal-t"> {e.time}</span> : null}</button>)}
                 {more > 0 && <span className="mcal-more">+{more} more</span>}
               </div>
             </div>
@@ -225,8 +248,9 @@ export function MonthCalendar({ live, econ, mySyms, trades = [] }: { live: boole
       </details>}
       {day && <div className="mcal-dayview">
         <div className="mcal-dvh"><b>{new Date(`${day}T12:00:00`).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}</b><span className="small muted">{sel.length} event{sel.length === 1 ? '' : 's'}</span><button className="icon-btn" onClick={() => setDay(null)} aria-label="Close day">×</button></div>
+        {day < today && <DayReplay day={day} evs={sel} />}
         {!sel.length ? <p className="small muted">Nothing on this day{!covered(day) ? ' (outside the loaded window)' : ''}.</p> :
-          <div className="mcal-list">{sel.map((e) => <div key={e.key} className={`mcal-row k-${e.kind}`} onClick={e.run} role="button" tabIndex={0} onKeyDown={(ev) => { if (ev.key === 'Enter') e.run(); }}><span className={`mcal-dot k-${e.kind}`} /><b data-sym={e.kind === 'earn' ? e.sym : undefined} className={e.kind === 'earn' ? 'mcal-sym' : ''}>{e.mine ? '★ ' : ''}{e.label}</b><span className="small muted">{[e.time, e.sub].filter(Boolean).join(' · ')}</span><Bell e={e} day={day} /></div>)}</div>}
+          <div className="mcal-list">{sel.map((e) => <div key={e.key} className={`mcal-row k-${e.kind}`} onClick={e.run} role="button" tabIndex={0} onKeyDown={(ev) => { if (ev.key === 'Enter') e.run(); }}><span className={`mcal-dot k-${e.kind}`} /><b data-sym={e.kind === 'earn' ? e.sym : undefined} className={e.kind === 'earn' ? 'mcal-sym' : ''}>{e.mine ? '★ ' : ''}{e.label}</b><span className="small muted">{[e.time, e.sub].filter(Boolean).join(' · ')}</span>{e.kind === 'earn' && e.sym && day >= today && <button className="mcal-watch" title={`Add ${e.sym} to your watchlist and a note to Journal → Research`} onClick={(ev) => { ev.stopPropagation(); onWatch?.(e.sym!); addResearch({ sym: e.sym, title: `Watch ${e.sym} into earnings ${day}`, body: `${e.sym} reports ${e.time || ''} on ${day}.${e.move != null ? ` Options price about ±${e.move.toFixed(1)}%.` : ''} Added from the calendar.`, kind: 'Watch' }); (ev.currentTarget as HTMLButtonElement).textContent = '✓ Watching'; }}>+ Watch</button>}<Bell e={e} day={day} /></div>)}</div>}
       </div>}
     </div>
   );
