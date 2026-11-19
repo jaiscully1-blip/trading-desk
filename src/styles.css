@@ -3377,7 +3377,7 @@ a:hover, .link:hover { text-decoration-color: var(--link); }
 .mcal-dayview { border: 1px solid var(--line-2); border-radius: 12px; padding: 10px 12px; background: var(--panel); display: grid; gap: 8px; }
 .mcal-dvh { display: flex; align-items: center; gap: 10px; } .mcal-dvh .icon-btn { margin-left: auto; }
 .mcal-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 6px; }
-.mcal-row { all: unset; display: grid; grid-template-columns: 10px auto minmax(0, 1fr); gap: 8px; align-items: center; padding: 6px 8px; border-radius: 8px; cursor: pointer; }
+.mcal-row { display: grid; grid-template-columns: 10px auto minmax(0, 1fr) auto; gap: 8px; align-items: center; padding: 6px 8px; border-radius: 8px; cursor: pointer; }
 .mcal-row:hover { background: var(--panel-2); } .mcal-row .small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .mcal-dot { width: 10px; height: 10px; border-radius: 50%; } .mcal-dot.k-earn { background: var(--k-earn); } .mcal-dot.k-econ { background: var(--k-econ); } .mcal-dot.k-fed { background: var(--k-fed); } .mcal-dot.k-ipo { background: var(--k-ipo); } .mcal-dot.k-hol { background: var(--k-hol); }
 @media (max-width: 760px) { .mcal-grid { grid-template-columns: repeat(5, minmax(64px, 1fr)); overflow-x: auto; } .mcal-day { min-height: 96px; } }
@@ -3406,3 +3406,18 @@ a:hover, .link:hover { text-decoration-color: var(--link); }
 .mcal-pnl.up { color: var(--up); background: color-mix(in srgb, var(--up) 16%, transparent); } .mcal-pnl.dn { color: var(--down); background: color-mix(in srgb, var(--down) 16%, transparent); }
 .mcal-you { border: 1px solid var(--line); border-radius: 12px; padding: 8px 12px; background: var(--panel); } .mcal-you summary { cursor: pointer; font-weight: 600; }
 .mcal-you tr.thin { opacity: .55; }
+
+/* month calendar: week view and bells */
+.mcal-wk { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; align-items: start; }
+@media (max-width: 980px) { .mcal-wk { grid-template-columns: 1fr; } }
+.mcal-col { display: grid; gap: 8px; padding: 10px; border-radius: 12px; border: 1px solid var(--line); background: color-mix(in srgb, var(--k-heat) calc(var(--h, 0) * 16%), var(--panel-2)); min-width: 0; align-content: start; min-height: 320px; }
+.mcal-col.today { border-color: var(--k-earn); box-shadow: 0 0 0 1px var(--k-earn); } .mcal-col.past { opacity: .75; }
+.mcal-colh { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.mcal-slot { display: grid; gap: 4px; } .mcal-slotn { font: 600 10.5px 'IBM Plex Sans', sans-serif; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
+.mcal-card { --c: var(--muted); display: grid; gap: 1px; padding: 6px 8px; border-radius: 9px; border-left: 3px solid var(--c); background: var(--panel); cursor: pointer; min-width: 0; }
+.mcal-card:hover { background: color-mix(in srgb, var(--c) 12%, var(--panel)); }
+.mcal-card.k-earn { --c: var(--k-earn); } .mcal-card.k-econ { --c: var(--k-econ); } .mcal-card.k-fed { --c: var(--k-fed); } .mcal-card.k-ipo { --c: var(--k-ipo); } .mcal-card.k-day { --c: var(--k-day); }
+.mcal-card.mine { box-shadow: inset 0 0 0 1px var(--k-mine); }
+.mcal-card .small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mcal-cardh { display: flex; align-items: center; gap: 4px; min-width: 0; } .mcal-cardh b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mcal-bell { margin-left: auto; flex: none; border: 0; background: transparent; cursor: pointer; font-size: 12px; opacity: .45; padding: 0 2px; } .mcal-bell:hover, .mcal-bell.on { opacity: 1; }

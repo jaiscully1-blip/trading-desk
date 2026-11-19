@@ -578,6 +578,11 @@ export default function App() {
     beep();
     try { if (Notification.permission === 'granted' && document.hidden && !isMuted()) for (const p of ps) new Notification(`★ ${p.sym}: ${p.text}`, { tag: p.id }); } catch { /* not supported */ }
   }, [setPingLog]);
+  // calendar bells: ping 10 minutes before belled events (Calendars -> Month / Week)
+  useEffect(() => {
+    const tick = () => import('./lib/eventAlerts').then(({ takeDue }) => { const due = takeDue(); if (due.length) pushPings(due.map((a) => ({ id: `cal:${a.id}`, t: Date.now(), sym: a.sym ?? '', kind: 'alert' as const, text: `In about 10 minutes: ${a.label}` }))); });
+    tick(); const id = setInterval(tick, 30_000); return () => clearInterval(id);
+  }, [pushPings]);
   // rotation: ping when a sector / theme / country turns (Lagging->Improving, Improving->Leading, Leading->Weakening, Weakening->Lagging)
   useEffect(() => {
     if (!live || !flowsData?.rows.length) return;
