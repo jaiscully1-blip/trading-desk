@@ -3464,5 +3464,5 @@ a:hover, .link:hover { text-decoration-color: var(--link); }
 .wl-sort { margin-left: auto; display: inline-flex; gap: 4px; }
 
 /* chart: dark-pool and phantom print lines */
-:root { --dp: rgba(242, 77, 77, .42); --phantom: rgba(242, 77, 77, .28); --dp-tag: rgba(242, 77, 77, .5); --dp-tag-text: #fff; }
-:root[data-theme='light'] { --dp: rgba(214, 48, 48, .45); --phantom: rgba(214, 48, 48, .3); --dp-tag: rgba(214, 48, 48, .6); --dp-tag-text: #fff; }
+:root { --dp: rgba(242, 77, 77, .42); --phantom: rgba(242, 77, 77, .28); --dp-tag: rgba(242, 77, 77, .5); --dp-tag-text: #fff; --dp-zone: #f24d4d; }
+:root[data-theme='light'] { --dp: rgba(214, 48, 48, .45); --phantom: rgba(214, 48, 48, .3); --dp-tag: rgba(214, 48, 48, .6); --dp-tag-text: #fff; --dp-zone: #d63030; }
