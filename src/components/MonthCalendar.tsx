@@ -12,14 +12,30 @@ import { openPeek } from './CompanyPeek';
 import { openExplain } from './InfoDrawer';
 import { Fresh } from './common';
 import { historyLines, specialDays } from '../lib/specialDays';
+import { pastReactions } from '../../shared/earnmove';
 import type { EventStat } from '../../shared/eventDays';
 
 type Kind = 'earn' | 'econ' | 'fed' | 'ipo' | 'hol' | 'day';
-interface Ev { kind: Kind; key: string; label: string; sub?: string; sym?: string; mine?: boolean; big?: boolean; time?: string; rank: number; run: () => void }
+interface Ev { kind: Kind; key: string; label: string; sub?: string; sym?: string; mine?: boolean; big?: boolean; time?: string; move?: number; rank: number; run: () => void }
 const KINDS: { k: Kind; label: string }[] = [{ k: 'earn', label: 'Earnings' }, { k: 'econ', label: 'Economy' }, { k: 'fed', label: 'Fed' }, { k: 'ipo', label: 'IPOs' }, { k: 'hol', label: 'Holidays' }, { k: 'day', label: 'Special days' }];
 const WHEN: Record<string, string> = { bmo: 'before open', amc: 'after close', dmh: 'during market' };
 const ymd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 const cap = (v: number | null) => (v == null ? '' : v >= 1e12 ? `$${(v / 1e12).toFixed(1)}T` : v >= 1e9 ? `$${(v / 1e9).toFixed(0)}B` : `$${(v / 1e6).toFixed(0)}M`);
+
+/** Click on an earnings pill: what options price in, and how the stock reacted the last 8 times. */
+async function earningsCard(e: EarnItem, move?: number) {
+  const base = { kind: 'Earnings', title: `${e.sym} reports ${WHEN[e.when] ?? ''}`.trim(), sym: e.sym, sub: `${e.name} · ${e.date}${e.epsEst != null ? ` · EPS estimate $${e.epsEst.toFixed(2)}` : ''}`, src: 'Expected move: Cboe delayed options (at-the-money straddle). Past reactions: SEC 8-K earnings releases + Yahoo daily closes.', actions: [{ label: `Open ${e.sym} peek`, run: () => openPeek(e.sym) }] };
+  const head = move != null ? [`Options price in about ±${move.toFixed(1)}% for the reaction day.`] : [];
+  openExplain({ ...base, lines: [...head, 'Loading past reactions…'] });
+  try {
+    const j = await fetch(`/api/research?fn=qlevents&symbol=${encodeURIComponent(e.sym)}`).then((r) => r.json());
+    const rs = pastReactions(j.stock ?? [], j.earnings ?? [], 8);
+    if (!rs.length) { openExplain({ ...base, lines: [...head, 'No past reactions found.'] }); return; }
+    const avg = rs.reduce((a, r) => a + Math.abs(r.move), 0) / rs.length, beat = move != null ? rs.filter((r) => Math.abs(r.move) > move).length : null;
+    openExplain({ ...base, what: `Last ${rs.length} reports: the stock moved ${avg.toFixed(1)}% on average (either way)${move != null ? `, vs about ±${move.toFixed(1)}% priced in now; it moved more than that ${beat} of ${rs.length} times` : ''}.`,
+      lines: [...head, ...rs.map((r) => `${r.date}: ${r.move >= 0 ? '+' : ''}${r.move.toFixed(1)}% on ${r.day}${r.drift5 != null ? `, then ${r.drift5 >= 0 ? '+' : ''}${r.drift5.toFixed(1)}% over the next 5 days` : ''}`)] });
+  } catch { openExplain({ ...base, lines: [...head, 'Past reactions unavailable right now.'] }); }
+}
 
 interface MonthData { earnings: EarnItem[]; ipos: IpoItem[]; asOf: number; from: string; to: string; source: string }
 function useMonthEvents(live: boolean, mine: string[]) {
@@ -45,12 +61,20 @@ export function MonthCalendar({ live, econ, mySyms }: { live: boolean; econ: Eco
   const [mineOnly, setMineOnly] = usePersisted('mcalMine', false);
   const [day, setDay] = useState<string | null>(null);
   const { d, err } = useMonthEvents(live, [...mySyms]);
+  const [moves, setMoves] = useState<Record<string, number>>({});
+  useEffect(() => {
+    if (!d) return;
+    const soon = d.earnings.filter((e) => e.date >= today && e.date <= ymd(new Date(Date.now() + 14 * 86400_000))).sort((a, b) => Number(mySyms.has(b.sym)) - Number(mySyms.has(a.sym)) || (b.mcap ?? 0) - (a.mcap ?? 0)).slice(0, 12);
+    if (!soon.length) return;
+    fetch(`/api/research?fn=qlimpmove&items=${encodeURIComponent(soon.map((e) => `${e.sym}:${e.date}:${e.when}`).join(','))}`).then((r) => r.json()).then((j) => setMoves(Object.fromEntries((j.moves ?? []).filter((m: any) => m.pct > 0).map((m: any) => [m.sym, m.pct])))).catch(() => {});
+  }, [d]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const byDay = useMemo(() => {
     const m = new Map<string, Ev[]>(), add = (k: string, e: Ev) => m.set(k, [...(m.get(k) ?? []), e]);
     for (const e of d?.earnings ?? []) {
       const mine = mySyms.has(e.sym); if (mineOnly && !mine) continue;
-      add(e.date, { kind: 'earn', key: `e:${e.sym}`, label: e.sym, sym: e.sym, mine, big: (e.mcap ?? 0) >= 1e11, time: WHEN[e.when] ?? '', sub: `${e.name}${e.epsEst != null ? ` · EPS est $${e.epsEst.toFixed(2)}` : ''}${e.mcap ? ` · ${cap(e.mcap)}` : ''}`, rank: (mine ? 3e12 : 0) + (e.mcap ?? 0), run: () => openPeek(e.sym) });
+      const mv = moves[e.sym];
+      add(e.date, { kind: 'earn', key: `e:${e.sym}`, label: e.sym, sym: e.sym, mine, big: (e.mcap ?? 0) >= 1e11, move: mv, time: WHEN[e.when] ?? '', sub: `${e.name}${e.epsEst != null ? ` · EPS est $${e.epsEst.toFixed(2)}` : ''}${e.mcap ? ` · ${cap(e.mcap)}` : ''}${mv ? ` · options price ±${mv.toFixed(1)}%` : ''}`, rank: (mine ? 3e12 : 0) + (e.mcap ?? 0), run: () => void earningsCard(e, mv) });
     }
     if (!mineOnly) {
       for (const x of econ ?? []) add(x.date, { kind: 'econ', key: `c:${x.key}:${x.date}`, label: x.label, time: x.time, big: x.impact >= 3, rank: 4e12 + x.impact, run: () => openExplain({ kind: 'Economic release', title: x.label, sub: `${x.date}${x.time ? ` · ${x.time} ET` : ''} · impact ${'●'.repeat(x.impact)}`, what: x.note, lines: x.usual ? [`How SPY usually moves that day: ${JSON.stringify(x.usual).slice(0, 160)}`] : [], src: 'FRED release calendar' }) });
@@ -67,7 +91,7 @@ export function MonthCalendar({ live, econ, mySyms }: { live: boolean; econ: Eco
     }
     for (const [k, xs] of m) m.set(k, xs.filter((e) => on[e.kind]).sort((a, b) => b.rank - a.rank));
     return m;
-  }, [d, econ, mySyms, mineOnly, on0, stats, ym.y, ym.m]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [d, econ, mySyms, mineOnly, on0, stats, ym.y, ym.m, moves]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const first = new Date(ym.y, ym.m, 1), last = new Date(ym.y, ym.m + 1, 0);
   const start = new Date(first); start.setDate(first.getDate() - ((first.getDay() + 6) % 7));
@@ -98,7 +122,7 @@ export function MonthCalendar({ live, econ, mySyms }: { live: boolean; econ: Eco
             <div key={k} className={`mcal-day ${out ? 'out' : ''} ${k === today ? 'today' : ''} ${k < today ? 'past' : ''} ${hol ? 'hol' : ''} ${day === k ? 'sel' : ''}`} onClick={() => setDay(day === k ? null : k)} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter') setDay(k); }}>
               <div className="mcal-dn"><span>{c.getDate()}</span>{hol && <span className="mcal-hol" title={hol.label}>closed</span>}{!covered(k) && !out && live && <span className="mcal-nc" title="Outside the loaded window (about a week back to five weeks ahead): earnings and IPOs not loaded for this day">·</span>}</div>
               <div className="mcal-evs">
-                {shown.map((e) => <button key={e.key} className={`mcal-ev k-${e.kind} ${e.mine ? 'mine' : ''} ${e.big ? 'big' : ''}`} data-sym={e.kind === 'earn' ? e.sym : undefined} title={`${e.label}${e.time ? ` · ${e.time}` : ''}${e.sub ? ` · ${e.sub}` : ''}`} onClick={(ev) => { ev.stopPropagation(); e.run(); }}>{e.mine && '★ '}{e.label}{e.kind !== 'earn' && e.time ? <span className="mcal-t"> {e.time}</span> : null}</button>)}
+                {shown.map((e) => <button key={e.key} className={`mcal-ev k-${e.kind} ${e.mine ? 'mine' : ''} ${e.big ? 'big' : ''}`} data-sym={e.kind === 'earn' ? e.sym : undefined} title={`${e.label}${e.time ? ` · ${e.time}` : ''}${e.sub ? ` · ${e.sub}` : ''}`} onClick={(ev) => { ev.stopPropagation(); e.run(); }}>{e.mine && '★ '}{e.label}{e.move != null && <span className="mcal-mv" title="Options-implied move for the report">±{e.move.toFixed(1)}%</span>}{e.kind !== 'earn' && e.time ? <span className="mcal-t"> {e.time}</span> : null}</button>)}
                 {more > 0 && <span className="mcal-more">+{more} more</span>}
               </div>
             </div>

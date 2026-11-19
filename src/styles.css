@@ -3384,3 +3384,5 @@ a:hover, .link:hover { text-decoration-color: var(--link); }
 @media (prefers-reduced-motion: reduce) { .mcal-day { transition: none; } .mcal-day:hover { transform: none; } }
 .mcal { --k-day: #ff9fd0; } :root[data-theme='light'] .mcal { --k-day: #c2378a; }
 .mcal-key.k-day { --c: var(--k-day); } .mcal-ev.k-day { --c: var(--k-day); font-family: 'IBM Plex Sans', sans-serif; font-weight: 500; } .mcal-dot.k-day { background: var(--k-day); }
+
+.mcal-mv { font-weight: 500; font-size: 10px; margin-left: 3px; padding: 0 4px; border-radius: 999px; background: color-mix(in srgb, var(--k-earn) 25%, transparent); }
