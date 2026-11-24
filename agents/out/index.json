@@ -1,16 +1,16 @@
 [
  {
   "ticker": "SPY",
-  "date": "2026-11-21",
-  "ranAt": "2026-11-21T02:45:12.619808Z",
+  "date": "2026-11-24",
+  "ranAt": "2026-11-24T05:30:19.780679Z",
   "decision": "Underweight",
   "error": null
  },
  {
   "ticker": "NVDA",
-  "date": "2026-11-21",
-  "ranAt": "2026-11-21T02:43:59.121326Z",
-  "decision": "Underweight",
+  "date": "2026-11-24",
+  "ranAt": "2026-11-24T05:28:26.023908Z",
+  "decision": "Overweight",
   "error": null
  }
 ]
