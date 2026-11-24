@@ -3476,3 +3476,40 @@ a:hover, .link:hover { text-decoration-color: var(--link); }
 .rc-qk { flex: none; font: 600 9.5px 'IBM Plex Sans', sans-serif; letter-spacing: .06em; text-transform: uppercase; padding: 2px 6px; border-radius: 5px; color: var(--muted); border: 1px solid var(--line-2); }
 .rc-qk.k-mind { color: var(--link); }
 .rc-answers { margin: -4px 0 10px; }
+
+/* morning timeline: the "now" tag sits above the bar so it never covers the hour labels */
+.am-needle { top: -3px !important; bottom: -3px !important; z-index: 2; }
+.am-needle u { top: auto !important; bottom: calc(100% + 2px); padding: 0 5px; border-radius: 4px; background: var(--down); color: var(--bg) !important; line-height: 14px; }
+.am-day { padding-top: 16px; }
+
+/* Essays notebook: ticker bar, reminders, calendar of note cards */
+.nt-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 6px 0 10px; border-bottom: 1px dashed var(--line); margin-bottom: 8px; }
+.nt-stamp { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: var(--muted); }
+.nt-stamp input { padding: 2px 6px; font-size: 12px; }
+.nt-tks { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; flex: 1; min-width: 0; }
+.nt-tk { display: inline-flex; align-items: center; gap: 2px; border: 1px solid var(--line-2); border-radius: 999px; padding: 1px 4px 1px 9px; font-size: 12px; }
+.nt-sym { font: 600 12px 'IBM Plex Mono', monospace; }
+.nt-b { border: 0; background: transparent; color: var(--muted); font-size: 11.5px; cursor: pointer; padding: 1px 6px; border-radius: 999px; } .nt-b:hover { color: var(--text); background: var(--panel-2); }
+.nt-alert, .nt-rem-f { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 4px 8px; border-radius: 10px; background: var(--panel-2); font-size: 12px; }
+.nt-alert input { width: 80px; } .nt-rem-f input:first-child { flex: 1; min-width: 160px; }
+.nt-rems { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; width: 100%; }
+.nt-rems li { display: flex; align-items: center; gap: 8px; font-size: 12.5px; } .nt-rems li.done { opacity: .55; }
+.nt-x { margin-left: auto; border: 0; background: transparent; color: var(--muted); cursor: pointer; }
+.es-calbar { display: flex; gap: 8px; padding: 10px 14px 0; }
+.nt-cal { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 12px; align-items: start; }
+@media (max-width: 1100px) { .nt-cal { grid-template-columns: 1fr; } }
+.nt-main, .nt-side { padding: 12px 14px; display: grid; gap: 10px; min-width: 0; }
+.nt-head { display: flex; align-items: center; gap: 8px; }
+.nt-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; }
+.nt-wd { font: 600 10.5px 'IBM Plex Sans', sans-serif; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); padding-left: 4px; }
+.nt-cell { min-height: 104px; display: flex; flex-direction: column; gap: 4px; padding: 6px; border-radius: 10px; border: 1px solid var(--line); background: var(--panel-2); cursor: pointer; min-width: 0; }
+.nt-cell:hover { border-color: var(--line-2); } .nt-cell.out { opacity: .4; } .nt-cell.today { box-shadow: inset 0 0 0 1px var(--link); } .nt-cell.sel { border-color: var(--text); }
+.nt-cell.green { background: color-mix(in srgb, var(--up) 7%, var(--panel-2)); } .nt-cell.red { background: color-mix(in srgb, var(--down) 7%, var(--panel-2)); }
+.nt-ch { display: flex; justify-content: space-between; align-items: baseline; gap: 4px; } .nt-dn { font-weight: 600; font-size: 12px; } .nt-pnl { font-size: 11px; }
+.nt-card { text-align: left; border: 0; border-left: 2px solid var(--link); background: var(--panel); color: var(--text); font-size: 11.5px; padding: 3px 6px; border-radius: 5px; cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nt-rdot { font-size: 11px; color: var(--muted); margin-top: auto; }
+.nt-sh { display: flex; justify-content: space-between; align-items: baseline; }
+.nt-sn { display: grid; gap: 2px; text-align: left; border: 1px solid var(--line); background: var(--panel-2); color: var(--text); border-radius: 10px; padding: 8px 10px; cursor: pointer; } .nt-sn:hover { border-color: var(--line-2); }
+.nt-h4 { margin: 6px 0 0; font-size: 13px; }
+.nt-wl { display: grid; gap: 6px; } .nt-wlr { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.nt-side .nt-rem-f input:first-child { min-width: 100%; }

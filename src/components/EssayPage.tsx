@@ -4,6 +4,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { DataMode } from '../data/live';
 import { usePersisted } from '../lib/store';
+import { NoteToolbar, NotesCalendar } from './NoteTools';
+import { etNowParts } from '../lib/noteReminders';
 import { EssayChart, PIN_COLORS, fetchRange, type Pin } from './EssayChart';
 import { citeText, factLines, fmtDay, rangeStats, ymd, type DayBar, type RangeStats } from '../../shared/essay';
 import { TearSheet } from './TearSheet';
@@ -14,7 +16,7 @@ import { useSnapshot } from '../data/apis';
 import { COMPANIES } from '../../shared/data/companies';
 
 interface Src { id: string; kind: 'news' | 'filing' | 'data'; title: string; url?: string; src?: string; t?: number }
-interface Essay { id: string; title: string; idea?: string; sym: string; html: string; pins: Pin[]; sources: Src[]; created: number; updated: number }
+interface Essay { id: string; title: string; idea?: string; sym: string; html: string; pins: Pin[]; sources: Src[]; created: number; updated: number; /** the day this note belongs to on the notebook calendar */ day?: string }
 type Tab = 'chart' | 'news' | 'fund' | 'earn' | 'hold' | 'peers' | 'sources' | 'ai';
 const TABS: { id: Tab; label: string }[] = [
   { id: 'chart', label: 'Chart' }, { id: 'news', label: 'News' }, { id: 'fund', label: 'Fundamentals' }, { id: 'earn', label: 'Earnings' },
@@ -60,7 +62,7 @@ function useBars(sym: string) {
   return st;
 }
 
-export default function EssayPage({ mode, onChart }: { mode: DataMode; onChart: (s: string) => void }) {
+export default function EssayPage({ mode, onChart, onWatch, dayPnl }: { mode: DataMode; onChart: (s: string) => void; onWatch?: (s: string) => void; dayPnl?: Map<string, number> }) {
   const [essays, setEssays] = usePersisted<Essay[]>('essays', []);
   const [activeId, setActiveId] = usePersisted<string>('essayActive', '');
   const [drawer, setDrawer] = usePersisted<boolean>('essayDrawer', true);
@@ -68,7 +70,7 @@ export default function EssayPage({ mode, onChart }: { mode: DataMode; onChart: 
   const [focus, setFocus] = useState<{ from: number; to: number; color?: string } | null>(null);
   const [saved, setSaved] = useState<number | null>(null);
   const [pending, setPending] = useState(false);
-  const [view, setView] = usePersisted<'write' | 'papers'>('essayView', 'write');
+  const [view, setView] = usePersisted<'write' | 'papers' | 'calendar'>('essayView', 'write');
   const flushRef = useRef<() => void>(() => {});
   const [transcript, setTranscript] = useState(false);
   const ed = useRef<HTMLDivElement>(null);
@@ -81,8 +83,8 @@ export default function EssayPage({ mode, onChart }: { mode: DataMode; onChart: 
   const { bars, name, error: barsErr, loading } = useBars(sym);
   const { bars: spy } = useBars(sym && sym !== 'SPY' ? 'SPY' : '');
 
-  const create = () => {
-    const e: Essay = { id: uid(), title: '', sym: active?.sym || 'NVDA', html: '', pins: [], sources: [], created: Date.now(), updated: Date.now() };
+  const create = (day?: string) => {
+    const e: Essay = { id: uid(), title: '', sym: active?.sym || 'NVDA', html: '', pins: [], sources: [], created: Date.now(), updated: Date.now(), day: day ?? etNowParts().day };
     setEssays((xs) => [e, ...xs]); setActiveId(e.id);
   };
   useEffect(() => { if (!essays.length) create(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -141,6 +143,7 @@ export default function EssayPage({ mode, onChart }: { mode: DataMode; onChart: 
   }, [cites, active?.pins, bars, spy, sym]);
 
   if (!active) return null;
+  if (view === 'calendar') return <><div className="es-calbar"><button className="btn" onClick={() => setView('write')}>← Back to writing</button><button className="btn" onClick={() => setView('papers')}>All papers ({essays.length})</button></div><NotesCalendar notes={essays} dayPnl={dayPnl ?? new Map()} onOpen={(id) => { setActiveId(id); setView('write'); }} onNewOn={(d) => { create(d); setView('write'); }} onWatch={onWatch} /></>;
   if (view === 'papers') return <Papers essays={essays} activeId={active.id} onOpen={(id) => { setActiveId(id); setView('write'); }} onNew={() => { create(); setView('write'); }} onIdea={(id, idea) => setEssays((xs) => xs.map((e) => (e.id === id ? { ...e, idea, updated: Date.now() } : e)))} onDelete={(id) => { const rest = essays.filter((e) => e.id !== id); setEssays(rest); if (id === active.id) setActiveId(rest[0]?.id ?? ''); }} />;
   return (
     <div className={`page es ${drawer ? 'drawer-on' : ''}`}>
@@ -150,7 +153,8 @@ export default function EssayPage({ mode, onChart }: { mode: DataMode; onChart: 
             {essays.map((e) => <option key={e.id} value={e.id}>{e.title || 'Untitled'}{e.sym ? ` · ${e.sym}` : ''}</option>)}
           </select>
           <button className="btn" onClick={() => { flushRef.current(); setView('papers'); }} title="See every paper in a list, with its idea">All papers ({essays.length})</button>
-          <button className="btn" onClick={create}>New essay</button>
+          <button className="btn" onClick={() => { flushRef.current(); setView('calendar'); }} title="Notes as cards on a calendar, with each day's P&L, reminders and the tickers in your notes">📅 Calendar</button>
+          <button className="btn" onClick={() => create()}>New note</button>
           <form className="es-sym" onSubmit={(e) => { e.preventDefault(); const s = symDraft.trim().toUpperCase(); if (SYM_RE.test(s)) patch({ sym: s }); }}>
             <input value={symDraft} onChange={(e) => setSymDraft(e.target.value.toUpperCase())} onBlur={() => { const s = symDraft.trim().toUpperCase(); if (SYM_RE.test(s) && s !== sym) patch({ sym: s }); }} placeholder="Ticker" aria-label="Essay ticker" maxLength={10} />
           </form>
@@ -165,6 +169,7 @@ export default function EssayPage({ mode, onChart }: { mode: DataMode; onChart: 
         <div className="es-doc">
           <input className="es-title" value={active.title} onChange={(e) => patch({ title: e.target.value })} placeholder="Title your essay" aria-label="Essay title" />
           <input className="es-idea" value={active.idea ?? ''} onChange={(e) => patch({ idea: e.target.value })} placeholder="The idea in one line (shows on the All papers list)" aria-label="Essay idea" maxLength={200} />
+          <NoteToolbar note={active} onStamp={(day) => patch({ day })} onWatch={onWatch} />
           <div className="es-tools" role="toolbar" aria-label="Formatting">
             <button onMouseDown={(e) => e.preventDefault()} onClick={() => cmd('formatBlock', 'h2')} title="Heading">H2</button>
             <button onMouseDown={(e) => e.preventDefault()} onClick={() => cmd('formatBlock', 'h3')} title="Subheading">H3</button>
