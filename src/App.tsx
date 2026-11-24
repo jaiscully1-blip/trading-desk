@@ -462,6 +462,8 @@ export default function App() {
   // rebuilt when trades change and once a minute, so an option that has just expired closes at $0 without a reload
   const nowMin = Math.floor(now / 60_000);
   const views = useMemo(() => trades.filter((t) => !t.deleted).map((t) => viewTrade(t, { now: nowMin * 60_000 })), [trades, nowMin]);
+  // realized P&L per ET day (closed trades), for the notebook calendar
+  const closedDayPnl = useMemo(() => { const m = new Map<string, number>(); for (const v of views) if (v.status === 'closed' && v.closedAt != null) { const d = etDay(v.closedAt); m.set(d, (m.get(d) ?? 0) + v.realized); } return m; }, [views]);
   const liveTransfers = useMemo(() => transfers.filter((t) => !t.deleted), [transfers]);
   const lastPx = useCallback((s: string) => { const x = quotes[s]?.last; return Number.isFinite(x) ? x : undefined; }, [quotes]);
   const g = useMemo(() => guard(views, liveTransfers, settings, now, lastPx), [views, liveTransfers, settings, now, lastPx]);
@@ -581,6 +583,11 @@ export default function App() {
     beep();
     try { if (Notification.permission === 'granted' && document.hidden && !isMuted()) for (const p of ps) new Notification(`★ ${p.sym}: ${p.text}`, { tag: p.id }); } catch { /* not supported */ }
   }, [setPingLog]);
+  // note reminders (Essays): one-time or routine, rung as desk pings
+  useEffect(() => {
+    const tick = () => import('./lib/noteReminders').then(({ takeDue }) => { const due = takeDue(); if (due.length) pushPings(due.map((r) => ({ id: `rem:${r.id}:${Date.now()}`, t: Date.now(), sym: r.sym ?? '', kind: 'alert' as const, text: `Reminder: ${r.text}` }))); });
+    tick(); const id = setInterval(tick, 30_000); return () => clearInterval(id);
+  }, [pushPings]);
   // calendar bells: ping 10 minutes before belled events (Calendars -> Month / Week)
   useEffect(() => {
     const tick = () => import('./lib/eventAlerts').then(({ takeDue }) => { const due = takeDue(); if (due.length) pushPings(due.map((a) => ({ id: `cal:${a.id}`, t: Date.now(), sym: a.sym ?? '', kind: 'alert' as const, text: `In about 10 minutes: ${a.label}` }))); });
@@ -1012,7 +1019,7 @@ export default function App() {
   } else if (page === 'tesla') {
     body = <Suspense fallback={<section className="panel"><div className="ph-body">Loading…</div></section>}><TeslaPage mode={dataMode} /></Suspense>;
   } else if (page === 'essay') {
-    body = <Suspense fallback={<section className="panel"><div className="ph-body">Loading…</div></section>}><EssayPage mode={dataMode} onChart={toDesk} /></Suspense>;
+    body = <Suspense fallback={<section className="panel"><div className="ph-body">Loading…</div></section>}><EssayPage mode={dataMode} onChart={toDesk} onWatch={addSym} dayPnl={closedDayPnl} /></Suspense>;
   } else if (page === 'global') {
     body = <Suspense fallback={<section className="panel"><div className="ph-body">Loading…</div></section>}><GlobalPage mode={dataMode} onChart={toDesk} /></Suspense>;
   } else if (page === 'status') {
