@@ -1,8 +1,8 @@
 // GET /api/research?fn=gamma&symbol=SPY|QQQ|IWM|SPX|<any optionable ticker> -> dealer gamma by strike (call wall, put wall, zero-gamma flip),
-// the GEX profile, the implied-volatility surface + term structure, unusual options activity (volume > open interest) and max pain.
+// the GEX profile, a strike × expiry grid (GEX / OI / volume), today's call and put premium totals, the implied-volatility surface + term structure, unusual options activity (volume > open interest) and max pain.
 // Source: Cboe's public delayed option chains (~15 min delayed). Jai approved using them (Nov 7, 2026) knowing Cboe's
 // site terms are a risk; kept to personal use, cached, and labeled delayed.
-import { gammaRead, ivSurface, parseCboe, pcRatios } from '../../../shared/gamma.js';
+import { gammaRead, ivSurface, parseCboe, pcRatios, premiumTotals, strikeGrid } from '../../../shared/gamma.js';
 import { maxPain, unusualActivity, unusualSummary } from '../../../shared/optflow.js';
 import { SYMBOL_RE, cached, getJson, json, take, ttl } from '../core.js';
 
@@ -23,7 +23,7 @@ export async function GET(req: Request): Promise<Response> {
         sym, spot: ch.spot, chainAsOf: ch.asOf, contracts: ch.contracts.length,
         gex: { ...near, profile: near.profile.map(([s, g]) => [+s.toFixed(2), Math.round(g)]) },
         gexWeek: { callWall: week.callWall, putWall: week.putWall, flip: week.flip, total: week.total },
-        surface: ivSurface(ch), pc: pcRatios(ch),
+        surface: ivSurface(ch), pc: pcRatios(ch), grid: strikeGrid(ch), prem: premiumTotals(ch),
         flow: (() => { const u = unusualActivity(ch, ch.spot > 1000 ? { minPremium: 100_000 } : {}); return { unusual: u, summary: unusualSummary(u), maxPain: maxPain(ch) }; })(),
       };
     });

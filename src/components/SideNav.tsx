@@ -6,7 +6,7 @@ import { createPortal } from 'react-dom';
 import { downloadDesk, exportDesk, importDesk, parseDeskFile, type DeskFile } from '../lib/deskfile';
 import { currentAccount, initials, isOwner, leave, makeOwner, verifyDeskPassword } from '../lib/accounts';
 
-export type Page = 'morning' | 'home' | 'messages' | 'desk' | 'patterns' | 'company' | 'scanner' | 'map' | 'flows' | 'smart' | 'etfs' | 'gamma' | 'odds' | 'journal' | 'calendar' | 'status' | 'distress' | 'insiders' | 'credit' | 'mtf' | 'global' | 'news' | 'essay' | 'tesla' | 'altdata' | 'realecon' | 'plumbing' | 'policy' | 'learn' | 'crypto' | 'quant';
+export type Page = 'morning' | 'home' | 'messages' | 'desk' | 'patterns' | 'company' | 'scanner' | 'map' | 'flows' | 'smart' | 'etfs' | 'gamma' | 'odds' | 'journal' | 'calendar' | 'status' | 'distress' | 'insiders' | 'credit' | 'mtf' | 'global' | 'news' | 'essay' | 'tesla' | 'altdata' | 'realecon' | 'plumbing' | 'policy' | 'learn' | 'crypto' | 'quant' | 'cmap';
 export type GroupId = 'today' | 'charts' | 'scan' | 'flow' | 'alt' | 'journal';
 
 /** 24x24 stroke paths (own drawings, simple shapes) */
@@ -33,6 +33,7 @@ const ICON: Record<Page | 'account', string> = {
   crypto: 'M9 5v14 M13 5v14 M7 8h7a3 3 0 0 1 0 6H7 M7 14h8a3 3 0 0 1 0 6H7 M7 8V5 M7 20v-1',
   plumbing: 'M4 20h16 M6 20v-6 M10.5 20v-9 M15 20v-4 M19 3v8 M16.5 8.5 19 11l2.5-2.5',
   realecon: 'M2 17l5-5 4 3 7-8 M14 7h4v4 M3 21h18',
+  cmap: 'M3 6l6-3 6 3 6-3v15l-6 3-6-3-6 3z M9 3v15 M15 6v15',
   altdata: 'M4 19V9 M10 19V5 M16 19v-7 M22 19H2',
   quant: 'M5 17l4-5 4 3 6-8 M5 7h.01 M9 5h.01 M17 15h.01 M20 19H4V4',
   tesla: 'M3 13l2-5h14l2 5v5H3z M3 13h18 M7 18v2 M17 18v2 M7 15.5h.01 M17 15.5h.01',
@@ -58,6 +59,7 @@ const P: Record<Page, { label: string; hint: string; key: string }> = {
   policy: { label: 'Macro & Policy', hint: 'earnings scoreboard, tariffs, policy odds by sector', key: '⇧O' },
   crypto: { label: 'BTC / ETH', hint: 'live Bitcoin and Ethereum charts; crypto trades 24/7', key: '' },
   plumbing: { label: 'Shorts & Supply', hint: 'who is shorting, borrow cost, dark-pool share, failed deliveries, unusual options; buybacks, dilution, lockups, index changes, mergers', key: '⇧P' },
+  cmap: { label: 'Commodity Map', hint: 'drought, severe weather and disasters by state, tied to farm and energy tickers', key: '' },
   realecon: { label: 'Real Economy', hint: 'air traffic, CEO jets, rail, power, fuel, freight, weather', key: '⇧E' },
   altdata: { label: 'Alt Data', hint: 'hiring, app ranks, interest, GitHub, players, social, prices', key: '⇧A' },
   tesla: { label: 'Lots', hint: 'registrations, satellite lot fullness, inventory', key: '⇧T' },
@@ -77,7 +79,7 @@ export const NAV_GROUPS: { id: GroupId; label: string; pages: Page[] }[] = [
   { id: 'charts', label: 'Charts', pages: ['desk', 'mtf', 'patterns', 'company', 'crypto'] },
   { id: 'scan', label: 'Scan', pages: ['scanner', 'flows', 'etfs', 'smart', 'insiders', 'plumbing', 'credit', 'distress'] },
   { id: 'flow', label: 'Flow and risk', pages: ['global', 'policy', 'gamma', 'map', 'odds', 'status'] },
-  { id: 'alt', label: 'Alt data', pages: ['altdata', 'quant', 'tesla', 'realecon'] },
+  { id: 'alt', label: 'Alt data', pages: ['altdata', 'quant', 'tesla', 'realecon', 'cmap'] },
   { id: 'journal', label: 'Journal', pages: ['journal', 'essay', 'learn'] },
 ];
 export const pageGroup = (p: Page): GroupId => NAV_GROUPS.find((g) => g.pages.includes(p))?.id ?? 'today';

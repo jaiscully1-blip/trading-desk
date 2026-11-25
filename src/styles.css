@@ -3513,3 +3513,50 @@ a:hover, .link:hover { text-decoration-color: var(--link); }
 .nt-h4 { margin: 6px 0 0; font-size: 13px; }
 .nt-wl { display: grid; gap: 6px; } .nt-wlr { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
 .nt-side .nt-rem-f input:first-child { min-width: 100%; }
+
+/* Gamma heatmap + options tide */
+.gh-wrap { overflow: auto; max-height: 560px; padding: 0 14px 10px; }
+.gh-t { border-collapse: separate; border-spacing: 2px; font: 11.5px 'IBM Plex Mono', monospace; width: 100%; }
+.gh-t th { position: sticky; top: 0; background: var(--panel); color: var(--muted); font-weight: 600; padding: 3px 6px; text-align: right; white-space: nowrap; z-index: 1; }
+.gh-t th em { display: block; font-style: normal; font-size: 10px; opacity: .7; }
+.gh-t tbody th { position: sticky; left: 0; top: auto; color: var(--text); }
+.gh-t tbody th.pinned { color: var(--link); }
+.gh-t tr.spot th { background: var(--accent); color: var(--bg); border-radius: 4px; }
+.gh-t td { text-align: right; padding: 3px 6px; border-radius: 4px; cursor: pointer; min-width: 58px; color: var(--text); }
+.gh-t td:hover { outline: 1px solid var(--line-2); }
+.gh-t td.top { outline: 2px solid var(--text); outline-offset: -2px; font-weight: 600; }
+.gh-t td.sel { outline: 2px solid var(--link); outline-offset: -2px; }
+.gh-pick { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 14px; border-top: 1px dashed var(--line); }
+.gh-pins { padding: 0 14px 10px; }
+.gt-svg { width: 100%; height: auto; display: block; padding: 0 8px; touch-action: none; }
+.gt-grid { stroke: var(--line); stroke-dasharray: 2 4; }
+.gt-ax { fill: var(--muted); font: 10px 'IBM Plex Mono', monospace; }
+.gt-call { fill: none; stroke: var(--up); stroke-width: 1.8; }
+.gt-put { fill: none; stroke: var(--down); stroke-width: 1.8; }
+.gt-spot { fill: none; stroke: var(--gold, var(--accent)); stroke-width: 1.4; }
+.gt-vu { fill: color-mix(in srgb, var(--up) 55%, transparent); } .gt-vd { fill: color-mix(in srgb, var(--down) 55%, transparent); }
+.gt-cross { stroke: var(--muted); stroke-dasharray: 3 3; }
+.gt-read { margin: 0; }
+
+/* Commodity Map */
+.cmp { flex-direction: column; gap: 8px; overflow-y: auto; }
+.cmp > * { flex: none; }
+:root { --dr-text: #1b1307; --dr0: #e8d77a; --dr1: #f2b45a; --dr2: #e8823f; --dr3: #d2452f; --dr4: #8f1d1d; }
+:root[data-theme='light'] { --dr0: #f3e58a; --dr1: #f7c06a; --dr2: #ef8f48; --dr3: #d6452c; --dr4: #8f1d1d; }
+.cmp-coms { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 14px 6px; }
+.cmp-grid { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 12px; align-items: start; }
+@media (max-width: 1100px) { .cmp-grid { grid-template-columns: 1fr; } }
+.cmp-map { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 4px; padding: 6px 14px 12px; max-width: 760px; }
+.cmp-t { position: relative; aspect-ratio: 1; border: 1px solid var(--line); border-radius: 8px; background: var(--panel-2); color: var(--text); cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; padding: 0; min-width: 0; }
+.cmp-t b { font: 600 12px 'IBM Plex Mono', monospace; } .cmp-t em { font-style: normal; font-size: 10px; opacity: .8; }
+.cmp-t.prod { border: 2px solid var(--text); }
+.cmp-t.sel { box-shadow: 0 0 0 2px var(--link); }
+.cmp-t:hover { border-color: var(--link); }
+.cmp-new { position: absolute; top: 2px; right: 4px; font-style: normal; font-size: 9px; color: var(--link); }
+.cmp-leg { display: flex; flex-wrap: wrap; gap: 10px; padding: 0 14px 12px; font-size: 11.5px; color: var(--muted); }
+.cmp-leg i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 4px; vertical-align: -1px; }
+.cmp-side { display: grid; gap: 4px; }
+.cmp-sec { padding: 0 14px; } .cmp-sec h4 { margin: 8px 0 2px; font-size: 12.5px; } .cmp-sec ul { margin: 0; padding-left: 18px; } .cmp-sec p { margin: 0; }
+.cmp-com { display: grid; gap: 4px; margin: 6px 0; }
+.cmp-tk { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; } .cmp-act { margin-left: auto; display: inline-flex; gap: 2px; }
+.cmp-side .note { padding: 0 14px 12px; }
