@@ -38,28 +38,37 @@ function reloadForNewVersion(): boolean {
     sessionStorage.setItem('td.verReload', JSON.stringify({ n: n + 1, t: Date.now() }));
   } catch { /* storage blocked: still reload */ }
   reloadPending = true;
-  setTimeout(() => location.reload(), RELOAD_WAIT[n] ?? 0);
+  setTimeout(() => { void refetchFailed().finally(() => location.reload()); }, RELOAD_WAIT[n] ?? 0);
   return true;
+}
+// Files under /assets/ are cached for a year, and the browser keeps a 404 just as long. If it asked for a new file a moment
+// before a deploy reached its server, every later load replays that saved 404. Refetching the failed file with
+// cache: 'reload' replaces the saved copy, so the reload then works.
+const failedUrls = new Set<string>();
+const noteFailed = (msg: string) => { for (const m of msg.matchAll(/https?:\/\/[^\s'"]+\/assets\/[^\s'")]+/g)) failedUrls.add(m[0]); };
+async function refetchFailed() {
+  await Promise.all([...failedUrls].map((u) => fetch(u, { cache: 'reload' }).catch(() => null)));
 }
 // Clear only after a clean start (no reload waiting), or a retry that is still waiting would restart the count and never give up.
 window.addEventListener('load', () => setTimeout(() => { if (reloadPending) return; try { sessionStorage.removeItem('td.verReload'); } catch { /* ignore */ } }, 15_000));
 // Only swallow the error when we really reload; otherwise let it through so the page shows "The desk was just updated"
 // (swallowing it without reloading hands the page an empty module, which crashed with "reading 'default'").
-window.addEventListener('vite:preloadError', (e) => { sawPreloadError = true; if (reloadForNewVersion()) e.preventDefault(); });
-window.addEventListener('unhandledrejection', (e) => { if (isStale(String((e.reason as Error | undefined)?.message ?? e.reason))) reloadForNewVersion(); });
+window.addEventListener('vite:preloadError', (e) => { sawPreloadError = true; noteFailed(String((e as unknown as { payload?: Error }).payload?.message ?? '')); if (reloadForNewVersion()) e.preventDefault(); });
+window.addEventListener('unhandledrejection', (e) => { noteFailed(String((e.reason as Error | undefined)?.message ?? e.reason)); if (isStale(String((e.reason as Error | undefined)?.message ?? e.reason))) reloadForNewVersion(); });
 
 /** A crash in one page shows a reload button instead of a blank screen, and is reported. */
 class Boundary extends Component<{ children: ReactNode }, { err: Error | null; gaveUp: boolean }> {
   state = { err: null as Error | null, gaveUp: false };
   static getDerivedStateFromError(err: Error) { return { err }; }
   componentDidCatch(err: Error, info: { componentStack?: string | null }) {
+    noteFailed(err.message);
     if (isStale(err.message)) { if (reloadForNewVersion()) return; this.setState({ gaveUp: true }); }
     reportError(err, { where: 'react', stack: info.componentStack?.slice(0, 2000) });
   }
   render() {
     if (!this.state.err) return this.props.children;
     const msg = this.state.err.message;
-    const out = <div className="crash-actions"><button className="btn primary" onClick={() => { try { sessionStorage.removeItem('td.verReload'); } catch { /* ignore */ } location.reload(); }}>Reload</button> <button className="btn" onClick={openHome}>Open Home instead</button></div>;
+    const out = <div className="crash-actions"><button className="btn primary" onClick={() => { try { sessionStorage.removeItem('td.verReload'); } catch { /* ignore */ } void refetchFailed().finally(() => location.reload()); }}>Reload</button> <button className="btn" onClick={openHome}>Open Home instead</button></div>;
     // A new version was deployed while this tab was open: reload quietly. Only if the automatic retries all fail, offer the buttons.
     if (isStale(msg) && !this.state.gaveUp) return <div className="crash"><p className="muted">Updating to the new version…</p></div>;
     return <div className="crash"><b>{isStale(msg) ? 'The desk could not open the new version.' : 'Something broke on this page.'}</b><p className="muted small">{msg}</p>{out}</div>;
