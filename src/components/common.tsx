@@ -31,17 +31,22 @@ const ago = (ms: number) => { const m = Math.round(ms / 60000); return m < 1 ? '
 
 /** Source + freshness badge. Required on every panel. Hover (or focus) shows how far behind it is, when it was last
  *  updated and where it comes from. */
+/** How many minutes a delayed source runs behind: read from its source note ("~15 min", "15-minute"), else 15. */
+export const delayMin = (src?: string) => { const m = /(\d{1,3})\s*-?\s*min/i.exec(src ?? ''); return m ? +m[1] : 15; };
 export function Fresh({ kind, at, src }: { kind: Freshness; at?: number; src?: string }) {
   const [now, setNow] = useState(0);
+  if (kind === 'live') return null; // live data needs no badge
+  const mins = delayMin(src);
+  const long = kind === 'delayed' ? `${mins}-MIN DELAYED` : LABEL[kind], short = kind === 'delayed' ? `${mins}M DELAYED` : SHORT[kind];
   return (
-    <span className={`fresh fresh-${kind}`} tabIndex={0} onMouseEnter={() => setNow(Date.now())} onFocus={() => setNow(Date.now())} aria-label={`${LABEL[kind]}. ${LAG[kind]}`}>
-      <span className="fresh-long">{LABEL[kind]}</span>
-      <span className="fresh-short">{SHORT[kind]}</span>
+    <span className={`fresh fresh-${kind}`} onMouseEnter={() => setNow(Date.now())} aria-label={`${long}. ${LAG[kind]}`}>
+      <span className="fresh-long">{long}</span>
+      <span className="fresh-short">{short}</span>
       {at != null && <span className="fresh-at"> · {etTime(at)} ET</span>}
       {now > 0 && <span className="fresh-pop" role="tooltip">
         <b>{LABEL[kind]}</b>
         <span>{LAG[kind]}</span>
-        {at != null && <span>Last updated {etTime(at, true)} ET · <b>{ago(now - at)}</b>{kind === 'delayed' ? ` (so prices reflect about ${etTime(at - 15 * 60000)} ET)` : ''}</span>}
+        {at != null && <span>Last updated {etTime(at, true)} ET · <b>{ago(now - at)}</b>{kind === 'delayed' ? ` (so prices reflect about ${etTime(at - mins * 60000)} ET)` : ''}</span>}
         {src && <span className="fresh-src">Source: {src}</span>}
       </span>}
     </span>
@@ -267,7 +272,8 @@ export function PageTabs<T extends string>({ value, options, onChange, label = '
 export type QKind = 'live' | 'delayed' | 'eod' | 'calc' | 'model' | 'unofficial' | 'mine' | 'demo';
 const Q_LABEL: Record<QKind, string> = { live: 'Live', delayed: 'Delayed', eod: 'End of day', calc: 'Calculated on the desk', model: 'Model forecast, not data', unofficial: 'Unofficial public source', mine: 'From your own journal / settings', demo: 'Sample data, not real' };
 export function Q({ k, src, at }: { k: QKind; src?: string; at?: number }) {
-  const tip = [Q_LABEL[k], src, at != null ? `as of ${etTime(at)} ET` : ''].filter(Boolean).join(' · ');
+  if (k === 'live') return null; // live data needs no marker
+  const tip = [k === 'delayed' ? `Delayed about ${delayMin(src)} minutes` : Q_LABEL[k], src, at != null ? `as of ${etTime(at)} ET` : ''].filter(Boolean).join(' · ');
   return <i className={`q q-${k}`} title={tip} aria-label={tip} role="img" />;
 }
 /** Freshness (the panel badge's kinds) -> the dot's kinds. */
