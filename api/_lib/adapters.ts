@@ -123,7 +123,7 @@ export const twelveQuotes: QuoteAdapter = {
 export const QUOTE_CHAIN: QuoteAdapter[] = [finnhubQuotes, twelveQuotes];
 
 /* ---------- Alpaca (free account): real-time IEX quotes for many symbols in one call, and Benzinga news ---------- */
-const alpacaHeaders = () => ({ 'APCA-API-KEY-ID': key('alpaca'), 'APCA-API-SECRET-KEY': process.env.ALPACA_SECRET_KEY ?? '' });
+export const alpacaHeaders = () => ({ 'APCA-API-KEY-ID': key('alpaca'), 'APCA-API-SECRET-KEY': process.env.ALPACA_SECRET_KEY ?? '' });
 export function parseAlpacaSnapshots(j: any, symbols: string[]): QuoteResult[] {
   const out: QuoteResult[] = [];
   for (const s of symbols) {
@@ -404,7 +404,7 @@ export async function finnhubEarnings(from: string, to: string, symbol = ''): Pr
   return j.earningsCalendar.map((r: any) => ({ sym: String(r.symbol), date: String(r.date), hour: String(r.hour ?? ''), epsEst: n(r.epsEstimate), epsAct: n(r.epsActual), revEst: n(r.revenueEstimate), revAct: n(r.revenueActual) }));
 }
 
-const secHeaders = () => ({ 'user-agent': key('sec'), 'accept-encoding': 'gzip, deflate' });
+export const secHeaders = () => ({ 'user-agent': key('sec'), 'accept-encoding': 'gzip, deflate' });
 export async function secJson(url: string): Promise<any> {
   need('sec');
   return getJson(url, 'sec', 12000, { headers: secHeaders() });

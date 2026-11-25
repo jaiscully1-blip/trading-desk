@@ -1,6 +1,6 @@
 // Insiders & positioning: who is buying and selling their own company's stock (SEC Form 4, market-wide), plus short-sale volume (FINRA)
 // and a pointer to what big funds did (13F). Facts from public filings, delayed by days: for context and patterns, not a signal or advice.
-import { useMemo, useState } from 'react';
+import { useMemo, useState, Fragment } from 'react';
 import { byTicker, clusterBuys, topBuys, topSells, weekly, type InsidersFile, type Row } from '../../shared/insiderMarket';
 import { boards, type F13File } from '../../shared/f13agg';
 import type { HighSi } from '../../shared/extras';
@@ -75,10 +75,10 @@ function Insiders({ onChart }: { onChart: (s: string) => void }) {
         <p className="small muted">Several people buying with their own money at once is the pattern researchers watch most. It still isn’t a guarantee.</p>
         <div className="sm-tblwrap"><table className="sm-tbl">
           <thead><tr><th>Ticker</th><th>Company</th><th className="r">Buyers</th><th className="r">Bought</th><th>CEO/CFO/Chair?</th><th>Last buy</th></tr></thead>
-          <tbody>{clusters.map((t) => (<>
+          <tbody>{clusters.map((t) => (<Fragment key={t.sym}>
             <tr key={t.sym} onClick={() => setOpen(open === t.sym ? null : t.sym)} className="ins-click"><td><Sym s={t.sym} onChart={onChart} /></td><td className="small">{t.co}</td><td className="r">{t.buyers}</td><td className="r num">{usd(t.buyVal)}</td><td>{t.topBuy ? 'yes' : ''}</td><td className="small">{fmtDate(t.lastBuy)}</td></tr>
             {open === t.sym && <tr key={`${t.sym}-d`}><td colSpan={6}><ul className="ins-det">{t.rows.filter((x) => x.code === 'P').map((x, i) => <li key={i} className="small">{fmtDate(x.d)} · {x.who} <span className="muted">({x.role || 'insider'})</span> · {x.sh.toLocaleString()} sh @ {x.px != null ? `$${x.px.toFixed(2)}` : '—'} = {usd(x.val)} · <a href={x.url} target="_blank" rel="noreferrer noopener">filing</a></li>)}</ul></td></tr>}
-          </>))}</tbody></table></div>
+          </Fragment>))}</tbody></table></div>
         {!clusters.length && <p className="muted small">No stock had 3 or more insider buyers in this window.</p>}
       </section>
       <RowTable rows={buys} onChart={onChart} title="Largest insider purchases" note="Biggest single open-market buys. Click a ticker for its chart." />

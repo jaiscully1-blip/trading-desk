@@ -2,10 +2,10 @@
 // vs normal, SPY over the same days, headlines and filings inside it); click empty chart to clear. Hover a day for its numbers.
 // Pinned ranges stay as colored bands; hovering a citation in the essay lights its range up here.
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { cssVar } from '../lib/format';
 import { CandlestickSeries, ColorType, CrosshairMode, HistogramSeries, createChart, type IChartApi, type ISeriesApi, type Logical, type UTCTimestamp } from 'lightweight-charts';
 import { fmtDay, rangeStats, ymd, type DayBar, type RangeStats } from '../../shared/essay';
 
-const cssVar = (n: string) => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
 export const PIN_COLORS = ['#ee9a45', '#46d69a', '#5cc8f5', '#ff5a4d', '#b48cff'];
 export interface Pin { id: string; from: number; to: number; color: string; label: string }
 export interface RangeNews { news: { t: number; title: string; url: string; src: string }[]; filings: { date: string; form: string; items: string; earnings: boolean; url: string }[]; error?: string }

@@ -3676,3 +3676,10 @@ svg[data-hover] { cursor: crosshair; touch-action: pan-y; }
 .xa-grid > div { min-width: 0; overflow-x: auto; }
 .xa-grid .cs-t td, .xa-grid .cs-t th { padding: 4px 8px; white-space: nowrap; }
 .gl-region { height: 26px; padding: 0 24px 0 8px; font-size: 12px; max-width: 170px; }
+.ci-pill { white-space: nowrap; color: var(--warn); border-color: color-mix(in srgb, var(--warn) 50%, transparent); }
+.ci-pill.done { color: var(--muted); border-color: var(--line-2); }
+.rc-morning { display: grid; gap: 2px; } .rc-morning p { margin: 0; }
+/* small spills found in the audit */
+.am-day-ax { overflow: hidden; }
+.am-day-ax span:first-child { transform: none; } .am-day-ax span:last-child { transform: translateX(-100%); }
+.page .phead-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

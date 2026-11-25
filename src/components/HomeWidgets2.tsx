@@ -1,5 +1,6 @@
 // More Home widgets: risk calculator, session clock, crypto, commodities, browser.
 import { useEffect, useRef, useState, Fragment } from 'react';
+import { cssVar } from '../lib/format';
 import { CandlestickSeries, ColorType, createChart, type IChartApi, type ISeriesApi, type UTCTimestamp } from 'lightweight-charts';
 import type { Bar, TF } from '../types';
 import { calc, expectancy, kelly, positionSize, recoverPct, rr, streakOdds } from '../../shared/risk';
@@ -14,7 +15,6 @@ import { BtcNetStrip } from './ExtrasW';
 
 type Cfg = Record<string, any>;
 interface P { d: HomeData; cfg: Cfg; set: (c: Cfg) => void }
-const cssVar = (n: string) => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
 const money = (v: number) => (Number.isFinite(v) ? `${v < 0 ? '−' : ''}$${Math.abs(v).toLocaleString('en-US', { maximumFractionDigits: 2 })}` : '—');
 
 /* ---------------- risk calculator ---------------- */

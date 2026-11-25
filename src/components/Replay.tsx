@@ -1,5 +1,6 @@
 // Replay a journal trade over its candles with the real fills, plus the ghost exit your rules would have taken.
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { cssVar as css } from '../lib/format';
 import { CandlestickSeries, ColorType, CrosshairMode, LineStyle, createChart, createSeriesMarkers, type IChartApi, type IPriceLine, type ISeriesApi, type ISeriesMarkersPluginApi, type SeriesMarker, type Time, type UTCTimestamp } from 'lightweight-charts';
 import type { Bar, Freshness, TF } from '../types';
 import type { TradeView } from '../lib/journal';
@@ -12,7 +13,6 @@ import { px, sUsd, tone } from '../lib/format';
 import { Fresh, Kbd, Seg } from './common';
 
 const PERIOD: Record<TF, number> = { '5m': 300, '15m': 900, '1H': 3600, D: 86400, W: 7 * 86400, M: 31 * 86400 };
-const css = (n: string) => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
 
 /** Preview only: a 5-minute path that passes through the trade's real fill prices (Brownian bridge). Badged DEMO. */
 function syntheticBars(v: TradeView): Bar[] {

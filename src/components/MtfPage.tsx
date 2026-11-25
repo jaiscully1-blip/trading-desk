@@ -3,6 +3,7 @@
 // or tap an index, a top stock or one of yours. Drag a chart's tab to rearrange; the layout is saved in this browser.
 // Data: Yahoo's public chart data, about 15 minutes delayed (unofficial). Nothing here can trade.
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { cssVar } from '../lib/format';
 import { DockviewReact, type DockviewReadyEvent, type IDockviewPanelProps } from 'dockview-react';
 import 'dockview-react/dist/styles/dockview.css';
 import { CandlestickSeries, ColorType, CrosshairMode, HistogramSeries, LineSeries, LineStyle, createChart, type IChartApi, type IPriceLine, type ISeriesApi, type UTCTimestamp } from 'lightweight-charts';
@@ -21,7 +22,6 @@ const DEFAULT_SLOTS: Slot[] = LINKED_TFS.map((tf, i) => ({ id: `c${i + 1}`, sym:
 const INDEXES = ['SPY', 'QQQ', 'IWM', 'DIA'];
 const TOP = ['NVDA', 'AAPL', 'MSFT', 'AMZN', 'META', 'TSLA', 'AMD', 'GOOGL'];
 const REFRESH: Record<MtfTF, number> = { '1m': 30_000, '3m': 45_000, '5m': 60_000, '15m': 90_000, '1h': 180_000, '4h': 300_000, '1d': 600_000, '1w': 1_800_000 };
-const cssVar = (n: string) => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
 
 interface Ctx { slots: Slot[]; active: string; setActive: (id: string) => void; setSlot: (id: string, p: Partial<Slot>) => void; linked: boolean; mode: DataMode; fib: boolean; draw: boolean }
 const MtfCtx = createContext<Ctx | null>(null);

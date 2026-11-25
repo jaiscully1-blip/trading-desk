@@ -495,8 +495,10 @@ export default function App() {
   // Ask for the pre-session check-in once per trading day, before/at the open
   useEffect(() => {
     if (!ciLoaded || checkin || POPOUT) return;
-    if (!(mode === 'pre' || mode === 'open') || et(now).wd === 0 || et(now).wd === 6) return;
-    try { if (sessionStorage.getItem(`td.ciAsked.${today}`)) return; sessionStorage.setItem(`td.ciAsked.${today}`, '1'); } catch { /* ignore */ }
+    const e = et(now);
+    if (e.wd === 0 || e.wd === 6 || clk.holiday || e.sod >= clk.closeSod) return; // trading days, until the close
+    try { if (localStorage.getItem(`td.ciAsked.${today}`)) return; localStorage.setItem(`td.ciAsked.${today}`, '1'); } catch { /* ignore */ }
+    if (e.sod < 9.5 * 3600) setPage('morning'); // before the bell the desk opens on the Morning plan
     setCiOpen(true);
   }, [ciLoaded, checkin, mode, today]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -1086,7 +1088,7 @@ export default function App() {
         <TopStrip
           movement={movement} vol={vol} moveStats={dayStats}
           quotes={quotes} clk={clk} mode={mode} override={override} onOverride={setOverride} onSelect={setSel}
-          onAccount={() => setDrawer((d) => !d)} accountOpen={drawer} theme={theme} onTheme={toggleTheme} onCmd={() => setCmdOpen(true)} onWorld={() => setPage('map')}
+          onAccount={() => setDrawer((d) => !d)} accountOpen={drawer} theme={theme} onTheme={toggleTheme} onCmd={() => setCmdOpen(true)} onWorld={() => setPage('map')} checkin={checkin} onCheckIn={() => setCiOpen(true)}
           account={{ guard: g, settings, demo: views.some((v) => v.t.demo), demoPrices }}
           marketSource={market?.status?.source}
           quoteFresh={quoteFresh} quoteAsOf={live ? qs?.asOf : DEMO_AT} quoteSource={live ? qs?.source : 'Generated sample quotes'} macro={macro} live={live}

@@ -1,15 +1,11 @@
 // Mounted once. (1) Puts your stance tag next to every ticker chip on the desk, automatically, including ones typed in later.
 // (2) Opens a choose-only picker when you right-click any ticker (or press a "stance" button). Nothing to type, nothing to wire per page.
 import { useEffect, useRef, useState } from 'react';
+import { symOf } from './HoverCard';
 import { DIRS, SHAPES, badge, describe, openStance, setStance, tone, useStances, type Dir } from '../lib/stance';
 
 const TAG_SEL = '.sym-chip, .wl-sym, .msg-sym, .dx-sym';
 const PICK_SEL = '[data-sym], .sym-chip, .wl-row, .wl-sym, .msg-sym, .dx-row, .dx-wrow';
-const SYM = /^[A-Z][A-Z0-9.\-]{0,9}$/;
-function symOf(el: HTMLElement): string | null {
-  const s = (el.dataset.sym || el.querySelector<HTMLElement>('.wl-sym, .dx-sym, b')?.textContent || el.textContent || '').trim().split(/\s/)[0].toUpperCase();
-  return SYM.test(s) ? s : null;
-}
 
 export default function StanceLayer() {
   const st = useStances();

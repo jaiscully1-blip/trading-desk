@@ -2,12 +2,12 @@
 // next session's before-open reports; before 9:30 ET it lists last night's after-close reports and this morning's before-open ones.
 // Each row shows the EPS estimate, the actual and beat / miss once reported, and the after-hours or premarket move (Yahoo, delayed).
 import { useEffect, useMemo, useState } from 'react';
+import { epsStr as eps } from '../lib/format';
 import { et } from '../../shared/clock';
 import { earningsWindow, type ExtMove } from '../../shared/extMove';
 import { surprisePct, type EarnItem } from '../../shared/eventsCal';
 import { Fresh } from './common';
 
-const eps = (v: number | null) => (v == null ? '' : `${v < 0 ? '−' : ''}$${Math.abs(v).toFixed(2)}`);
 const cap = (v: number | null) => (v == null ? '' : v >= 1e12 ? `$${(v / 1e12).toFixed(1)}T` : v >= 1e9 ? `$${(v / 1e9).toFixed(0)}B` : `$${(v / 1e6).toFixed(0)}M`);
 const dayName = (d: string) => new Date(`${d}T12:00:00Z`).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric', timeZone: 'UTC' });
 

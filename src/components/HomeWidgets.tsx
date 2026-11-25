@@ -1,5 +1,6 @@
 // Home page widgets. Each gets its saved config (cfg) and a setter, plus the shared desk data.
 import { AlertsW } from './AlertsW';
+import { cssVar } from '../lib/format';
 import { Linked } from './Linked';
 import { FundCharts } from './FundCharts';
 import { AnalysisW, TrendingW } from './AnalysisW';
@@ -65,7 +66,6 @@ import BennerW from './BennerW';
 function BennerWidget({ d }: P) { return <BennerW now={d.now} />; }
 function LeverageW({ d }: P) { return <LeverageCheck equity={d.equity ?? null} />; }
 function RulesW({ d, cfg, set }: P) { return <RulesInner r={d.rules} now={d.now} cfg={cfg} set={set} />; }
-const cssVar = (n: string) => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
 
 /* ---------------- stock: quote + mini chart + its news ---------------- */
 function MiniChart({ sym, tf, d }: { sym: string; tf: TF; d: HomeData }) {

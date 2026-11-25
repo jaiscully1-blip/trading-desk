@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { cssVar } from '../lib/format';
 import { Linked } from './Linked';
 import { dayFibs } from '../../shared/dayfib';
 import { useDesk } from '../lib/deskctx';
@@ -28,7 +29,6 @@ import { clusterLevels, usdShort } from '../../shared/prints';
 import { Fresh, PanelHead, Seg } from './common';
 import { pct, px, tone } from '../lib/format';
 
-const cssVar = (n: string) => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
 type Overlays = { vwap: boolean; ma: boolean; lvl: boolean; cg?: boolean; gx?: boolean; dp?: boolean; ph?: boolean; lad?: boolean; swing?: boolean; zn?: boolean; fib?: boolean };
 const GX_SYMS = ['SPY', 'QQQ', 'IWM'];
 type CgTrade = { who: string; party: string; state: string; type: string; traded: string; filed: string; min: number | null; max: number | null };

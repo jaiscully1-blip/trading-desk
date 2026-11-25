@@ -4,10 +4,10 @@
 //                         unusual options (Cboe delayed), buybacks and share count (SEC XBRL), dilution filings (S-3 shelves, 424B)
 //   fn=plumbmkt           index rebalance calendar, IPO lockups ending soon, recent merger proxies and tender offers (EDGAR search)
 import { inflateRawSync } from 'node:zlib';
+import { loadChain } from './alpacaChain.js';
 import { cached, getJson, hasKey, json, take } from '../core.js';
 import { secJson } from '../adapters.js';
 import { parseSecTickers } from '../../../shared/company.js';
-import { parseCboe } from '../../../shared/gamma.js';
 import { lockupEnd, parseDisplayName, parseFtd, parseShortVol, rebalanceCalendar, unusualOptions } from '../../../shared/plumbing.js';
 
 const REPO = process.env.GITHUB_REPO || 'jaiscully1-blip/trading-desk';
@@ -107,7 +107,7 @@ async function borrow(sym: string) {
 }
 
 async function options(sym: string) {
-  const { val } = await cached(`optu:${sym}`, 1800, async () => { if (!take('cboe')) throw new Error('budget'); return parseCboe(await getJson(`https://cdn.cboe.com/api/global/delayed_quotes/options/${sym}.json`, 'cboe', 25000), sym); });
+  const { val } = await cached(`optu:${sym}`, 1800, () => loadChain(sym));
   const vol = val.contracts.reduce((s, c) => s + c.vol, 0), callVol = val.contracts.filter((c) => c.cp === 'C').reduce((s, c) => s + c.vol, 0);
   return { spot: val.spot, asOf: val.asOf, totalVolume: vol, putCall: callVol ? (vol - callVol) / callVol : null, unusual: unusualOptions(val.contracts) };
 }

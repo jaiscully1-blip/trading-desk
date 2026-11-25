@@ -1,6 +1,7 @@
 // Pattern lookup page (X): type a ticker, see candlestick signals and chart patterns drawn on the chart,
 // read a rule-written description of each, and save the whole thing as an image. $0: no AI calls.
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
+import { cssVar } from '../lib/format';
 import {
   CandlestickSeries, ColorType, CrosshairMode, HistogramSeries, LineSeries, LineStyle, createChart, createSeriesMarkers,
   type IChartApi, type IPriceLine, type ISeriesApi, type ISeriesMarkersPluginApi, type SeriesMarker, type Time, type UTCTimestamp,
@@ -13,7 +14,6 @@ import { Fresh, Seg } from './common';
 import DrawLayer, { type Painter } from './DrawLayer';
 
 type PTF = 'D' | '1H';
-const cssVar = (n: string) => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
 const SYM_RE = /^[A-Z][A-Z0-9.\-]{0,9}$/;
 const hitKey = (h: Hit) => (h.kind === 'chart' ? `c:${h.id}:${h.start}` : `k:${h.id}:${h.index}`);
 
