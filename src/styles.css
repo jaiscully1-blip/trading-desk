@@ -3764,3 +3764,12 @@ img, a, svg { -webkit-user-drag: none; }
 .pt-mix { display: flex; flex-wrap: wrap; gap: 4px; }
 .pt-table td:first-child { max-width: 420px; }
 .pt-expired, .pt-abandoned { color: var(--muted); } .pt-granted.small { color: var(--up); }
+
+/* Patents & Tech page */
+.pp { display: grid; gap: 12px; align-content: start; overflow-y: auto; min-height: 0; padding-bottom: 28px; }
+.pp > .panel { flex: none; min-height: auto; overflow: visible; height: auto; }
+.pp .gx-h { padding: 8px 14px; }
+.pp-search { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.pp-search input { width: 160px; text-transform: uppercase; }
+.pp-sym { margin: 4px 0 8px; }
+.pr-table .pr-group td { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); padding-top: 12px; border-top: 0; }
