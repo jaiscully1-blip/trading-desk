@@ -3746,3 +3746,6 @@ img, a, svg { -webkit-user-drag: none; }
 @media (max-width: 760px) { .ai-r, .ai-r.ai-o, .ai-r.ai-b { grid-template-columns: 1fr 1fr; } .ai-h { display: none; } }
 .ai-page { overflow-y: auto; min-height: 0; padding-right: 2px; }
 .ai-page > .panel { flex: none; min-height: auto; overflow: visible; height: auto; }
+.ai-page .gx-h { padding: 8px 14px; }
+.ai-page { padding-bottom: 28px; }
+.lai-setup > summary { cursor: pointer; padding-bottom: 4px; color: var(--muted); }
