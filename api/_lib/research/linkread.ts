@@ -3,8 +3,8 @@
 // so the same link added by several people costs one call. Pages are fetched only from public hosts, checked again after
 // DNS and on every redirect. A best-effort cap per caller keeps one person from using up the shared free quota.
 import { lookup } from 'node:dns/promises';
-import { geminiJson } from '../adapters.js';
-import { cached, hasKey, json, take } from '../core.js';
+import { geminiJson, hasAi, aiBudget } from '../adapters.js';
+import { cached, json } from '../core.js';
 import { LINK_SCHEMA, cleanAnalysis, extractArticle, linkPrompt, parseCaptions, parseWatchPage, privateIp, publicUrl, youTubeId, type LinkRead } from '../../../shared/linkread.js';
 
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36';
@@ -51,7 +51,7 @@ async function readYouTube(id: string, pasted: string) {
 }
 
 export async function POST(req: Request): Promise<Response> {
-  if (!hasKey('gemini')) return json({ error: 'The link reader needs GEMINI_API_KEY in Vercel (free at aistudio.google.com).', code: 'no-key' }, { status: 400 });
+  if (!hasAi()) return json({ error: 'The link reader needs a free AI key in Vercel: GEMINI_API_KEY (aistudio.google.com) or GROQ_API_KEY (console.groq.com).', code: 'no-key' }, { status: 400 });
   const body = await req.json().catch(() => null);
   const u = publicUrl(body?.url);
   if (!u) return json({ error: 'Paste a full web link (https://…) to a public page.' }, { status: 400 });
@@ -68,7 +68,7 @@ export async function POST(req: Request): Promise<Response> {
   try {
     const { val } = await cached<LinkRead>(key, 86400, async () => {
       if (n >= PER_CALLER_DAY) throw Object.assign(new Error(`Daily limit reached (${PER_CALLER_DAY} new links). It resets at midnight UTC.`), { status: 429 });
-      if (!take('gemini')) throw Object.assign(new Error('The free AI quota is busy right now. Try again in a minute.'), { status: 429 });
+      if (!aiBudget()) throw Object.assign(new Error('The free AI quota is busy right now. Try again in a minute.'), { status: 429 });
       calls.set(who, { day, n: n + 1 });
       const src = yt ? await readYouTube(yt, pasted) : await (async () => {
         const { text, url } = await safeFetch(u);

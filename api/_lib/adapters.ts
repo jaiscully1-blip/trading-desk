@@ -3,7 +3,7 @@ import type { Bar, MacroPoint, QuoteResult, TF } from '../../shared/types.js';
 import { isPlainTicker, parseAlphaMovers, parseFinnhubNews, parseFinnhubProfile, parseFinraShortInterest, type FinraSI, type Mover, type NewsItem} from '../../shared/parse.js';
 import { parseYahooBars } from '../../shared/rotation.js';
 import { ProviderError, parseAlphaDaily, parseFinnhubQuote, parseFredLatest, parseFredSeries, parseTwelveQuote, parseTwelveSeries } from '../../shared/parse.js';
-import { getJson, key, take, type Provider } from './core.js';
+import { getJson, hasKey, key, take, type Provider } from './core.js';
 import { decode, parseFeed } from '../../shared/news.js';
 import { MARKET_QUERY, collectVessels, parseGeo, type Vessel } from '../../shared/world.js';
 import { pointsFromArticles } from '../../shared/places.js';
@@ -454,14 +454,52 @@ export async function geminiBulkJson(prompt: string, schema: object): Promise<{ 
   return geminiJson(prompt, schema);
 }
 
+/** Any free AI configured? (Gemini, Groq or OpenRouter key set in Vercel.) */
+export const hasAi = () => hasKey('gemini') || hasKey('groq') || hasKey('openrouter');
+/** Room for one more AI call: Gemini's own budget, or a backup (which counts its own budget when it runs). */
+export const aiBudget = () => (hasKey('gemini') && take('gemini')) || hasKey('groq') || hasKey('openrouter');
+
+/** One OpenAI-style chat call that must answer with JSON matching the schema's keys. Used for the free backups. */
+async function openAiJson(provider: 'groq' | 'openrouter', url: string, model: string, prompt: string, schema: object): Promise<any> {
+  if (!take(provider)) throw new ProviderError(provider, 'free daily budget used up', true);
+  const j = await getJson(url, provider, 25000, {
+    method: 'POST',
+    headers: { authorization: `Bearer ${key(provider)}` },
+    body: JSON.stringify({
+      model, temperature: 0.1, response_format: { type: 'json_object' },
+      messages: [
+        { role: 'system', content: `Answer with ONLY a JSON object that follows this JSON schema. No other text.\n${JSON.stringify(schema)}` },
+        { role: 'user', content: prompt },
+      ],
+    }),
+  });
+  const text = String(j?.choices?.[0]?.message?.content ?? '');
+  const m = /\{[\s\S]*\}/.exec(text);
+  if (!m) throw new ProviderError(provider, 'empty answer');
+  return JSON.parse(m[0]);
+}
+
+/** Structured AI read with free fallbacks: Gemini first, then Groq, then OpenRouter's free router. Each backup is used only
+ *  when its key is set. The answer says which model wrote it, so the page can label it. */
 export async function geminiJson(prompt: string, schema: object): Promise<{ data: any; model: string }> {
+  const backups: (() => Promise<{ data: any; model: string }>)[] = [];
+  if (hasKey('groq')) for (const m of [process.env.GROQ_MODEL, 'openai/gpt-oss-120b', 'qwen/qwen3.8-27b'].filter(Boolean) as string[])
+    backups.push(async () => ({ data: await openAiJson('groq', 'https://api.groq.com/openai/v1/chat/completions', m, prompt, schema), model: `groq ${m}` }));
+  if (hasKey('openrouter')) backups.push(async () => ({ data: await openAiJson('openrouter', 'https://openrouter.ai/api/v1/chat/completions', process.env.OPENROUTER_MODEL || 'openrouter/free', prompt, schema), model: 'openrouter free model' }));
+  let last: unknown = null;
+  if (hasKey('gemini')) { try { return await geminiOnly(prompt, schema, backups.length ? 20_000 : 44_000); } catch (e) { last = e; } }
+  for (const run of backups) { try { return await run(); } catch (e) { last = e; } }
+  throw last ?? new ProviderError('gemini', 'no AI key set (GEMINI_API_KEY, GROQ_API_KEY or OPENROUTER_API_KEY)');
+}
+
+async function geminiOnly(prompt: string, schema: object, budgetMs: number): Promise<{ data: any; model: string }> {
   need('gemini');
   const models = [process.env.GEMINI_MODEL, 'gemini-3.1-flash-lite', 'gemini-3-flash-preview', 'gemini-2.5-flash'].filter(Boolean) as string[];
   let last: unknown;
   const started = Date.now();
   for (const model of [...new Set(models)]) {
    for (let attempt = 0; attempt < 2; attempt++) {
-    if (Date.now() - started > 44_000) throw last ?? new ProviderError('gemini', 'timeout', true); // stay inside the 60 s function limit
+    if (Date.now() - started > budgetMs) throw last ?? new ProviderError('gemini', 'timeout', true); // stay inside the 60 s function limit (backups need time too)
     try {
       const j = await getJson(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, 'gemini', 22000, {
         method: 'POST',

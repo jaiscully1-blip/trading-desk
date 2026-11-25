@@ -6,7 +6,7 @@ import { INDEX_ETFS, PM_ACTIVE_BODY, SECTOR_ETFS, parsePmScan, pmListBody, ruleS
 import { tagSymbols } from '../../../shared/news.js';
 import { et } from '../../../shared/clock.js';
 import type { QuantRead } from '../../../shared/quant.js';
-import { FEEDS, finnhubMarketNews, geminiJson, rssFeed } from '../adapters.js';
+import { FEEDS, finnhubMarketNews, geminiJson, hasAi, aiBudget, rssFeed } from '../adapters.js';
 import { SYMBOL_RE, cached, getJson, hasKey, json, take, ttl } from '../core.js';
 import { quantCached } from './markets.js';
 
@@ -76,10 +76,10 @@ export async function GET(req: Request): Promise<Response> {
   // running and fills the cache, so the next request on this server gets the Gemini version.
   const rule = ruleSummary(indexes, sectors, setups, kind);
   let summary = rule, summarySrc = 'rules';
-  if (hasKey('gemini') && setups.length) {
+  if (hasAi() && setups.length) {
     try {
       const run = cached(`am:sum:${bucket}`, 1200, async () => {
-        if (!take('gemini')) throw new Error('Gemini budget used up');
+        if (!aiBudget()) throw new Error('free AI budget used up');
         const facts = { phase: kind, indexes: indexes.map((r) => ({ sym: r.sym, move: mv(r) })), sectors: sectors.map((r) => ({ sym: r.sym, label: r.label, move: mv(r) })), setups: setups.map((s) => ({ sym: s.sym, bias: s.bias, move: +s.move.toFixed(2), quant: s.quant?.label, news: s.catalyst?.title })) };
         const { data } = await geminiJson(`You write the 8am briefing for a swing-momentum stock trader. Using ONLY these facts (no outside knowledge, no prices that are not given), write 3-4 short plain sentences: what the market is doing ${kind === 'premarket' ? 'premarket' : 'in the last session'}, which sectors lead and lag, and which 2-4 tickers are worth watching and why. No hype, no guarantees, say "bias" not "will". Facts: ${JSON.stringify(facts)}`, SUMMARY_SCHEMA);
         const s = String(data?.summary ?? '').trim();

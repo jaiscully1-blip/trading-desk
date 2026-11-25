@@ -8,7 +8,7 @@ import { avCounts, consensusScore, upside } from '../../../shared/consensus.js';
 import { yahooDaily } from '../yahoo.js';
 import { applicantName, countOf, grantedQuery, ODP_SEARCH } from '../../../shared/patents.js';
 import { cached, getJson, hasKey, json, key, take } from '../core.js';
-import { finnhubMetrics, finnhubPeers, finnhubRecs, geminiJson, secJson, secText } from '../adapters.js';
+import { finnhubMetrics, finnhubPeers, finnhubRecs, geminiJson, hasAi, aiBudget, secJson, secText } from '../adapters.js';
 import { htmlToText, parseSecTickers } from '../../../shared/company.js';
 import { customerConcentration, guidanceCheck, quarterOf, riskDiff, riskSection, wordsChanged } from '../../../shared/intel.js';
 import { parseTranscript, quarterCandidates } from '../../../shared/transcript.js';
@@ -118,7 +118,7 @@ const SCALE: Record<string, number> = { dollars: 1, thousands: 1e3, millions: 1e
 export async function intelguide(req: Request): Promise<Response> {
   const sym = (new URL(req.url).searchParams.get('symbol') ?? '').toUpperCase();
   if (!SYM.test(sym)) return json({ error: 'bad symbol' }, { status: 400 });
-  if (!hasKey('gemini') || !hasKey('sec')) return json({ error: 'Needs GEMINI_API_KEY and SEC_USER_AGENT.' }, { status: 400 });
+  if (!hasAi() || !hasKey('sec')) return json({ error: 'Needs an AI key (GEMINI_API_KEY or GROQ_API_KEY) and SEC_USER_AGENT.' }, { status: 400 });
   try {
     const f = await filer(sym);
     if (!f) return json({ error: `${sym} isn't an SEC filer.` }, { status: 404 });
@@ -136,7 +136,7 @@ export async function intelguide(req: Request): Promise<Response> {
           const t = htmlToText(await secText(doc(f.cik, r.acc, ex.name), 25000));
           const at = t.search(/outlook|guidance|expects?\s+(revenue|net revenue|sales)|for the (fourth|first|second|third) quarter/i);
           const slice = t.slice(Math.max(0, at - 500), at + 3500);
-          if (at < 0 || !take('gemini')) { out.push({ date: r.date, found: false }); continue; }
+          if (at < 0 || !aiBudget()) { out.push({ date: r.date, found: false }); continue; }
           const { data } = await geminiJson(`From this earnings press release excerpt, extract the company's revenue (or net revenue / net sales) guidance for the NEXT fiscal quarter only. If there is no numeric revenue guidance for the next quarter, set found=false. period: the quarter's end month and year like "2026-12". low/high: the range numbers as written (same value twice for a point estimate). unit: the unit they're written in. quote: the exact sentence, at most 200 characters. Never invent numbers.\n---\n${slice}`, GUIDE_SCHEMA);
           if (!data?.found) { out.push({ date: r.date, found: false }); continue; }
           const sc = SCALE[data.unit] ?? 1, low = Number.isFinite(+data.low) ? +data.low * sc : null, high = Number.isFinite(+data.high) ? +data.high * sc : null;

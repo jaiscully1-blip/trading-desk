@@ -1,13 +1,13 @@
 // POST /api/research?fn=csvmap  { headers: string[] } -> which column is which, for broker CSVs the built-in rules don't know.
 // Only the column NAMES are sent to Gemini, never your trades or amounts.
-import { geminiJson } from '../adapters.js';
-import { hasKey, json } from '../core.js';
+import { geminiJson, hasAi } from '../adapters.js';
+import { json } from '../core.js';
 
 const FIELDS = ['symbol', 'side', 'qty', 'price', 'time', 'status', 'fee', 'amount', 'type'] as const;
 const SCHEMA = { type: 'OBJECT', properties: Object.fromEntries(FIELDS.map((f) => [f, { type: 'INTEGER' }])), required: [...FIELDS] };
 
 export async function POST(req: Request): Promise<Response> {
-  if (!hasKey('gemini')) return json({ error: 'needs GEMINI_API_KEY' }, { status: 400 });
+  if (!hasAi()) return json({ error: 'needs an AI key (GEMINI_API_KEY or GROQ_API_KEY)' }, { status: 400 });
   const body = await req.json().catch(() => null);
   const headers: string[] = Array.isArray(body?.headers) ? body.headers.slice(0, 60).map((h: unknown) => String(h).slice(0, 60)) : [];
   if (headers.length < 2) return json({ error: 'send the header row' }, { status: 400 });

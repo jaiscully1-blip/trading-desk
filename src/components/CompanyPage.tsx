@@ -203,7 +203,7 @@ export default function CompanyPage({ sym, mode, onOpen, onChart, onPatterns }: 
                 <p className="co-top">Biggest revenue line: <b>{top.p.name}</b> <span className="num">{top.p.share}</span>{f && f.products.length > 1 ? <span className="muted small"> · suppliers and customers below are for the whole company, as the 10-K lists them (10-Ks rarely split them by product)</span> : null}</p>) : null; })()}
               <Diagram sym={sym} name={name} sup={sup} cus={cus} comp={comp} onOpen={go} empty={emptyWhy} summary={f?.summary} />
               {aiErr && !reading && (
-                <p className="small co-ai-fail"><b>The AI read did not finish</b> ({aiErr.slice(0, 90)}). The free Gemini tier is often briefly overloaded. <button className="btn sm" onClick={retry}>Try again</button></p>
+                <p className="small co-ai-fail"><b>The AI read did not finish</b> ({aiErr.slice(0, 90)}). Free AI services are often briefly overloaded; backups (Groq, OpenRouter) are tried when their keys are set. <button className="btn sm" onClick={retry}>Try again</button></p>
               )}
               {f && !f.customers.length && f.customerBase && <p className="small co-base"><b>Customers:</b> {f.customerBase}. <span className="muted">The report names no customer companies, so there is nothing to click on that side.</span></p>}
               {f && !f.suppliers.length && f.supplyBase && <p className="small co-base"><b>Suppliers:</b> {f.supplyBase}. <span className="muted">The report names no supplier companies.</span></p>}
