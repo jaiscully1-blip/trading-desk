@@ -6,7 +6,7 @@ import { createPortal } from 'react-dom';
 import { downloadDesk, exportDesk, importDesk, parseDeskFile, type DeskFile } from '../lib/deskfile';
 import { currentAccount, initials, isOwner, leave, makeOwner, verifyDeskPassword } from '../lib/accounts';
 
-export type Page = 'morning' | 'home' | 'messages' | 'desk' | 'patterns' | 'company' | 'scanner' | 'map' | 'flows' | 'smart' | 'etfs' | 'gamma' | 'odds' | 'journal' | 'calendar' | 'status' | 'distress' | 'insiders' | 'credit' | 'mtf' | 'global' | 'news' | 'essay' | 'tesla' | 'altdata' | 'realecon' | 'plumbing' | 'policy' | 'learn' | 'crypto' | 'quant' | 'cmap';
+export type Page = 'morning' | 'home' | 'messages' | 'desk' | 'patterns' | 'company' | 'scanner' | 'map' | 'flows' | 'smart' | 'etfs' | 'gamma' | 'odds' | 'journal' | 'calendar' | 'status' | 'distress' | 'insiders' | 'credit' | 'mtf' | 'global' | 'news' | 'essay' | 'tesla' | 'altdata' | 'realecon' | 'plumbing' | 'policy' | 'learn' | 'crypto' | 'quant' | 'cmap' | 'weekly';
 export type GroupId = 'today' | 'charts' | 'scan' | 'flow' | 'alt' | 'journal';
 
 /** 24x24 stroke paths (own drawings, simple shapes) */
@@ -34,6 +34,7 @@ const ICON: Record<Page | 'account', string> = {
   plumbing: 'M4 20h16 M6 20v-6 M10.5 20v-9 M15 20v-4 M19 3v8 M16.5 8.5 19 11l2.5-2.5',
   realecon: 'M2 17l5-5 4 3 7-8 M14 7h4v4 M3 21h18',
   cmap: 'M3 6l6-3 6 3 6-3v15l-6 3-6-3-6 3z M9 3v15 M15 6v15',
+  weekly: 'M4 5h16v15H4z M4 9h16 M8 3v4 M16 3v4 M7 13h2 M11 13h2 M15 13h2 M7 16h2',
   altdata: 'M4 19V9 M10 19V5 M16 19v-7 M22 19H2',
   quant: 'M5 17l4-5 4 3 6-8 M5 7h.01 M9 5h.01 M17 15h.01 M20 19H4V4',
   tesla: 'M3 13l2-5h14l2 5v5H3z M3 13h18 M7 18v2 M17 18v2 M7 15.5h.01 M17 15.5h.01',
@@ -59,6 +60,7 @@ const P: Record<Page, { label: string; hint: string; key: string }> = {
   policy: { label: 'Macro & Policy', hint: 'earnings scoreboard, tariffs, policy odds by sector', key: '⇧O' },
   crypto: { label: 'BTC / ETH', hint: 'live Bitcoin and Ethereum charts; crypto trades 24/7', key: '' },
   plumbing: { label: 'Shorts & Supply', hint: 'who is shorting, borrow cost, dark-pool share, failed deliveries, unusual options; buybacks, dilution, lockups, index changes, mergers', key: '⇧P' },
+  weekly: { label: 'Weekly review', hint: 'your week: check-ins vs results, rules that cost money', key: '' },
   cmap: { label: 'World Monitor', hint: 'agency feeds, US drought and disaster map, world map, agency directory', key: '' },
   realecon: { label: 'Real Economy', hint: 'air traffic, CEO jets, rail, power, fuel, freight, weather', key: '⇧E' },
   altdata: { label: 'Alt Data', hint: 'hiring, app ranks, interest, GitHub, players, social, prices', key: '⇧A' },
@@ -68,7 +70,7 @@ const P: Record<Page, { label: string; hint: string; key: string }> = {
   essay: { label: 'Essays', hint: 'write up a stock with a linked chart, news and data', key: '⇧W' },
   mtf: { label: 'Multi-timeframe', hint: '4 linked charts: 3m, 15m, 1h, daily', key: '⇧M' },
   credit: { label: 'Credit market', hint: 'spreads, yield curve, stress, bond ETFs', key: '' },
-  insiders: { label: 'Insiders', hint: 'insider buys and sells, short volume, big funds', key: '' },
+  insiders: { label: 'Insiders & funds', hint: 'insider buys and sells, short volume, 13F big-fund holdings', key: '' },
   distress: { label: 'Distress', hint: 'weak companies, turnarounds, sector stress', key: '⇧R' },
   news: { label: 'News', hint: 'top stories, search, news by ticker', key: '⇧N' },
   global: { label: 'Global → US', hint: 'world markets and news, and how they carry into US stocks', key: '⇧G' },
@@ -77,10 +79,10 @@ const P: Record<Page, { label: string; hint: string; key: string }> = {
 export const NAV_GROUPS: { id: GroupId; label: string; pages: Page[] }[] = [
   { id: 'today', label: 'Today', pages: ['morning', 'home', 'news', 'messages', 'calendar'] },
   { id: 'charts', label: 'Charts', pages: ['desk', 'mtf', 'patterns', 'company', 'crypto'] },
-  { id: 'scan', label: 'Scan', pages: ['scanner', 'flows', 'etfs', 'smart', 'insiders', 'plumbing', 'credit', 'distress'] },
-  { id: 'flow', label: 'Flow and risk', pages: ['global', 'policy', 'gamma', 'cmap', 'odds', 'status'] },
+  { id: 'scan', label: 'Scan', pages: ['scanner', 'flows', 'etfs', 'insiders', 'plumbing', 'credit', 'distress'] },
+  { id: 'flow', label: 'Flow and risk', pages: ['global', 'policy', 'gamma', 'cmap', 'status'] },
   { id: 'alt', label: 'Alt data', pages: ['altdata', 'quant', 'tesla', 'realecon'] },
-  { id: 'journal', label: 'Journal', pages: ['journal', 'essay', 'learn'] },
+  { id: 'journal', label: 'Journal', pages: ['journal', 'weekly', 'essay', 'learn'] },
 ];
 export const pageGroup = (p: Page): GroupId => NAV_GROUPS.find((g) => g.pages.includes(p))?.id ?? 'today';
 

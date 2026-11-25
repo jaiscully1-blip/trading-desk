@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { setWhy, useWhy } from '../lib/whyNotes';
 import type { Board, Freshness, Quote } from '../types';
 import { DEMO_AT, INDEXES } from '../lib/demo';
 import { pct, px, tone } from '../lib/format';
@@ -30,6 +31,8 @@ export const byRs = (q: Record<string, Quote>) => (x: string, y: string) =>
   (q[y].rsRank || -1) - (q[x].rsRank || -1) || x.localeCompare(y);
 
 function Row({ q, sel, onSelect, draggable = true, onRemove, n }: { q: Quote; sel: boolean; onSelect: () => void; draggable?: boolean; onRemove?: () => void; n?: number }) {
+  const why = useWhy()[q.sym];
+  const [edit, setEdit] = useState(false);
   return (
     <div
       className={`wl-row ${sel ? 'sel' : ''}`}
@@ -42,8 +45,10 @@ function Row({ q, sel, onSelect, draggable = true, onRemove, n }: { q: Quote; se
       onClick={onSelect}
       role="button"
       tabIndex={-1}
+      title={why ? `Why ${q.sym}: ${why}` : undefined}
     >
-      <span className="wl-id"><Star sym={q.sym} /><span className="wl-sym">{q.sym}</span>{!!n && <span className="wl-n" title={`You traded ${q.sym} ${n} time${n === 1 ? '' : 's'} (from your journal / broker CSV)`}>×{n}</span>}</span>
+      {edit && <input className="wl-why-in" autoFocus defaultValue={why ?? ''} placeholder={`Why is ${q.sym} here? (Enter to save)`} maxLength={140} onClick={(e) => e.stopPropagation()} onKeyDown={(e) => { e.stopPropagation(); if (e.key === 'Enter') { setWhy(q.sym, (e.target as HTMLInputElement).value); setEdit(false); } if (e.key === 'Escape') setEdit(false); }} onBlur={(e) => { setWhy(q.sym, e.target.value); setEdit(false); }} />}
+      <span className="wl-id"><Star sym={q.sym} /><span className="wl-sym">{q.sym}</span><button className={`wl-why ${why ? 'has' : ''}`} onClick={(e) => { e.stopPropagation(); setEdit(true); }} title={why ? `Why: ${why} (click to edit)` : 'Add a one-line reason this ticker is on your list'} aria-label={`Why ${q.sym} is on the watchlist`}>{why ? '💬' : '✎'}</button>{!!n && <span className="wl-n" title={`You traded ${q.sym} ${n} time${n === 1 ? '' : 's'} (from your journal / broker CSV)`}>×{n}</span>}</span>
       <FlashNum v={q.last} className="num wl-px">{px(q.last)}</FlashNum>
       <span className={`num wl-chg ${tone(q.chgPct)}`}>{pct(q.chgPct, 1)}</span>
       <span className="num wl-rs" title="Relative strength rank vs SPY (5/20/60d)">
