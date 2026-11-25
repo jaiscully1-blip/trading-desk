@@ -1,11 +1,13 @@
 // Gamma & IV page: where dealer hedging is likely to pin or push SPY / QQQ / IWM / SPX (call wall, put wall, zero-gamma
 // flip) and how options price risk across strikes and dates (IV surface, term structure). Cboe delayed chain, ~15 min.
 import { useEffect, useMemo, useState } from 'react';
+import { paceMs } from '../lib/pace';
 import type { DataMode } from '../data/live';
 import { MONEYNESS, gammaRead, ivSurface, parseCboe, pcRatios, strikeGrid, type GammaRead, type IvRow, type PremTotals, type StrikeGrid } from '../../shared/gamma';
 import { recordTide } from '../lib/tide';
 import GammaHeat from './GammaHeat';
 import GammaTide from './GammaTide';
+import { VolIncome } from './XAsset';
 import { usePersisted } from '../lib/store';
 import { Fresh, Seg, Skel, PageTabs, Q } from './common';
 import { DEMO_AT, rng } from '../lib/demo';
@@ -48,7 +50,7 @@ function useGamma(sym: Sym, mode: DataMode): { d: GammaData | null; err?: string
     setSt((s) => ({ d: s.d?.sym === sym ? s.d : null }));
     const go = () => fetch(`/api/research?fn=gamma&symbol=${encodeURIComponent(sym)}`).then(async (r) => { const j = await r.json(); if (r.ok) recordTide(sym, j.chainAsOf, j.spot, j.prem); if (!stop) setSt(r.ok ? { d: j } : { d: null, err: j.error ?? `HTTP ${r.status}` }); }).catch((e) => !stop && setSt({ d: null, err: String(e) }));
     go();
-    const id = setInterval(go, 10 * 60_000);
+    const id = setInterval(go, paceMs(10 * 60_000));
     return () => { stop = true; clearInterval(id); };
   }, [sym, mode.kind]);
   return st;
@@ -214,6 +216,7 @@ export default function Gamma({ mode, onChart }: { mode: DataMode; onChart: (s: 
           <section className="panel gx-card"><Readings spot={d.spot} g={g} surface={d.surface} pc={d.pc} flow={d.flow} /></section>
         </div>
       )}
+      <VolIncome live={mode.kind === 'live'} />
       <p className="note gx-pad">How to read it: walls are the strikes with the most dealer gamma; price often stalls near the call wall and finds support near the put wall while gamma is positive. Under the flip, moves tend to speed up. These are estimates from open interest (updated once a day by the exchange) and assume dealers are long calls and short puts; they are not certain. Source: Alpaca options (or Cboe for indexes), about 15 minutes behind.</p>
     </div>
   );

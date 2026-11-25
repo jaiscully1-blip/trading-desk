@@ -1,6 +1,7 @@
 // Data status page: every provider the desk uses, whether it is working, how much of its free budget this server has used, what it feeds, and what takes over.
 // Counts and errors are per serverless instance, so they describe what the server has seen recently, not an account-wide total.
 import { useEffect, useState } from 'react';
+import { LocalAISettings } from './LocalAI';
 import type { DataMode } from '../data/live';
 import { STATE_LABEL, type ProviderState } from '../../shared/providers';
 import { etTime } from '../lib/clock';
@@ -48,6 +49,7 @@ export default function DataStatus({ mode }: { mode: DataMode }) {
   const sorted = rows ? [...rows].sort((a, b) => ORDER[a.state] - ORDER[b.state] || a.label.localeCompare(b.label)) : [];
   const bad = sorted.filter((r) => r.state === 'limited' || r.state === 'error').length;
   return (
+    <div className="ds-wrap">
     <section className="panel ds">
       <div className="phead">
         <div className="phead-title">Data status</div>
@@ -72,5 +74,7 @@ export default function DataStatus({ mode }: { mode: DataMode }) {
         </div>
       </div>
     </section>
+      <LocalAISettings />
+    </div>
   );
 }

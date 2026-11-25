@@ -2,6 +2,7 @@
 // alerts, FEMA disasters), with the main producing states of a commodity outlined and ranked. Click a state to see
 // what is happening there and the tickers tied to it (Watch, alert, chart). Real data only; nothing in demo mode.
 import { useEffect, useMemo, useState } from 'react';
+import { paceMs } from '../lib/pace';
 import type { DataMode } from '../data/live';
 import { COMMODITIES, DROUGHT_LABEL, TILES, droughtLevel, type Drought, type FemaDecl } from '../../shared/cmap';
 import { load, save, usePersisted } from '../lib/store';
@@ -40,7 +41,7 @@ export default function CommodityMap({ mode, onChart, onWatch }: { mode: DataMod
     if (mode.kind !== 'live') return;
     let stop = false;
     const go = () => fetch('/api/research?fn=cmap').then((r) => r.json()).then((j) => { if (!stop) { if (j.error) setErr(j.error); else setD(j); } }).catch((e) => !stop && setErr(String(e)));
-    go(); const id = setInterval(go, 15 * 60_000);
+    go(); const id = setInterval(go, paceMs(15 * 60_000));
     return () => { stop = true; clearInterval(id); };
   }, [mode.kind]);
   const changes = useChanges(d);

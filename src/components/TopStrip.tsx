@@ -2,6 +2,8 @@ import { ReloadButton } from './HealthPanel';
 import type { Freshness, MacroResult, Mode, Quote } from '../types';
 import { MarketChips } from './MarketPulse';
 import type { ClockState } from '../lib/clock';
+import { useEffect } from 'react';
+import { PACE_LABEL, setPace, usePace, type PaceMode } from '../lib/pace';
 import type { AccountSettings, Guard } from '../lib/journal';
 import { sUsd, tone, usd } from '../lib/format';
 import { Fresh, Q } from './common';
@@ -75,6 +77,7 @@ export function TopStrip({
       {/* zone 3: you */}
       <div className="top-group right tz-you">
         <WorldClock nyClosed={!!clk.holiday} onOpen={onWorld ?? (() => {})} />
+        <PaceBtn session={clk.session} />
         <button className={`acct ${accountOpen ? 'on' : ''}`} onClick={onAccount} title="Account drawer (A)" data-key="A">
           {account.settings.startBalance == null ? (
             <span className="muted">Set starting balance →</span>
@@ -97,4 +100,14 @@ export function TopStrip({
       </div>
     </header>
   );
+}
+
+const NEXT: Record<PaceMode, PaceMode> = { auto: 'fast', fast: 'saver', saver: 'auto' };
+const PHASE: Record<ClockState['session'], string> = { 'Regular session': 'open', 'Pre-market': 'pre', 'After-hours': 'post', Closed: 'closed' };
+/** Refresh speed (Auto by market hours / Fast / Saver), and the session tint on the page. */
+function PaceBtn({ session }: { session: ClockState['session'] }) {
+  const m = usePace();
+  useEffect(() => { document.documentElement.dataset.session = PHASE[session]; }, [session]);
+  const now = session === 'Regular session' ? 'market open: normal speed' : session === 'Closed' ? 'market closed: refreshing every 15+ min' : `${session.toLowerCase()}: 3× slower`;
+  return <button className={`chip sm pace-btn pace-${m}`} onClick={() => setPace(NEXT[m])} title={`Refresh speed: ${PACE_LABEL[m]}. Auto follows market hours (${now}). Fast = twice as fast during the open. Saver = 4× slower, to save free-API budget and battery. Click to switch.`}>{m === 'auto' ? '⏱' : m === 'fast' ? '⚡' : '🌙'} {PACE_LABEL[m]}</button>;
 }

@@ -2,6 +2,7 @@
 // Federal Register, SEC, Fed, State Dept, CISA, FAA, UN), the US drought / weather / FEMA map, a world map of events,
 // and a searchable directory of 1,600+ US federal, state, UN and intergovernmental agencies. Real data only.
 import { useEffect, useMemo, useState } from 'react';
+import { paceMs } from '../lib/pace';
 import { geoCentroid, geoNaturalEarth1, geoPath } from 'd3-geo';
 import { feature } from 'topojson-client';
 import type { Topology, GeometryCollection } from 'topojson-specification';
@@ -41,7 +42,7 @@ function useWmon(on: boolean) {
     if (!on) return;
     let stop = false;
     const go = () => fetch('/api/research?fn=wmon').then((r) => r.json()).then((j) => { if (!stop) { if (j.error) setErr(j.error); else { setD(j); setErr(''); } } }).catch((e) => !stop && setErr(String(e)));
-    go(); const id = setInterval(go, 5 * 60_000);
+    go(); const id = setInterval(go, paceMs(5 * 60_000));
     return () => { stop = true; clearInterval(id); };
   }, [on]);
   return { d, err };

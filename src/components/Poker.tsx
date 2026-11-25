@@ -1,6 +1,7 @@
 // Poker desk: every trade is a bet. Claims (fundamental / technical / news, each with evidence and source), the bet board
 // (historical equity vs pot odds -> raise / call / fold), the article reader, and Spotify / X embeds.
 import { useEffect, useMemo, useState } from 'react';
+import { AskLocal } from './LocalAI';
 import { Linked } from './Linked';
 import type { Bar } from '../types';
 import { consensus, fundamentalClaims, newsClaims, technicalClaims, type Cat, type Claim, type Lean } from '../../shared/claims';
@@ -175,6 +176,7 @@ export function ReaderOverlay({ a, onClose, mode }: { a: Article; onClose: () =>
           <>
             <p className="reader-sum">{a.summary || 'This feed didn’t include a summary. Open the full article at the publisher.'}</p>
             {a.summary && <p className="small muted">Summary as published by {a.src}.</p>}
+            <AskLocal title={a.title} text={a.summary ?? ''} src={a.src} />
           </>
         )}
         {frame === 'blocked' && <p className="small warn-txt">{host || 'This site'} doesn’t allow being shown inside other sites, so it opens in a new tab.</p>}

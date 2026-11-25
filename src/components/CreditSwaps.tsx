@@ -2,9 +2,11 @@
 // who holds / lends to a name and its debt + distance to default, tranche and loan proxies, Treasury futures positioning.
 // Real data only. Facts and estimates, not advice.
 import { useEffect, useMemo, useState } from 'react';
+import { paceMs } from '../lib/pace';
 import type { CdsTrade, NameSum } from '../../shared/cds';
 import { usePersisted } from '../lib/store';
 import { Fresh, Q } from './common';
+import { LeverageW } from './XAsset';
 
 const bp = (x: number | null | undefined) => (x == null ? '—' : `${Math.round(x)}bp`);
 const pp = (x: number | null | undefined) => (x == null ? '—' : `${x.toFixed(2)}%`);
@@ -16,7 +18,7 @@ function useJson<T>(url: string | null, every = 0): { d: T | null; err: string; 
   useEffect(() => {
     if (!url) return; let stop = false;
     const go = () => { setS((x) => ({ ...x, loading: true })); fetch(url).then(async (r) => { const j = await r.json(); if (!stop) setS(r.ok && !j.error ? { d: j, err: '', loading: false } : { d: null, err: j.error ?? `HTTP ${r.status}`, loading: false }); }).catch((e) => !stop && setS({ d: null, err: String(e), loading: false })); };
-    go(); const id = every ? setInterval(go, every) : 0;
+    go(); const id = every ? setInterval(go, paceMs(every)) : 0;
     return () => { stop = true; if (id) clearInterval(id); };
   }, [url, every]);
   return s;
@@ -135,6 +137,7 @@ export default function CreditSwaps({ live }: { live: boolean }) {
             <NameTable rows={k.sovs.slice(0, 10)} pick={pick} onPick={setPick} title="Country" /></div>
         </div>}
       </section>
+      <LeverageW live={live} />
       <Lookup initial={pick === 'ORACLE CORPORATION' ? { q: 'Oracle Corporation', ticker: 'ORCL' } : { q: pick.replace(/\b(INC|CORP|CORPORATION|LLC|PLC|CO|LTD)\.?$/i, '').trim(), ticker: '' }} />
       <div className="cs-grid">
         <section className="panel">
