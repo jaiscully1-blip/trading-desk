@@ -1,7 +1,8 @@
 // Credit market: spreads, yield curve, stress, bank lending, delinquencies and bond ETFs from free public sources (FRED, Yahoo), with
 // the historical pattern and both sides of the argument. Facts and history only: no forecasts, no advice, nothing that can trade.
 import { MoveChart } from './MoveChart';
-import { useMemo } from 'react';
+import { Suspense, lazy, useMemo } from 'react';
+const CreditSwaps = lazy(() => import('./CreditSwaps'));
 import { CURVE_SIDES, ETFS, SERIES, SIDES, fmtVal, lastNYears, regimeOf, type Meta, type Pts, type RecRow, type Stats } from '../../shared/credit';
 import { useApi } from '../data/apis';
 import type { DataMode } from '../data/live';
@@ -45,6 +46,7 @@ function Card({ k, d }: { k: string; d: Resp['series'][string] | undefined }) {
 export default function CreditPage({ mode, onPage }: { mode: DataMode; onPage: (p: 'distress') => void }) {
   const r = useApi<Resp>('/api/research?fn=credit', 0, 3 * 3600_000);
   const [yrs, setYrs] = usePersisted<'2' | '5' | '10'>('creditYears', '5');
+  const [tab, setTab] = usePersisted<'overview' | 'swaps'>('creditTab', 'overview');
   const live = mode.kind === 'live';
   const d = r.data && !r.data.error ? r.data : null;
   const n = Number(yrs);
@@ -65,10 +67,10 @@ export default function CreditPage({ mode, onPage }: { mode: DataMode; onPage: (
       <div className="overlay-in sm">
         <div className="phead">
           <div className="phead-title">Credit market</div>
-          <div className="phead-ctl"><Seg value={yrs} onChange={setYrs} options={[{ id: '2', label: '2 yrs' }, { id: '5', label: '5 yrs' }, { id: '10', label: '10 yrs' }]} />{d && <Fresh kind="eod" at={d.asOf} src={d.source} />}</div>
+          <div className="phead-ctl"><Seg value={tab} onChange={setTab} options={[{ id: 'overview', label: 'Overview' }, { id: 'swaps', label: 'Credit & Swaps' }]} />{tab === 'overview' && <Seg value={yrs} onChange={setYrs} options={[{ id: '2', label: '2 yrs' }, { id: '5', label: '5 yrs' }, { id: '10', label: '10 yrs' }]} />}{d && tab === 'overview' && <Fresh kind="eod" at={d.asOf} src={d.source} />}</div>
         </div>
         <div className="sm-body credit">
-          {!live ? <p className="hw-pad muted"><Fresh kind="demo" /> This page reads real data only, so it needs the live desk (the deployed site with its server).</p>
+          {tab === 'swaps' ? <Suspense fallback={<p className="hw-pad muted">Loading…</p>}><CreditSwaps live={live} /></Suspense> : !live ? <p className="hw-pad muted"><Fresh kind="demo" /> This page reads real data only, so it needs the live desk (the deployed site with its server).</p>
             : r.loading && !d ? <p className="hw-pad muted">Loading credit data…</p>
             : !d ? <p className="hw-pad muted">{r.error || r.data?.error || 'No data.'} The credit page needs the FRED_API_KEY that the desk already uses.</p>
             : (

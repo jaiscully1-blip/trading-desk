@@ -3588,3 +3588,21 @@ a:hover, .link:hover { text-decoration-color: var(--link); }
 .wmn-dir li { padding: 4px 0; border-bottom: 1px solid var(--line); } .wmn-dir a { color: var(--text); font-weight: 600; font-size: 13px; } .wmn-dir p { margin: 2px 0 0; }
 .wmn-feedtag { margin-left: 8px; font-size: 11px; color: var(--link); }
 .wmn-more { margin: 0 14px 10px; }
+
+/* Credit & Swaps */
+.cs { display: grid; gap: 10px; padding: 8px 0; }
+.cs-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; align-items: start; }
+@media (max-width: 1100px) { .cs-grid { grid-template-columns: 1fr; } }
+.cs-banner { padding: 10px 14px; } .cs-banner.warn { border-left: 3px solid var(--warn); }
+.cs-t { width: 100%; border-collapse: collapse; font-size: 12.5px; } .cs-t th { text-align: left; color: var(--muted); font-weight: 600; padding: 4px 14px; border-bottom: 1px solid var(--line); }
+.cs-t td { padding: 4px 14px; border-bottom: 1px solid var(--line); } .cs-t td.num, .cs-t th:not(:first-child) { text-align: right; }
+.cs-t tbody tr { cursor: pointer; } .cs-t tbody tr:hover { background: var(--panel-2); } .cs-t tr.on { background: color-mix(in srgb, var(--link) 12%, transparent); }
+.cs-t tr.cliff td { border-top: 2px dashed var(--warn); }
+.cs-find { margin-left: auto; width: 220px; }
+.cs-detail { padding: 8px 14px; display: grid; gap: 6px; } .cs-svg { width: 100%; height: auto; }
+.cs-line { fill: none; stroke: var(--down); stroke-width: 1.4; } .cs-q { fill: var(--down); } .cs-i { fill: var(--panel); stroke: var(--down); stroke-width: 1.2; }
+.cs-form { display: flex; flex-wrap: wrap; gap: 8px; padding: 0 14px 8px; } .cs-form input:first-child { flex: 1; min-width: 220px; } .cs-tk { width: 90px; }
+.cs-look { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; padding: 0 14px 12px; } @media (max-width: 1100px) { .cs-look { grid-template-columns: 1fr; } }
+.cs-look h4 { margin: 4px 0; font-size: 13px; } .cs-look p { margin: 4px 0; }
+.cs-ul { margin: 4px 0; padding-left: 18px; display: grid; gap: 3px; }
+.cs-mat { display: grid; gap: 3px; } .cs-mat div { display: grid; grid-template-columns: 100px 1fr 70px; align-items: center; gap: 6px; } .cs-mat i { display: block; height: 8px; border-radius: 4px; background: var(--warn); }
