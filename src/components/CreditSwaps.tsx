@@ -49,8 +49,8 @@ function Detail({ name, trades }: { name: string; trades: CdsTrade[] }) {
   return (
     <div className="cs-detail">
       <b>{name}</b> <span className="small muted">{trades.length} trades in 5 days · {trades.filter((t) => t.capped).length} above the size cap · {trades.filter((t) => t.cleared).length} cleared</span>
-      {five.length > 1 && <svg viewBox={`0 0 ${W} ${H}`} className="cs-svg" role="img" aria-label={`${name} 5-year CDS spread by trade`}>
-        <path d={five.map((t, i) => `${i ? 'L' : 'M'}${x(i)},${y(t.spreadBp!)}`).join('')} className="cs-line" />
+      {five.length > 1 && <svg viewBox={`0 0 ${W} ${H}`} className="cs-svg" role="img" aria-label={`${name} 5-year CDS spread by trade`} data-hover data-y={`${y(hi + pad)},${y(lo - pad)},${hi + pad},${lo - pad},0,bp`}>
+        <path d={five.map((t, i) => `${i ? 'L' : 'M'}${x(i)},${y(t.spreadBp!)}`).join('')} className="cs-line" data-name="5y spread" />
         {five.map((t, i) => <circle key={t.id} cx={x(i)} cy={y(t.spreadBp!)} r={2.5} className={t.spreadSrc === 'quoted' ? 'cs-q' : 'cs-i'}><title>{new Date(t.t).toLocaleString('en-US', { timeZone: 'America/New_York' })} · {t.spreadBp}bp ({t.spreadSrc})</title></circle>)}
         <text x={2} y={y(hi) + 4} className="gt-ax">{Math.round(hi)}</text><text x={2} y={y(lo) + 4} className="gt-ax">{Math.round(lo)}</text>
       </svg>}

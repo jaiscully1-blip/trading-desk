@@ -60,53 +60,65 @@ const bn = (x: number) => { const a = Math.abs(x); return `${x < 0 ? '−' : '+'
 const away = (k: number | null, s: number) => (k == null ? '' : ` (${k >= s ? '+' : ''}${((k / s - 1) * 100).toFixed(1)}%)`);
 const fmtK = (k: number) => (Number.isInteger(k) ? String(k) : k.toFixed(1));
 
-/** Horizontal bars per strike: puts left (red), calls right (green), net as a dot; spot, walls and flip marked. */
+/** Horizontal bars per strike: puts left (red), calls right (green), net as a dot; spot, walls and flip marked in a
+ *  gutter on the right so labels never sit on the bars. Hover a row for its numbers. */
 function StrikeChart({ g, range }: { g: GammaRead; range: number }) {
   const rows = g.strikes.filter((s) => Math.abs(s.K / g.spot - 1) <= range).sort((a, b) => b.K - a.K);
   if (!rows.length) return <p className="small muted">No strikes with open interest near the price.</p>;
   const max = Math.max(1, ...rows.map((r) => Math.max(r.call, -r.put)));
-  const rh = 13, W = 620, R = 70, L = 52, mid = L + (W - L - R) / 2, half = (W - L - R) / 2 - 6, H = rows.length * rh + 16;
+  const rh = 14, W = 640, R = 104, L = 48, mid = L + (W - L - R) / 2, half = (W - L - R) / 2 - 6, H = rows.length * rh + 16;
   const y = (k: number) => { const i = rows.findIndex((r) => r.K <= k); const j = i < 0 ? rows.length - 1 : i; return 8 + j * rh + (i < 0 ? rh : 0); };
   const ySpot = (() => { for (let i = 0; i < rows.length - 1; i++) if (rows[i].K >= g.spot && rows[i + 1].K <= g.spot) return 8 + i * rh + rh / 2 + ((rows[i].K - g.spot) / (rows[i].K - rows[i + 1].K || 1)) * rh; return null; })();
+  // gutter tags: price, flip, walls; nudged apart so they never overlap each other
+  const tags: { y: number; text: string; cls: string }[] = [];
+  if (ySpot != null) tags.push({ y: ySpot, text: `price ${g.spot.toFixed(1)}`, cls: 'spot' });
+  if (g.flip != null && g.flip <= rows[0].K && g.flip >= rows[rows.length - 1].K) tags.push({ y: y(g.flip), text: `flip ${g.flip.toFixed(1)}`, cls: 'flip' });
+  rows.forEach((r, i) => { if (r.K === g.callWall) tags.push({ y: 8 + i * rh + rh / 2, text: `call wall ${fmtK(r.K)}`, cls: 'call' }); if (r.K === g.putWall) tags.push({ y: 8 + i * rh + rh / 2, text: `put wall ${fmtK(r.K)}`, cls: 'put' }); });
+  tags.sort((a, b) => a.y - b.y);
+  for (let i = 1; i < tags.length; i++) if (tags[i].y - tags[i - 1].y < 15) tags[i].y = tags[i - 1].y + 15;
   return (
     <svg viewBox={`0 0 ${W} ${H}`} className="gx-svg" role="img" aria-label="Gamma exposure by strike">
       <line x1={mid} x2={mid} y1={4} y2={H - 4} className="gx-axis" />
       {rows.map((r, i) => {
         const yy = 8 + i * rh, wall = r.K === g.callWall ? 'call' : r.K === g.putWall ? 'put' : '';
         return (
-          <g key={r.K} className={wall ? `gx-wall ${wall}` : ''}>
+          <g key={r.K} className={`gx-row ${wall ? `gx-wall ${wall}` : ''}`} data-tip={`Strike ${fmtK(r.K)} · calls ${bn(r.call)} · puts ${bn(r.put)} · net ${bn(r.net)} per 1% move${wall ? ` · ${wall} wall` : ''}`}>
+            <rect x={0} y={yy} width={W - R + 2} height={rh} className="gx-hit" />
             <text x={L - 6} y={yy + rh - 3} className="gx-k">{fmtK(r.K)}</text>
-            <rect x={mid - (-r.put / max) * half} y={yy + 2} width={(-r.put / max) * half} height={rh - 4} className="gx-put" />
-            <rect x={mid} y={yy + 2} width={(r.call / max) * half} height={rh - 4} className="gx-call" />
+            <rect x={mid - (-r.put / max) * half} y={yy + 2} width={(-r.put / max) * half} height={rh - 4} rx={2} className="gx-put" />
+            <rect x={mid} y={yy + 2} width={(r.call / max) * half} height={rh - 4} rx={2} className="gx-call" />
             <circle cx={mid + (r.net / max) * half} cy={yy + rh / 2} r={2.2} className={r.net >= 0 ? 'gx-net up' : 'gx-net down'} />
-            {wall && <text x={W - 2} y={yy + rh - 3} className="gx-tag">{wall === 'call' ? 'CALL WALL' : 'PUT WALL'}</text>}
-            <title>{`${fmtK(r.K)}: calls ${bn(r.call)} · puts ${bn(r.put)} · net ${bn(r.net)} per 1% move`}</title>
           </g>
         );
       })}
-      {ySpot != null && <><line x1={L} x2={W - R} y1={ySpot} y2={ySpot} className="gx-spot" /><text x={W - R + 4} y={ySpot + 3} className="gx-spot-l">price {g.spot.toFixed(1)}</text></>}
-      {g.flip != null && g.flip <= rows[0].K && g.flip >= rows[rows.length - 1].K && <><line x1={L} x2={W - R} y1={y(g.flip)} y2={y(g.flip)} className="gx-flip" /><text x={W - R + 4} y={y(g.flip) + (ySpot != null && Math.abs(y(g.flip) - ySpot) < 12 ? (y(g.flip) < ySpot ? -6 : 14) : 3)} className="gx-flip-l">flip {g.flip.toFixed(1)}</text></>}
+      {ySpot != null && <line x1={L} x2={W - R} y1={ySpot} y2={ySpot} className="gx-spot" />}
+      {tags.some((t) => t.cls === 'flip') && g.flip != null && <line x1={L} x2={W - R} y1={y(g.flip)} y2={y(g.flip)} className="gx-flip" />}
+      {tags.map((t) => <g key={t.cls} className={`gx-pill ${t.cls}`}><rect x={W - R + 6} y={t.y - 7} width={R - 8} height={14} rx={7} /><text x={W - R + 12} y={t.y + 3.5}>{t.text}</text></g>)}
     </svg>
   );
 }
 
-/** Total GEX if the price moved to x: above the zero line dealers dampen moves, below it they add to them. */
+/** Total GEX if the price moved to x: above the zero line dealers dampen moves, below it they add to them. Hover to read. */
 function Profile({ g }: { g: GammaRead }) {
-  const W = 620, H = 230, P = 34;
+  const W = 640, H = 220, L = 44, R = 8, T = 18, B = 22;
   const xs = g.profile.map((p) => p[0]), ys = g.profile.map((p) => p[1]);
   const x0 = Math.min(...xs), x1 = Math.max(...xs), yAbs = Math.max(1, ...ys.map(Math.abs));
-  const X = (v: number) => P + ((v - x0) / (x1 - x0 || 1)) * (W - P - 6), Y = (v: number) => H / 2 - (v / yAbs) * (H / 2 - 14);
+  const X = (v: number) => L + ((v - x0) / (x1 - x0 || 1)) * (W - L - R), Y = (v: number) => T + (H - T - B) / 2 - (v / yAbs) * ((H - T - B) / 2);
   const d = g.profile.map(([s, v], i) => `${i ? 'L' : 'M'}${X(s).toFixed(1)},${Y(v).toFixed(1)}`).join('');
+  const zero = Y(0), B9 = yAbs / 1e9;
+  const marks = [{ v: g.spot, t: `price ${g.spot.toFixed(1)}`, c: 'spot' }, ...(g.flip != null ? [{ v: g.flip, t: `flip ${g.flip.toFixed(1)}`, c: 'flip' }] : [])].sort((a, b) => a.v - b.v);
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="gx-svg" role="img" aria-label="Gamma profile">
-      <line x1={P} x2={W - 4} y1={H / 2} y2={H / 2} className="gx-axis" />
-      <path d={`${d}L${X(x1)},${H / 2}L${X(x0)},${H / 2}Z`} className="gx-area" />
-      <path d={d} className="gx-line" />
-      <line x1={X(g.spot)} x2={X(g.spot)} y1={6} y2={H - 14} className="gx-spot" />
-      {g.flip != null && <line x1={X(g.flip)} x2={X(g.flip)} y1={6} y2={H - 14} className="gx-flip" />}
-      <text x={P} y={H - 2} className="gx-k start">{x0.toFixed(0)}</text><text x={W - 6} y={H - 2} className="gx-k">{x1.toFixed(0)}</text>
-      <text x={P + 2} y={12} className="gx-k start">+ dampens moves</text><text x={P + 2} y={H - 18} className="gx-k start">− amplifies moves</text>
-    </svg>
+    <>
+      <svg viewBox={`0 0 ${W} ${H}`} className="gx-svg" role="img" aria-label="Gamma profile" data-hover data-x={`${L},${W - R},${x0},${x1},num`} data-y={`${Y(yAbs)},${Y(-yAbs)},${B9},${-B9},2,B per 1%`}>
+        <line x1={L} x2={W - R} y1={zero} y2={zero} className="gx-axis" />
+        <text x={L - 6} y={Y(yAbs) + 4} className="gx-k">+{B9.toFixed(1)}B</text><text x={L - 6} y={zero + 3} className="gx-k">0</text><text x={L - 6} y={Y(-yAbs) + 2} className="gx-k">−{B9.toFixed(1)}B</text>
+        <path d={`${d}L${X(x1)},${zero}L${X(x0)},${zero}Z`} className="gx-area" />
+        <path d={d} className="gx-line" data-name="Net gamma" />
+        {marks.map((m, i) => <g key={m.c}><line x1={X(m.v)} x2={X(m.v)} y1={T} y2={H - B} className={`gx-${m.c}`} /><text x={X(m.v) + (i === 0 && marks.length > 1 && Math.abs(X(marks[1].v) - X(m.v)) < 90 ? -4 : 4)} y={11} className={`gx-mark ${i === 0 && marks.length > 1 && Math.abs(X(marks[1].v) - X(m.v)) < 90 ? 'end' : ''}`}>{m.t}</text></g>)}
+        <text x={L} y={H - 4} className="gx-k start">{x0.toFixed(0)}</text><text x={W - R} y={H - 4} className="gx-k">{x1.toFixed(0)}</text>
+      </svg>
+      <p className="gx-legend small muted"><span className="up">Above 0</span>: dealers dampen moves · <span className="down">below 0</span>: they add to moves · hover to read any price</p>
+    </>
   );
 }
 
@@ -134,14 +146,15 @@ function Surface({ rows }: { rows: IvRow[] }) {
 function Term({ rows }: { rows: IvRow[] }) {
   const pts = rows.filter((r) => r.atm != null);
   if (pts.length < 2) return null;
-  const W = 620, H = 120, P = 40, lo = Math.min(...pts.map((p) => p.atm!)), hi = Math.max(...pts.map((p) => p.atm!)), dmax = Math.max(...pts.map((p) => p.dte), 1);
-  const X = (d: number) => P + (d / dmax) * (W - P - 10), Y = (v: number) => H - 16 - ((v - lo) / (hi - lo || 1)) * (H - 30);
+  const W = 640, H = 130, L = 46, R = 10, T = 10, B = 22, lo = Math.min(...pts.map((p) => p.atm!)), hi = Math.max(...pts.map((p) => p.atm!)), pad = (hi - lo) * 0.12 || 1, dmax = Math.max(...pts.map((p) => p.dte), 1);
+  const X = (d: number) => L + (d / dmax) * (W - L - R), Y = (v: number) => H - B - ((v - lo + pad) / (hi - lo + 2 * pad)) * (H - T - B);
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="gx-svg" role="img" aria-label="ATM implied volatility by days to expiry">
-      <path d={pts.map((p, i) => `${i ? 'L' : 'M'}${X(p.dte)},${Y(p.atm!)}`).join('')} className="gx-line" />
-      {pts.map((p) => <circle key={p.exp} cx={X(p.dte)} cy={Y(p.atm!)} r={2.5} className="gx-dot"><title>{`${p.exp}: ATM IV ${p.atm!.toFixed(1)}%`}</title></circle>)}
-      <text x={P} y={10} className="gx-k start">{hi.toFixed(1)}%</text><text x={P} y={H - 18} className="gx-k start">{lo.toFixed(1)}%</text>
-      <text x={W - 6} y={H - 2} className="gx-k">{dmax} days</text>
+    <svg viewBox={`0 0 ${W} ${H}`} className="gx-svg" role="img" aria-label="ATM implied volatility by days to expiry" data-hover data-x={`${L},${W - R},0,${dmax},day`} data-y={`${Y(hi + pad)},${Y(lo - pad)},${hi + pad},${lo - pad},1,%`}>
+      <line x1={L} x2={W - R} y1={H - B} y2={H - B} className="gx-axis" />
+      <text x={L - 6} y={Y(hi) + 4} className="gx-k">{hi.toFixed(1)}%</text><text x={L - 6} y={Y(lo) + 4} className="gx-k">{lo.toFixed(1)}%</text>
+      <path d={pts.map((p, i) => `${i ? 'L' : 'M'}${X(p.dte)},${Y(p.atm!)}`).join('')} className="gx-line" data-name="ATM IV" />
+      {pts.map((p) => <circle key={p.exp} cx={X(p.dte)} cy={Y(p.atm!)} r={3} className="gx-dot" data-tip={`${p.exp} (${p.dte} days): ATM IV ${p.atm!.toFixed(1)}%`} />)}
+      <text x={L} y={H - 6} className="gx-k start">today</text><text x={W - R} y={H - 6} className="gx-k">{dmax} days</text>
     </svg>
   );
 }

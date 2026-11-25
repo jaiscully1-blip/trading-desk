@@ -17,9 +17,9 @@ function Curve({ pts }: { pts: { day: string; r: number }[] }) {
   const W = 320, H = 90, lo = Math.min(0, ...pts.map((p) => p.r)), hi = Math.max(0, ...pts.map((p) => p.r));
   const x = (i: number) => (i / (pts.length - 1)) * W, y = (v: number) => H - ((v - lo) / (hi - lo || 1)) * H;
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="mc-fan" role="img" aria-label="Cumulative R by trade">
+    <svg viewBox={`0 0 ${W} ${H}`} className="mc-fan" role="img" aria-label="Cumulative R by trade" data-hover data-x={`0,${W},1,${pts.length},num`} data-y={`${y(hi)},${y(lo)},${hi},${lo},2,R`}>
       <line x1={0} x2={W} y1={y(0)} y2={y(0)} className="mc-zero" />
-      <path d={`M${pts.map((p, i) => `${x(i)},${y(p.r)}`).join(' L')}`} className="mc-mid" />
+      <path d={`M${pts.map((p, i) => `${x(i)},${y(p.r)}`).join(' L')}`} className="mc-mid" data-name="Cumulative R" />
       <text x={2} y={10} className="mc-lab">{pts[0].day}</text><text x={W - 2} y={10} className="mc-lab" textAnchor="end">{pts.at(-1)!.day}</text>
     </svg>
   );

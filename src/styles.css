@@ -3633,3 +3633,23 @@ body::after { content: ''; position: fixed; inset: 0; pointer-events: none; z-in
 .lai-steps { margin: 0; padding: 0 14px 6px 34px; display: grid; gap: 4px; } .lai-steps code { font-size: 11.5px; background: var(--panel-2); padding: 1px 5px; border-radius: 4px; }
 .lai-roles { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 8px; padding: 0 14px 8px; } .lai-roles label { display: grid; gap: 3px; }
 .lai-ask { display: grid; gap: 6px; margin-top: 8px; } .lai-out pre { white-space: pre-wrap; font: 12.5px/1.45 'IBM Plex Sans', sans-serif; margin: 4px 0 0; padding: 8px 10px; border-radius: 8px; background: var(--panel-2); }
+
+/* No accidental text selection: dragging across charts and panels selects nothing. Typing areas, notes and articles still select. */
+body { -webkit-user-select: none; user-select: none; }
+input, textarea, select, [contenteditable], [contenteditable] *, .selectable, .selectable *, .reader-sum, .lai-out, pre, code, .es-ed, .es-ed * { -webkit-user-select: text; user-select: text; }
+
+/* Chart hover: crosshair, dots riding the lines, instant tooltip */
+.ch-layer { pointer-events: none; }
+.ch-cross { stroke: var(--muted); stroke-width: 1; stroke-dasharray: 3 3; vector-effect: non-scaling-stroke; }
+.ch-dot { fill: var(--panel); stroke-width: 2; vector-effect: non-scaling-stroke; }
+svg[data-hover] { cursor: crosshair; touch-action: pan-y; }
+[data-tip] { cursor: default; }
+.ch-tip { position: fixed; z-index: 10000; display: none; pointer-events: none; max-width: 320px; padding: 6px 9px; border-radius: 8px; background: var(--panel); color: var(--text); border: 1px solid var(--line-2); box-shadow: var(--shadow); font: 12px/1.45 'IBM Plex Sans', sans-serif; }
+.ch-tip b { font-family: 'IBM Plex Mono', monospace; font-weight: 600; }
+.ch-sw { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 5px; vertical-align: 0; }
+.gx-row .gx-hit { fill: transparent; } .gx-row:hover .gx-hit { fill: color-mix(in srgb, var(--text) 7%, transparent); }
+.gx-pill rect { fill: var(--panel-2); stroke: var(--line-2); } .gx-pill text { fill: var(--text); font: 10px 'IBM Plex Mono', monospace; }
+.gx-pill.call rect { stroke: var(--up); } .gx-pill.put rect { stroke: var(--down); } .gx-pill.flip rect { stroke: var(--accent); }
+.gx-mark { fill: var(--muted); font: 10px 'IBM Plex Mono', monospace; } .gx-mark.end { text-anchor: end; }
+.gx-legend { margin: 2px 14px 8px; }
+.fc-bar-r:hover { opacity: 1 !important; stroke: var(--text); stroke-width: 1; }

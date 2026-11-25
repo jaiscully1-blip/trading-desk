@@ -168,10 +168,10 @@ export function OptionsW({ d, cfg, set }: P) {
         <div><span>Cost</span><b className="num">${(paid * 100 * n).toFixed(0)}</b></div>
         <div><span>Ends ITM</span><b className="num">{(o.itmProb * 100).toFixed(0)}%</b></div>
       </div>
-      <svg viewBox={`0 0 ${Wd} ${Hd}`} className="hw-pl" role="img" aria-label="Profit and loss at expiry">
+      <svg viewBox={`0 0 ${Wd} ${Hd}`} className="hw-pl" role="img" aria-label="Profit and loss at expiry" data-hover data-x={`0,${Wd},${lo},${hi},num`} data-y={`${Y(maxAbs)},${Y(-maxAbs)},${maxAbs},${-maxAbs},0,$`}>
         <line x1={0} x2={Wd} y1={Hd / 2} y2={Hd / 2} className="hw-axis" />
         <line x1={X(S)} x2={X(S)} y1={0} y2={Hd} className="hw-now" />
-        <polyline points={pts.map(([s, v]) => `${X(s)},${Y(v)}`).join(' ')} className="hw-plline" />
+        <polyline points={pts.map(([s, v]) => `${X(s)},${Y(v)}`).join(' ')} className="hw-plline" data-name="P/L at expiry" />
         <text x={4} y={11} className="hw-pltx">+${Math.round(Math.max(...pts.map((p) => p[1])))}</text>
         <text x={4} y={Hd - 3} className="hw-pltx">{Math.round(Math.min(...pts.map((p) => p[1])))}</text>
         <text x={Wd - 4} y={Hd - 3} className="hw-pltx" textAnchor="end">P/L at expiry, ±20%</text>

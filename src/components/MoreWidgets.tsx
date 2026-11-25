@@ -124,10 +124,10 @@ function Fan({ bands }: { bands: { i: number; p5: number; p50: number; p95: numb
   const x = (i: number) => (i / n) * W, y = (v: number) => H - ((v - lo) / (hi - lo || 1)) * H;
   const area = `M${bands.map((b) => `${x(b.i)},${y(b.p95)}`).join(' L')} L${[...bands].reverse().map((b) => `${x(b.i)},${y(b.p5)}`).join(' L')} Z`;
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="mc-fan" role="img" aria-label="Range of outcomes by trade number">
+    <svg viewBox={`0 0 ${W} ${H}`} className="mc-fan" role="img" aria-label="Range of outcomes by trade number" data-hover data-x={`0,${W},0,${n},num`} data-y={`${y(hi)},${y(lo)},${hi},${lo},2,R`}>
       <line x1={0} x2={W} y1={y(0)} y2={y(0)} className="mc-zero" />
       <path d={area} className="mc-band" />
-      <path d={`M${bands.map((b) => `${x(b.i)},${y(b.p50)}`).join(' L')}`} className="mc-mid" />
+      <path d={`M${bands.map((b) => `${x(b.i)},${y(b.p50)}`).join(' L')}`} className="mc-mid" data-name="Median" />
       <text x={W - 2} y={y(bands.at(-1)!.p95) + 10} className="mc-lab" textAnchor="end">95th pct</text>
       <text x={W - 2} y={y(bands.at(-1)!.p5) - 3} className="mc-lab" textAnchor="end">5th pct</text>
     </svg>

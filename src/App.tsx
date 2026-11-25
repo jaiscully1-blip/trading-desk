@@ -1,4 +1,6 @@
 import { useGammaLv } from './data/gamma';
+import { installChartHover } from './lib/chartHover';
+installChartHover();
 import { checkAlerts, describeAlert, type PriceAlert } from '../shared/alertrules';
 import { mergeArchive } from '../shared/newsx';
 import { DEFAULT_SIZE, addTop, type WidgetType } from './lib/grid';
