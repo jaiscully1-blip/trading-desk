@@ -1,16 +1,16 @@
 // GET /api/news?symbols=NVDA,AMD   -> merged 24/7 headlines: Finnhub market + company news, plus RSS (CNBC, MarketWatch, Yahoo, Fed, BLS)
 import { isMacro, keywordSentiment, mergeNews, tagSymbols, type NewsItem } from '../shared/news.js';
 import { FEEDS, finnhubMarketNews, finnhubNews, finnhubProfile, rssFeed } from './_lib/adapters.js';
-import { SYMBOL_RE, cached, getCached, hasKey, json, setCached, take, ttl, markFresh } from './_lib/core.js';
+import { SYMBOL_RE, cached, getCached, hasKey, json, setCached, ttl, markFresh } from './_lib/core.js';
 import { LEAN_PROMPT, LEAN_SCHEMA, leanOf, isPolitical, titleKey, type ArticleLean } from '../shared/bias.js';
-import { alpacaNews, geminiJson } from './_lib/adapters.js';
+import { alpacaNews, geminiJson, hasAi, aiBudget } from './_lib/adapters.js';
 
 /** AI read of political headlines' framing, cached per headline for a week; waits at most ~7 s, the rest fill in next time. */
 let leanBusy = false;
 async function classifyPolitical(items: NewsItem[]) {
-  if (!hasKey('gemini') || leanBusy) return;
+  if (!hasAi() || leanBusy) return;
   const todo = items.filter((n) => isPolitical(n.title, n.summary) && !getCached(`lean:${titleKey(n.title)}`)).slice(0, 30);
-  if (!todo.length || !take('gemini')) return;
+  if (!todo.length || !aiBudget()) return;
   leanBusy = true;
   const run = geminiJson(LEAN_PROMPT(todo.map((n, i) => ({ i, title: n.title, src: n.src }))), LEAN_SCHEMA).then(({ data }) => {
     for (const r of Array.isArray(data) ? data : []) {

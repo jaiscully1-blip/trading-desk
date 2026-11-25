@@ -2,7 +2,7 @@
 // products / suppliers / customers / competitors read from that report. Each report is read once and cached ~30 days.
 import { GEMINI_SCHEMA, cleanCoName, cleanFacts, geminiPrompt, htmlToText, latestAnnual, latestShares, parseSecTickers, secProfile, tenKExcerpt, type CompanyFacts, type SecTicker, filingQuotes } from '../../../shared/company.js';
 import { COMPANIES } from '../../../shared/data/companies.js';
-import { QUOTE_CHAIN, finnhubPeers, finnhubProfile, geminiJson, secJson, secText, wikiSummary } from '../adapters.js';
+import { QUOTE_CHAIN, finnhubPeers, finnhubProfile, geminiJson, hasAi, secJson, secText, wikiSummary } from '../adapters.js';
 import { getCached } from '../core.js';
 import { SYMBOL_RE, cached, hasKey, json } from '../core.js';
 
@@ -50,7 +50,7 @@ export async function GET(req: Request): Promise<Response> {
     const excerpt = await safe('filing', async () => (await cached(`excerpt:${filing.url}`, 30 * 86400, async () => tenKExcerpt(htmlToText(await secText(filing.url))))).val);
     if (excerpt) {
       quotes = filingQuotes(excerpt);
-      if (hasKey('gemini')) {
+      if (hasAi()) {
         const r = await safe('gemini', async () => (await cached(factsKey, 30 * 86400, async () => {
           const out = await geminiJson(geminiPrompt(name, sym, excerpt), GEMINI_SCHEMA);
           return { facts: cleanFacts(out.data, sym, tickers as SecTicker[]), model: out.model };
@@ -75,9 +75,9 @@ export async function GET(req: Request): Promise<Response> {
   };
   // a rate limit on one source isn't worth showing when another filled the gap
   if (errors.profile && /429/.test(errors.profile) && about.industry && about.exchange) delete errors.profile;
-  const pending = !!(quick && filing && hasKey('gemini') && !facts);
+  const pending = !!(quick && filing && hasAi() && !facts);
   return json(
-    { sym, name, profile, about, peers: peerLinks, filing, facts, model, quotes, wiki, gemini: hasKey('gemini'), pending, errors, asOf: Date.now() },
+    { sym, name, profile, about, peers: peerLinks, filing, facts, model, quotes, wiki, gemini: hasAi(), pending, errors, asOf: Date.now() },
     // a failed AI read must not sit on the CDN: only a complete answer is cached for long
     { sMaxAge: facts ? 86400 : pending || errors.gemini || errors.filing ? 0 : 600, swr: facts ? 7 * 86400 : 0 },
   );

@@ -35,6 +35,8 @@ Never prefix a secret with `VITE_` (Vite ships those to the client).
 | `FRED_API_KEY` | M2 | server |
 | `SEC_USER_AGENT` | company page | server: `TradingDesk you@email.com` (SEC's required contact; not a key) |
 | `GEMINI_API_KEY` (+ optional `GEMINI_MODEL`) | company page | server: free key from aistudio.google.com |
+| `GROQ_API_KEY` (+ optional `GROQ_MODEL`) | backup AI when Gemini fails (company reads, briefing, essays) | server: free plan at console.groq.com |
+| `OPENROUTER_API_KEY` (+ optional `OPENROUTER_MODEL`) | last backup AI, free models (50 a day) | server: free key at openrouter.ai |
 | `AISSTREAM_API_KEY` | world map, shipping layer | server: free key from aisstream.io (optional) |
 | `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` | M3 | browser (public; row-level security in `supabase/schema.sql`) |
 | `ANTHROPIC_API_KEY` | M10 | server |

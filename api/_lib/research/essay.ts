@@ -2,8 +2,8 @@
 //   GET  fn=range&symbol=NVDA&from=2026-10-01&to=2026-10-20[&name=Nvidia] -> headlines published in that window (Google News
 //        search with after: / before:) and the company's SEC filings dated inside it (8-K, 10-Q, 10-K, ...; earnings = 8-K item 2.02).
 //   POST fn=essayai { mode: 'outline' | 'check', sym, title?, text, facts[] } -> Gemini outline or fact check (free tier).
-import { geminiJson, rssFeed, secJson } from '../adapters.js';
-import { SYMBOL_RE, cached, hasKey, json, take } from '../core.js';
+import { geminiJson, hasAi, aiBudget, rssFeed, secJson } from '../adapters.js';
+import { SYMBOL_RE, cached, hasKey, json } from '../core.js';
 import { parseSecTickers } from '../../../shared/company.js';
 import { CHECK_SCHEMA, OUTLINE_SCHEMA, checkPrompt, cleanCheck, cleanOutline, outlinePrompt } from '../../../shared/essay.js';
 
@@ -52,7 +52,7 @@ export async function range(req: Request): Promise<Response> {
 
 const calls = new Map<string, { day: string; n: number }>();
 export async function essayai(req: Request): Promise<Response> {
-  if (!hasKey('gemini')) return json({ error: 'The AI helper needs GEMINI_API_KEY in Vercel (free at aistudio.google.com).' }, { status: 400 });
+  if (!hasAi()) return json({ error: 'The AI helper needs a free AI key in Vercel: GEMINI_API_KEY (aistudio.google.com) or GROQ_API_KEY (console.groq.com).' }, { status: 400 });
   const b = await req.json().catch(() => null);
   const mode = b?.mode === 'check' ? 'check' : 'outline';
   const sym = String(b?.sym ?? '').toUpperCase();
@@ -63,7 +63,7 @@ export async function essayai(req: Request): Promise<Response> {
   const who = (req.headers.get('x-forwarded-for') ?? 'local').split(',')[0].trim(), dayKey = new Date().toISOString().slice(0, 10);
   const c = calls.get(who), n = c?.day === dayKey ? c.n : 0;
   if (n >= 60) return json({ error: 'Daily limit reached for the AI helper. It resets at midnight UTC.' }, { status: 429 });
-  if (!take('gemini')) return json({ error: 'The free AI quota is busy right now. Try again in a minute.' }, { status: 429 });
+  if (!aiBudget()) return json({ error: 'The free AI quota is busy right now. Try again in a minute.' }, { status: 429 });
   calls.set(who, { day: dayKey, n: n + 1 });
   try {
     if (mode === 'outline') {
