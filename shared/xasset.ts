@@ -52,3 +52,19 @@ export function termRead(vix: number | null, vix3m: number | null): { ratio: num
   const ratio = Math.round((vix / vix3m) * 100) / 100;
   return { ratio, state: ratio > 1.02 ? 'backwardation' : ratio < 0.95 ? 'contango' : 'flat' };
 }
+
+/** EU excessive deficit procedure numbers (Eurostat EDP notification, twice a year): deficit and debt, % of GDP. */
+export const EDP_GEO = ['EU27_2020', 'DE', 'FR', 'IT', 'ES', 'NL', 'BE', 'AT', 'PL', 'RO', 'HU', 'SK', 'MT', 'FI', 'GR', 'PT', 'IE'];
+export interface EdpRow { geo: string; name: string; deficit: (number | null)[]; debt: (number | null)[] }
+/** Eurostat JSON-stat (na_item B9 = deficit, GD = debt; geo; time) -> one row per country, oldest year first. */
+export function parseEdp(j: any): { years: string[]; rows: EdpRow[] } {
+  const d = j?.dimension ?? {}, ids: string[] = j?.id ?? [], size: number[] = j?.size ?? [];
+  const idx = (k: string) => d[k]?.category?.index ?? {}, lab = (k: string) => d[k]?.category?.label ?? {};
+  const years = Object.entries(idx('time') as Record<string, number>).sort((a, b) => a[1] - b[1]).map(([y]) => y);
+  const geos = Object.entries(idx('geo') as Record<string, number>).sort((a, b) => a[1] - b[1]).map(([g]) => g);
+  const pos = (sel: Record<string, number>) => ids.reduce((acc, k, i) => acc * size[i] + (sel[k] ?? 0), 0);
+  const val = (na: string, geo: string, y: string) => { const v = j?.value?.[String(pos({ na_item: idx('na_item')[na], geo: idx('geo')[geo], time: idx('time')[y] }))]; return typeof v === 'number' ? v : null; };
+  const names = lab('geo') as Record<string, string>;
+  const rows = geos.map((g) => ({ geo: g, name: g === 'EU27_2020' ? 'EU (27)' : (names[g] ?? g).replace(/ \(.*\)$/, ''), deficit: years.map((y) => val('B9', g, y)), debt: years.map((y) => val('GD', g, y)) }));
+  return { years, rows };
+}
