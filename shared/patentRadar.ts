@@ -51,6 +51,9 @@ export function prefixVariants(p: string): string[] {
   const pad = ' '.repeat(Math.max(0, 4 - m[2].length));
   return [`${FIELD}:${m[1]}${pad.replace(/ /g, '\\ ')}${m[2]}/*`, `${FIELD}:"${m[1]}${pad}${m[2]}/*"`, `${FIELD}:${p}*`, `${FIELD}:${m[1]}\\ ${m[2]}*`];
 }
+/** A sub-category count is believable only if it is above zero and below its parent class (G06N10 is part of G06N).
+ *  This rejects a spelling the search reads as "match anything". */
+export const plausibleSub = (n: number, parent: number) => n > 0 && parent > 0 && n < parent;
 export const hasGroup = (t: Theme) => t.cpc.some((p) => /^[A-HY]\d{2}[A-Z]\d+$/.test(p));
 /** Query for a theme with one chosen spelling per prefix. */
 export const orQ = (parts: string[]) => (parts.length === 1 ? parts[0] : `(${parts.join(' OR ')})`);

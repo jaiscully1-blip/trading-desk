@@ -35,12 +35,12 @@ const num = (v: number | null) => (v == null ? '…' : v.toLocaleString());
 interface Radar {
   base?: { cur: { published: number | null; granted: number | null }; prev: { published: number | null; granted: number | null } };
   error?: string; needsKey?: boolean; unavailable?: boolean; why?: string; complete?: boolean; windows?: { cur: { from: string; to: string }; prev: { from: string; to: string } };
-  themes?: { id: string; label: string; group: string; cur: { published: number | null; granted: number | null }; prev: { published: number | null; granted: number | null }; top: { name: string; n: number }[] }[];
+  themes?: { id: string; label: string; group: string; cur: { published: number | null; granted: number | null }; prev: { published: number | null; granted: number | null }; top: { name: string; n: number }[]; unmatched?: boolean }[];
   errors?: Record<string, string>; source?: string;
 }
 function RadarPanel() {
   const d = usePoll<Radar>('/api/research?fn=patentradar');
-  const done = (d?.themes ?? []).filter((t) => t.cur.published != null && t.cur.granted != null && t.prev.published != null && t.prev.granted != null).length;
+  const done = (d?.themes ?? []).filter((t) => t.unmatched || t.cur.published != null && t.cur.granted != null && t.prev.published != null && t.prev.granted != null).length;
   return (
     <section className="panel">
       <div className="gx-h"><b>Theme radar</b><span className="small muted">US patents made public and granted, last 90 days vs the same 90 days a year earlier</span><Fresh kind="eod" src="USPTO Open Data Portal (official, refreshed daily)" /></div>
@@ -57,7 +57,7 @@ function RadarPanel() {
                 <tr className="pr-group"><td colSpan={8}>{g}</td></tr>
                 {d.themes!.filter((t) => t.group === g).map((t) => (
                   <tr key={t.id}>
-                    <td>{t.label}</td>
+                    <td>{t.label}{t.unmatched && <span className="small muted" title="The USPTO search could not be pointed at this sub-category reliably, so it is left out rather than shown wrong."> · not available</span>}</td>
                     <td className="r num">{num(t.cur.published)}</td><td className={`r num ${pctCls(t.cur.published, t.prev.published)}`}>{pctTxt(t.cur.published, t.prev.published)}</td><td className="r num"><Rel t={chg(t.cur.published, t.prev.published)} b={d.base ? chg(d.base.cur.published, d.base.prev.published) : null} /></td>
                     <td className="r num">{num(t.cur.granted)}</td><td className={`r num ${pctCls(t.cur.granted, t.prev.granted)}`}>{pctTxt(t.cur.granted, t.prev.granted)}</td><td className="r num"><Rel t={chg(t.cur.granted, t.prev.granted)} b={d.base ? chg(d.base.cur.granted, d.base.prev.granted) : null} /></td>
                     <td className="small">{t.top.length ? t.top.slice(0, 3).map((f) => `${f.name} (${f.n})`).join(' · ') : <span className="muted">—</span>}</td>

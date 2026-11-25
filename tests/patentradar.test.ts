@@ -50,3 +50,13 @@ describe('sub-category spellings', () => {
     expect(orQ(['a', 'b'])).toBe('(a OR b)');
   });
 });
+
+describe('sub-category sanity check', () => {
+  it('accepts only counts between zero and the parent class', async () => {
+    const { plausibleSub } = await import('../shared/patentRadar');
+    expect(plausibleSub(410, 6403)).toBe(true);
+    expect(plausibleSub(122686, 6403)).toBe(false);
+    expect(plausibleSub(0, 6403)).toBe(false);
+    expect(plausibleSub(5, 0)).toBe(false);
+  });
+});

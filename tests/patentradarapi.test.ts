@@ -26,7 +26,23 @@ describe('patent radar and watchlist endpoints', () => {
     expect(j.themes.length).toBe(25);
     expect(j.base).toEqual({ cur: { published: 10, granted: 10 }, prev: { published: 10, granted: 10 } });
     expect(j.themes[0]).toMatchObject({ id: 'ai', cur: { published: 10, granted: 10 }, prev: { published: 10, granted: 10 }, top: [{ name: 'NVIDIA Corporation', n: 4 }] });
-    expect(bodies.filter((b) => b.facets).length).toBe(25);
+    // quantum: every spelling returns as many as its parent class here, so it is left out instead of shown wrong
+    expect(j.themes.find((t: any) => t.id === 'quantum')).toMatchObject({ unmatched: true, cur: { published: null } });
+    expect(bodies.filter((b) => b.facets).length).toBe(24);
+  });
+
+  it('rejects a sub-category spelling that matches everything and keeps a plausible one', async () => {
+    mock((b) => {
+      if (/G06N\\ \\ 10/.test(b.q)) return ok({ count: 122686 });         // read as "match anything" (live bug)
+      if (/"G06N  10\/\*"/.test(b.q)) return ok({ count: 410 });          // right spelling
+      if (/H10N/.test(b.q)) return ok({ count: 0 });
+      return ok({ count: 6403 });
+    });
+    const { patentradar } = await import('../api/_lib/research/patents');
+    const j = await (await patentradar()).json();
+    const qt = j.themes.find((t: any) => t.id === 'quantum');
+    expect(qt.unmatched).toBeUndefined();
+    expect(qt.cur.published).toBe(410);
   });
 
   it('says the radar is unavailable when no prefix form works', async () => {
