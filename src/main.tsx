@@ -15,17 +15,24 @@ startHealth();
 // After a new version is deployed, a tab that was already open asks for old file names that no longer exist
 // ("Failed to fetch dynamically imported module"). Reload once to pick up the new version instead of showing an error.
 const STALE = /dynamically imported module|Importing a module script failed|error loading dynamically imported module|Unable to preload CSS|reading 'default'/i;
+// Retries wait a little longer each time (now, 4 s, 12 s, 30 s), because a fresh deploy can take a minute to reach every server.
+// A successful start clears the counter, so one bad moment never uses up later reloads.
+const RELOAD_WAIT = [0, 4_000, 12_000, 30_000];
+let reloadPending = false;
 function reloadForNewVersion(): boolean {
+  if (reloadPending) return true;
+  let n = 0;
   try {
-    // up to two automatic reloads in two minutes (the new version can take a moment to reach every server), then show the message
     const r = JSON.parse(sessionStorage.getItem('td.verReload') || '{"n":0,"t":0}') as { n: number; t: number };
-    const n = Date.now() - r.t < 120_000 ? r.n : 0;
-    if (n >= 2) return false;
+    n = Date.now() - r.t < 180_000 ? r.n : 0;
+    if (n >= RELOAD_WAIT.length) return false;
     sessionStorage.setItem('td.verReload', JSON.stringify({ n: n + 1, t: Date.now() }));
   } catch { /* storage blocked: still reload */ }
-  location.reload();
+  reloadPending = true;
+  setTimeout(() => location.reload(), RELOAD_WAIT[n] ?? 0);
   return true;
 }
+window.addEventListener('load', () => setTimeout(() => { try { sessionStorage.removeItem('td.verReload'); } catch { /* ignore */ } }, 15_000));
 // Only swallow the error when we really reload; otherwise let it through so the page shows "The desk was just updated"
 // (swallowing it without reloading hands the page an empty module, which crashed with "reading 'default'").
 window.addEventListener('vite:preloadError', (e) => { if (reloadForNewVersion()) e.preventDefault(); });
@@ -41,7 +48,7 @@ class Boundary extends Component<{ children: ReactNode }, { err: Error | null }>
   }
   render() {
     if (!this.state.err) return this.props.children;
-    if (STALE.test(this.state.err.message)) return <div className="crash"><b>The desk was just updated.</b><p className="muted">Reload to open the new version.</p><button className="btn primary" onClick={() => location.reload()}>Reload</button></div>;
+    if (STALE.test(this.state.err.message)) return <div className="crash"><b>The desk was just updated.</b><p className="muted">Opening the new version… if nothing happens in a few seconds, press Reload.</p><button className="btn primary" onClick={() => location.reload()}>Reload</button></div>;
     return <div className="crash"><b>Something broke on this page.</b><p className="muted">{this.state.err.message}</p><button className="btn primary" onClick={() => location.reload()}>Reload</button></div>;
   }
 }
