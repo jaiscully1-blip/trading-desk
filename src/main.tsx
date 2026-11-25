@@ -32,23 +32,27 @@ function reloadForNewVersion(): boolean {
   setTimeout(() => location.reload(), RELOAD_WAIT[n] ?? 0);
   return true;
 }
-window.addEventListener('load', () => setTimeout(() => { try { sessionStorage.removeItem('td.verReload'); } catch { /* ignore */ } }, 15_000));
+// Clear only after a clean start (no reload waiting), or a retry that is still waiting would restart the count and never give up.
+window.addEventListener('load', () => setTimeout(() => { if (reloadPending) return; try { sessionStorage.removeItem('td.verReload'); } catch { /* ignore */ } }, 15_000));
 // Only swallow the error when we really reload; otherwise let it through so the page shows "The desk was just updated"
 // (swallowing it without reloading hands the page an empty module, which crashed with "reading 'default'").
 window.addEventListener('vite:preloadError', (e) => { if (reloadForNewVersion()) e.preventDefault(); });
 window.addEventListener('unhandledrejection', (e) => { if (STALE.test(String((e.reason as Error | undefined)?.message ?? e.reason))) reloadForNewVersion(); });
 
 /** A crash in one page shows a reload button instead of a blank screen, and is reported. */
-class Boundary extends Component<{ children: ReactNode }, { err: Error | null }> {
-  state = { err: null as Error | null };
+class Boundary extends Component<{ children: ReactNode }, { err: Error | null; gaveUp: boolean }> {
+  state = { err: null as Error | null, gaveUp: false };
   static getDerivedStateFromError(err: Error) { return { err }; }
   componentDidCatch(err: Error, info: { componentStack?: string | null }) {
-    if (STALE.test(err.message) && reloadForNewVersion()) return;
+    if (STALE.test(err.message)) { if (reloadForNewVersion()) return; this.setState({ gaveUp: true }); }
     reportError(err, { where: 'react', stack: info.componentStack?.slice(0, 2000) });
   }
   render() {
     if (!this.state.err) return this.props.children;
-    if (STALE.test(this.state.err.message)) return <div className="crash"><b>The desk was just updated.</b><p className="muted">Opening the new version… if nothing happens in a few seconds, press Reload.</p><button className="btn primary" onClick={() => location.reload()}>Reload</button></div>;
+    // A new version was deployed while this tab was open: reload quietly. Only if the automatic retries all fail, offer the button.
+    if (STALE.test(this.state.err.message)) return this.state.gaveUp
+      ? <div className="crash"><b>The desk was just updated.</b><p className="muted">It could not open the new version on its own. Reload to try again.</p><button className="btn primary" onClick={() => { try { sessionStorage.removeItem('td.verReload'); } catch { /* ignore */ } location.reload(); }}>Reload</button></div>
+      : <div className="crash"><p className="muted">Updating to the new version…</p></div>;
     return <div className="crash"><b>Something broke on this page.</b><p className="muted">{this.state.err.message}</p><button className="btn primary" onClick={() => location.reload()}>Reload</button></div>;
   }
 }

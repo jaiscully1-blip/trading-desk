@@ -71,7 +71,9 @@ export async function GET(req: Request): Promise<Response> {
   const indexes = INDEX_ETFS.map(([s, label]) => ({ ...(by.get(s) ?? null), sym: s, label })).filter((r) => 'close' in r) as (PmRow & { label: string })[];
   const sectors = SECTOR_ETFS.map(([s, label]) => ({ ...(by.get(s) ?? null), sym: s, label })).filter((r) => 'close' in r) as (PmRow & { label: string })[];
 
-  // summary: Gemini (free tier, cached per 10-minute bucket) when keyed, else the rule-based one
+  // summary: Gemini (free tier, cached per 10-minute bucket) when keyed, else the rule-based one.
+  // Wait at most 2.5 s: the summary is optional, and a slow Gemini used to hold the whole briefing for 8 s. The call keeps
+  // running and fills the cache, so the next request on this server gets the Gemini version.
   const rule = ruleSummary(indexes, sectors, setups, kind);
   let summary = rule, summarySrc = 'rules';
   if (hasKey('gemini') && setups.length) {
@@ -84,7 +86,7 @@ export async function GET(req: Request): Promise<Response> {
         if (!s) throw new Error('empty summary');
         return s.slice(0, 900);
       }).then((r) => r.val);
-      summary = await Promise.race([run, new Promise<string>((_, rej) => setTimeout(() => rej(new Error('summary timeout')), 8000))]);
+      summary = await Promise.race([run, new Promise<string>((_, rej) => setTimeout(() => rej(new Error('summary timeout')), 2500))]);
       summarySrc = 'gemini';
     } catch (e) { errors.summary = (e as Error).message.slice(0, 120); }
   }
