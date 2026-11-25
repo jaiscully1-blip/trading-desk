@@ -18,7 +18,7 @@ export default function GammaTide({ sym }: { sym: string }) {
   const pts: TidePt[] = useMemo(() => { const days = Object.keys(byDay ?? {}).sort().slice(-Number(span)); return days.flatMap((d) => byDay![d]); }, [byDay, span]);
   const cp = (p: TidePt) => (otm === 'otm' ? p.otmCallPrem : p.callPrem), pp = (p: TidePt) => (otm === 'otm' ? p.otmPutPrem : p.putPrem);
   const head = (
-    <div className="gx-h"><Q k="calc" src="Cboe delayed option chain (~15 min), snapshots taken while the desk is open; gross premium = volume × mid, no buy/sell side" /><b>Options tide</b>
+    <div className="gx-h"><Q k="calc" src="delayed option chain (Alpaca or Cboe, ~15 min), snapshots taken while the desk is open; gross premium = volume × mid, no buy/sell side" /><b>Options tide</b>
       <span className="small muted">call vs put premium traded today · gross, not net (needs a paid flow feed)</span>
       <Seg value={span} onChange={setSpan} options={[{ id: '1', label: '1D' }, { id: '2', label: '2D' }, { id: '5', label: '5D' }]} />
       <Seg value={otm} onChange={setOtm} options={[{ id: 'all', label: 'All' }, { id: 'otm', label: 'OTM only' }]} />

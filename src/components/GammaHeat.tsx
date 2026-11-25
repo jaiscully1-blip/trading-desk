@@ -25,7 +25,7 @@ export default function GammaHeat({ grid, spot, sym }: { grid: StrikeGrid; spot:
   const alert = () => { if (K == null || !setPriceAlerts) return; setPriceAlerts([...(priceAlerts ?? []), { id: Math.random().toString(36).slice(2, 10), sym: chartSym(sym), kind: K >= spot ? 'above' : 'below', value: sym === 'SPX' ? +(K / 10).toFixed(2) : K, note: `${sym} ${K} strike (gamma heatmap)${sym === 'SPX' ? ', SPX ÷ 10 ≈ SPY' : ''}`, active: true, created: Date.now() }]); };
   return (
     <div className="gh">
-      <div className="gx-h"><Q k="calc" src="calculated on the desk from the delayed option chain (Cboe, ~15 min)" /><b>Strike × expiry heatmap</b>
+      <div className="gx-h"><Q k="calc" src="calculated on the desk from the delayed option chain (Alpaca or Cboe, ~15 min)" /><b>Strike × expiry heatmap</b>
         <span className="small muted">{metric === 'gex' ? 'dealer gamma, $ per 1% move' : metric === 'oi' ? 'open interest, calls minus puts' : "today's volume, calls minus puts"} · green + / red − · outlined = 5 biggest</span>
         <Seg<Metric> value={metric} onChange={setMetric} options={[{ id: 'gex', label: 'GEX' }, { id: 'oi', label: 'OI' }, { id: 'vol', label: 'Volume' }]} />
       </div>

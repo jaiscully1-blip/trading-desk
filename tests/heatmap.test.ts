@@ -54,3 +54,18 @@ describe('commodity map', () => {
     expect(f.CA.map((x) => x.title)).toEqual(['STORM', 'NORTE FIRE']);
   });
 });
+
+import { alpacaToCboe } from '../shared/alpacaChain';
+describe('alpaca chain', () => {
+  it('merges snapshots and open interest into a chain parseCboe reads', () => {
+    const raw = alpacaToCboe(100, {
+      XYZ261127C00100000: { latestQuote: { bp: 2, ap: 2.2 }, latestTrade: { p: 2.1 }, impliedVolatility: 0.3, greeks: { delta: 0.5 }, dailyBar: { v: 50 } },
+    }, [{ symbol: 'XYZ261127C00100000', open_interest: '1000' }, { symbol: 'XYZ261127P00100000', open_interest: '400' }]);
+    const c = parseCboe(raw, 'XYZ', NOW);
+    expect(c.spot).toBe(100);
+    expect(c.contracts).toHaveLength(2);
+    const call = c.contracts.find((x) => x.cp === 'C')!;
+    expect([call.oi, call.vol, call.iv, call.bid, call.ask, call.last]).toEqual([1000, 50, 0.3, 2, 2.2, 2.1]);
+    expect(c.contracts.find((x) => x.cp === 'P')!.oi).toBe(400);
+  });
+});
