@@ -31,9 +31,9 @@ function Lines({ times, lines }: { times: number[]; lines: Record<string, number
   const lo = Math.min(0, ...all), hi = Math.max(0, ...all);
   const X = (i: number) => P + (i / (times.length - 1)) * (W - P - 8), Y = (v: number) => 8 + (1 - (v - lo) / (hi - lo || 1)) * (H - 26);
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="an-svg" role="img" aria-label="Percent change since the start">
+    <svg viewBox={`0 0 ${W} ${H}`} className="an-svg" role="img" aria-label="Percent change since the start" data-hover data-x={`${P},${W - 8},${times[0] * 1000},${times[times.length - 1] * 1000},date`} data-y={`${Y(hi)},${Y(lo)},${hi},${lo},1,%`}>
       <line x1={P} x2={W - 8} y1={Y(0)} y2={Y(0)} className="an-zero" />
-      {syms.map((s, k) => <path key={s} d={lines[s].map((v, i) => `${i ? 'L' : 'M'}${X(i).toFixed(1)},${Y(v).toFixed(1)}`).join('')} fill="none" stroke={PALETTE[k % PALETTE.length]} strokeWidth={1.6} />)}
+      {syms.map((s, k) => <path key={s} d={lines[s].map((v, i) => `${i ? 'L' : 'M'}${X(i).toFixed(1)},${Y(v).toFixed(1)}`).join('')} fill="none" stroke={PALETTE[k % PALETTE.length]} strokeWidth={1.6} data-name={s} />)}
       <text x={2} y={Y(hi) + 4} className="an-t">{hi.toFixed(0)}%</text><text x={2} y={Y(lo)} className="an-t">{lo.toFixed(0)}%</text>
       <text x={P} y={H - 2} className="an-t">{new Date(times[0] * 1000).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</text>
       <text x={W - 8} y={H - 2} className="an-t end">{new Date(times[times.length - 1] * 1000).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</text>

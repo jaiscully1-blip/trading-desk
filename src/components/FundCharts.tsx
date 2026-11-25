@@ -78,7 +78,7 @@ export function FundCharts({ mode, sym, cfg, set, onSym }: { mode: DataMode; sym
           {labels.map((l, i) => (
             <g key={l}>
               {series.map((_, k) => { const v = val(k, l); if (v == null) return null; const y0 = Y(Math.max(0, v)), y1 = Y(Math.min(0, v));
-                return <rect key={k} x={P + i * groupW + 3 + k * barW} y={y0} width={barW - 1} height={Math.max(1, y1 - y0)} fill={COLORS[k]} opacity={v < 0 ? 0.55 : 0.9}><title>{`${syms[k]} ${l}: ${fmt(v, m.kind)}`}</title></rect>; })}
+                return <rect key={k} x={P + i * groupW + 3 + k * barW} y={y0} width={barW - 1} height={Math.max(1, y1 - y0)} fill={COLORS[k]} opacity={v < 0 ? 0.55 : 0.9} className="fc-bar-r" data-tip={`${syms[k]} ${l}: ${fmt(v, m.kind)}`} />; })}
               <text x={P + i * groupW + groupW / 2} y={H - 14} className="fc-x">{l}</text>
               {series.length === 1 && growth[i] != null && <text x={P + i * groupW + groupW / 2} y={H - 3} className={`fc-g ${growth[i]! >= 0 ? 'up' : 'down'}`}>{growth[i]! >= 0 ? '+' : ''}{growth[i]!.toFixed(0)}{/Margin$/.test(metric) ? 'pt' : '%'}</text>}
             </g>

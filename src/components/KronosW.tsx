@@ -20,10 +20,10 @@ function Path({ f }: { f: KronosForecast }) {
   const poly = [...top.map((v, i) => `${x(i).toFixed(1)},${y(v).toFixed(1)}`), ...bot.map((v, i) => `${x(i).toFixed(1)},${y(v).toFixed(1)}`).reverse()].join(' ');
   const line = mid.map((v, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join('');
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="kr-path" role="img" aria-label={`${f.ticker} forecast range`}>
+    <svg viewBox={`0 0 ${W} ${H}`} className="kr-path" role="img" aria-label={`${f.ticker} forecast range`} data-hover data-x={`${x(0)},${x(n)},0,${n},num`} data-y={`${y(hi + pad)},${y(lo - pad)},${hi + pad},${lo - pad},2,`}>
       <polygon points={poly} className="kr-band" />
       <line x1={x(0)} x2={x(0)} y1={2} y2={H - 2} className="kr-now" />
-      <path d={line} className="kr-line" />
+      <path d={line} className="kr-line" data-name="Median path" />
     </svg>
   );
 }

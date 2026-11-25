@@ -71,8 +71,8 @@ function Curve({ pts }: { pts: CurvePoint[] }) {
   const X = (i: number) => P + (i / (pts.length - 1)) * (W - P - 8), Y = (v: number) => H - 18 - ((v - lo) / (hi - lo || 1)) * (H - 30);
   const line = (key: 'now' | 'm1' | 'y1') => pts.map((p, i) => (p[key] == null ? '' : `${i && pts[i - 1][key] != null ? 'L' : 'M'}${X(i).toFixed(1)},${Y(p[key]!).toFixed(1)}`)).join('');
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="rc-svg" role="img" aria-label="Treasury yield curve">
-      <path d={line('y1')} className="rc-y1" /><path d={line('m1')} className="rc-m1" /><path d={line('now')} className="rc-now" />
+    <svg viewBox={`0 0 ${W} ${H}`} className="rc-svg" role="img" aria-label="Treasury yield curve" data-hover data-y={`${Y(hi)},${Y(lo)},${hi},${lo},2,%`}>
+      <path d={line('y1')} className="rc-y1" data-name="Year ago" /><path d={line('m1')} className="rc-m1" data-name="Month ago" /><path d={line('now')} className="rc-now" data-name="Now" />
       {pts.map((p, i) => <text key={p.id} x={X(i)} y={H - 4} className="rc-t">{p.label}</text>)}
       <text x={2} y={Y(hi) + 4} className="rc-t start">{hi.toFixed(1)}%</text><text x={2} y={Y(lo)} className="rc-t start">{lo.toFixed(1)}%</text>
     </svg>

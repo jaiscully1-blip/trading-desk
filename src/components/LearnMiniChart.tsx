@@ -46,8 +46,8 @@ export function MiniChart({ kind, daily, intraday, period }: { kind: ChartKind; 
   const total = pane ? H + P : H, bw = W / view.take.length;
   return (
     <div className="mc">
-      <svg viewBox={`0 0 ${W} ${total}`} className="mc-svg" role="img" aria-label="Indicator example chart">
-        <path d={path(view.take.map((b) => b.close), view.lo, view.hi, H)} className="mc-price" />
+      <svg viewBox={`0 0 ${W} ${total}`} className="mc-svg" role="img" aria-label="Indicator example chart" data-hover data-y={`4,${H - 4},${view.hi},${view.lo},2,`}>
+        <path d={path(view.take.map((b) => b.close), view.lo, view.hi, H)} className="mc-price" data-name="SPY" />
         {view.over.map((o, i) => <path key={i} d={path(o.v, view.lo, view.hi, H)} className={o.cls} />)}
         {view.levels.map((lv) => { const y = 4 + ((view.hi - lv) / (view.hi - view.lo)) * (H - 8); return <g key={lv}><line x1={0} x2={W} y1={y} y2={y} className="mc-lvl" /></g>; })}
         {pane && <>
