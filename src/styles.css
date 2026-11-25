@@ -1644,12 +1644,13 @@ body:has(.hw.dragging)::before { animation-play-state: paused; }
 .kr-err { padding: 4px 10px; }
 
 /* ---------- colour-coded side menu: every page visible, one colour per group ---------- */
-:root[data-theme='dark'] { --g-today: #F9AE77; --g-charts: #92BFDB; --g-scan: #BEC97E; --g-flow: #C4B9E0; --g-journal: #F4A4C2; --g-alt: #7FD4C1; }
-:root[data-theme='light'], :root:not([data-theme]) { --g-today: #BC5215; --g-charts: #205EA6; --g-scan: #66800B; --g-flow: #5E409D; --g-journal: #A02F6F; --g-alt: #0F7F6B; }
+:root[data-theme='dark'] { --g-today: #F9AE77; --g-charts: #92BFDB; --g-scan: #BEC97E; --g-flow: #C4B9E0; --g-journal: #F4A4C2; --g-alt: #7FD4C1; --g-sys: #8FB4F0; }
+:root[data-theme='light'], :root:not([data-theme]) { --g-today: #BC5215; --g-charts: #205EA6; --g-scan: #66800B; --g-flow: #5E409D; --g-journal: #A02F6F; --g-alt: #0F7F6B; --g-sys: #3A5FA8; }
 .shell { --pg: var(--g-today); }
 .shell[data-group='charts'] { --pg: var(--g-charts); } .shell[data-group='scan'] { --pg: var(--g-scan); }
 .shell[data-group='flow'] { --pg: var(--g-flow); } .shell[data-group='journal'] { --pg: var(--g-journal); }
 .nv-group.g-today { --gc: var(--g-today); } .nv-group.g-charts { --gc: var(--g-charts); } .nv-group.g-scan { --gc: var(--g-scan); }
+.shell[data-group='sys'] { --pg: var(--g-sys); } .nv-group.g-sys { --gc: var(--g-sys); }
 .nv-group.g-flow { --gc: var(--g-flow); } .nv-group.g-journal { --gc: var(--g-journal); }
 
 .nv { width: 214px; box-sizing: border-box; display: flex; flex-direction: column; gap: 6px; padding: 12px 10px; background: var(--panel); border-right: 1px solid var(--line); min-height: 0; }
