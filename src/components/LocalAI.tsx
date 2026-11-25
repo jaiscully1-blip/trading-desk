@@ -11,16 +11,24 @@ export function LocalAISettings() {
   const check = () => { setSt(null); listModels(cfg.url).then(setSt); };
   useEffect(check, [cfg.url]); // eslint-disable-line react-hooks/exhaustive-deps
   const models = st && 'models' in st ? st.models : [];
+  const up = !!st && 'models' in st;
+  // First connect: pick sensible defaults so the jobs work without setup (news -> a gemma model, math -> a qwen model, else the first installed). Only fills empty slots.
+  useEffect(() => {
+    if (!models.length || (cfg.models.news && cfg.models.math)) return;
+    const pick = (re: RegExp) => (models.find((m) => re.test(m.name)) ?? models[0]).name;
+    setAiCfg({ ...cfg, models: { news: cfg.models.news || pick(/gemma/i), math: cfg.models.math || pick(/qwen/i) } });
+  }, [models.length]); // eslint-disable-line react-hooks/exhaustive-deps
   return (
     <section className="panel lai">
       <div className="gx-h"><b>Local AI (Ollama)</b><span className="small muted">free, runs on your Mac, nothing leaves it</span><button className="btn" onClick={check}>Check again</button></div>
       <p className="small gx-pad">{!st ? 'Checking…' : 'error' in st ? <span className="down">{st.error}</span> : <span className="up">Connected: {models.length} model{models.length === 1 ? '' : 's'} installed.</span>}</p>
+      <details className="lai-setup" open={!up}><summary className="small gx-pad">Setup steps{up ? " (done)" : ""}</summary>
       <ol className="small lai-steps">
         <li>Install Ollama from <a href="https://ollama.com/download" target="_blank" rel="noreferrer">ollama.com/download</a> and open it.</li>
         <li>Download a small model in Terminal (fits a 16 GB Mac): <code>ollama pull gemma3:4b</code> for news, <code>ollama pull qwen3:8b</code> for math. Check exact names on <a href="https://ollama.com/library" target="_blank" rel="noreferrer">ollama.com/library</a>.</li>
         <li>To use it from the live site, allow this site in Terminal, then quit and reopen Ollama: <code>launchctl setenv OLLAMA_ORIGINS "{SITE}"</code></li>
         <li>Pick a model for each job below. Use Chrome: Safari blocks a secure site from talking to your own computer.</li>
-      </ol>
+      </ol></details>
       <div className="lai-roles">
         <label className="small">Ollama address <input value={cfg.url} onChange={(e) => setAiCfg({ ...cfg, url: e.target.value })} /></label>
         {(Object.keys(ROLE_LABEL) as AiRole[]).map((r) => (
