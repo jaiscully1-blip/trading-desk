@@ -49,7 +49,8 @@ export function prefixVariants(p: string): string[] {
   if (!m) return [`${FIELD}:${p}*`];
   // stored like "G06N   3/0455": the group number right-aligned in 4 characters, so quantum (G06N10) is "G06N  10/..."
   const pad = ' '.repeat(Math.max(0, 4 - m[2].length));
-  return [`${FIELD}:${m[1]}${pad.replace(/ /g, '\\ ')}${m[2]}/*`, `${FIELD}:"${m[1]}${pad}${m[2]}/*"`, `${FIELD}:${p}*`, `${FIELD}:${m[1]}\\ ${m[2]}*`];
+  // '?' = any one character, so the padding spaces never appear in the query (escaped spaces were read as 'match anything')
+  return [`${FIELD}:${m[1]}${'?'.repeat(pad.length)}${m[2]}/*`, `${FIELD}:${m[1]}${pad.replace(/ /g, '\\ ')}${m[2]}/*`, `${FIELD}:"${m[1]}${pad}${m[2]}/*"`, `${FIELD}:${p}*`, `${FIELD}:${m[1]}\\ ${m[2]}*`];
 }
 /** A sub-category count is believable only if it is above zero and below its parent class (G06N10 is part of G06N).
  *  This rejects a spelling the search reads as "match anything". */

@@ -33,7 +33,7 @@ describe('patent radar and watchlist endpoints', () => {
 
   it('rejects a sub-category spelling that matches everything and keeps a plausible one', async () => {
     mock((b) => {
-      if (/G06N\\ \\ 10/.test(b.q)) return ok({ count: 122686 });         // read as "match anything" (live bug)
+      if (/G06N\?\?10/.test(b.q)) return ok({ count: 122686 });         // a spelling that misfires         // read as "match anything" (live bug)
       if (/"G06N  10\/\*"/.test(b.q)) return ok({ count: 410 });          // right spelling
       if (/H10N/.test(b.q)) return ok({ count: 0 });
       return ok({ count: 6403 });

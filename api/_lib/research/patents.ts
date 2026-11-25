@@ -147,7 +147,7 @@ export async function patentradar(): Promise<Response> {
     let q = themeQ(t.cpc, form);
     // sub-category themes (quantum): find the code spelling that matches, once a week
     if (hasGroup(t)) {
-      const kq = `pat:radarq3:${t.id}`;
+      const kq = `pat:radarq4:${t.id}`;
       const known = getCached<string>(kq);
       if (known) q = known.val;
       else if (Date.now() - started < budget) {

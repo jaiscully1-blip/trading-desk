@@ -40,12 +40,13 @@ describe('sub-category spellings', () => {
     const { prefixVariants, hasGroup, RADAR, orQ } = await import('../shared/patentRadar');
     expect(prefixVariants('G06N')).toEqual(['applicationMetaData.cpcClassificationBag:G06N*']);
     expect(prefixVariants('G06N10')).toEqual([
+      'applicationMetaData.cpcClassificationBag:G06N??10/*',
       'applicationMetaData.cpcClassificationBag:G06N\\ \\ 10/*',
       'applicationMetaData.cpcClassificationBag:"G06N  10/*"',
       'applicationMetaData.cpcClassificationBag:G06N10*',
       'applicationMetaData.cpcClassificationBag:G06N\\ 10*',
     ]);
-    expect(prefixVariants('H10N60')[1]).toBe('applicationMetaData.cpcClassificationBag:"H10N  60/*"');
+    expect(prefixVariants('H10N60')[2]).toBe('applicationMetaData.cpcClassificationBag:"H10N  60/*"');
     expect(RADAR.filter(hasGroup).map((t) => t.id)).toEqual(['quantum']);
     expect(orQ(['a', 'b'])).toBe('(a OR b)');
   });
