@@ -111,3 +111,4 @@ function PaceBtn({ session }: { session: ClockState['session'] }) {
   const now = session === 'Regular session' ? 'market open: normal speed' : session === 'Closed' ? 'market closed: refreshing every 15+ min' : `${session.toLowerCase()}: 3× slower`;
   return <button className={`chip sm pace-btn pace-${m}`} onClick={() => setPace(NEXT[m])} title={`Refresh speed: ${PACE_LABEL[m]}. Auto follows market hours (${now}). Fast = twice as fast during the open. Saver = 4× slower, to save free-API budget and battery. Click to switch.`}>{m === 'auto' ? '⏱' : m === 'fast' ? '⚡' : '🌙'} {PACE_LABEL[m]}</button>;
 }
+

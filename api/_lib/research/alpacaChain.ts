@@ -1,8 +1,8 @@
 // Load an option chain from Alpaca (free plan): expiries within 60 days, strikes within ±15% of price.
 import { alpacaToCboe } from '../../../shared/alpacaChain.js';
-import { getJson, key, take } from '../core.js';
+import { alpacaHeaders as H } from '../adapters.js';
+import { getJson, take } from '../core.js';
 
-const H = () => ({ 'APCA-API-KEY-ID': key('alpaca'), 'APCA-API-SECRET-KEY': process.env.ALPACA_SECRET_KEY ?? '' });
 const day = (ms: number) => new Date(ms).toISOString().slice(0, 10);
 
 async function pages(base: string, field: 'snapshots' | 'option_contracts', max = 8): Promise<any> {
@@ -31,4 +31,15 @@ export async function alpacaChain(sym: string): Promise<any> {
       .catch(() => [] as any[]),
   ]);
   return { json: alpacaToCboe(spot, snaps, contracts), hasOi: contracts.length > 0 };
+}
+
+/** Any option chain, parsed: Alpaca first (free key, stocks and ETFs), Cboe as a fallback (indexes, or no Alpaca key). */
+export async function loadChain(sym: string): Promise<import('../../../shared/gamma.js').Chain> {
+  const { parseCboe } = await import('../../../shared/gamma.js');
+  const { hasKey } = await import('../core.js');
+  const idx: Record<string, string> = { SPX: '_SPX', NDX: '_NDX', RUT: '_RUT', VIX: '_VIX' };
+  if (hasKey('alpaca') && !idx[sym]) { try { return parseCboe((await alpacaChain(sym)).json, sym); } catch { /* fall back to Cboe */ } }
+  if (!take('cboe')) throw new Error('Option chain budget used up for now');
+  try { return parseCboe(await getJson(`https://cdn.cboe.com/api/global/delayed_quotes/options/${idx[sym] ?? sym}.json`, 'cboe', 25000), sym); }
+  catch { throw new Error(hasKey('alpaca') ? 'No option chain available right now' : 'Option chains need the free Alpaca keys (ALPACA_KEY_ID, ALPACA_SECRET_KEY): Cboe blocks automated requests'); }
 }

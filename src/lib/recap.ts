@@ -28,6 +28,8 @@ export interface Recap {
   lesson: string;
   /** opened mid-session from /recap; the real one is still generated at the close */
   partial?: boolean;
+  /** the morning check-in, shown next to the day's result */
+  morning?: { sleep: number; mood: number; stress: number; chasing: boolean; note: string; tilt: number }
 }
 
 const LESSONS: Record<ViolationType, string> = {
@@ -87,6 +89,7 @@ export function buildRecap(day: string, views: TradeView[], violations: Violatio
     opened: opened.length, open: opened.filter((v) => v.status === 'open').map((v) => ({ id: v.t.id, sym: v.t.sym })), partialPnl,
     best: pick(byPnl[0]), worst: byPnl.length > 1 ? pick(byPnl[byPnl.length - 1]) : null,
     violations: { n: dv.length, cost, top: top ? VIOLATION_LABEL[top] : null }, grade, score, reasons, lesson,
+    morning: checkin ? { sleep: checkin.sleep, mood: checkin.mood, stress: checkin.stress, chasing: checkin.chasing, note: checkin.note, tilt: checkin.tilt } : undefined,
   };
 }
 

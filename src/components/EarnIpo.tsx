@@ -2,6 +2,7 @@
 // Earnings: by day, biggest companies first, with timing, estimates, and actuals + surprise once reported.
 // IPOs: upcoming / priced / filed / withdrawn, then IPO news (fresh SEC S-1 and 424B4 filings, plus IPO headlines from the desk's news feeds).
 import { CallsList } from './Transcript';
+import { epsStr as eps } from '../lib/format';
 import { Linked } from './Linked';
 import { useMemo, useState, Fragment } from 'react';
 import type { DataMode } from '../data/live';
@@ -23,7 +24,6 @@ const dayLabel = (d: string, today: string) => {
   return t.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' });
 };
 const cap = (v: number | null) => (v == null ? '' : v >= 1e12 ? `$${(v / 1e12).toFixed(2)}T` : v >= 1e9 ? `$${(v / 1e9).toFixed(1)}B` : v >= 1e6 ? `$${(v / 1e6).toFixed(0)}M` : `$${v.toFixed(0)}`);
-const eps = (v: number | null) => (v == null ? '' : `${v < 0 ? '−' : ''}$${Math.abs(v).toFixed(2)}`);
 const rev = (v: number | null) => (v == null ? '' : Math.abs(v) >= 1e9 ? `$${(v / 1e9).toFixed(2)}B` : `$${(v / 1e6).toFixed(0)}M`);
 const WHEN: Record<string, string> = { bmo: 'Before open', amc: 'After close', dmh: 'During day', unknown: '' };
 const shortDate = (d: string) => (d ? new Date(`${d}T12:00:00Z`).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' }) : '');

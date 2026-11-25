@@ -203,7 +203,9 @@ export async function getJson(url: string, provider: Provider, timeoutMs = 8000,
     if (r.status === 429) throw new ProviderError(provider, 'HTTP 429 rate limited', true);
     if (r.status === 401 || r.status === 403) {
       const body = await r.text();
-      throw new ProviderError(provider, `HTTP ${r.status} ${body.slice(0, 120)}`, false, true);
+      // a short reason when the source sends one as JSON; never a page of HTML
+      let why = ''; try { const j = JSON.parse(body); why = String(j.error ?? j.message ?? j.detail ?? '').slice(0, 80); } catch { /* HTML or text */ }
+      throw new ProviderError(provider, r.status === 401 ? `the API key was refused${why ? ` (${why})` : ''}` : `the source is blocking requests (403)${why ? `: ${why}` : ''}`, false, true);
     }
     if (!r.ok) throw new ProviderError(provider, `HTTP ${r.status}`, r.status >= 500);
     const out = await r.json();

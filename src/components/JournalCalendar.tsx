@@ -2,6 +2,7 @@
 // were opened), or switch to the day each was opened. Click a day for its trades, totals and your own note for that day
 // (plan, mood, what you saw, whether you followed your rules). Notes stay in this browser with the rest of the journal.
 import { useMemo, useState } from 'react';
+import { ymdLocal as ymd } from '../lib/format';
 import type { Recap } from '../lib/recap';
 import type { Violation } from '../lib/journal';
 import { journalPatterns, MIN_N } from '../lib/journalPatterns';
@@ -16,7 +17,6 @@ import { JOURNAL_TAGS } from '../../shared/suggest';
 
 export interface DayNote { text: string; tags: string[]; mood?: string; followed?: 'yes' | 'no' | 'partly'; updated: number }
 const MOODS = ['calm', 'confident', 'fomo', 'revenge', 'anxious', 'bored', 'tired'];
-const ymd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 const desc = (v: TradeView) => v.t.opt ? `${v.t.opt.strike}${v.t.opt.type === 'call' ? 'C' : 'P'} ${v.t.opt.expiry.slice(5)}` : `${v.t.side} shares`;
 
 /** Which calendar day a trade belongs to. */

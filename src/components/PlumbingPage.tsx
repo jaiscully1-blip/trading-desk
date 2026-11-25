@@ -2,6 +2,7 @@
 // off-exchange share, borrow fee and availability, fails to deliver, unusual options, buybacks and dilution filings. Market-wide:
 // index rebalance dates, IPO lockups ending, merger votes and tender offers, and a merger-arbitrage spread calculator.
 import { PageHero } from './PageHero';
+import { goPage } from '../lib/deskctx';
 import { useEffect, useMemo, useState } from 'react';
 import type { DataMode } from '../data/live';
 import { usePersisted } from '../lib/store';
@@ -74,7 +75,8 @@ function Ticker({ sym, live }: { sym: string; live: boolean }) {
         </>}
         <p className="note">Shares sold but not delivered on settlement day. Persistent large fails can put a stock on the Reg SHO threshold list.</p>
       </Card>
-      <Card title="Unusual options · Cboe delayed" src="Cboe delayed option chain (~15 min)">
+      <Card title="Unusual options (this ticker)" src="Delayed option chain (~15 min)">
+        <p className="small muted">Full options view (walls, heatmap, flow, volatility): <button className="link" onClick={() => goPage('gamma')}>Gamma &amp; IV →</button></p>
         {d.errors?.options && <p className="small down">{d.errors.options}</p>}
         {o && <>
           <div className="ad-stats"><div className="ad-stat"><span className="ad-k">Contracts traded today</span><b className="num">{big(o.totalVolume)}</b><span className="small muted">put / call {o.putCall?.toFixed(2) ?? '—'}</span></div></div>

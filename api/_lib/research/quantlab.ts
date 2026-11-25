@@ -2,9 +2,9 @@
 // month-end closes (dividend-adjusted when Yahoo has them) for the stock and a fixed factor basket, plus quarterly
 // fundamentals from SEC XBRL filings. Yahoo is unofficial; SEC is official. Cached: factors for 12 h, the stock for 6 h.
 import { parseSecTickers } from '../../../shared/company.js';
+import { loadChain } from './alpacaChain.js';
 import { fundSeries } from '../../../shared/fundseries.js';
 import { inflateRawSync } from 'node:zlib';
-import { parseCboe } from '../../../shared/gamma.js';
 import { impliedMove, reactionDay } from '../../../shared/earnmove.js';
 import { FACTORS, parseFrench, type FFMonth } from '../../../shared/quantlab.js';
 import { CFPB_CO, FDA_EXCLUDE, FDA_FIRM, STEAM_PUBLISHERS, steamIds, LIVE_TICKERS, NHTSA_MFR, STEAM_GAMES, countByQuarter, fdaDate, quarterRange, steamQuarterly, type LiveBlock, type QPoint } from '../../../shared/livefeeds.js';
@@ -192,7 +192,7 @@ export async function qlimpmove(req: Request): Promise<Response> {
   const out = await Promise.all(items.map(async ([s, d, w]) => {
     const sym = s.toUpperCase();
     try {
-      const ch = (await cached(`imp:${sym}`, 1800, async () => parseCboe(await getJson(`https://cdn.cboe.com/api/global/delayed_quotes/options/${sym}.json`, 'cboe', 20000), sym))).val;
+      const ch = (await cached(`imp:${sym}`, 1800, () => loadChain(sym))).val;
       const m = impliedMove(ch, reactionDay(d, w ?? '')); return { sym, date: d, ...(m ?? {}), asOf: ch.asOf };
     } catch (e) { return { sym, date: d, error: (e as Error).message.slice(0, 80) }; }
   }));

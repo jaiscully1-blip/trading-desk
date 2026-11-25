@@ -1,24 +1,13 @@
 // World markets widgets: indices / index futures / FX pairs (with currency strength), trading halts, and index movers.
 // Live data only; demo mode says so instead of showing made-up numbers.
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
+import { usePolledJson } from '../data/apis';
 import type { DataMode } from '../data/live';
 import type { Halt, Mover, Px } from '../../shared/worldmkt';
 import { Fresh, Seg, Spark, Star } from './common';
 
-function useJson<T>(url: string | null, everyMs: number) {
-  const [st, setSt] = useState<{ d: T | null; err: string | null }>({ d: null, err: null });
-  useEffect(() => {
-    if (!url) return;
-    let stop = false;
-    setSt({ d: null, err: null });
-    const go = () => fetch(url).then(async (r) => { const j = await r.json(); if (!stop) setSt(r.ok ? { d: j, err: null } : { d: null, err: j.error ?? `HTTP ${r.status}` }); }).catch((e) => !stop && setSt((s) => (s.d ? s : { d: null, err: String(e) })));
-    go();
-    const id = setInterval(() => { if (!document.hidden) go(); }, everyMs);
-    return () => { stop = true; clearInterval(id); };
-  }, [url, everyMs]);
-  return st;
-}
-const liveOnly = (what: string) => <p className="hw-pad small muted">{what} needs the live desk; nothing is shown in demo mode.</p>;
+const useJson = usePolledJson;
+export const liveOnly = (what: string) => <p className="hw-pad small muted">{what} needs the live desk; nothing is shown in demo mode.</p>;
 const pctTxt = (v: number, d = 2) => `${v >= 0 ? '+' : ''}${v.toFixed(d)}%`;
 
 /* ---------------- indices / futures / FX ---------------- */

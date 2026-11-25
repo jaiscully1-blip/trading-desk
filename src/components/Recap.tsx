@@ -175,6 +175,9 @@ export function RecapOverlay({ recaps, initialDay, onClose, onReplay, csvFor, im
                 {openLine(r) && <><span>Positions</span><b>{openLine(r)}</b></>}
                 <span>Rules broken</span><b className={r.violations.n ? 'down' : 'up'}>{rulesLine(r)}</b>
               </div>
+              <div className="rc-morning"><span className="muted small">THIS MORNING YOU SAID</span>{r.morning
+                ? <p>Sleep {r.morning.sleep}/5 · mood {r.morning.mood}/5 · stress {r.morning.stress}/5{r.morning.chasing ? ' · wanted to make back losses' : ''} · tilt {r.morning.tilt}{r.morning.note ? <> · <i>"{r.morning.note}"</i></> : null}. Result: <b className={r.pnl >= 0 ? 'up' : 'down'}>{r.pnl >= 0 ? '+' : '−'}${Math.abs(r.pnl).toFixed(0)}</b>. Did the day go the way your morning self expected?</p>
+                : <p className="muted">No morning check-in today. Tomorrow the desk opens on it before the bell.</p>}</div>
               <div className="rc-lesson"><span className="muted small">LESSON</span><p>{r.lesson}</p></div>
               <ul className="rc-reasons">{r.reasons.map((x, k) => <li key={k} className="small muted">{x}</li>)}</ul>
             </div>

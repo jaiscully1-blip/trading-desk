@@ -1,7 +1,8 @@
 // Global → US page: how the world is trading, the US-listed funds and ADRs that carry it into US hours, how each
 // market's day has lined up with SPY over two years, and world business headlines tagged by region and US ticker.
 // History, not a forecast; nothing here says to buy or sell.
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
+import { usePolledJson } from '../data/apis';
 import { CarryGlobal } from './XAsset';
 import { Linked } from './Linked';
 import type { DataMode } from '../data/live';
@@ -16,18 +17,7 @@ interface GlobalData {
   overnight: string; futures: Quote | null; asOf: number; source: string;
 }
 
-function useJson<T>(url: string | null, everyMs: number) {
-  const [st, setSt] = useState<{ d: T | null; err: string | null }>({ d: null, err: null });
-  useEffect(() => {
-    if (!url) return;
-    let stop = false;
-    const go = () => fetch(url).then(async (r) => { const j = await r.json(); if (!stop) setSt(r.ok ? { d: j, err: null } : (s) => ({ d: s.d, err: j.error ?? `HTTP ${r.status}` })); }).catch((e) => !stop && setSt((s) => ({ d: s.d, err: s.d ? null : String(e) })));
-    go();
-    const id = setInterval(() => { if (!document.hidden) go(); }, everyMs);
-    return () => { stop = true; clearInterval(id); };
-  }, [url, everyMs]);
-  return st;
-}
+const useJson = usePolledJson;
 const pct = (v: number | null | undefined, d = 2) => (v == null ? '—' : `${v >= 0 ? '+' : ''}${v.toFixed(d)}%`);
 const tone = (v: number | null | undefined) => (v == null ? 'muted' : v >= 0 ? 'up' : 'down');
 const ago = (t: number) => { const m = Math.round((Date.now() - t) / 60_000); return m < 60 ? `${m}m` : m < 1440 ? `${Math.round(m / 60)}h` : `${Math.round(m / 1440)}d`; };

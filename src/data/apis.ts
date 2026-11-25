@@ -49,3 +49,17 @@ export function moveColor(v: number | null | undefined, sat = 3): string {
   const a = Math.min(1, Math.abs(v) / sat);
   return `color-mix(in srgb, ${v >= 0 ? 'var(--up)' : 'var(--down)'} ${Math.round(18 + a * 72)}%, #2b3038)`;
 }
+
+/** Fetch JSON and refresh it every `everyMs` (market-hours paced; hidden tabs skip). Keeps the last good data on an error. */
+export function usePolledJson<T>(url: string | null, everyMs: number): { d: T | null; err: string | null } {
+  const [st, setSt] = useState<{ d: T | null; err: string | null }>({ d: null, err: null });
+  useEffect(() => {
+    if (!url) return;
+    let stop = false;
+    const go = () => fetch(url).then(async (r) => { const j = await r.json(); if (!stop) setSt(r.ok ? { d: j, err: null } : (s) => ({ d: s.d, err: j.error ?? `HTTP ${r.status}` })); }).catch((e) => !stop && setSt((s) => ({ d: s.d, err: s.d ? null : String(e) })));
+    go();
+    const id = setInterval(() => { if (!document.hidden) go(); }, paceMs(everyMs));
+    return () => { stop = true; clearInterval(id); };
+  }, [url, everyMs]);
+  return st;
+}

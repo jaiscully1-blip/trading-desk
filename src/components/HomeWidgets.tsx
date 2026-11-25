@@ -1,5 +1,7 @@
 // Home page widgets. Each gets its saved config (cfg) and a setter, plus the shared desk data.
 import { AlertsW } from './AlertsW';
+import { goPage } from '../lib/deskctx';
+import { cssVar } from '../lib/format';
 import { Linked } from './Linked';
 import { FundCharts } from './FundCharts';
 import { AnalysisW, TrendingW } from './AnalysisW';
@@ -65,7 +67,6 @@ import BennerW from './BennerW';
 function BennerWidget({ d }: P) { return <BennerW now={d.now} />; }
 function LeverageW({ d }: P) { return <LeverageCheck equity={d.equity ?? null} />; }
 function RulesW({ d, cfg, set }: P) { return <RulesInner r={d.rules} now={d.now} cfg={cfg} set={set} />; }
-const cssVar = (n: string) => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
 
 /* ---------------- stock: quote + mini chart + its news ---------------- */
 function MiniChart({ sym, tf, d }: { sym: string; tf: TF; d: HomeData }) {
@@ -253,7 +254,7 @@ export function TrendingHomeW({ d }: P) {
   return <TrendingW mode={d.mode} onChart={d.onChart} />;
 }
 export function OptActiveHomeW({ d }: P) {
-  return <OptActiveW mode={d.mode} onChart={d.onChart} />;
+  return <><OptActiveW mode={d.mode} onChart={d.onChart} /><p className="small muted hw-pad"><button className="link" onClick={() => goPage('gamma')}>Full options view on Gamma &amp; IV →</button></p></>;
 }
 export function RatesHomeW({ d }: P) {
   return <RatesW mode={d.mode} />;
@@ -274,7 +275,7 @@ export function HousingHomeW({ d }: P) {
   return <HousingW mode={d.mode} />;
 }
 export function HighSiHomeW({ d }: P) {
-  return <HighSiW mode={d.mode} onChart={d.onChart} mine={new Set(Object.keys(d.quotes))} />;
+  return <><HighSiW mode={d.mode} onChart={d.onChart} mine={new Set(Object.keys(d.quotes))} /><p className="small muted hw-pad"><button className="link" onClick={() => goPage('plumbing')}>Short interest, borrow and squeeze data on Shorts &amp; Supply →</button></p></>;
 }
 
 export function TapeHomeW({ d, cfg, set }: P) {

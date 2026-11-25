@@ -1,6 +1,7 @@
 // Journal -> Crypto: BTC and ETH candles that refresh on their own (Binance public market data through /api/candles, 24/7, keyless).
 // Market data only: nothing here can trade.
 import { useEffect, useRef, useState } from 'react';
+import { cssVar } from '../lib/format';
 import { CandlestickSeries, ColorType, CrosshairMode, HistogramSeries, createChart, type IChartApi, type ISeriesApi, type UTCTimestamp } from 'lightweight-charts';
 import { usePersisted } from '../lib/store';
 import { Fresh, Seg } from './common';
@@ -9,7 +10,6 @@ type TF = '15m' | '1H' | 'D' | 'W';
 interface Bar { time: number; open: number; high: number; low: number; close: number; volume?: number }
 const SYMS = ['BTC-USD', 'ETH-USD'] as const;
 const REFRESH_MS = 30_000;
-const cssVar = (n: string) => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
 const money = (n: number) => `$${n >= 1000 ? n.toLocaleString('en-US', { maximumFractionDigits: 0 }) : n.toFixed(2)}`;
 
 function CryptoChart({ sym, tf }: { sym: string; tf: TF }) {

@@ -41,7 +41,7 @@ export interface Layout {
   tf: ChartTF;
   tickerOpen: boolean;
   levelsOpen?: boolean;
-  fearOpen?: boolean;
+  fearOpen?: boolean; todayOpen?: boolean;
 }
 
 export interface JournalDraft {

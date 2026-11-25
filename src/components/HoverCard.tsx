@@ -10,7 +10,7 @@ import { prefetchCompany } from '../data/company';
 
 const SEL = '[data-sym], .sym-chip, .wl-row, .wl-sym, .msg-sym, .dx-row, .dx-wrow, .am-ix';
 const SYM = /^[A-Z][A-Z0-9.\-]{0,9}$/;
-function symOf(el: HTMLElement): string | null {
+export function symOf(el: HTMLElement): string | null {
   const s = (el.dataset.sym || el.querySelector<HTMLElement>('.wl-sym, .dx-sym, b')?.textContent || el.textContent || '').trim().split(/\s/)[0].toUpperCase();
   return SYM.test(s) ? s : null;
 }

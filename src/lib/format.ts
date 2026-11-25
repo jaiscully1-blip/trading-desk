@@ -8,3 +8,10 @@ export const usd = (n: number, dp = 0) =>
 export const sUsd = (n: number) => { if (!ok(n)) return '—'; const r = Math.round(Math.abs(n)); return r === 0 ? '$0' : `${n > 0 ? '+' : '-'}$${r.toLocaleString('en-US')}`; };
 export const big = (n: number) => (!ok(n) ? '—' : n >= 1e9 ? `${(n / 1e9).toFixed(1)}B` : n >= 1e6 ? `${(n / 1e6).toFixed(1)}M` : n >= 1e3 ? `${(n / 1e3).toFixed(0)}K` : `${n}`);
 export const tone = (n: number) => (n > 0 ? 'up' : n < 0 ? 'down' : '');
+
+/** a CSS custom property's current value (theme colors for canvas / chart libraries) */
+export const cssVar = (n: string) => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+/** local calendar day YYYY-MM-DD */
+export const ymdLocal = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+/** EPS as money, blank when missing */
+export const epsStr = (v: number | null) => (v == null ? '' : `${v < 0 ? '−' : ''}$${Math.abs(v).toFixed(2)}`);

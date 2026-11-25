@@ -3,12 +3,13 @@
 //   fn=halts                         trading halts and volatility pauses today (Nasdaq Trader RSS, official, covers all US listings)
 //   fn=idxmovers&index=spx|ndx       which stocks added or took away the most from the index today (cap-weighted approximation)
 import { COMPANIES } from '../../../shared/data/companies.js';
+import { loadChain } from './alpacaChain.js';
 import { FUTURES, FX_PAIRS, WORLD_INDICES, currencyStrength, fxFromFrankfurter, indexMovers, parseHalts, parseNdxList, parseSparkPx, type Px } from '../../../shared/worldmkt.js';
 import { etToUtc } from '../../../shared/clock.js';
 import { fredHistory, getText } from '../adapters.js';
 import { cached, getJson, hasKey, json, take, ttl } from '../core.js';
 import { ACTIVE_UNDERLYINGS, CURVE, RATES, at, chainActivity, mostActive, parseHyperliquid, yieldCurve } from '../../../shared/optrates.js';
-import { parseCboe, type Chain } from '../../../shared/gamma.js';
+import type { Chain } from '../../../shared/gamma.js';
 import { YH_HEADERS } from '../yahoo.js';
 import { snapshot } from './markets.js';
 
@@ -74,14 +75,11 @@ export async function optactive(): Promise<Response> {
   const chains: Chain[] = [], missed: string[] = [];
   for (const s of ACTIVE_UNDERLYINGS) {
     try {
-      const { val } = await cached(`optact:${s}`, ttl(1800, 4 * 3600), async () => {
-        if (!take('cboe')) throw new Error('Cboe request budget used up for now');
-        return parseCboe(await getJson(`https://cdn.cboe.com/api/global/delayed_quotes/options/${s}.json`, 'cboe', 25000), s);
-      });
+      const { val } = await cached(`optact:${s}`, ttl(1800, 4 * 3600), () => loadChain(s));
       chains.push(val);
     } catch { missed.push(s); }
   }
-  if (!chains.length) return json({ error: 'No option chains loaded (Cboe budget or network).', missed }, { status: 502 });
+  if (!chains.length) return json({ error: 'No option chains loaded (needs the free Alpaca keys; Cboe blocks automated requests).', missed }, { status: 502 });
   return json({ top: mostActive(chains), names: chains.map(chainActivity).sort((a, b) => b.volume - a.volume), missed, asOf: Date.now(), source: 'Cboe delayed option chains (~15 min delayed), re-read at most every 30 minutes' }, { sMaxAge: 300 });
 }
 

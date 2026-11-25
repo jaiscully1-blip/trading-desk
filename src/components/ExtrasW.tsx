@@ -1,22 +1,12 @@
 // Home widgets for the free sources added in Nov 2026: housing (Zillow Research), the most-shorted listed stocks
 // (FINRA + SEC), and a bitcoin network strip (mempool.space). Live data only; nothing is made up in demo mode.
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
+import { usePolledJson } from '../data/apis';
 import type { DataMode } from '../data/live';
 import type { BtcNet, HighSi, HousingSeries } from '../../shared/extras';
 import { Fresh, Spark, Star } from './common';
 
-function useJson<T>(url: string | null, everyMs: number) {
-  const [st, setSt] = useState<{ d: T | null; err: string | null }>({ d: null, err: null });
-  useEffect(() => {
-    if (!url) return;
-    let stop = false;
-    const go = () => fetch(url).then(async (r) => { const j = await r.json(); if (!stop) setSt(r.ok ? { d: j, err: null } : { d: null, err: j.error ?? `HTTP ${r.status}` }); }).catch((e) => !stop && setSt({ d: null, err: String(e) }));
-    go();
-    const id = setInterval(() => { if (!document.hidden) go(); }, everyMs);
-    return () => { stop = true; clearInterval(id); };
-  }, [url, everyMs]);
-  return st;
-}
+const useJson = usePolledJson;
 const big = (v: number) => (v >= 1e6 ? `${(v / 1e6).toFixed(2)}M` : v >= 1e3 ? `${(v / 1e3).toFixed(0)}K` : v.toFixed(0));
 
 /* ---------------- housing ---------------- */

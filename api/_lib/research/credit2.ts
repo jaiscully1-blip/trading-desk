@@ -2,6 +2,7 @@
 // GET /api/research?fn=credlook&q=Oracle Corp&ticker=ORCL -> which funds (N-PORT) and lenders (10-Q/10-K, incl. BDCs) mention a
 // name, its debt from SEC filings and a Merton distance to default. Free sources; FRED and SEC need the keys already set.
 import { COT, LADDER, MOODYS, PROXIES, annVol, deltas, divergence, merton, pctChg } from '../../../shared/credit2.js';
+import { secHeaders as SEC_H } from '../adapters.js';
 import { parseFredSeries } from '../../../shared/parse.js';
 import { parseSpark } from '../../../shared/distressGather.js';
 import { cached, getJson, hasKey, json, key, take } from '../core.js';
@@ -43,7 +44,6 @@ export async function credit2(): Promise<Response> {
   return json({ ...val, asOf: Date.now(), source: "FRED (ICE BofA indices by rating, Moody's Aaa/Baa yields), ETF prices from Yahoo Finance (unofficial), CFTC Traders in Financial Futures" }, { sMaxAge: 1800 });
 }
 
-const SEC_H = () => ({ 'user-agent': key('sec'), 'accept-encoding': 'gzip, deflate' });
 const day = (n: number) => new Date(Date.now() - n * 86400_000).toISOString().slice(0, 10);
 async function efts(q: string, forms: string, fromDays: number) {
   if (!take('sec')) throw new Error('rate limited');

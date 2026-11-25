@@ -1,13 +1,13 @@
 // Drawing tools for the Patterns chart: an SVG layer over the chart plus a small toolbar. Drawings are saved per ticker and
 // timeframe in this browser, follow zoom and scroll, and are included in "Save image".
 import { useEffect, useRef, useState, type MutableRefObject, type PointerEvent as RPE, type ReactNode } from 'react';
+import { cssVar } from '../lib/format';
 import type { IChartApi, ISeriesApi, Logical } from 'lightweight-charts';
 import { NEEDS, geom, uid, type Ink, type Pt, type Prim, type Shape, type Tool } from '../../shared/drawings';
 import { usePersisted } from '../lib/store';
 import { px as fmtPx } from '../lib/format';
 import type { Bar } from '../types';
 
-const cssVar = (n: string) => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
 const INKS: { id: Ink; v: string; label: string }[] = [{ id: 'accent', v: '--accent', label: 'Yellow' }, { id: 'up', v: '--up', label: 'Green' }, { id: 'down', v: '--down', label: 'Red' }, { id: 'text', v: '--text', label: 'White' }, { id: 'demo', v: '--demo', label: 'Violet' }];
 const inkColor = (i: Ink) => cssVar(INKS.find((x) => x.id === i)!.v) || '#ffd24a';
 const TOOLS: { id: Tool; icon: string; label: string; hint: string }[] = [

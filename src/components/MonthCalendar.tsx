@@ -3,6 +3,7 @@
 // tickers starred and sorted first, company logos on earnings, today glowing. Click a company for its peek, any other
 // event for what it is and why it matters, or a day for everything on it.
 import { useEffect, useMemo, useState } from 'react';
+import { ymdLocal as ymd } from '../lib/format';
 import type { EarnItem, IpoItem } from '../../shared/eventsCal';
 import type { EconEvent } from '../data/news';
 import { FOMC } from '../../shared/calendar';
@@ -24,7 +25,6 @@ type Kind = 'earn' | 'econ' | 'fed' | 'ipo' | 'hol' | 'day';
 interface Ev { kind: Kind; key: string; label: string; sub?: string; sym?: string; mine?: boolean; big?: boolean; time?: string; move?: number; result?: 'beat' | 'miss'; rank: number; run: () => void }
 const KINDS: { k: Kind; label: string }[] = [{ k: 'earn', label: 'Earnings' }, { k: 'econ', label: 'Economy' }, { k: 'fed', label: 'Fed' }, { k: 'ipo', label: 'IPOs' }, { k: 'hol', label: 'Holidays' }, { k: 'day', label: 'Special days' }];
 const WHEN: Record<string, string> = { bmo: 'before open', amc: 'after close', dmh: 'during market' };
-const ymd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 const cap = (v: number | null) => (v == null ? '' : v >= 1e12 ? `$${(v / 1e12).toFixed(1)}T` : v >= 1e9 ? `$${(v / 1e9).toFixed(0)}B` : `$${(v / 1e6).toFixed(0)}M`);
 
 /** How market-moving a day looks: Fed and top-tier releases weigh most, then big and your own reports, measured special

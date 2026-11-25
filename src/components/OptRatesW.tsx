@@ -1,6 +1,7 @@
 // Widgets: most active options (Cboe delayed chains of the busiest underlyings), Treasury yield curve and rates (FRED),
 // crypto perpetual funding (Hyperliquid). Live data only. No call / put suggestions: these show where trading happened.
 import { useEffect, useState } from 'react';
+import { liveOnly } from './WorldMktW';
 import type { DataMode } from '../data/live';
 import type { ActiveOpt, CurvePoint, Perp } from '../../shared/optrates';
 import { Fresh, Seg } from './common';
@@ -20,7 +21,6 @@ function useJson<T>(url: string | null, everyMs: (d: T | null) => number) {
   }, [url]); // eslint-disable-line react-hooks/exhaustive-deps
   return st;
 }
-const liveOnly = (what: string) => <p className="hw-pad small muted">{what} needs the live desk; nothing is shown in demo mode.</p>;
 const money = (v: number) => (v >= 1e9 ? `$${(v / 1e9).toFixed(1)}B` : v >= 1e6 ? `$${(v / 1e6).toFixed(1)}M` : `$${Math.round(v / 1e3)}K`);
 const k = (x: number) => (Number.isInteger(x) ? String(x) : x.toFixed(1));
 
