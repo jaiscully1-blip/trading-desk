@@ -7,7 +7,7 @@ import { downloadDesk, exportDesk, importDesk, parseDeskFile, type DeskFile } fr
 import { currentAccount, initials, isOwner, leave, makeOwner, verifyDeskPassword } from '../lib/accounts';
 
 export type Page = 'morning' | 'home' | 'messages' | 'desk' | 'patterns' | 'company' | 'scanner' | 'map' | 'flows' | 'smart' | 'etfs' | 'gamma' | 'odds' | 'journal' | 'calendar' | 'status' | 'distress' | 'insiders' | 'credit' | 'mtf' | 'global' | 'news' | 'essay' | 'tesla' | 'altdata' | 'realecon' | 'plumbing' | 'policy' | 'learn' | 'crypto' | 'quant' | 'cmap' | 'weekly' | 'ai';
-export type GroupId = 'today' | 'charts' | 'scan' | 'flow' | 'alt' | 'ai' | 'journal';
+export type GroupId = 'today' | 'charts' | 'scan' | 'flow' | 'alt' | 'sys' | 'journal';
 
 /** 24x24 stroke paths (own drawings, simple shapes) */
 const ICON: Record<Page | 'account', string> = {
@@ -82,9 +82,9 @@ export const NAV_GROUPS: { id: GroupId; label: string; pages: Page[] }[] = [
   { id: 'today', label: 'Today', pages: ['morning', 'home', 'news', 'messages', 'calendar'] },
   { id: 'charts', label: 'Charts', pages: ['desk', 'mtf', 'patterns', 'company', 'crypto'] },
   { id: 'scan', label: 'Scan', pages: ['scanner', 'flows', 'etfs', 'insiders', 'plumbing', 'credit', 'distress'] },
-  { id: 'flow', label: 'Flow and risk', pages: ['global', 'policy', 'gamma', 'cmap', 'status'] },
+  { id: 'flow', label: 'Flow and risk', pages: ['global', 'policy', 'gamma', 'cmap'] },
   { id: 'alt', label: 'Alt data', pages: ['altdata', 'quant', 'tesla', 'realecon'] },
-  { id: 'ai', label: 'AI', pages: ['ai'] },
+  { id: 'sys', label: 'Data & AI', pages: ['status', 'ai'] },
   { id: 'journal', label: 'Journal', pages: ['journal', 'weekly', 'essay', 'learn'] },
 ];
 export const pageGroup = (p: Page): GroupId => NAV_GROUPS.find((g) => g.pages.includes(p))?.id ?? 'today';
