@@ -18,12 +18,13 @@ describe('patent radar and watchlist endpoints', () => {
   afterEach(() => { process.env = { ...env }; vi.unstubAllGlobals(); });
 
   it('picks the prefix form that finds results, then counts every theme with top filers', async () => {
-    const bodies = mock((b) => (/:"/.test(b.q) ? ok({ count: 0 }) : ok({ count: 10, facets: [{ field: 'f', values: [{ value: 'NVIDIA Corporation', count: 4 }] }] })));
+    const bodies = mock((b) => (/cpcClassificationBag:"/.test(b.q) ? ok({ count: 0 }) : ok({ count: 10, facets: [{ field: 'f', values: [{ value: 'NVIDIA Corporation', count: 4 }] }] })));
     const { patentradar } = await import('../api/_lib/research/patents');
     const j = await (await patentradar()).json();
     expect(j.form).toBe('wild');
     expect(j.complete).toBe(true);
     expect(j.themes.length).toBe(25);
+    expect(j.base).toEqual({ cur: { published: 10, granted: 10 }, prev: { published: 10, granted: 10 } });
     expect(j.themes[0]).toMatchObject({ id: 'ai', cur: { published: 10, granted: 10 }, prev: { published: 10, granted: 10 }, top: [{ name: 'NVIDIA Corporation', n: 4 }] });
     expect(bodies.filter((b) => b.facets).length).toBe(25);
   });

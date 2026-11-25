@@ -34,3 +34,18 @@ describe('patent radar', () => {
     expect(change(null, 3)).toBeNull();
   });
 });
+
+describe('sub-category spellings', () => {
+  it('tries spaced and slashed forms for group-level codes only', async () => {
+    const { prefixVariants, hasGroup, RADAR, orQ } = await import('../shared/patentRadar');
+    expect(prefixVariants('G06N')).toEqual(['applicationMetaData.cpcClassificationBag:G06N*']);
+    expect(prefixVariants('G06N10')).toEqual([
+      'applicationMetaData.cpcClassificationBag:G06N10*',
+      'applicationMetaData.cpcClassificationBag:G06N\\ 10*',
+      'applicationMetaData.cpcClassificationBag:"G06N 10/*"',
+      'applicationMetaData.cpcClassificationBag:G06N10/*',
+    ]);
+    expect(RADAR.filter(hasGroup).map((t) => t.id)).toEqual(['quantum']);
+    expect(orQ(['a', 'b'])).toBe('(a OR b)');
+  });
+});

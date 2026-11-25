@@ -41,6 +41,23 @@ export function themeQ(cpc: string[], form: CpcForm): string {
   return cpc.length === 1 ? one(cpc[0]) : `(${cpc.map(one).join(' OR ')})`;
 }
 
+/** Sub-category codes (e.g. G06N10 = quantum computing) are stored as "G06N 10/40", with a space, which a plain prefix
+ *  does not reach. These are the spellings tried, in order, for a prefix with a group number; the first that finds
+ *  anything is kept. Class-level prefixes (G06N, H01M) need no variants. */
+export function prefixVariants(p: string): string[] {
+  const m = /^([A-HY]\d{2}[A-Z])(\d+)$/.exec(p);
+  if (!m) return [`${FIELD}:${p}*`];
+  return [`${FIELD}:${p}*`, `${FIELD}:${m[1]}\\ ${m[2]}*`, `${FIELD}:"${m[1]} ${m[2]}/*"`, `${FIELD}:${m[1]}${m[2]}/*`];
+}
+export const hasGroup = (t: Theme) => t.cpc.some((p) => /^[A-HY]\d{2}[A-Z]\d+$/.test(p));
+/** Query for a theme with one chosen spelling per prefix. */
+export const orQ = (parts: string[]) => (parts.length === 1 ? parts[0] : `(${parts.join(' OR ')})`);
+
+/** Baseline: every US utility patent (the Utility filter is applied to every radar query anyway). */
+export const BASELINE_Q = 'applicationMetaData.applicationTypeLabelName:"Utility"';
+/** A theme's change minus the overall change, in percentage points: positive = gaining share of all patenting. */
+export const relChange = (theme: number | null, base: number | null): number | null => (theme == null || base == null ? null : theme - base);
+
 export interface Window { from: string; to: string }
 const day = (d: Date) => d.toISOString().slice(0, 10);
 /** Last 90 days ending yesterday, and the same 90 days one year earlier. */
