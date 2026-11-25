@@ -29,11 +29,7 @@ export function TopStrip({
   onWorld,
   live,
   onCmd,
-  checkin,
-  onCheckIn,
 }: {
-  checkin?: import('../lib/journal').CheckIn;
-  onCheckIn?: () => void;
   account: { guard: Guard; settings: AccountSettings; demo: boolean; demoPrices: boolean };
   marketSource?: string;
   quoteFresh: Freshness;
@@ -82,7 +78,6 @@ export function TopStrip({
       <div className="top-group right tz-you">
         <WorldClock nyClosed={!!clk.holiday} onOpen={onWorld ?? (() => {})} />
         <PaceBtn session={clk.session} />
-        {onCheckIn && <CheckPill checkin={checkin} onOpen={onCheckIn} weekend={clk.et.wd === 0 || clk.et.wd === 6 || !!clk.holiday} />}
         <button className={`acct ${accountOpen ? 'on' : ''}`} onClick={onAccount} title="Account drawer (A)" data-key="A">
           {account.settings.startBalance == null ? (
             <span className="muted">Set starting balance →</span>
@@ -117,10 +112,3 @@ function PaceBtn({ session }: { session: ClockState['session'] }) {
   return <button className={`chip sm pace-btn pace-${m}`} onClick={() => setPace(NEXT[m])} title={`Refresh speed: ${PACE_LABEL[m]}. Auto follows market hours (${now}). Fast = twice as fast during the open. Saver = 4× slower, to save free-API budget and battery. Click to switch.`}>{m === 'auto' ? '⏱' : m === 'fast' ? '⚡' : '🌙'} {PACE_LABEL[m]}</button>;
 }
 
-/** Quiet morning check-in status: a dot until it's done, then a one-line summary. No points, no streaks. */
-function CheckPill({ checkin, onOpen, weekend }: { checkin?: import('../lib/journal').CheckIn; onOpen: () => void; weekend: boolean }) {
-  if (weekend && !checkin) return null;
-  return checkin
-    ? <button className="chip sm ci-pill done" onClick={onOpen} title={`Today's check-in: sleep ${checkin.sleep}/5, mood ${checkin.mood}/5, stress ${checkin.stress}/5${checkin.note ? ` · ${checkin.note}` : ''}. Click to edit.`}>✓ Check-in · tilt {checkin.tilt}</button>
-    : <button className="chip sm ci-pill" onClick={onOpen} title="Today's 20-second check-in (sleep, mood, stress) sets your size for the day">● Check-in</button>;
-}

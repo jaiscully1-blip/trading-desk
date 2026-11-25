@@ -26,6 +26,7 @@ import { Watchlist, orderedWatchlist } from './components/Watchlist';
 import { mostTraded, topTraded } from './lib/mostTraded';
 import { LevelsPanel, type LevelCol } from './components/Levels';
 import { RightRail, type NewsFilter } from './components/RightRail';
+import { TodayStrip } from './components/TodayStrip';
 import { CheckInDialog, OpenPositions, RiskPanel, TradeTicket, uid } from './components/Trading';
 import { download } from './lib/download';
 import { DEFAULT_RULES, type ExitRules } from './lib/replay';
@@ -772,6 +773,7 @@ export default function App() {
     { id: 'fed', label: 'Fed meeting countdown and rate odds', run: () => setPage('calendar') },
     { id: 'earnings', label: 'Earnings calendar', run: () => setPage('calendar') },
     { id: 'fear', label: 'Show/hide fear strip', hint: 'F', run: () => setLayout({ fearOpen: layout.fearOpen === false }) },
+    { id: 'todaystrip', label: 'Show/hide Today strip (check-in, loss room, next event, earnings, positions)', run: () => setLayout({ todayOpen: layout.todayOpen === false }) },
     { id: 'crypto', label: 'BTC / ETH: live Bitcoin and Ethereum charts (24/7)', run: () => setPage('crypto') },
     { id: 'learn', label: 'Learn: strategies and their history, YouTube channels, books, papers, glossary, flashcards, learning path, chart game', run: () => setPage('learn') },
     { id: 'cmap', label: 'World Monitor: agency feeds (USGS, NOAA, Red Cross, WHO, CDC, FDA, SEC, Fed, State, CISA, FAA, UN), US drought and disaster map, world map, agency directory', hint: '', run: () => setPage('cmap') },
@@ -1087,14 +1089,17 @@ export default function App() {
       {focus && <button className="focus-chip" onClick={toggleFocus} title="Bring the side bars back (Z)">Focus mode · Z to exit</button>}
       <SideNav compact={iconRail} page={page} onPage={setPage} dataState={dataMode.kind} onCmd={() => setCmdOpen(true)} onHelp={() => setOverlay('help')} onAccount={() => setDrawer((d) => !d)} onCalm={() => setCalm(true)} />
       <div className={`app ${layout.tickerOpen ? '' : 'no-ticker'} ${layout.fearOpen !== false ? 'has-fear' : ''}`}>
+        <div className="top-wrap">
         <TopStrip
           movement={movement} vol={vol} moveStats={dayStats}
           quotes={quotes} clk={clk} mode={mode} override={override} onOverride={setOverride} onSelect={setSel}
-          onAccount={() => setDrawer((d) => !d)} accountOpen={drawer} theme={theme} onTheme={toggleTheme} onCmd={() => setCmdOpen(true)} onWorld={() => { setWmStart('world'); setPage('cmap'); }} checkin={checkin} onCheckIn={() => setCiOpen(true)}
+          onAccount={() => setDrawer((d) => !d)} accountOpen={drawer} theme={theme} onTheme={toggleTheme} onCmd={() => setCmdOpen(true)} onWorld={() => { setWmStart('world'); setPage('cmap'); }}
           account={{ guard: g, settings, demo: views.some((v) => v.t.demo), demoPrices }}
           marketSource={market?.status?.source}
           quoteFresh={quoteFresh} quoteAsOf={live ? qs?.asOf : DEMO_AT} quoteSource={live ? qs?.source : 'Generated sample quotes'} macro={macro} live={live}
         />
+        {layout.todayOpen !== false && <TodayStrip checkin={checkin} onCheckIn={() => setCiOpen(true)} guard={g} settings={settings} cal={cal} views={views} today={today} now={now} onPage={(p) => setPage(p)} onChart={toDesk} />}
+        </div>
         {layout.fearOpen !== false && <FearStrip macro={macro} quotes={quotes} live={live} />}
         {body}
         {layout.tickerOpen && <NewsTicker headlines={news.items} fresh={news.freshness} asOf={news.asOf} boards={boards} watchOnly={watchOnly} setWatchOnly={setWatchOnly} onSelect={setSel} />}
