@@ -43,7 +43,7 @@ export function AskLocal({ title, text, src }: { title: string; text: string; sr
   const [out, setOut] = useState(''), [err, setErr] = useState(''), [busy, setBusy] = useState(false);
   const ab = useRef<AbortController | null>(null);
   useEffect(() => () => ab.current?.abort(), []);
-  if (!cfg.models.news) return <p className="small muted">Local AI: pick a model on the Data status page to summarize here (free, on your Mac).</p>;
+  if (!cfg.models.news) return <p className="small muted">Local AI: pick a model on the AI page to summarize here (free, on your Mac).</p>;
   const go = () => { ab.current?.abort(); ab.current = new AbortController(); setBusy(true); setErr(''); setOut('');
     askLocal('news', SYS, `Source: ${src}\nHeadline: ${title}\nText: ${text || '(no text, headline only)'}`, setOut, ab.current.signal).catch((e) => setErr(String(e.message ?? e))).finally(() => setBusy(false)); };
   return (

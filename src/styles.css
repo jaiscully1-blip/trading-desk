@@ -3732,3 +3732,16 @@ img, a, svg { -webkit-user-drag: none; }
 /* explainable things: plain arrow, they just turn the accent color on hover */
 .coname:hover, .cg-name:hover, .term:hover, .sc-wrap:hover { color: var(--accent); }
 .lean:hover, .q:hover { box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 60%, transparent); }
+
+/* AI page */
+.ai-page { display: grid; gap: 12px; align-content: start; }
+.ai-grid { display: grid; gap: 14px; }
+.ai-card h4 { margin: 0 0 6px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.ai-t { display: grid; }
+.ai-r { display: grid; grid-template-columns: minmax(160px, 1.6fr) 80px 100px 110px 110px minmax(110px, 1fr); gap: 10px; padding: 7px 0; border-top: 1px solid var(--line, rgba(255,255,255,.08)); align-items: center; }
+.ai-r.ai-o { grid-template-columns: minmax(190px, 1.2fr) 190px 1.6fr; }
+.ai-r.ai-b { grid-template-columns: minmax(180px, 1fr) 190px 2.4fr; }
+.ai-h { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); border-top: 0; }
+@media (max-width: 760px) { .ai-r, .ai-r.ai-o, .ai-r.ai-b { grid-template-columns: 1fr 1fr; } .ai-h { display: none; } }
+.ai-page { overflow-y: auto; min-height: 0; padding-right: 2px; }
+.ai-page > .panel { flex: none; min-height: auto; overflow: visible; height: auto; }

@@ -6,8 +6,8 @@ import { createPortal } from 'react-dom';
 import { downloadDesk, exportDesk, importDesk, parseDeskFile, type DeskFile } from '../lib/deskfile';
 import { currentAccount, initials, isOwner, leave, makeOwner, verifyDeskPassword } from '../lib/accounts';
 
-export type Page = 'morning' | 'home' | 'messages' | 'desk' | 'patterns' | 'company' | 'scanner' | 'map' | 'flows' | 'smart' | 'etfs' | 'gamma' | 'odds' | 'journal' | 'calendar' | 'status' | 'distress' | 'insiders' | 'credit' | 'mtf' | 'global' | 'news' | 'essay' | 'tesla' | 'altdata' | 'realecon' | 'plumbing' | 'policy' | 'learn' | 'crypto' | 'quant' | 'cmap' | 'weekly';
-export type GroupId = 'today' | 'charts' | 'scan' | 'flow' | 'alt' | 'journal';
+export type Page = 'morning' | 'home' | 'messages' | 'desk' | 'patterns' | 'company' | 'scanner' | 'map' | 'flows' | 'smart' | 'etfs' | 'gamma' | 'odds' | 'journal' | 'calendar' | 'status' | 'distress' | 'insiders' | 'credit' | 'mtf' | 'global' | 'news' | 'essay' | 'tesla' | 'altdata' | 'realecon' | 'plumbing' | 'policy' | 'learn' | 'crypto' | 'quant' | 'cmap' | 'weekly' | 'ai';
+export type GroupId = 'today' | 'charts' | 'scan' | 'flow' | 'alt' | 'ai' | 'journal';
 
 /** 24x24 stroke paths (own drawings, simple shapes) */
 const ICON: Record<Page | 'account', string> = {
@@ -35,6 +35,7 @@ const ICON: Record<Page | 'account', string> = {
   realecon: 'M2 17l5-5 4 3 7-8 M14 7h4v4 M3 21h18',
   cmap: 'M3 6l6-3 6 3 6-3v15l-6 3-6-3-6 3z M9 3v15 M15 6v15',
   weekly: 'M4 5h16v15H4z M4 9h16 M8 3v4 M16 3v4 M7 13h2 M11 13h2 M15 13h2 M7 16h2',
+  ai: 'M12 3v3 M12 18v3 M3 12h3 M18 12h3 M7 7l2 2 M15 15l2 2 M17 7l-2 2 M9 15l-2 2 M9 9h6v6H9z',
   altdata: 'M4 19V9 M10 19V5 M16 19v-7 M22 19H2',
   quant: 'M5 17l4-5 4 3 6-8 M5 7h.01 M9 5h.01 M17 15h.01 M20 19H4V4',
   tesla: 'M3 13l2-5h14l2 5v5H3z M3 13h18 M7 18v2 M17 18v2 M7 15.5h.01 M17 15.5h.01',
@@ -63,6 +64,7 @@ const P: Record<Page, { label: string; hint: string; key: string }> = {
   weekly: { label: 'Weekly review', hint: 'your week: check-ins vs results, rules that cost money', key: '' },
   cmap: { label: 'World Monitor', hint: 'agency feeds, US drought and disaster map, world map, agency directory', key: '' },
   realecon: { label: 'Real Economy', hint: 'air traffic, CEO jets, rail, power, fuel, freight, weather', key: '⇧E' },
+  ai: { label: 'AI & Models', hint: 'local models on this Mac (Ollama and others), Claude, Kronos and bots: what is running', key: '' },
   altdata: { label: 'Alt Data', hint: 'hiring, app ranks, interest, GitHub, players, social, prices', key: '⇧A' },
   tesla: { label: 'Lots', hint: 'registrations, satellite lot fullness, inventory', key: '⇧T' },
   quant: { label: 'Quant Lab', hint: 'find what moves a stock: factors, earnings, Amazon review tone', key: '' },
@@ -82,6 +84,7 @@ export const NAV_GROUPS: { id: GroupId; label: string; pages: Page[] }[] = [
   { id: 'scan', label: 'Scan', pages: ['scanner', 'flows', 'etfs', 'insiders', 'plumbing', 'credit', 'distress'] },
   { id: 'flow', label: 'Flow and risk', pages: ['global', 'policy', 'gamma', 'cmap', 'status'] },
   { id: 'alt', label: 'Alt data', pages: ['altdata', 'quant', 'tesla', 'realecon'] },
+  { id: 'ai', label: 'AI', pages: ['ai'] },
   { id: 'journal', label: 'Journal', pages: ['journal', 'weekly', 'essay', 'learn'] },
 ];
 export const pageGroup = (p: Page): GroupId => NAV_GROUPS.find((g) => g.pages.includes(p))?.id ?? 'today';
