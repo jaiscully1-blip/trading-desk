@@ -59,10 +59,13 @@ import { LogoDecorator } from './components/Logos';
 import { HealthPanel, openHealth } from './components/HealthPanel';
 import { CompanyPeek, openPeek } from './components/CompanyPeek';
 const MonthCalendar = lazy(() => import('./components/MonthCalendar').then((m) => ({ default: m.MonthCalendar })));
-const CalViewSwitch = ({ v, set }: { v: 'list' | 'month'; set: (x: 'list' | 'month') => void }) => <div className="cal-switch" role="tablist" aria-label="Calendar view">{(['list', 'month'] as const).map((x) => <button key={x} role="tab" aria-selected={v === x} className={`chip sm ${v === x ? 'on' : ''}`} onClick={() => set(x)}>{x === 'list' ? 'List' : 'Month calendar'}</button>)}</div>;
+type CalView = 'list' | 'month' | 'odds';
+const CalViewSwitch = ({ v, set }: { v: CalView; set: (x: CalView) => void }) => <div className="cal-switch" role="tablist" aria-label="Calendar view">{(['list', 'month', 'odds'] as const).map((x) => <button key={x} role="tab" aria-selected={v === x} className={`chip sm ${v === x ? 'on' : ''}`} onClick={() => set(x)}>{x === 'list' ? 'List' : x === 'month' ? 'Month calendar' : 'Econ odds'}</button>)}</div>;
+const InsSwitch = ({ v, set }: { v: 'insiders' | 'funds'; set: (x: 'insiders' | 'funds') => void }) => <div className="cal-switch ins-switch" role="tablist" aria-label="Insiders and funds">{(['insiders', 'funds'] as const).map((x) => <button key={x} role="tab" aria-selected={v === x} className={`chip sm ${v === x ? 'on' : ''}`} onClick={() => set(x)}>{x === 'insiders' ? 'Insiders' : '13F: big funds'}</button>)}</div>;
 const QuantLabPage = lazy(() => import('./components/QuantLabPage'));
 const RealEconPage = lazy(() => import('./components/RealEconPage'));
 const WorldMonitor = lazy(() => import('./components/WorldMonitor'));
+const WeeklyReview = lazy(() => import('./components/WeeklyReview'));
 const PlumbingPage = lazy(() => import('./components/PlumbingPage'));
 const MacroExtraPage = lazy(() => import('./components/MacroExtraPage'));
 const LearnPage = lazy(() => import('./components/LearnPage'));
@@ -261,7 +264,10 @@ export default function App() {
   const [autoBackup, setAutoBackup] = usePersisted('autoBackup', true);
   const [replayId, setReplayId] = useState<string | null>(null);
   const [recapOpen, setRecapOpen] = useState<string | false>(false);
-  const [calView, setCalView] = usePersisted<'list' | 'month'>('calView', 'list');
+  const [calView, setCalView] = usePersisted<CalView>('calView', 'list');
+  const [insView, setInsView] = usePersisted<'insiders' | 'funds'>('insView', 'insiders');
+  // merged pages: Econ odds is a Calendars view, 13F Tracker an Insiders view (old links and shortcuts still work)
+  useEffect(() => { if (page === 'odds') { setCalView('odds'); setPage('calendar'); } else if (page === 'smart') { setInsView('funds'); setPage('insiders'); } }, [page]); // eslint-disable-line react-hooks/exhaustive-deps
   const [syncOpen, setSyncOpen] = useState(false);
   const [watchOnly, setWatchOnly] = usePersisted('tickerWatchOnly', false);
   const [orMin, setOrMin] = usePersisted<OrMinutes>('orMinutes', 15);
@@ -506,6 +512,17 @@ export default function App() {
     if (e.sod < 9.5 * 3600) setPage('morning'); // before the bell the desk opens on the Morning plan
     setCiOpen(true);
   }, [ciLoaded, checkin, mode, today]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Sunday from 5 PM ET: open the week's review once, the first time the desk is open
+  useEffect(() => {
+    if (POPOUT) return;
+    const e = et(now);
+    if (e.wd !== 0 || e.sod < 17 * 3600) return;
+    const k = `td.weeklyAsked.${today}`;
+    try { if (localStorage.getItem(k)) return; localStorage.setItem(k, '1'); } catch { return; }
+    setPage('weekly');
+    flash('Your week in review: check-ins next to results', 6000);
+  }, [Math.floor(now / 60_000)]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /* ---------------- end-of-day recap + daily CSV backup ---------------- */
   const csvFor = useCallback((day: string | null) => {
@@ -773,6 +790,7 @@ export default function App() {
     { id: 'fed', label: 'Fed meeting countdown and rate odds', run: () => setPage('calendar') },
     { id: 'earnings', label: 'Earnings calendar', run: () => setPage('calendar') },
     { id: 'fear', label: 'Show/hide fear strip', hint: 'F', run: () => setLayout({ fearOpen: layout.fearOpen === false }) },
+    { id: 'weekly', label: 'Weekly review: check-ins vs results, rules that cost money', run: () => setPage('weekly') },
     { id: 'todaystrip', label: 'Show/hide Today strip (check-in, loss room, next event, earnings, positions)', run: () => setLayout({ todayOpen: layout.todayOpen === false }) },
     { id: 'crypto', label: 'BTC / ETH: live Bitcoin and Ethereum charts (24/7)', run: () => setPage('crypto') },
     { id: 'learn', label: 'Learn: strategies and their history, YouTube channels, books, papers, glossary, flashcards, learning path, chart game', run: () => setPage('learn') },
@@ -958,7 +976,9 @@ export default function App() {
   if (page === 'scanner') {
     body = <div className="page page-split"><section className="panel rr"><div className="rr-body">{scanner}</div></section><div className="center">{chart()}</div></div>;
   } else if (page === 'calendar') {
-    body = calView === 'month'
+    body = calView === 'odds'
+      ? <div className="page"><div className="cal-odds"><CalViewSwitch v={calView} set={setCalView} /><Suspense fallback={<section className="panel"><div className="ph-body">Loading…</div></section>}><EconOdds mode={dataMode} /></Suspense></div></div>
+      : calView === 'month'
       ? <div className="page"><section className="panel cal-page cal-month"><CalViewSwitch v={calView} set={setCalView} /><Suspense fallback={<div className="ph-body">Loading…</div>}><MonthCalendar live={dataMode.kind === 'live'} econ={cal?.econ ?? null} mySyms={new Set([...wlSyms, ...stars])} trades={views} onWatch={addSym} /></Suspense></section></div>
       : <div className="page page-split"><section className="panel cal-page"><CalViewSwitch v={calView} set={setCalView} /><Calendars cal={cal} now={now} onSelect={setSel} mySyms={new Set([...wlSyms, ...stars])} mode={dataMode} news={news.items} /></section><div className="center">{chart()}</div></div>;
   } else if (page === 'journal') {
@@ -1022,6 +1042,8 @@ export default function App() {
     body = <Suspense fallback={<section className="panel"><div className="ph-body">Loading…</div></section>}><MacroExtraPage mode={dataMode} onChart={toDesk} /></Suspense>;
   } else if (page === 'plumbing') {
     body = <Suspense fallback={<section className="panel"><div className="ph-body">Loading…</div></section>}><PlumbingPage mode={dataMode} sel={sel} /></Suspense>;
+  } else if (page === 'weekly') {
+    body = <Suspense fallback={<section className="panel"><div className="ph-body">Loading…</div></section>}><WeeklyReview views={views} violations={viols} checkins={checkins} today={today} onDay={(d) => setRecapOpen(d)} onCheckIn={() => setCiOpen(true)} /></Suspense>;
   } else if (page === 'cmap') {
     body = <Suspense fallback={<section className="panel"><div className="ph-body">Loading…</div></section>}><WorldMonitor mode={dataMode} onChart={toDesk} onWatch={addSym} startTab={wmStart} newsMap={(close) => <WorldMap mode={dataMode} data={worldData} symbols={[...new Set([...INDEXES, ...wlSyms, ...universe])]} names={Object.fromEntries(Object.values(quotes).map((x) => [x.sym, x.name]))} onSelect={toDesk} onClose={close} />} /></Suspense>;
   } else if (page === 'realecon') {
@@ -1041,12 +1063,12 @@ export default function App() {
   } else if (page === 'credit') {
     body = <div className="page"><Suspense fallback={<section className="panel"><div className="ph-body">Loading…</div></section>}><CreditPage mode={dataMode} onPage={(p) => setPage(p)} /></Suspense></div>;
   } else if (page === 'insiders') {
-    body = <div className="page"><Suspense fallback={<section className="panel"><div className="ph-body">Loading…</div></section>}><InsiderPage mode={dataMode} onChart={toDesk} onPage={(p) => setPage(p)} /></Suspense></div>;
-  } else if (page === 'smart' || page === 'etfs' || page === 'odds') {
+    body = <div className="page"><div className="cal-odds"><InsSwitch v={insView} set={setInsView} /><Suspense fallback={<section className="panel"><div className="ph-body">Loading…</div></section>}>{insView === 'funds' ? <SmartMoney mode={dataMode} onChart={toDesk} /> : <InsiderPage mode={dataMode} onChart={toDesk} onPage={(p) => setPage(p)} />}</Suspense></div></div>;
+  } else if (page === 'etfs') {
     body = (
       <div className="page">
         <Suspense fallback={<section className="panel"><div className="ph-body">Loading…</div></section>}>
-          {page === 'smart' ? <SmartMoney mode={dataMode} onChart={toDesk} /> : page === 'etfs' ? <EtfSectors mode={dataMode} onChart={toDesk} /> : <EconOdds mode={dataMode} />}
+          <EtfSectors mode={dataMode} onChart={toDesk} />
         </Suspense>
       </div>
     );

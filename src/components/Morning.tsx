@@ -1,6 +1,7 @@
 // Morning page: everything needed to plan the day before 11:00 ET on one screen. Premarket movers and sectors (delayed),
 // SPY/QQQ premarket levels, today's events, the best setups with a buy / sell / wait bias and why, and the rule lights.
 import type { MorningState } from '../data/morning';
+import { useWhy } from '../lib/whyNotes';
 import type { CalendarState } from '../data/news';
 import type { PmRow, Setup } from '../../shared/morning';
 import { RulesStatus, type RulesData } from './RulesW';
@@ -81,6 +82,7 @@ function Ring({ v, tone }: { v: number; tone: string }) {
 }
 
 function MoverTable({ rows, phase, onChart, title, q }: { rows: PmRow[]; phase: 'premarket' | 'day'; onChart: (s: string) => void; title: string; q?: { k: import('./common').QKind; src?: string; at?: number } }) {
+  const why = useWhy();
   if (!rows.length) return null;
   return (
     <section className="am-card">
@@ -89,7 +91,7 @@ function MoverTable({ rows, phase, onChart, title, q }: { rows: PmRow[]; phase: 
         {rows.map((r) => (
           <tr key={r.sym}>
             <td><button className="sym-chip" onClick={() => onChart(r.sym)}>{r.sym}</button></td>
-            <td className="am-name">{r.name}</td>
+            <td className="am-name">{r.name}{why[r.sym] && <span className="am-why" title={why[r.sym]}>{why[r.sym]}</span>}</td>
             <td><Move v={phase === 'premarket' ? r.pmChg : r.chg} /></td>
             <td className="num small muted">{phase === 'premarket' && r.pmVol ? `${(r.pmVol / 1e6).toFixed(2)}M` : ''}</td>
           </tr>
