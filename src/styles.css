@@ -3653,3 +3653,10 @@ svg[data-hover] { cursor: crosshair; touch-action: pan-y; }
 .gx-mark { fill: var(--muted); font: 10px 'IBM Plex Mono', monospace; } .gx-mark.end { text-anchor: end; }
 .gx-legend { margin: 2px 14px 8px; }
 .fc-bar-r:hover { opacity: 1 !important; stroke: var(--text); stroke-width: 1; }
+.credit-flow { display: grid; gap: 8px; margin: 4px 0 14px; }
+.cf-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 13px; }
+.cf-row span, .cf-row b { padding: 4px 10px; border-radius: 999px; background: var(--panel-2); border: 1px solid var(--line); }
+.cf-row i { font-style: normal; color: var(--muted); }
+.cf-row.down b { color: var(--down); border-color: color-mix(in srgb, var(--down) 50%, transparent); }
+.cf-row.up b { color: var(--up); border-color: color-mix(in srgb, var(--up) 50%, transparent); }
+.credit-flow p { margin: 0; }

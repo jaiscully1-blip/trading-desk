@@ -75,7 +75,11 @@ export default function CreditPage({ mode, onPage }: { mode: DataMode; onPage: (
             : !d ? <p className="hw-pad muted">{r.error || r.data?.error || 'No data.'} The credit page needs the FRED_API_KEY that the desk already uses.</p>
             : (
               <>
-                <p className="credit-intro">A credit spread is the extra yield investors demand to lend to a company instead of the US government. Wider means the market sees more default risk; tighter means less. Bond markets are large and often move before stocks, but they are not an oracle: this page shows what the data says and what each side of the argument says. It is not a forecast and not advice. Real credit-default-swap prices (single names) are paid data and not included.</p>
+                <div className="credit-flow" aria-label="How the credit market moves stocks">
+                  <div className="cf-row down"><b>Spreads widen</b><i>→</i><span>Borrowing gets expensive</span><i>→</i><span>Less buybacks, hiring, deals</span><i>→</i><span>Earnings estimates fall</span><i>→</i><b>Stocks drop</b></div>
+                  <div className="cf-row up"><b>Spreads tighten</b><i>→</i><span>Cheap money for companies</span><i>→</i><span>More buybacks and deals</span><i>→</i><span>Risk appetite rises</span><i>→</i><b>Stocks rally</b></div>
+                  <p className="small muted">Junk bonds (CCC, high yield) usually crack first, then small caps and banks, then the S&amp;P 500.</p>
+                </div>
                 <div className="credit-glance">
                   {hyS && reg && (
                     <div className="credit-gauge-box">
