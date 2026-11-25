@@ -2,6 +2,7 @@
 // market's day has lined up with SPY over two years, and world business headlines tagged by region and US ticker.
 // History, not a forecast; nothing here says to buy or sell.
 import { useEffect, useMemo, useState } from 'react';
+import { CarryGlobal } from './XAsset';
 import { Linked } from './Linked';
 import type { DataMode } from '../data/live';
 import type { WorldNews } from '../../shared/global';
@@ -98,6 +99,7 @@ export default function GlobalPage({ mode, onChart }: { mode: DataMode; onChart:
         {n.d && Object.keys(n.d.errors).length > 0 && <p className="note small">Feeds not answering right now: {Object.keys(n.d.errors).join(', ')}.</p>}
         <p className="note small">Headlines are tagged by the places and US companies they name; the tickers are the US-listed funds and ADRs that trade that region. Market and economy stories only.</p>
       </section>
+      <CarryGlobal live={mode.kind === 'live'} />
     </div>
   );
 }

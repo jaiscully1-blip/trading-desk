@@ -2,6 +2,8 @@
 // Search (every headline this browser has seen in the last three weeks, plus what's loaded now), and By ticker (one
 // company's news from Yahoo Finance, Google News and Finnhub). Headlines and links only.
 import { useEffect, useMemo, useState, Fragment } from 'react';
+import { CRED_TEXT, credibility } from '../../shared/credibility';
+import { usePersisted as usePersistedCred } from '../lib/store';
 import { Linked } from './Linked';
 import type { DataMode } from '../data/live';
 import type { NewsItem } from '../../shared/news';
@@ -54,20 +56,22 @@ export default function NewsPage({ mode, news, sel, onChart }: { mode: DataMode;
     return () => { stop = true; };
   }, [tab, sym, live]); // eslint-disable-line react-hooks/exhaustive-deps
   const open = (h: Head) => openArticle({ title: h.title, url: h.url, src: h.src, t: h.t, summary: h.summary, syms: h.syms });
-  const Row = ({ h }: { h: Head }) => (
+  const [hideFear, setHideFear] = usePersistedCred<boolean>('newsHideFear', false);
+  const Row = ({ h }: { h: Head }) => { const c = credibility(h.title, h.summary ?? ''); if (hideFear && c.label === 'fear') return null; return (
     <div className="nx-row">
       <span className="num small muted">{ago(h.t)}</span>
       <span className={`sent ${toneCls(h.sentiment)}`}>●</span>
       <button className="link nx-t" onClick={() => open(h)}><Linked text={h.title} /></button>
-      <span className="nx-tags small">{h.syms.slice(0, 3).map((s) => <button key={s} className="chip sm" onClick={() => onChart(s)}>{s}</button>)}<span className="muted"> {h.src}</span></span>
+      <span className="nx-tags small"><span className={`cred cred-${c.label}`} title={`Headline check (keywords, not a fact-check): ${c.reasons.join(', ') || 'no numbers, no source, no alarm words'}`}>{CRED_TEXT[c.label]}</span>{h.syms.slice(0, 3).map((s) => <button key={s} className="chip sm" onClick={() => onChart(s)}>{s}</button>)}<span className="muted"> {h.src}</span></span>
     </div>
-  );
+  ); };
   return (
     <div className="page"><section className="panel nx">
       <div className="phead">
         <div className="phead-title">News</div>
         <div className="phead-ctl">
           <PageTabs<Tab> value={tab} onChange={setTab} options={[{ id: 'top', label: 'Top stories', hint: 'grouped across outlets, last 24 hours' }, { id: 'search', label: 'Search', hint: `every headline kept in this browser (${archive.length.toLocaleString('en-US')})` }, { id: 'ticker', label: 'By ticker' }]} />
+          <button className={`chip sm ${hideFear ? 'on' : ''}`} onClick={() => setHideFear(!hideFear)} aria-pressed={hideFear} title="Hide headlines that use alarm words but give no numbers and no named source">Hide fear-only</button>
           <Fresh kind={live ? 'live' : 'demo'} src="Desk news feeds (CNBC, MarketWatch, Yahoo Finance, Fed, BLS, Finnhub, Alpaca when keyed) plus 12 world business feeds" />
         </div>
       </div>
@@ -75,7 +79,7 @@ export default function NewsPage({ mode, news, sel, onChart }: { mode: DataMode;
         <div className="nx-list">
           {stories.map((s, i) => (
             <div key={s.key} className="nx-story">
-              <div className="nx-sh"><span className="num nx-rank">{i + 1}</span><button className="link nx-t big" onClick={() => open(s.items[s.items.length - 1])}>{s.title}</button></div>
+              <div className="nx-sh"><span className="num nx-rank">{i + 1}</span><button className="link nx-t big" onClick={() => open(s.items[s.items.length - 1])}>{s.title}</button>{(() => { const c = credibility(s.title); return <span className={`cred cred-${c.label}`} title={`Headline check (keywords, not a fact-check): ${c.reasons.join(', ') || 'no numbers, no source, no alarm words'}`}>{CRED_TEXT[c.label]}</span>; })()}</div>
               <div className="small muted nx-meta">
                 <b className="num">{s.sources.length}</b> outlets · {s.items.length} headlines · first {ago(s.t0)} ago, latest {ago(s.t1)} ago
                 {s.tone != null && <span className={toneCls(s.tone)}> · tone {s.tone > 0.2 ? 'positive' : s.tone < -0.2 ? 'negative' : 'mixed'}</span>}
@@ -85,7 +89,7 @@ export default function NewsPage({ mode, news, sel, onChart }: { mode: DataMode;
             </div>
           ))}
           {!stories.length && <p className="hw-pad small muted">{current.length ? 'No story is being carried by two or more outlets yet.' : 'Loading headlines…'}</p>}
-          <p className="note small">A story ranks higher when more different outlets carry it. Tone is a keyword read of the headlines, not a model.</p>
+          <p className="note small">A story ranks higher when more different outlets carry it. Tone is a keyword read of the headlines, not a model. Badges: Data = numbers or a named / official source; Alarm + data = scary words but backed by figures; Fear, no data = alarm words with nothing behind them; Plain = neither. It checks whether evidence is given, not whether it is true.</p>
         </div>
       )}
       {tab === 'search' && (

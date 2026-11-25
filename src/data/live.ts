@@ -1,3 +1,4 @@
+import { paceMs } from '../lib/pace';
 // Browser data layer: talks only to our /api functions (never to providers directly, so keys stay server-side).
 // If /api isn't reachable (e.g. the static preview), everything falls back to DEMO DATA with a badge.
 import { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
@@ -207,9 +208,8 @@ export function useQuotes(symbols: string[], mode: DataMode, baseMs = 30_000): Q
       } catch (e) {
         if (!stop) setSt((s) => (s ? { ...s, error: (e as Error).message } : s));
       }
-      const inSession = clock().session !== 'Closed';
-      // hidden tab: no point spending the free quote budget; a visible tab picks up again within seconds
-      if (!stop) t = setTimeout(tick, document.hidden ? Math.max(intervalMs, 120_000) : inSession ? intervalMs : intervalMs * 10);
+      // market-hours pacing (Auto / Fast / Saver); hidden tab: no point spending the free quote budget
+      if (!stop) t = setTimeout(tick, document.hidden ? Math.max(paceMs(intervalMs), 120_000) : Math.max(paceMs(intervalMs), symbols.length * 1200));
     };
     tick();
     return () => { stop = true; clearTimeout(t); };

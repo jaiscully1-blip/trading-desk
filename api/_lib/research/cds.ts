@@ -5,17 +5,25 @@ import { inflateRawSync } from 'node:zlib';
 import { cdsTrades, parseCsv, resolveAmbiguous, summarize, type CdsTrade } from '../../../shared/cds.js';
 import { cached, json, noteError, noteOk, take } from '../core.js';
 
-/** First file in a zip archive (central directory read, deflate or stored). */
-export function unzipFirst(buf: Buffer): string {
+/** A file from a zip archive by name (or the first file), via the central directory; deflate or stored. */
+export function unzipFile(buf: Buffer, want?: string): string {
   let e = buf.length - 22;
   while (e >= 0 && buf.readUInt32LE(e) !== 0x06054b50) e--;
   if (e < 0) throw new Error('not a zip');
-  const cd = buf.readUInt32LE(e + 16);
-  const method = buf.readUInt16LE(cd + 10), size = buf.readUInt32LE(cd + 20), local = buf.readUInt32LE(cd + 42);
-  const start = local + 30 + buf.readUInt16LE(local + 26) + buf.readUInt16LE(local + 28);
-  const data = buf.subarray(start, start + size);
-  return (method === 8 ? inflateRawSync(data) : data).toString('utf8');
+  let cd = buf.readUInt32LE(e + 16); const n = buf.readUInt16LE(e + 10);
+  for (let i = 0; i < n; i++) {
+    const method = buf.readUInt16LE(cd + 10), size = buf.readUInt32LE(cd + 20), nl = buf.readUInt16LE(cd + 28), xl = buf.readUInt16LE(cd + 30), cl = buf.readUInt16LE(cd + 32), local = buf.readUInt32LE(cd + 42);
+    const name = buf.subarray(cd + 46, cd + 46 + nl).toString('utf8');
+    if (!want || name === want) {
+      const start = local + 30 + buf.readUInt16LE(local + 26) + buf.readUInt16LE(local + 28);
+      const data = buf.subarray(start, start + size);
+      return (method === 8 ? inflateRawSync(data) : data).toString('utf8');
+    }
+    cd += 46 + nl + xl + cl;
+  }
+  throw new Error(`${want} not in zip`);
 }
+export const unzipFirst = (buf: Buffer) => unzipFile(buf);
 
 const etDay = (ms: number) => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York' }).format(ms);
 function lastDays(n: number, now = Date.now()): string[] {
