@@ -16,6 +16,15 @@ interface Data {
 const KIND: Record<string, string> = { granted: 'Granted', pending: 'Pending', abandoned: 'Abandoned', expired: 'Dropped (fees not paid)', other: '—' };
 const pct = (a: number | null, b: number | null) => (a == null || b == null || b === 0 ? '—' : `${a >= b ? '+' : ''}${Math.round(((a - b) / b) * 100)}%`);
 
+/** JSON from a desk endpoint, or a plain-English error (a timeout or error page is HTML, not JSON). */
+export async function getDeskJson<T>(url: string): Promise<T> {
+  const r = await fetch(url);
+  const text = await r.text();
+  try { return JSON.parse(text) as T; } catch {
+    throw new Error(r.status === 504 ? 'The patent lookup took too long this time. It carries on where it stopped: try again in a minute.' : `The patent lookup did not answer properly (HTTP ${r.status}). Try again in a minute.`);
+  }
+}
+
 /** Two lines over 20 quarters. Recent filed quarters are shaded: applications only become public ~18 months after filing. */
 function Chart({ qs }: { qs: Q[] }) {
   const W = 640, H = 170, L = 34, R = 8, T = 10, B = 22;
@@ -36,16 +45,16 @@ function Chart({ qs }: { qs: Q[] }) {
   );
 }
 
-export function PatentsSection({ sym }: { sym: string }) {
-  const [open, setOpen] = useState(false);
+/** The whole patents view for one ticker. Asks the server until every quarter is counted. */
+export function PatentsView({ sym, open = true }: { sym: string; open?: boolean }) {
   const [d, setD] = useState<Data | null>(null);
   const tries = useRef(0);
   useEffect(() => { setD(null); tries.current = 0; }, [sym]);
   useEffect(() => {
     if (!open || (d && (d.complete || d.error || d.needsKey))) return;
     let stop = false;
-    const go = () => fetch(`/api/research?fn=patents&symbol=${sym}`).then((r) => r.json()).then((j: Data) => { if (!stop) { tries.current += 1; setD(j); } })
-      .catch((e) => { if (!stop) setD({ error: String(e) }); });
+    const go = () => getDeskJson<Data>(`/api/research?fn=patents&symbol=${sym}`).then((j: Data) => { if (!stop) { tries.current += 1; setD(j); } })
+      .catch((e) => { if (!stop) setD({ error: (e as Error).message ?? String(e) }); });
     // first ask now; while counting continues, ask again every 3 s (at most ~2 minutes)
     const t = setTimeout(go, d ? 3000 : 0);
     if (tries.current > 40) setD({ ...(d ?? {}), complete: true, errors: { ...(d?.errors ?? {}), counts: 'stopped waiting; open the section again to continue' } });
@@ -55,8 +64,7 @@ export function PatentsSection({ sym }: { sym: string }) {
   const qs = d?.quarters ?? [];
   const have = qs.reduce((s, q) => s + (q.filed != null ? 1 : 0) + (q.granted != null ? 1 : 0), 0);
   return (
-    <section className="fi">
-      <button className="fi-toggle" onClick={() => setOpen(!open)} aria-expanded={open}><h4>Patents <span className="muted small">· filed vs granted, latest filings, tech areas, peers</span></h4><span>{open ? '▾' : '▸'}</span></button>
+    <>
       {open && !d && <p className="small muted">Looking up {sym}'s patents at the USPTO…</p>}
       {open && d?.error && <p className="small down">{d.error}</p>}
       {open && d?.needsKey && <p className="small muted">Needs a free USPTO Open Data Portal key (<code>USPTO_API_KEY</code> in Vercel). Make a USPTO.gov account, then get a key at <a href="https://data.uspto.gov/apis/getting-started" target="_blank" rel="noreferrer noopener">data.uspto.gov</a>.</p>}
@@ -108,6 +116,16 @@ export function PatentsSection({ sym }: { sym: string }) {
           {d.source && <p className="note small pt-wide">{d.source}. Research only, not advice.</p>}
         </div>
       )}
+    </>
+  );
+}
+
+export function PatentsSection({ sym }: { sym: string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <section className="fi">
+      <button className="fi-toggle" onClick={() => setOpen(!open)} aria-expanded={open}><h4>Patents <span className="muted small">· filed vs granted, latest filings, tech areas, peers</span></h4><span>{open ? '▾' : '▸'}</span></button>
+      {open && <PatentsView sym={sym} />}
     </section>
   );
 }

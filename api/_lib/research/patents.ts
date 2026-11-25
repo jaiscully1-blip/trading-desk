@@ -6,7 +6,8 @@
 import { PATENT_ALIASES, aliasNames, countBody, ex21FromIndex, countOf, exhibit21Names, grantTrend, lastQuarters, latestBody, ODP_SEARCH, ownerQ, parseRows, simpleQ, techMix, type CountKind } from '../../../shared/patents.js';
 import { cleanCoName, htmlToText, latestAnnual, parseSecTickers, secProfile } from '../../../shared/company.js';
 import { finnhubPeers, secJson, secText } from '../adapters.js';
-import { SYMBOL_RE, cached, getCached, getJson, hasKey, json, key, take } from '../core.js';
+import { SYMBOL_RE, cached, getCached, getJson, hasKey, json, key, setCached, take } from '../core.js';
+import { CPC_FORMS, RADAR, radarBody, radarWindows, themeQ, topFacet, type CpcForm, type RadarKind } from '../../../shared/patentRadar.js';
 
 let chain: Promise<unknown> = Promise.resolve();
 /** One USPTO call at a time on this server, with one patient retry after a 429. */
@@ -112,4 +113,72 @@ export async function patents(req: Request): Promise<Response> {
     quarters: counts, trend: grantTrend(counts), latest: latest ?? [], mix: techMix(latest ?? [], year), peers, errors, asOf: Date.now(),
     source: 'USPTO Open Data Portal (official, refreshed daily) · names from the company and its 10-K subsidiary list (SEC EDGAR)',
   }, { sMaxAge: complete && !Object.keys(errors).length ? 3600 : 0 });
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+// Patents & Tech page: theme radar and watchlist summary. Same queue and caches as the Company section.
+
+/** GET fn=patentradar -> per theme: made public and granted, last 90 days vs the same days a year earlier, top filers. */
+export async function patentradar(): Promise<Response> {
+  if (!hasKey('patentsview')) return json({ needsKey: true });
+  const started = Date.now(), budget = 25_000;
+  const errors: Record<string, string> = {};
+  const w = radarWindows(new Date());
+  // which prefix syntax the USPTO accepts: the first form that finds AI patents made public in the last 90 days
+  let form: CpcForm | null = getCached<CpcForm>('pat:cpcform')?.val ?? null;
+  if (!form) {
+    for (const f of CPC_FORMS) {
+      try { if (countOf(await odp(radarBody(themeQ(RADAR[0].cpc, f), 'published', w.cur))) > 0) { form = f; setCached('pat:cpcform', f, 7 * 86400); break; } } catch (e) { errors.syntax = String((e as Error).message).slice(0, 160); }
+    }
+    if (!form) return json({ unavailable: true, why: errors.syntax ?? 'The USPTO search returned nothing for classification prefixes, so the radar cannot count by theme yet.', windows: w }, { sMaxAge: 0 });
+  }
+  let complete = true;
+  const themes = [];
+  for (const t of RADAR) {
+    const q = themeQ(t.cpc, form);
+    const row = { id: t.id, label: t.label, group: t.group, cur: { published: null as number | null, granted: null as number | null }, prev: { published: null as number | null, granted: null as number | null }, top: [] as { name: string; n: number }[] };
+    for (const [win, slot] of [[w.cur, 'cur'], [w.prev, 'prev']] as const) for (const kind of ['published', 'granted'] as RadarKind[]) {
+      const facet = slot === 'cur' && kind === 'published';
+      const k = `pat:radar:${kind}:${win.from}:${q}${facet ? ':f' : ''}`;
+      const hit = getCached<{ n: number; top: { name: string; n: number }[] }>(k);
+      if (hit) { row[slot][kind] = hit.val.n; if (facet) row.top = hit.val.top; continue; }
+      if (Date.now() - started > budget || errors.counts) { complete = false; continue; }
+      const r = await (async () => { try { return (await cached(k, 12 * 3600, async () => { const j = await odp(radarBody(q, kind, win, facet)); return { n: countOf(j), top: facet ? topFacet(j) : [] }; })).val; } catch (e) { errors.counts = String((e as Error).message).slice(0, 160); return null; } })();
+      if (!r) { complete = false; continue; }
+      row[slot][kind] = r.n; if (facet) row.top = r.top;
+    }
+    themes.push(row);
+  }
+  return json({ form, windows: w, themes, complete, errors, asOf: Date.now(), source: 'USPTO Open Data Portal (official, refreshed daily). Themes are patent classification (CPC) groups.' },
+    { sMaxAge: complete && !Object.keys(errors).length ? 3600 : 0 });
+}
+
+/** GET fn=patentwatch&symbols=NVDA,MRNA -> per name: patents granted in the last 4 finished quarters vs the 4 before. */
+export async function patentwatch(req: Request): Promise<Response> {
+  if (!hasKey('patentsview')) return json({ needsKey: true });
+  const syms = [...new Set((new URL(req.url).searchParams.get('symbols') ?? '').toUpperCase().split(',').map((s) => s.trim()).filter((s) => SYMBOL_RE.test(s)))].slice(0, 30);
+  const started = Date.now(), budget = 25_000;
+  const tickers = hasKey('sec') ? await (async () => { try { return (await cached('sec:tickers', 86400, async () => parseSecTickers(await secJson('https://www.sec.gov/files/company_tickers.json')))).val; } catch { return null; } })() : null;
+  const done = lastQuarters(new Date()).filter((x) => x.done);
+  const w1 = { from: done[done.length - 4].from, to: done[done.length - 1].to }, w0 = { from: done[done.length - 8].from, to: done[done.length - 5].to };
+  let complete = true;
+  const rows = [];
+  for (const s of syms) {
+    const row = { sym: s, name: s, names: [] as string[], last: null as number | null, prior: null as number | null, error: null as string | null };
+    if (Date.now() - started > budget) { complete = false; rows.push(row); continue; }
+    try {
+      const f = await filerNames(tickers, s);
+      row.name = f.name; row.names = f.names;
+      const q = ownerQ(f.names);
+      for (const [w, slot] of [[w1, 'last'], [w0, 'prior']] as const) {
+        const k = `pat:n:granted:${w.from}:${w.to}:${q}`;
+        const hit = getCached<number>(k);
+        if (hit) { row[slot] = hit.val; continue; }
+        if (Date.now() - started > budget) { complete = false; continue; }
+        row[slot] = (await cached(k, 7 * 86400, async () => countOf(await odp(countBody(q, 'granted', w.from, w.to))))).val;
+      }
+    } catch (e) { row.error = String((e as Error).message).slice(0, 120); }
+    rows.push(row);
+  }
+  return json({ rows, complete, window: { last: w1, prior: w0 }, asOf: Date.now() }, { sMaxAge: complete ? 3600 : 0 });
 }
