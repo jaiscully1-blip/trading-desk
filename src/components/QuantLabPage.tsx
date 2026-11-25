@@ -268,7 +268,7 @@ export default function QuantLabPage({ sel }: { sel?: string }) {
     <div className="page ad ql">
       <PageHero page="quant" title="Quant Lab" sub={<>Pick a stock and see what has moved with it: the market, sectors, rates, commodities, its own earnings and, for 22 companies, Amazon review tone. Statistics, not predictions or advice.</>}>
         <form onSubmit={(e) => { e.preventDefault(); go(draft); }}><input value={draft} onChange={(e) => setDraft(e.target.value.toUpperCase())} aria-label="Ticker" maxLength={10} placeholder="Ticker" /></form>
-        {sel && sel !== sym && <button className="chip sm" onClick={() => go(sel)}>Use {sel}</button>}
+        {sel && sel !== sym && <button className="chip sm" onClick={() => go(sel)} title={`Switch to ${sel}`}>{sel}</button>}
       </PageHero>
 
       {tone && <div className="ql-cos">
