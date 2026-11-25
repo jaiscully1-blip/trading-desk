@@ -3749,3 +3749,18 @@ img, a, svg { -webkit-user-drag: none; }
 .ai-page .gx-h { padding: 8px 14px; }
 .ai-page { padding-bottom: 28px; }
 .lai-setup > summary { cursor: pointer; padding-bottom: 4px; color: var(--muted); }
+
+/* Patents section (Company page) */
+.pt .pt-wide { grid-column: 1 / -1; }
+.pt-chart { width: 100%; height: auto; max-height: 220px; }
+.pt-shade { fill: var(--panel-2, rgba(127,127,127,.08)); }
+.pt-grid { stroke: var(--line); stroke-width: 1; }
+.pt-ax { fill: var(--muted); font-size: 10px; font-family: 'IBM Plex Mono', monospace; }
+.pt-filed { fill: none; stroke: var(--g-charts, #92BFDB); stroke-width: 2; }
+.pt-granted { fill: none; stroke: var(--accent, #F9AE77); stroke-width: 2; }
+.pt-dot.pt-filed { fill: var(--g-charts, #92BFDB); stroke: none; } .pt-dot.pt-granted { fill: var(--accent, #F9AE77); stroke: none; }
+.pt-key { display: inline-block; width: 14px; height: 3px; vertical-align: middle; margin: 0 4px 0 8px; border-radius: 2px; }
+.pt-key.pt-filed { background: var(--g-charts, #92BFDB); } .pt-key.pt-granted { background: var(--accent, #F9AE77); }
+.pt-mix { display: flex; flex-wrap: wrap; gap: 4px; }
+.pt-table td:first-child { max-width: 420px; }
+.pt-expired, .pt-abandoned { color: var(--muted); } .pt-granted.small { color: var(--up); }

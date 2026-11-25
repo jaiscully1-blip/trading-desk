@@ -1,12 +1,11 @@
 // Filings Intel routes (through /api/research):
 //   fn=intel&symbol=X            executive changes (8-K item 5.02), risk-factor diff between the last two 10-Ks, customer concentration,
-//                                analyst rating trend and efficiency vs peers (Finnhub), patents (USPTO PatentsView, free key) and
+//                                analyst rating trend and efficiency vs peers (Finnhub), patents moved to their own section (patents.ts), and
 //                                lawsuits (CourtListener, free token)
 //   fn=intelcalls&symbol=X       the last two earnings calls: tone, management vs analysts, words that changed (Alpha Vantage, 2 calls)
 //   fn=intelguide&symbol=X       guidance in the last earnings releases vs the revenue reported next (Gemini reads the release; SEC XBRL)
 import { avCounts, consensusScore, upside } from '../../../shared/consensus.js';
 import { yahooDaily } from '../yahoo.js';
-import { applicantName, countOf, grantedQuery, ODP_SEARCH } from '../../../shared/patents.js';
 import { cached, getJson, hasKey, json, key, take } from '../core.js';
 import { finnhubMetrics, finnhubPeers, finnhubRecs, geminiJson, hasAi, aiBudget, secJson, secText } from '../adapters.js';
 import { htmlToText, parseSecTickers } from '../../../shared/company.js';
@@ -61,18 +60,6 @@ export async function intel(req: Request): Promise<Response> {
     return out;
   }) : null;
 
-  const patents = hasKey('patentsview') ? await safe('patents', async () => (await cached(`odp:${name}`, 7 * 86400, async () => {
-    if (!take('patentsview', 3)) throw new Error('rate limited');
-    const org = applicantName(name);
-    const y = new Date().getUTCFullYear();
-    const out: { year: number; n: number }[] = [];
-    for (const yr of [y - 2, y - 1, y]) {
-      const j = await getJson(ODP_SEARCH, 'patentsview', 20000, { method: 'POST', body: JSON.stringify(grantedQuery(org, yr)), headers: { 'X-API-KEY': key('patentsview') } });
-      out.push({ year: yr, n: countOf(j) });
-    }
-    return { org, years: out };
-  })).val) : null;
-
   const lawsuits = process.env.COURTLISTENER_TOKEN ? await safe('lawsuits', async () => (await cached(`law:${name}`, 24 * 3600, async () => {
     if (!take('courtlistener')) throw new Error('rate limited');
     const org = name.replace(/,?\s+(inc|corp|corporation|co|ltd|plc|class [ab])\.?$/gi, '').trim();
@@ -80,7 +67,7 @@ export async function intel(req: Request): Promise<Response> {
     return { org, total: Number(j?.count) || 0, cases: (j?.results ?? []).slice(0, 12).map((c: any) => ({ name: String(c.caseName ?? ''), court: String(c.court ?? ''), filed: String(c.dateFiled ?? ''), nature: String(c.suitNature ?? ''), url: c.docket_absolute_url ? `https://www.courtlistener.com${c.docket_absolute_url}` : null })) };
   })).val) : null;
 
-  return json({ sym, name, execs, risk, recs, peers, patents, lawsuits, keys: { patents: hasKey('patentsview'), lawsuits: !!process.env.COURTLISTENER_TOKEN, finnhub: hasKey('finnhub') }, errors, asOf: Date.now() }, { sMaxAge: 3600 });
+  return json({ sym, name, execs, risk, recs, peers, lawsuits, keys: { lawsuits: !!process.env.COURTLISTENER_TOKEN, finnhub: hasKey('finnhub') }, errors, asOf: Date.now() }, { sMaxAge: 3600 });
 }
 
 export async function intelcalls(req: Request): Promise<Response> {

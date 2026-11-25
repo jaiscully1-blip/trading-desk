@@ -1,6 +1,6 @@
 // Filings Intel on the Company page: what changed in the filings and calls. Executive changes, 10-K risk factors added and
 // dropped, customer concentration, earnings-call tone and words that changed, guidance vs what happened, analyst rating
-// trend, efficiency vs peers, patents and lawsuits. Opens on demand (the calls and guidance use small free daily budgets).
+// trend, efficiency vs peers and lawsuits (patents have their own section). Opens on demand (the calls and guidance use small free daily budgets).
 import { useEffect, useState } from 'react';
 import { Fresh } from './common';
 
@@ -54,7 +54,7 @@ export function FilingsIntel({ sym }: { sym: string }) {
   useEffect(() => { if (open && !d) fetch(`/api/research?fn=intel&symbol=${sym}`).then((r) => r.json()).then(setD).catch((e) => setD({ errors: { all: String(e) } })); }, [open, d, sym]);
   return (
     <section className="fi">
-      <button className="fi-toggle" onClick={() => setOpen(!open)} aria-expanded={open}><h4>Filings Intel <span className="muted small">· risk factors, executives, calls, guidance, analysts, peers, patents, lawsuits</span></h4><span>{open ? '▾' : '▸'}</span></button>
+      <button className="fi-toggle" onClick={() => setOpen(!open)} aria-expanded={open}><h4>Filings Intel <span className="muted small">· risk factors, executives, calls, guidance, analysts, peers, lawsuits</span></h4><span>{open ? '▾' : '▸'}</span></button>
       {open && !d && <p className="small muted">Reading SEC filings for {sym}…</p>}
       {open && d && (
         <div className="fi-grid">
@@ -90,11 +90,6 @@ export function FilingsIntel({ sym }: { sym: string }) {
                 {d.peers.map((p: any) => <tr key={p.sym} className={p.sym === sym ? 'fi-me' : ''}><td><b>{p.sym}</b></td><td className="r num">{p.revPerEmployee == null ? '—' : `$${Math.round(p.revPerEmployee).toLocaleString()}`}</td><td className="r num">{pc(p.grossMargin)}</td><td className="r num">{pc(p.opMargin)}</td><td className="r num">{pc(p.netMargin)}</td><td className="r num">{pc(p.revGrowth)}</td></tr>)}
               </tbody></table>
             )}
-          </div>
-          <div className="fi-box">
-            <h5>Patents granted</h5>
-            {!d.keys.patents ? <p className="small muted">Needs a free USPTO Open Data Portal key: make a USPTO.gov account, verify it with ID.me, then follow the key steps at <a href="https://data.uspto.gov/apis/getting-started" target="_blank" rel="noreferrer noopener">data.uspto.gov</a>. Add <code>USPTO_API_KEY</code> in Vercel and redeploy.</p>
-              : d.patents ? <div className="pl-q">{d.patents.years.map((y: any) => <span key={y.year}><b className="num">{y.n.toLocaleString()}</b><span className="small muted">{y.year}{y.year === new Date().getFullYear() ? ' so far' : ''}</span></span>)}<span className="small muted">utility patents granted with "{d.patents.org}" as first applicant (USPTO Open Data Portal)</span></div> : <p className="small down">{d.errors?.patents}</p>}
           </div>
           <div className="fi-box">
             <h5>Lawsuits · federal courts</h5>

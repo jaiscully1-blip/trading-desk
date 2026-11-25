@@ -114,7 +114,7 @@ const LIMITS: Record<Provider, { perMin: number; perDay: number }> = {
   agencies: { perMin: 60, perDay: 6000 },
   dtcc: { perMin: 30, perDay: 1000 },
   cftc: { perMin: 20, perDay: 500 },
-  patentsview: { perMin: 30, perDay: 1000 }, // stay well under the ODP key's limits
+  patentsview: { perMin: 120, perDay: 20000 }, // ODP: 5M metadata calls/week, burst 1, 4-15/s (data.uspto.gov/apis/api-rate-limits); calls are queued one at a time
   french: { perMin: 4, perDay: 50 }, // two small files, cached a day
   steam: { perMin: 30, perDay: 1500 },
   cfpb: { perMin: 20, perDay: 1000 },
