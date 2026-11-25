@@ -137,7 +137,7 @@ export default function AltDataPage({ mode, sel }: { mode: DataMode; sel: string
     <div className="page ad">
       <PageHero page="altdata" title="Alt Data" sub={<>Signals from outside the price for one ticker: hiring, App Store rank, public interest, GitHub, players, Reddit and StockTwits, plus a grocery and energy price basket. Data, not advice. {since}{d?.updated ? ` · last ${new Date(d.updated).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}` : ''}</>}>
         <form onSubmit={(e) => { e.preventDefault(); go(draft); }}><input value={draft} onChange={(e) => setDraft(e.target.value.toUpperCase())} aria-label="Ticker" maxLength={10} /></form>
-        {sel && sel !== sym && <button className="chip sm" onClick={() => go(sel)}>Use {sel}</button>}
+        {sel && sel !== sym && <button className="chip sm" onClick={() => go(sel)} title={`Switch to ${sel}`}>{sel}</button>}
       </PageHero>
       {covered.length > 0 && <div className="ad-cov"><span className="small muted">Tracked daily:</span>{covered.map((s) => <button key={s} className={`chip sm ${s === sym ? 'on' : ''}`} onClick={() => go(s)}>{s}</button>)}</div>}
       {!live && <p className="small muted">Live data only.</p>}

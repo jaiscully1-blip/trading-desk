@@ -152,7 +152,7 @@ export default function PlumbingPage({ mode, sel }: { mode: DataMode; sel: strin
     <div className="page ad">
       <PageHero page="plumbing" title="Shorts & Supply" sub={`How ${sym} trades: shorts, dark pools, borrow, fails, options flow, buybacks and new shares. Data, not advice.`}>
         <form onSubmit={(e) => { e.preventDefault(); go(draft); }}><input value={draft} onChange={(e) => setDraft(e.target.value.toUpperCase())} aria-label="Ticker" maxLength={10} /></form>
-        {sel && sel !== sym && <button className="chip sm" onClick={() => go(sel)}>Use {sel}</button>}
+        {sel && sel !== sym && <button className="chip sm" onClick={() => go(sel)} title={`Switch to ${sel}`}>{sel}</button>}
       </PageHero>
       <Ticker sym={sym} live={live} />
       <h3 className="pl-sec">Across the market</h3>
