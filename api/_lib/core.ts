@@ -3,7 +3,7 @@
 import { ProviderError } from '../../shared/parse.js';
 import { clock } from '../../shared/clock.js';
 
-export type Provider = 'twelvedata' | 'finnhub' | 'alphavantage' | 'fred' | 'finra' | 'kalshi' | 'gdelt' | 'binance' | 'coingecko' | 'sec' | 'gemini' | 'wikipedia' | 'aisstream' | 'polymarket' | 'github' | 'yahoo' | 'openfigi' | 'ark' | 'tradingview' | 'alpaca' | 'cboe' | 'nasdaq' | 'earningsapi' | 'tradetime' | 'zillow' | 'mempool' | 'dataroma' | 'apewisdom' | 'rdw' | 'copernicus' | 'stocktwits' | 'opensky' | 'adsblol' | 'adsbfi' | 'eia' | 'noaa' | 'patentsview' | 'courtlistener' | 'french' | 'steam' | 'cfpb' | 'nhtsa' | 'openfda' | 'fema' | 'usdm';
+export type Provider = 'twelvedata' | 'finnhub' | 'alphavantage' | 'fred' | 'finra' | 'kalshi' | 'gdelt' | 'binance' | 'coingecko' | 'sec' | 'gemini' | 'wikipedia' | 'aisstream' | 'polymarket' | 'github' | 'yahoo' | 'openfigi' | 'ark' | 'tradingview' | 'alpaca' | 'cboe' | 'nasdaq' | 'earningsapi' | 'tradetime' | 'zillow' | 'mempool' | 'dataroma' | 'apewisdom' | 'rdw' | 'copernicus' | 'stocktwits' | 'opensky' | 'adsblol' | 'adsbfi' | 'eia' | 'noaa' | 'patentsview' | 'courtlistener' | 'french' | 'steam' | 'cfpb' | 'nhtsa' | 'openfda' | 'fema' | 'usdm' | 'agencies';
 
 export const KEY_ENV: Record<Provider, string> = {
   twelvedata: 'TWELVEDATA_API_KEY',
@@ -43,6 +43,7 @@ export const KEY_ENV: Record<Provider, string> = {
   noaa: '', // api.weather.gov, no key (asks for a User-Agent)
   fema: '', // FEMA OpenFEMA disaster declarations, no key
   usdm: '', // US Drought Monitor data services (UNL), no key
+  agencies: '', // World Monitor: USGS, NOAA, NIFC, GDACS, IFRC, WHO, CDC, ECDC, FDA, CPSC, Federal Register, SEC, Fed, State, CISA, FAA, UN (all no key)
   patentsview: 'USPTO_API_KEY', // USPTO Open Data Portal API key (free; needs a USPTO.gov account verified with ID.me). PatentsView's own API went offline in 2026
   french: '', // Kenneth French data library (Dartmouth): factor returns, free CSV zips, updated monthly
   steam: '', // Steam store public review summaries (store.steampowered.com/appreviews), no key
@@ -104,6 +105,7 @@ const LIMITS: Record<Provider, { perMin: number; perDay: number }> = {
   noaa: { perMin: 20, perDay: 2000 },
   fema: { perMin: 10, perDay: 500 },
   usdm: { perMin: 10, perDay: 300 },
+  agencies: { perMin: 60, perDay: 6000 },
   patentsview: { perMin: 30, perDay: 1000 }, // stay well under the ODP key's limits
   french: { perMin: 4, perDay: 50 }, // two small files, cached a day
   steam: { perMin: 30, perDay: 1500 },

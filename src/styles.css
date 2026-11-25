@@ -3560,3 +3560,31 @@ a:hover, .link:hover { text-decoration-color: var(--link); }
 .cmp-com { display: grid; gap: 4px; margin: 6px 0; }
 .cmp-tk { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; } .cmp-act { margin-left: auto; display: inline-flex; gap: 2px; }
 .cmp-side .note { padding: 0 14px 12px; }
+
+/* World Monitor */
+.wmn { flex-direction: column; gap: 8px; overflow-y: auto; }
+.wmn > * { flex: none; }
+.wmn > .cmp { display: flex; flex-direction: column; gap: 8px; }
+.wmn-chips { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.wmn-sev { display: inline-flex; gap: 4px; margin-left: auto; }
+.wmn-list { list-style: none; margin: 0; padding: 0 14px 8px; display: grid; gap: 2px; }
+.wmn-row { display: grid; grid-template-columns: 26px minmax(0, 1fr) auto; gap: 8px; align-items: start; padding: 6px 8px; border-radius: 8px; border-left: 3px solid transparent; }
+.wmn-row:hover { background: var(--panel-2); }
+.wmn-row.sev2 { border-left-color: var(--warn); } .wmn-row.sev3 { border-left-color: var(--down); background: color-mix(in srgb, var(--down) 6%, transparent); }
+.wmn-ic { font-size: 16px; line-height: 20px; text-align: center; }
+.wmn-main { display: grid; gap: 1px; min-width: 0; } .wmn-main a { color: var(--text); text-decoration: none; font-size: 13px; } .wmn-main a:hover { text-decoration: underline; }
+.wmn-t { white-space: nowrap; } .wmn-new { font-style: normal; color: var(--link); margin-right: 4px; }
+.wmn-mapwrap { padding: 0 14px 10px; }
+.wmn-map { width: 100%; height: auto; display: block; }
+.wmn-sphere { fill: var(--panel-2); } .wmn-land { fill: var(--line); stroke: var(--panel); stroke-width: .5; }
+.wmn-dot { fill: color-mix(in srgb, var(--link) 70%, transparent); stroke: var(--panel); stroke-width: 1; cursor: pointer; }
+.wmn-dot.c-quake, .wmn-dot.c-tsunami, .wmn-dot.c-volcano { fill: color-mix(in srgb, var(--warn) 80%, transparent); }
+.wmn-dot.c-fire, .wmn-dot.c-disaster, .wmn-dot.c-storm { fill: color-mix(in srgb, var(--down) 75%, transparent); }
+.wmn-dot.c-health { fill: color-mix(in srgb, var(--up) 75%, transparent); }
+.wmn-dot.new { stroke: var(--text); stroke-width: 1.5; } .wmn-dot.on { stroke: var(--text); stroke-width: 2.5; }
+.wmn-pick { border-top: 1px dashed var(--line); padding-top: 6px; }
+.wmn-dirbar { display: grid; gap: 8px; padding: 0 14px 8px; } .wmn-dirbar input { max-width: 460px; }
+.wmn-dir { list-style: none; margin: 0; padding: 0 14px 8px; display: grid; gap: 6px; }
+.wmn-dir li { padding: 4px 0; border-bottom: 1px solid var(--line); } .wmn-dir a { color: var(--text); font-weight: 600; font-size: 13px; } .wmn-dir p { margin: 2px 0 0; }
+.wmn-feedtag { margin-left: 8px; font-size: 11px; color: var(--link); }
+.wmn-more { margin: 0 14px 10px; }
