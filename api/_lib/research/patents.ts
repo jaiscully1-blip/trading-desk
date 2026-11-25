@@ -3,7 +3,7 @@
 // USPTO Open Data Portal rules: one call at a time per key (burst 1), back off >= 5 s after HTTP 429. So every call goes
 // through one queue, each quarter's count is cached on its own, and a request stops after ~25 s and says `complete: false`;
 // the page asks again and the next request carries on where this one stopped.
-import { aliasNames, countBody, countOf, exhibit21Names, grantTrend, lastQuarters, latestBody, ODP_SEARCH, ownerQ, parseRows, simpleQ, techMix, type CountKind } from '../../../shared/patents.js';
+import { PATENT_ALIASES, aliasNames, countBody, ex21FromIndex, countOf, exhibit21Names, grantTrend, lastQuarters, latestBody, ODP_SEARCH, ownerQ, parseRows, simpleQ, techMix, type CountKind } from '../../../shared/patents.js';
 import { cleanCoName, htmlToText, latestAnnual, parseSecTickers, secProfile } from '../../../shared/company.js';
 import { finnhubPeers, secJson, secText } from '../adapters.js';
 import { SYMBOL_RE, cached, getCached, getJson, hasKey, json, key, take } from '../core.js';
@@ -26,12 +26,31 @@ function odp(body: object): Promise<any> {
   return p;
 }
 
-/** Subsidiary names from the newest 10-K's Exhibit 21 (file name contains ex21 / exhibit21). Empty when there is none. */
+/** Subsidiary names from the newest 10-K's Exhibit 21. The file is found by name (ex21 / exhibit21) or, when the name
+ *  says nothing, by its document type on the filing's index page. Empty when the filing has none. */
 async function subsidiaries(filingUrl: string): Promise<string[]> {
   const dir = filingUrl.slice(0, filingUrl.lastIndexOf('/'));
-  const idx = await secJson(`${dir}/index.json`);
-  const f = (idx?.directory?.item ?? []).map((i: any) => String(i.name)).find((n: string) => /ex-?21|exhibit-?21/i.test(n) && /\.(htm|html|txt)$/i.test(n));
-  return f ? exhibit21Names(htmlToText(await secText(`${dir}/${f}`))) : [];
+  const names: string[] = ((await secJson(`${dir}/index.json`))?.directory?.item ?? []).map((i: any) => String(i.name));
+  let url = names.find((n) => /ex-?21|exhibit-?21/i.test(n) && /\.(htm|html|txt)$/i.test(n));
+  let full = url ? `${dir}/${url}` : null;
+  if (!full) {
+    const idx = names.find((n) => /-index\.html?$/i.test(n));
+    const href = idx ? ex21FromIndex(await secText(`${dir}/${idx}`)) : null;
+    full = href ? new URL(href, 'https://www.sec.gov').toString() : null;
+  }
+  return full ? exhibit21Names(htmlToText(await secText(full))) : [];
+}
+
+/** Newest 10-K and its subsidiary names for any ticker (cached: submissions a day, subsidiaries 30 days). */
+async function filerNames(tickers: { cik: number; ticker: string; title: string }[] | null, sym: string) {
+  const t = tickers?.find((x) => x.ticker === sym);
+  const sub = t ? (await cached(`sec:sub:${t.cik}`, 86400, async () => {
+    const j = await secJson(`https://data.sec.gov/submissions/CIK${String(t.cik).padStart(10, '0')}.json`);
+    return { filing: latestAnnual(j, t.cik), sec: secProfile(j) };
+  })).val : null;
+  const name = sub?.sec.name ? cleanCoName(sub.sec.name) : t?.title ? cleanCoName(t.title) : sym;
+  const subs = sub?.filing ? (await cached(`ex21v2:${sub.filing.url}`, 30 * 86400, () => subsidiaries(sub.filing!.url))).val : [];
+  return { name, subs, names: aliasNames(name, subs, PATENT_ALIASES[sym] ?? []) };
 }
 
 export async function patents(req: Request): Promise<Response> {
@@ -42,16 +61,10 @@ export async function patents(req: Request): Promise<Response> {
   const errors: Record<string, string> = {};
   const safe = async <T,>(k: string, f: () => Promise<T>): Promise<T | null> => { try { return await f(); } catch (e) { errors[k] = String((e as Error).message).slice(0, 160); return null; } };
 
-  // company name and newest 10-K (same SEC caches the Company page uses)
+  // company name, newest 10-K and its subsidiaries (same SEC caches the Company page uses)
   const tickers = hasKey('sec') ? await safe('sec', async () => (await cached('sec:tickers', 86400, async () => parseSecTickers(await secJson('https://www.sec.gov/files/company_tickers.json')))).val) : null;
-  const t = tickers?.find((x) => x.ticker === sym);
-  const sub = t ? await safe('sec', async () => (await cached(`sec:sub:${t.cik}`, 86400, async () => {
-    const j = await secJson(`https://data.sec.gov/submissions/CIK${String(t.cik).padStart(10, '0')}.json`);
-    return { filing: latestAnnual(j, t.cik), sec: secProfile(j) };
-  })).val) : null;
-  const name = sub?.sec.name ? cleanCoName(sub.sec.name) : t?.title ? cleanCoName(t.title) : sym;
-  const subs = sub?.filing ? (await safe('subsidiaries', async () => (await cached(`ex21:${sub.filing!.url}`, 30 * 86400, () => subsidiaries(sub.filing!.url))).val)) ?? [] : [];
-  const names = aliasNames(name, subs);
+  const me = (await safe('subsidiaries', () => filerNames(tickers, sym))) ?? { name: sym, subs: [] as string[], names: aliasNames(sym, [], PATENT_ALIASES[sym] ?? []) };
+  const { name, subs, names } = me;
 
   // which query form the server accepts (the OR form is preferred; fall back once if it is rejected)
   let q = ownerQ(names), qForm = 'applicant or assignee, all names';
@@ -79,8 +92,9 @@ export async function patents(req: Request): Promise<Response> {
   const peerSyms = hasKey('finnhub') ? ((await safe('peers', async () => (await cached(`peers:${sym}`, 7 * 86400, () => finnhubPeers(sym))).val)) ?? []).filter((p) => p !== sym).slice(0, 4) : [];
   const peers: { sym: string; name: string; last: number | null; prior: number | null }[] = [];
   for (const p of peerSyms) {
-    const pt = tickers?.find((x) => x.ticker === p);
-    const pn = pt ? cleanCoName(pt.title) : p, pq = ownerQ(aliasNames(pn));
+    if (Date.now() - started > budget) { complete = false; peers.push({ sym: p, name: p, last: null, prior: null }); continue; }
+    const pf = (await safe('peers', () => filerNames(tickers, p))) ?? { name: p, subs: [] as string[], names: [p] };
+    const pn = pf.name, pq = ownerQ(pf.names);
     const row = { sym: p, name: pn, last: null as number | null, prior: null as number | null };
     for (const [w, f] of [[w1, 'last'], [w0, 'prior']] as const) {
       const k = `pat:n:granted:${w.from}:${w.to}:${pq}`;

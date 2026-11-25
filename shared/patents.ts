@@ -7,7 +7,7 @@ export const ODP_SEARCH = 'https://api.uspto.gov/api/v1/patent/applications/sear
 /** Company name as patent applicants usually write it: drop share classes and legal suffixes. */
 export function applicantName(name: string): string {
   let s = name.replace(/\s+class\s+[a-c]\b.*$/i, '').trim();
-  for (let i = 0; i < 2; i++) s = s.replace(/,?\s+(inc|corp|corporation|co|company|ltd|limited|plc|holdings?|group|n\.?v|s\.?a|ag|se)\.?$/i, '').trim();
+  for (let i = 0; i < 3; i++) s = s.replace(/,?\s+(inc|corp|corporation|co|company|ltd|limited|plc|holdings?|group|n\.?v|s\.?a|ag|se|pte|llc|ulc)\.?$/i, '').trim();
   return s;
 }
 
@@ -53,13 +53,27 @@ export function exhibit21Names(text: string): string[] {
   return [...new Set(out)];
 }
 
-/** Names to search: the company itself plus subsidiaries that carry its core name (max 6, shortest first). */
-export function aliasNames(name: string, subsidiaries: string[] = []): string[] {
+/** Patent owners that the 10-K subsidiary list does not link by name (renamed or acquired companies that still hold the
+ *  patents). Short, hand-checked, and always shown on the page as "searched as". */
+export const PATENT_ALIASES: Record<string, string[]> = {
+  AVGO: ['Avago Technologies'], GOOGL: ['Google'], GOOG: ['Google'], META: ['Facebook', 'Meta Platforms Technologies'],
+  JNJ: ['Janssen'], NVDA: ['Mellanox Technologies'], MSFT: ['Microsoft Technology Licensing'], IBM: ['International Business Machines'],
+};
+
+/** Exhibit 21 link from a filing index page: the row whose document type is EX-21 (file names vary, e.g. NVIDIA's
+ *  "subsidiariesofregistrantfy.htm"). */
+export function ex21FromIndex(html: string): string | null {
+  const m = /<td[^>]*>\s*EX-21[^<]*<\/td>\s*<td[^>]*>\s*<a href="([^"]+)"/i.exec(html);
+  return m ? m[1] : null;
+}
+
+/** Names to search: the company itself, known aliases, then subsidiaries that carry its core name (max 6, shortest first). */
+export function aliasNames(name: string, subsidiaries: string[] = [], extra: string[] = []): string[] {
   const base = applicantName(name);
   const core = norm(coreToken(name));
   const subs = subsidiaries.map(applicantName).filter((s) => s.length >= 3 && core.length >= 3 && norm(s).includes(core));
   const seen = new Set<string>(), out: string[] = [];
-  for (const s of [base, ...subs.sort((a, b) => a.length - b.length)]) { const k = norm(s); if (!seen.has(k)) { seen.add(k); out.push(s); } }
+  for (const s of [base, ...extra, ...subs.sort((a, b) => a.length - b.length)]) { const k = norm(s); if (!seen.has(k)) { seen.add(k); out.push(s); } }
   return out.slice(0, 6);
 }
 
