@@ -7,7 +7,7 @@ import { PATENT_ALIASES, aliasNames, countBody, ex21FromIndex, countOf, exhibit2
 import { cleanCoName, htmlToText, latestAnnual, parseSecTickers, secProfile } from '../../../shared/company.js';
 import { finnhubPeers, secJson, secText } from '../adapters.js';
 import { SYMBOL_RE, cached, getCached, getJson, hasKey, json, key, setCached, take } from '../core.js';
-import { BASELINE_Q, CPC_FORMS, RADAR, hasGroup, orQ, prefixVariants, radarBody, radarWindows, themeQ, topFacet, type CpcForm, type RadarKind } from '../../../shared/patentRadar.js';
+import { BASELINE_Q, CPC_FORMS, RADAR, hasGroup, plausibleSub, orQ, prefixVariants, radarBody, radarWindows, themeQ, topFacet, type CpcForm, type RadarKind } from '../../../shared/patentRadar.js';
 
 let chain: Promise<unknown> = Promise.resolve();
 /** One USPTO call at a time on this server, with one patient retry after a 429. */
@@ -147,18 +147,20 @@ export async function patentradar(): Promise<Response> {
     let q = themeQ(t.cpc, form);
     // sub-category themes (quantum): find the code spelling that matches, once a week
     if (hasGroup(t)) {
-      const kq = `pat:radarq2:${t.id}`;
-      const known = getCached<string>(kq)?.val;
-      if (known) q = known;
+      const kq = `pat:radarq3:${t.id}`;
+      const known = getCached<string>(kq);
+      if (known) q = known.val;
       else if (Date.now() - started < budget) {
         const parts: string[] = [];
         for (const p of t.cpc) {
-          let pick = prefixVariants(p)[0];
-          for (const v of prefixVariants(p)) { try { if (countOf(await odp(radarBody(v, 'published', w.cur))) > 0) { pick = v; break; } } catch { /* try the next spelling */ } }
-          parts.push(pick);
+          // the parent class count bounds the answer: a spelling read as "match anything" returns more than the parent
+          const parent = countOf(await odp(radarBody(themeQ([p.slice(0, 4)], form), 'published', w.cur)));
+          for (const v of prefixVariants(p)) { try { if (plausibleSub(countOf(await odp(radarBody(v, 'published', w.cur))), parent)) { parts.push(v); break; } } catch { /* try the next spelling */ } }
         }
-        q = orQ(parts); setCached(kq, q, 7 * 86400);
-      }
+        q = parts.length ? orQ(parts) : '';
+        setCached(kq, q, parts.length ? 7 * 86400 : 86400);
+      } else q = '';
+      if (!q) { themes.push({ id: t.id, label: t.label, group: t.group, cur: { published: null, granted: null }, prev: { published: null, granted: null }, top: [], unmatched: true }); continue; }
     }
     const row = { id: t.id, label: t.label, group: t.group, cur: { published: null as number | null, granted: null as number | null }, prev: { published: null as number | null, granted: null as number | null }, top: [] as { name: string; n: number }[] };
     for (const [win, slot] of [[w.cur, 'cur'], [w.prev, 'prev']] as const) for (const kind of ['published', 'granted'] as RadarKind[]) {
