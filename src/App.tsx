@@ -59,6 +59,7 @@ const MonthCalendar = lazy(() => import('./components/MonthCalendar').then((m) =
 const CalViewSwitch = ({ v, set }: { v: 'list' | 'month'; set: (x: 'list' | 'month') => void }) => <div className="cal-switch" role="tablist" aria-label="Calendar view">{(['list', 'month'] as const).map((x) => <button key={x} role="tab" aria-selected={v === x} className={`chip sm ${v === x ? 'on' : ''}`} onClick={() => set(x)}>{x === 'list' ? 'List' : 'Month calendar'}</button>)}</div>;
 const QuantLabPage = lazy(() => import('./components/QuantLabPage'));
 const RealEconPage = lazy(() => import('./components/RealEconPage'));
+const CommodityMap = lazy(() => import('./components/CommodityMap'));
 const PlumbingPage = lazy(() => import('./components/PlumbingPage'));
 const MacroExtraPage = lazy(() => import('./components/MacroExtraPage'));
 const LearnPage = lazy(() => import('./components/LearnPage'));
@@ -765,6 +766,7 @@ export default function App() {
     { id: 'fear', label: 'Show/hide fear strip', hint: 'F', run: () => setLayout({ fearOpen: layout.fearOpen === false }) },
     { id: 'crypto', label: 'BTC / ETH: live Bitcoin and Ethereum charts (24/7)', run: () => setPage('crypto') },
     { id: 'learn', label: 'Learn: strategies and their history, YouTube channels, books, papers, glossary, flashcards, learning path, chart game', run: () => setPage('learn') },
+    { id: 'cmap', label: 'Commodity Map: drought, severe weather and FEMA disasters by state, tied to corn, wheat, soy, cattle, oil and gas tickers', hint: '', run: () => setPage('cmap') },
     { id: 'policy', label: 'Macro & Policy: earnings season scoreboard, tariff tracker, policy odds by sector', hint: 'Shift O', run: () => setPage('policy') },
     { id: 'plumbing', label: 'Shorts & Supply (was Market Plumbing): short volume, dark pools, borrow fee, fails to deliver, unusual options, buybacks, dilution, lockups, mergers', hint: 'Shift P', run: () => setPage('plumbing') },
     { id: 'realecon', label: 'Real Economy: air traffic, CEO jets, rail, power demand, gas prices, freight, weather', hint: 'Shift E', run: () => setPage('realecon') },
@@ -1010,6 +1012,8 @@ export default function App() {
     body = <Suspense fallback={<section className="panel"><div className="ph-body">Loading…</div></section>}><MacroExtraPage mode={dataMode} onChart={toDesk} /></Suspense>;
   } else if (page === 'plumbing') {
     body = <Suspense fallback={<section className="panel"><div className="ph-body">Loading…</div></section>}><PlumbingPage mode={dataMode} sel={sel} /></Suspense>;
+  } else if (page === 'cmap') {
+    body = <Suspense fallback={<section className="panel"><div className="ph-body">Loading…</div></section>}><CommodityMap mode={dataMode} onChart={toDesk} onWatch={addSym} /></Suspense>;
   } else if (page === 'realecon') {
     body = <Suspense fallback={<section className="panel"><div className="ph-body">Loading…</div></section>}><RealEconPage mode={dataMode} /></Suspense>;
   } else if (page === 'quant') {

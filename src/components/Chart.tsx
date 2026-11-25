@@ -15,6 +15,7 @@ import { useHistNews } from '../data/company';
 import { CoName, FlashNum, Skel, Star } from './common';
 import { Ladder } from './Ladder';
 import { useGammaLv } from '../data/gamma';
+import { useGexPins } from '../lib/gexPins';
 import { ZonePrimitive } from '../lib/zones';
 import { SWING_KEYS, buildLadder, distLabel, nearestKey, type LadderIn } from '../../shared/ladder';
 import type { SeriesState } from '../data/live';
@@ -275,6 +276,19 @@ export function ChartPanel({
     add(gx.putWall, cssVar('--down'), 'Put wall', LineStyle.LargeDashed);
     add(gx.flip, cssVar('--accent'), 'γ flip', LineStyle.SparseDotted);
   }, [gx, gxOn, tf, theme, bars, ladderOn, Math.round(last * 20)]);
+
+  // Strikes pinned from the Gamma heatmap (SPX strikes show on SPY at ÷10, approximate)
+  const allPins = useGexPins();
+  const pinLines = useRef<IPriceLine[]>([]);
+  useEffect(() => {
+    const x = s.current;
+    if (!x) return;
+    for (const l of pinLines.current) x.c.removePriceLine(l);
+    pinLines.current = [];
+    if (tf === 'W' || tf === 'M') return;
+    const ps = [...(allPins[sym] ?? []).map((k) => ({ v: k, t: `📌 ${k}` })), ...(sym === 'SPY' ? (allPins.SPX ?? []).map((k) => ({ v: k / 10, t: `📌 SPX ${k}` })) : [])];
+    for (const p of ps) pinLines.current.push(x.c.createPriceLine({ price: p.v, color: cssVar('--muted'), lineWidth: 1, lineStyle: LineStyle.Dotted, axisLabelVisible: true, title: ladderOn ? '' : p.t }));
+  }, [allPins, sym, tf, theme, bars, ladderOn]);
 
   // Dark-pool block levels and phantom prints (Alpaca free plan, SIP tape, 15+ min delayed). Real data only.
   const dpOn = ov.dp !== false && mode?.kind === 'live' && tf !== 'W' && tf !== 'M', phOn = ov.ph !== false && dpOn;

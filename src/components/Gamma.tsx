@@ -2,7 +2,10 @@
 // flip) and how options price risk across strikes and dates (IV surface, term structure). Cboe delayed chain, ~15 min.
 import { useEffect, useMemo, useState } from 'react';
 import type { DataMode } from '../data/live';
-import { MONEYNESS, gammaRead, ivSurface, parseCboe, pcRatios, type GammaRead, type IvRow } from '../../shared/gamma';
+import { MONEYNESS, gammaRead, ivSurface, parseCboe, pcRatios, strikeGrid, type GammaRead, type IvRow, type PremTotals, type StrikeGrid } from '../../shared/gamma';
+import { recordTide } from '../lib/tide';
+import GammaHeat from './GammaHeat';
+import GammaTide from './GammaTide';
 import { usePersisted } from '../lib/store';
 import { Fresh, Seg, Skel, PageTabs, Q } from './common';
 import { DEMO_AT, rng } from '../lib/demo';
@@ -13,7 +16,7 @@ const INDEXES = ['SPY', 'QQQ', 'IWM', 'SPX'];
 interface GammaData {
   sym: string; spot: number; chainAsOf: number | null; contracts: number; gex: GammaRead;
   gexWeek: { callWall: number | null; putWall: number | null; flip: number | null; total: number };
-  surface: IvRow[]; pc: { oi: number | null; vol: number | null }; flow?: Flow; asOf: number; source: string; stale?: boolean; demo?: boolean;
+  surface: IvRow[]; pc: { oi: number | null; vol: number | null }; flow?: Flow; grid?: StrikeGrid; prem?: PremTotals; asOf: number; source: string; stale?: boolean; demo?: boolean;
 }
 
 function demoData(sym: Sym): GammaData {
@@ -33,7 +36,7 @@ function demoData(sym: Sym): GammaData {
   }
   const ch = parseCboe({ data: { current_price: spot, options } }, sym, now);
   const g = gammaRead(ch, 45), w = gammaRead(ch, 7);
-  return { sym, spot, chainAsOf: now, contracts: ch.contracts.length, gex: g, gexWeek: { callWall: w.callWall, putWall: w.putWall, flip: w.flip, total: w.total }, surface: ivSurface(ch), pc: pcRatios(ch), asOf: now, source: 'Generated sample chain', demo: true };
+  return { sym, spot, chainAsOf: now, contracts: ch.contracts.length, gex: g, gexWeek: { callWall: w.callWall, putWall: w.putWall, flip: w.flip, total: w.total }, surface: ivSurface(ch), pc: pcRatios(ch), grid: strikeGrid(ch), asOf: now, source: 'Generated sample chain', demo: true };
 }
 
 function useGamma(sym: Sym, mode: DataMode): { d: GammaData | null; err?: string } {
@@ -43,7 +46,7 @@ function useGamma(sym: Sym, mode: DataMode): { d: GammaData | null; err?: string
     if (mode.kind === 'demo') { setSt({ d: demoData(sym) }); return; }
     let stop = false;
     setSt((s) => ({ d: s.d?.sym === sym ? s.d : null }));
-    const go = () => fetch(`/api/research?fn=gamma&symbol=${encodeURIComponent(sym)}`).then(async (r) => { const j = await r.json(); if (!stop) setSt(r.ok ? { d: j } : { d: null, err: j.error ?? `HTTP ${r.status}` }); }).catch((e) => !stop && setSt({ d: null, err: String(e) }));
+    const go = () => fetch(`/api/research?fn=gamma&symbol=${encodeURIComponent(sym)}`).then(async (r) => { const j = await r.json(); if (r.ok) recordTide(sym, j.chainAsOf, j.spot, j.prem); if (!stop) setSt(r.ok ? { d: j } : { d: null, err: j.error ?? `HTTP ${r.status}` }); }).catch((e) => !stop && setSt({ d: null, err: String(e) }));
     go();
     const id = setInterval(go, 10 * 60_000);
     return () => { stop = true; clearInterval(id); };
@@ -194,6 +197,12 @@ export default function Gamma({ mode, onChart }: { mode: DataMode; onChart: (s: 
             <section className="panel gx-card"><div className="gx-h"><Q k="calc" src="calculated on the desk from the delayed option chain (Cboe, ~15 min)" /><b>Implied volatility surface</b><span className="small muted">% per year · out-of-the-money options · skew = IV at −5% minus +5%</span></div><Surface rows={d.surface} /></section>
             <section className="panel gx-card"><div className="gx-h"><Q k="calc" src="calculated on the desk from the delayed option chain (Cboe, ~15 min)" /><b>Term structure</b><span className="small muted">at-the-money IV by days to expiry{d.surface.length > 1 && d.surface[0].atm != null && d.surface[d.surface.length - 1].atm != null ? (d.surface[0].atm! > d.surface[d.surface.length - 1].atm! ? ' · inverted: near-term fear' : ' · upward: calm') : ''}</span></div><Term rows={d.surface} /></section>
           </div>
+        </div>
+      )}
+      {d && g && (
+        <div className="gx-grid gx-grid2">
+          {d.grid && <section className="panel gx-card"><GammaHeat grid={d.grid} spot={d.spot} sym={sym} /></section>}
+          <section className="panel gx-card">{d.demo ? <><div className="gx-h"><b>Options tide</b></div><p className="small muted gx-pad">Switch to live data: the tide is built only from real delayed chain snapshots.</p></> : <GammaTide sym={sym} />}</section>
         </div>
       )}
       {d && g && (

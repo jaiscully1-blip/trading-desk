@@ -40,6 +40,8 @@ export const PROVIDER_INFO: Record<string, ProviderInfo> = {
   openfda: { label: 'openFDA', feeds: 'Food and drug recalls and adverse events (Quant Lab)', fallback: 'None' },
   courtlistener: { label: 'CourtListener', feeds: 'Federal court cases naming the company (Filings Intel)', fallback: 'Setup steps shown' },
   noaa: { label: 'NOAA weather alerts', feeds: 'Severe weather risk by sector', fallback: 'Section left empty' },
+  fema: { label: 'FEMA disaster declarations', feeds: 'Commodity map: recent disasters by state', fallback: 'Layer left empty' },
+  usdm: { label: 'US Drought Monitor', feeds: 'Commodity map: drought by state', fallback: 'Layer left empty' },
   stocktwits: { label: 'StockTwits', feeds: 'Watchers and bullish / bearish tags on the Alt Data page', fallback: 'Section left empty', unofficial: true },
   copernicus: { label: 'Copernicus Data Space (Sentinel-2)', feeds: 'Satellite lot fullness on the Tesla & Lots page', fallback: 'Lots show setup steps' },
   tradetime: { label: 'Trade Time', feeds: 'World exchange hours, open / closed status and holidays', fallback: 'Built-in session table' },

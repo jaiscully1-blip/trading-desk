@@ -138,3 +138,42 @@ export function pcRatios(ch: Chain) {
   for (const c of ch.contracts) { if (c.cp === 'C') { coi += c.oi; cv += c.vol; } else { poi += c.oi; pv += c.vol; } }
   return { oi: coi ? poi / coi : null, vol: cv ? pv / cv : null };
 }
+
+/** One heatmap cell: dealer GEX ($ per 1% move, signed), call / put open interest and today's call / put volume. */
+export type GridCell = [gex: number, coi: number, poi: number, cvol: number, pvol: number];
+export interface StrikeGrid { strikes: number[]; expiries: { exp: string; dte: number }[]; cells: GridCell[][] /* [expiry][strike] */ }
+
+/** Strike × expiry grid around spot (the "heatseeker"-style table): first `nExp` expiries, strikes within ±band. */
+export function strikeGrid(ch: Chain, nExp = 8, band = 0.08): StrikeGrid {
+  const S = ch.spot;
+  const exps = [...new Map(ch.contracts.map((c) => [c.exp, c.dte])).entries()].sort((a, b) => a[0].localeCompare(b[0])).slice(0, nExp);
+  const strikes = [...new Set(ch.contracts.filter((c) => Math.abs(c.K / S - 1) <= band && exps.some(([e]) => e === c.exp)).map((c) => c.K))].sort((a, b) => b - a);
+  const ix = new Map(strikes.map((k, i) => [k, i]));
+  const cells: GridCell[][] = exps.map(() => strikes.map(() => [0, 0, 0, 0, 0] as GridCell));
+  exps.forEach(([e], ei) => {
+    for (const c of ch.contracts) {
+      if (c.exp !== e) continue;
+      const si = ix.get(c.K);
+      if (si == null) continue;
+      const cell = cells[ei][si];
+      if (usable(c)) cell[0] += gexOf(c, S);
+      if (c.cp === 'C') { cell[1] += c.oi; cell[3] += c.vol; } else { cell[2] += c.oi; cell[4] += c.vol; }
+    }
+  });
+  for (const row of cells) for (const c of row) c[0] = Math.round(c[0]);
+  return { strikes, expiries: exps.map(([exp, dte]) => ({ exp, dte })), cells };
+}
+
+/** Premium traded today, all strikes: Σ volume × mid (or last) × 100. No buy / sell side: this is gross, not net. */
+export interface PremTotals { callPrem: number; putPrem: number; callVol: number; putVol: number; otmCallPrem: number; otmPutPrem: number }
+export function premiumTotals(ch: Chain): PremTotals {
+  const t: PremTotals = { callPrem: 0, putPrem: 0, callVol: 0, putVol: 0, otmCallPrem: 0, otmPutPrem: 0 };
+  for (const c of ch.contracts) {
+    if (!(c.vol > 0)) continue;
+    const px = c.bid && c.ask && c.ask >= c.bid ? (c.bid + c.ask) / 2 : c.last ?? 0;
+    const p = c.vol * px * 100;
+    if (c.cp === 'C') { t.callPrem += p; t.callVol += c.vol; if (c.K > ch.spot) t.otmCallPrem += p; } else { t.putPrem += p; t.putVol += c.vol; if (c.K < ch.spot) t.otmPutPrem += p; }
+  }
+  for (const k of Object.keys(t) as (keyof PremTotals)[]) t[k] = Math.round(t[k]);
+  return t;
+}
