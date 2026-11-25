@@ -80,7 +80,7 @@ export default function GlobalPage({ mode, onChart }: { mode: DataMode; onChart:
       <section className="panel gl-news">
         <div className="phead"><div className="phead-title">World business news</div>
           <div className="phead-ctl">
-            <select value={region} onChange={(e) => setRegion(e.target.value)} aria-label="Region">
+            <select className="gl-region" value={region} onChange={(e) => setRegion(e.target.value)} aria-label="Region">
               <option value="all">All regions</option>{g.d?.regions.map((r) => <option key={r.id} value={r.id}>{r.label}</option>)}<option value="none">No region named</option>
             </select>
             {n.d && <Fresh kind="live" at={n.d.asOf} src={n.d.source} />}

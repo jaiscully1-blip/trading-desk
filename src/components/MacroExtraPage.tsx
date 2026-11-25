@@ -1,6 +1,7 @@
 // Macro & Policy: earnings-season beat rates by sector, tariff actions and the companies talking about tariffs most,
 // and policy / macro prediction-market odds next to the sector baskets they tend to move. Data, not advice.
 import { PageHero } from './PageHero';
+import { EarnBoard } from './EarnBoard';
 import { useEffect, useState } from 'react';
 import type { DataMode } from '../data/live';
 import { Fresh } from './common';
@@ -32,9 +33,7 @@ export default function MacroExtraPage({ mode, onChart }: { mode: DataMode; onCh
                 <div className="ad-stat"><span className="ad-k">Beat on EPS</span><b className="num up">{pc(b.total.epsBeatPct)}</b><span className="small muted">long-run norm is about 75%</span></div>
                 <div className="ad-stat"><span className="ad-k">Beat on revenue</span><b className="num">{pc(b.total.revBeatPct)}</b><span className="small muted">median EPS surprise {pc(b.total.avgSurprise, 1)}</span></div>
               </div>
-              <table className="ad-table"><thead><tr><th>Sector</th><th className="r">Reported</th><th className="r">EPS beat</th><th className="r">Revenue beat</th><th className="r">Median surprise</th></tr></thead><tbody>
-                {b.sectors.map((s: any) => <tr key={s.sector}><td>{s.sector}</td><td className="r num">{s.reported}</td><td className={`r num ${(s.epsBeatPct ?? 0) >= 70 ? 'up' : (s.epsBeatPct ?? 100) < 60 ? 'down' : ''}`}>{pc(s.epsBeatPct)}</td><td className="r num">{pc(s.revBeatPct)}</td><td className="r num">{pc(s.avgSurprise, 1)}</td></tr>)}
-              </tbody></table>
+              <EarnBoard b={b} />
             </>}
           </Card>
           <Card title="Policy odds · and what they move" src="Polymarket public API (crowd odds; real-money bets, not forecasts)">

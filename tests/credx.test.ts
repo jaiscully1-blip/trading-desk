@@ -40,3 +40,16 @@ describe('market-hours pacing', () => {
     expect(paceMs(60_000, at('2026-11-24T15:00:00Z'), 'saver')).toBe(240_000);
   });
 });
+
+import { scoreboard } from '../shared/macroextra';
+describe('earnings scoreboard companies', () => {
+  it('lists each sector\'s reported companies, newest first', () => {
+    const b = scoreboard([
+      { sym: 'AAPL', date: '2026-10-30', hour: 'amc', epsEst: 1.6, epsAct: 1.7, revEst: 1e11, revAct: 1.02e11 },
+      { sym: 'MSFT', date: '2026-10-28', hour: 'amc', epsEst: 3.1, epsAct: 3.0, revEst: null, revAct: null },
+      { sym: 'XOM', date: '2026-10-31', epsEst: null, epsAct: 2, revEst: null, revAct: null },
+    ], (s) => (s === 'XOM' ? 'Energy' : 'Information Technology'));
+    expect(b.companies['Information Technology'].map((r) => r.sym)).toEqual(['AAPL', 'MSFT']);
+    expect(b.companies.Energy).toBeUndefined(); // no estimate: not scored
+  });
+});
