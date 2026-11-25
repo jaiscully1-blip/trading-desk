@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Fresh } from './common';
 
 interface Q { label: string; done: boolean; filed: number | null; granted: number | null }
-interface Row { app: string; title: string; filed: string | null; published: string | null; granted: string | null; patentNo: string | null; status: string; kind: string; areas: string[] }
+interface Row { cpc?: string[]; app: string; title: string; filed: string | null; published: string | null; granted: string | null; patentNo: string | null; status: string; kind: string; areas: string[] }
 interface Data {
   error?: string; needsKey?: boolean; name?: string; names?: string[]; subsidiaries?: number; qForm?: string; complete?: boolean;
   quarters?: Q[]; trend?: { last: number; prior: number; pct: number; word: string } | null; latest?: Row[];
@@ -105,7 +105,7 @@ export function PatentsView({ sym, open = true }: { sym: string; open?: boolean 
                   <tr key={r.app}>
                     <td><a href={`https://patentcenter.uspto.gov/applications/${encodeURIComponent(r.app)}`} target="_blank" rel="noreferrer noopener">{r.title || '(no title)'}</a>{r.patentNo && <span className="small muted"> · US {r.patentNo}</span>}</td>
                     <td className="num small">{r.filed ?? '—'}</td><td className="num small">{r.published ?? '—'}</td><td className="num small">{r.granted ?? '—'}</td>
-                    <td className={`small pt-${r.kind}`} title={r.status}>{KIND[r.kind] ?? r.status}</td><td className="small">{r.areas.join(', ')}</td>
+                    <td className={`small pt-${r.kind}`} title={r.status}>{KIND[r.kind] ?? r.status}</td><td className="small" title={r.cpc?.length ? `Classification codes: ${r.cpc.join(', ')}` : undefined}>{r.areas.join(', ')}</td>
                   </tr>
                 ))}
               </tbody></table>

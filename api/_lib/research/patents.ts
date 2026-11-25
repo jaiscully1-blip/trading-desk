@@ -7,7 +7,7 @@ import { PATENT_ALIASES, aliasNames, countBody, ex21FromIndex, countOf, exhibit2
 import { cleanCoName, htmlToText, latestAnnual, parseSecTickers, secProfile } from '../../../shared/company.js';
 import { finnhubPeers, secJson, secText } from '../adapters.js';
 import { SYMBOL_RE, cached, getCached, getJson, hasKey, json, key, setCached, take } from '../core.js';
-import { CPC_FORMS, RADAR, radarBody, radarWindows, themeQ, topFacet, type CpcForm, type RadarKind } from '../../../shared/patentRadar.js';
+import { BASELINE_Q, CPC_FORMS, RADAR, hasGroup, orQ, prefixVariants, radarBody, radarWindows, themeQ, topFacet, type CpcForm, type RadarKind } from '../../../shared/patentRadar.js';
 
 let chain: Promise<unknown> = Promise.resolve();
 /** One USPTO call at a time on this server, with one patient retry after a 429. */
@@ -134,8 +134,32 @@ export async function patentradar(): Promise<Response> {
   }
   let complete = true;
   const themes = [];
+  // baseline first: all US utility patents in the same windows, so each theme can be read against the overall trend
+  const base = { cur: { published: null as number | null, granted: null as number | null }, prev: { published: null as number | null, granted: null as number | null } };
+  for (const [win, slot] of [[w.cur, 'cur'], [w.prev, 'prev']] as const) for (const kind of ['published', 'granted'] as RadarKind[]) {
+    const k = `pat:radar:${kind}:${win.from}:${BASELINE_Q}`;
+    const hit = getCached<{ n: number }>(k);
+    if (hit) { base[slot][kind] = hit.val.n; continue; }
+    if (Date.now() - started > budget) { complete = false; continue; }
+    try { base[slot][kind] = (await cached(k, 12 * 3600, async () => ({ n: countOf(await odp(radarBody(BASELINE_Q, kind, win))), top: [] }))).val.n; } catch (e) { errors.baseline = String((e as Error).message).slice(0, 160); complete = false; }
+  }
   for (const t of RADAR) {
-    const q = themeQ(t.cpc, form);
+    let q = themeQ(t.cpc, form);
+    // sub-category themes (quantum): find the code spelling that matches, once a week
+    if (hasGroup(t)) {
+      const kq = `pat:radarq:${t.id}`;
+      const known = getCached<string>(kq)?.val;
+      if (known) q = known;
+      else if (Date.now() - started < budget) {
+        const parts: string[] = [];
+        for (const p of t.cpc) {
+          let pick = prefixVariants(p)[0];
+          for (const v of prefixVariants(p)) { try { if (countOf(await odp(radarBody(v, 'published', w.cur))) > 0) { pick = v; break; } } catch { /* try the next spelling */ } }
+          parts.push(pick);
+        }
+        q = orQ(parts); setCached(kq, q, 7 * 86400);
+      }
+    }
     const row = { id: t.id, label: t.label, group: t.group, cur: { published: null as number | null, granted: null as number | null }, prev: { published: null as number | null, granted: null as number | null }, top: [] as { name: string; n: number }[] };
     for (const [win, slot] of [[w.cur, 'cur'], [w.prev, 'prev']] as const) for (const kind of ['published', 'granted'] as RadarKind[]) {
       const facet = slot === 'cur' && kind === 'published';
@@ -149,7 +173,7 @@ export async function patentradar(): Promise<Response> {
     }
     themes.push(row);
   }
-  return json({ form, windows: w, themes, complete, errors, asOf: Date.now(), source: 'USPTO Open Data Portal (official, refreshed daily). Themes are patent classification (CPC) groups.' },
+  return json({ form, windows: w, base, themes, complete, errors, asOf: Date.now(), source: 'USPTO Open Data Portal (official, refreshed daily). Themes are patent classification (CPC) groups.' },
     { sMaxAge: complete && !Object.keys(errors).length ? 3600 : 0 });
 }
 

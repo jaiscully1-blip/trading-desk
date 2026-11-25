@@ -23,9 +23,17 @@ function usePoll<T extends { complete?: boolean; error?: string; needsKey?: bool
 
 const pctTxt = (cur: number | null, prev: number | null) => (cur == null || prev == null || prev === 0 ? '—' : `${cur >= prev ? '+' : ''}${Math.round(((cur - prev) / prev) * 100)}%`);
 const pctCls = (cur: number | null, prev: number | null) => (cur == null || prev == null || prev === 0 ? '' : cur > prev * 1.1 ? 'up' : cur < prev * 0.9 ? 'down' : '');
+const chg = (cur: number | null, prev: number | null) => (cur == null || prev == null || prev === 0 ? null : ((cur - prev) / prev) * 100);
+/** Theme change minus the overall change, in points: is this theme gaining share of all patenting? */
+function Rel({ t, b }: { t: number | null; b: number | null }) {
+  if (t == null || b == null) return <span className="muted">—</span>;
+  const d = t - b;
+  return <span className={d >= 5 ? 'up' : d <= -5 ? 'down' : ''} title={`Theme ${t >= 0 ? '+' : ''}${Math.round(t)}% vs all patents ${b >= 0 ? '+' : ''}${Math.round(b)}%`}>{d >= 0 ? '+' : ''}{Math.round(d)} pts</span>;
+}
 const num = (v: number | null) => (v == null ? '…' : v.toLocaleString());
 
 interface Radar {
+  base?: { cur: { published: number | null; granted: number | null }; prev: { published: number | null; granted: number | null } };
   error?: string; needsKey?: boolean; unavailable?: boolean; why?: string; complete?: boolean; windows?: { cur: { from: string; to: string }; prev: { from: string; to: string } };
   themes?: { id: string; label: string; group: string; cur: { published: number | null; granted: number | null }; prev: { published: number | null; granted: number | null }; top: { name: string; n: number }[] }[];
   errors?: Record<string, string>; source?: string;
@@ -43,21 +51,22 @@ function RadarPanel() {
         {d?.unavailable && <p className="small down">The radar can't count by theme yet: {d.why}</p>}
         {d?.themes && <>
           {!d.complete && <p className="small muted">Filling in ({done} of {d.themes.length} themes)… the USPTO allows one lookup at a time. Saved for 12 hours after this.</p>}
-          <table className="ad-table pr-table"><thead><tr><th>Theme</th><th className="r">Made public</th><th className="r">vs year ago</th><th className="r">Granted</th><th className="r">vs year ago</th><th>Top filers (made public)</th></tr></thead>
+          <table className="ad-table pr-table"><thead><tr><th>Theme</th><th className="r">Made public</th><th className="r">vs year ago</th><th className="r" title="Change minus the change for all US patents">vs all patents</th><th className="r">Granted</th><th className="r">vs year ago</th><th className="r" title="Change minus the change for all US patents">vs all patents</th><th>Top filers (made public)</th></tr></thead>
             {RADAR_GROUPS.map((g) => (
               <tbody key={g}>
-                <tr className="pr-group"><td colSpan={6}>{g}</td></tr>
+                <tr className="pr-group"><td colSpan={8}>{g}</td></tr>
                 {d.themes!.filter((t) => t.group === g).map((t) => (
                   <tr key={t.id}>
                     <td>{t.label}</td>
-                    <td className="r num">{num(t.cur.published)}</td><td className={`r num ${pctCls(t.cur.published, t.prev.published)}`}>{pctTxt(t.cur.published, t.prev.published)}</td>
-                    <td className="r num">{num(t.cur.granted)}</td><td className={`r num ${pctCls(t.cur.granted, t.prev.granted)}`}>{pctTxt(t.cur.granted, t.prev.granted)}</td>
+                    <td className="r num">{num(t.cur.published)}</td><td className={`r num ${pctCls(t.cur.published, t.prev.published)}`}>{pctTxt(t.cur.published, t.prev.published)}</td><td className="r num"><Rel t={chg(t.cur.published, t.prev.published)} b={d.base ? chg(d.base.cur.published, d.base.prev.published) : null} /></td>
+                    <td className="r num">{num(t.cur.granted)}</td><td className={`r num ${pctCls(t.cur.granted, t.prev.granted)}`}>{pctTxt(t.cur.granted, t.prev.granted)}</td><td className="r num"><Rel t={chg(t.cur.granted, t.prev.granted)} b={d.base ? chg(d.base.cur.granted, d.base.prev.granted) : null} /></td>
                     <td className="small">{t.top.length ? t.top.slice(0, 3).map((f) => `${f.name} (${f.n})`).join(' · ') : <span className="muted">—</span>}</td>
                   </tr>
                 ))}
               </tbody>
             ))}
           </table>
+          {d.base && <p className="small">All US utility patents: made public <b className="num">{num(d.base.cur.published)}</b> vs <span className="num">{num(d.base.prev.published)}</span> ({pctTxt(d.base.cur.published, d.base.prev.published)}), granted <b className="num">{num(d.base.cur.granted)}</b> vs <span className="num">{num(d.base.prev.granted)}</span> ({pctTxt(d.base.cur.granted, d.base.prev.granted)}). "vs all patents" = the theme's change minus this: positive means the theme is gaining share.</p>}
           {d.windows && <p className="note small">Last 90 days: {d.windows.cur.from} to {d.windows.cur.to}, compared with {d.windows.prev.from} to {d.windows.prev.to}. "Made public" = applications published (usually ~18 months after filing): the newest look at what companies are building. A patent can sit in more than one theme.</p>}
           {d.errors && Object.keys(d.errors).length > 0 && <p className="small muted">Some counts did not load: {Object.values(d.errors).join(' · ')}</p>}
         </>}
