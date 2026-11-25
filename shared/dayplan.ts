@@ -3,7 +3,7 @@ export const DAY_START = 4 * 60, DAY_END = 20 * 60;
 export interface Phase { id: string; label: string; from: number; to: number; focus?: boolean }
 export const PHASES: Phase[] = [
   { id: 'pre', label: 'Premarket', from: 4 * 60, to: 9 * 60 + 30 },
-  { id: 'open', label: 'Open to 11:00', from: 9 * 60 + 30, to: 11 * 60, focus: true },
+  { id: 'open', label: 'Kill zone', from: 9 * 60 + 30, to: 11 * 60, focus: true },
   { id: 'mid', label: 'Midday', from: 11 * 60, to: 15 * 60 },
   { id: 'power', label: 'Power hour', from: 15 * 60, to: 16 * 60 },
   { id: 'after', label: 'After hours', from: 16 * 60, to: 20 * 60 },
