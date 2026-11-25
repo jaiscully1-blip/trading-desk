@@ -28,6 +28,7 @@ function useChanges(d: Data | null): Record<string, string[]> {
   }, [d]);
 }
 
+/** The US tab of World Monitor (also usable on its own). */
 export default function CommodityMap({ mode, onChart, onWatch }: { mode: DataMode; onChart: (s: string) => void; onWatch: (s: string) => void }) {
   const [d, setD] = useState<Data | null>(null);
   const [err, setErr] = useState('');
@@ -53,13 +54,13 @@ export default function CommodityMap({ mode, onChart, onWatch }: { mode: DataMod
   };
   const watchHits = c.states.filter((s) => (d?.alerts?.[s]?.length ?? 0) > 0 || droughtLevel(d?.drought?.[s]) >= 2 || (d?.fema?.[s]?.length ?? 0) > 0);
   const addAlert = (sym: string) => { if (setPriceAlerts) setPriceAlerts([...(priceAlerts ?? []), { id: Math.random().toString(36).slice(2, 10), sym, kind: 'chgUp', value: 3, note: `${c.label}: up 3% on the day (Commodity Map)`, active: true, created: Date.now() }, { id: Math.random().toString(36).slice(2, 10), sym, kind: 'chgDown', value: 3, note: `${c.label}: down 3% on the day (Commodity Map)`, active: true, created: Date.now() }]); };
-  if (mode.kind !== 'live') return <div className="page"><section className="panel"><div className="phead"><div className="phead-title">Commodity Map</div></div><p className="small muted gx-pad">This map only uses real government data, so it needs live mode.</p></section></div>;
+  if (mode.kind !== 'live') return <div className="cmp"><section className="panel"><div className="phead"><div className="phead-title">US map</div></div><p className="small muted gx-pad">This map only uses real government data, so it needs live mode.</p></section></div>;
   const sd = d?.drought?.[sel], sa = d?.alerts?.[sel] ?? [], sf = d?.fema?.[sel] ?? [];
   return (
-    <div className="page cmp">
+    <div className="cmp">
       <section className="panel">
         <div className="phead">
-          <div className="phead-title">Commodity Map</div>
+          <div className="phead-title">US map: drought, weather, disasters and farm / energy states</div>
           <div className="phead-ctl">
             <Seg<Layer> value={layer} onChange={setLayer} options={[{ id: 'drought', label: 'Drought' }, { id: 'alerts', label: 'Severe weather' }, { id: 'fema', label: 'FEMA disasters' }]} />
             {d && <Fresh kind="delayed" at={d.asOf} src={d.source} />}

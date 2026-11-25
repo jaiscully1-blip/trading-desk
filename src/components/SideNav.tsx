@@ -59,7 +59,7 @@ const P: Record<Page, { label: string; hint: string; key: string }> = {
   policy: { label: 'Macro & Policy', hint: 'earnings scoreboard, tariffs, policy odds by sector', key: '⇧O' },
   crypto: { label: 'BTC / ETH', hint: 'live Bitcoin and Ethereum charts; crypto trades 24/7', key: '' },
   plumbing: { label: 'Shorts & Supply', hint: 'who is shorting, borrow cost, dark-pool share, failed deliveries, unusual options; buybacks, dilution, lockups, index changes, mergers', key: '⇧P' },
-  cmap: { label: 'Commodity Map', hint: 'drought, severe weather and disasters by state, tied to farm and energy tickers', key: '' },
+  cmap: { label: 'World Monitor', hint: 'agency feeds, US drought and disaster map, world map, agency directory', key: '' },
   realecon: { label: 'Real Economy', hint: 'air traffic, CEO jets, rail, power, fuel, freight, weather', key: '⇧E' },
   altdata: { label: 'Alt Data', hint: 'hiring, app ranks, interest, GitHub, players, social, prices', key: '⇧A' },
   tesla: { label: 'Lots', hint: 'registrations, satellite lot fullness, inventory', key: '⇧T' },
