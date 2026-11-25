@@ -41,13 +41,15 @@ export function themeQ(cpc: string[], form: CpcForm): string {
   return cpc.length === 1 ? one(cpc[0]) : `(${cpc.map(one).join(' OR ')})`;
 }
 
-/** Sub-category codes (e.g. G06N10 = quantum computing) are stored as "G06N 10/40", with a space, which a plain prefix
+/** Sub-category codes (e.g. G06N10 = quantum computing) are stored as "G06N  10/40" (padded with spaces), which a plain prefix
  *  does not reach. These are the spellings tried, in order, for a prefix with a group number; the first that finds
  *  anything is kept. Class-level prefixes (G06N, H01M) need no variants. */
 export function prefixVariants(p: string): string[] {
   const m = /^([A-HY]\d{2}[A-Z])(\d+)$/.exec(p);
   if (!m) return [`${FIELD}:${p}*`];
-  return [`${FIELD}:${p}*`, `${FIELD}:${m[1]}\\ ${m[2]}*`, `${FIELD}:"${m[1]} ${m[2]}/*"`, `${FIELD}:${m[1]}${m[2]}/*`];
+  // stored like "G06N   3/0455": the group number right-aligned in 4 characters, so quantum (G06N10) is "G06N  10/..."
+  const pad = ' '.repeat(Math.max(0, 4 - m[2].length));
+  return [`${FIELD}:${m[1]}${pad.replace(/ /g, '\\ ')}${m[2]}/*`, `${FIELD}:"${m[1]}${pad}${m[2]}/*"`, `${FIELD}:${p}*`, `${FIELD}:${m[1]}\\ ${m[2]}*`];
 }
 export const hasGroup = (t: Theme) => t.cpc.some((p) => /^[A-HY]\d{2}[A-Z]\d+$/.test(p));
 /** Query for a theme with one chosen spelling per prefix. */
