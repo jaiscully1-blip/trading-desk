@@ -1,6 +1,7 @@
 // Company page: what they do, main products, and a clickable supply chain (suppliers -> company -> customers, competitors below).
 // Click any box or arrow for details (info drawer); double-click a company with a ticker to re-center on it. Facts come from the latest 10-K, read by free Gemini.
 import { FilingsIntel } from './FilingsIntel';
+import { PatentsSection } from './PatentsSection';
 import { ConsensusGauge } from './ConsensusGauge';
 import { FundCharts } from './FundCharts';
 import { TranscriptView } from './Transcript';
@@ -223,6 +224,7 @@ export default function CompanyPage({ sym, mode, onOpen, onChart, onPatterns }: 
               <h4>Fundamentals over time <span className="muted small">· from SEC filings</span></h4>
               <FundCharts mode={mode} sym={sym} />
               <FilingsIntel sym={sym} />
+              <PatentsSection sym={sym} />
             </div>
           </div>
         )}
