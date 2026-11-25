@@ -1,11 +1,11 @@
 // Macro extras (pure, tested): earnings-season scoreboard by sector, policy odds mapped to the sector baskets they move,
 // and which market phase it is (for workspaces that switch with the session).
 
-export interface EarnRow { sym: string; date: string; epsEst: number | null; epsAct: number | null; revEst: number | null; revAct: number | null }
+export interface EarnRow { sym: string; date: string; hour?: string; epsEst: number | null; epsAct: number | null; revEst: number | null; revAct: number | null }
 export interface SectorScore { sector: string; reported: number; epsBeat: number; revBeat: number; epsBeatPct: number | null; revBeatPct: number | null; avgSurprise: number | null }
 
 /** Beat rates by sector for companies that have reported (EPS and revenue vs estimates). */
-export function scoreboard(rows: EarnRow[], sectorOf: (s: string) => string | null): { total: SectorScore; sectors: SectorScore[] } {
+export function scoreboard(rows: EarnRow[], sectorOf: (s: string) => string | null): { total: SectorScore; sectors: SectorScore[]; companies: Record<string, EarnRow[]> } {
   const by = new Map<string, EarnRow[]>();
   for (const r of rows) {
     if (r.epsAct == null || r.epsEst == null) continue;
@@ -21,7 +21,8 @@ export function scoreboard(rows: EarnRow[], sectorOf: (s: string) => string | nu
     return { sector, reported: xs.length, epsBeat: eps, revBeat: rev, epsBeatPct: xs.length ? (eps / xs.length) * 100 : null, revBeatPct: revX.length ? (rev / revX.length) * 100 : null, avgSurprise: sur.length ? sur.sort((a, b) => a - b)[Math.floor(sur.length / 2)] : null };
   };
   const sectors = [...by.entries()].map(([s, xs]) => score(s, xs)).sort((a, b) => b.reported - a.reported);
-  return { total: score('All', [...by.values()].flat()), sectors };
+  const companies = Object.fromEntries([...by.entries()].map(([s, xs]) => [s, [...xs].sort((a, b) => b.date.localeCompare(a.date))]));
+  return { total: score('All', [...by.values()].flat()), sectors, companies };
 }
 
 /** Which sector baskets a prediction market touches, by keywords in its question. */
