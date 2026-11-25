@@ -79,7 +79,7 @@ export function PatentsSection({ sym }: { sym: string }) {
                   <tr key={p.sym} className={p.sym === sym ? 'fi-me' : ''}><td><b>{p.sym}</b> <span className="small muted">{p.name}</span></td><td className="r num">{p.last?.toLocaleString() ?? '…'}</td><td className="r num">{p.prior?.toLocaleString() ?? '…'}</td><td className="r num">{pct(p.last, p.prior)}</td></tr>
                 ))}
               </tbody></table>
-              <p className="note small">Peers are searched by company name only (no subsidiary list), so their counts can run low.</p>
+              <p className="note small">Peers are searched the same way: company name plus matching subsidiaries from their 10-K. Patents held under unrelated names (acquired companies) can still be missed.</p>
             </div>
           )}
           {!!d.mix?.length && (

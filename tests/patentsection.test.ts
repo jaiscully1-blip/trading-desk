@@ -1,10 +1,18 @@
 import { describe, expect, it } from 'vitest';
-import { aliasNames, coreToken, countBody, cpcArea, exhibit21Names, grantTrend, lastQuarters, ownerQ, parseRows, statusKind, techMix } from '../shared/patents';
+import { PATENT_ALIASES, aliasNames, ex21FromIndex, coreToken, countBody, cpcArea, exhibit21Names, grantTrend, lastQuarters, ownerQ, parseRows, statusKind, techMix } from '../shared/patents';
 
 describe('patent name matching', () => {
   it('finds subsidiaries that carry the core name (Moderna -> ModernaTX)', () => {
     expect(coreToken('Moderna, Inc.')).toBe('Moderna');
     expect(aliasNames('Moderna, Inc.', ['ModernaTX, Inc.', 'Moderna Biotech Spain, S.L.', 'Acme Holdings LLC'])).toEqual(['Moderna', 'ModernaTX', 'Moderna Biotech Spain, S.L.']);
+  });
+  it('finds Exhibit 21 by document type when the file name does not say so', () => {
+    const html = '<tr><td scope="row">3</td><td scope="row">EX-21.1</td><td scope="row"><a href="/Archives/edgar/data/1045810/000104581026000021/subsidiariesofregistrantfy.htm">x</a></td></tr>';
+    expect(ex21FromIndex(html)).toBe('/Archives/edgar/data/1045810/000104581026000021/subsidiariesofregistrantfy.htm');
+    expect(ex21FromIndex('<td>EX-31.1</td><td><a href="/a.htm">a</a></td>')).toBeNull();
+  });
+  it('adds known aliases right after the company name', () => {
+    expect(aliasNames('Broadcom Inc.', ['Broadcom International Pte. Ltd.'], PATENT_ALIASES.AVGO)).toEqual(['Broadcom', 'Avago Technologies', 'Broadcom International']);
   });
   it('uses the whole name when the first word is generic', () => {
     expect(coreToken('Advanced Micro Devices, Inc.')).toBe('Advanced Micro Devices');
