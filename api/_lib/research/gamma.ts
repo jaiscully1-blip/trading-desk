@@ -4,7 +4,8 @@
 // site terms are a risk; kept to personal use, cached, and labeled delayed.
 import { gammaRead, ivSurface, parseCboe, pcRatios, premiumTotals, strikeGrid } from '../../../shared/gamma.js';
 import { maxPain, unusualActivity, unusualSummary } from '../../../shared/optflow.js';
-import { SYMBOL_RE, cached, getJson, json, take, ttl } from '../core.js';
+import { SYMBOL_RE, cached, getJson, hasKey, json, take, ttl } from '../core.js';
+import { alpacaChain } from './alpacaChain.js';
 
 const URL_SYM: Record<string, string> = { SPX: '_SPX', NDX: '_NDX', RUT: '_RUT', VIX: '_VIX' }; // indexes use a leading underscore at Cboe
 
@@ -15,18 +16,28 @@ export async function GET(req: Request): Promise<Response> {
   const life = ttl(900, 4 * 3600);
   try {
     const { val, stale } = await cached(`gamma:${sym}`, life, async () => {
-      if (!take('cboe')) throw new Error('Cboe request budget used up for now');
-      const ch = parseCboe(await getJson(`https://cdn.cboe.com/api/global/delayed_quotes/options/${path}.json`, 'cboe', 25000), sym);
-      if (!(ch.spot > 0) || ch.contracts.length < 50) throw new Error('Cboe returned an empty chain');
+      // Alpaca first (free key; stocks and ETFs only), Cboe for indexes or when Alpaca isn't set up or fails
+      let raw: any = null, source = '', note = '';
+      if (hasKey('alpaca') && !URL_SYM[sym]) {
+        try { const a = await alpacaChain(sym); raw = a.json; source = 'Alpaca options (indicative feed, ~15 min delayed)'; if (!a.hasOi) note = 'open interest unavailable from Alpaca, so GEX and walls are empty'; }
+        catch (e) { note = `Alpaca failed (${(e as Error).message.slice(0, 80)}), tried Cboe`; }
+      }
+      if (!raw) {
+        if (!take('cboe')) throw new Error(`Cboe request budget used up for now${note ? `; ${note}` : ''}`);
+        try { raw = await getJson(`https://cdn.cboe.com/api/global/delayed_quotes/options/${path}.json`, 'cboe', 25000); source = 'Cboe delayed option chain (~15 min delayed)'; }
+        catch (e) { throw new Error(`${URL_SYM[sym] ? 'Index options come only from Cboe, which is blocking requests right now' : !hasKey('alpaca') ? 'Cboe is blocking requests; add ALPACA_KEY_ID and ALPACA_SECRET_KEY in Vercel to load chains from Alpaca' : (e as Error).message.slice(0, 80)}${note ? `; ${note}` : ''}`); }
+      }
+      const ch = parseCboe(raw, sym);
+      if (!(ch.spot > 0) || ch.contracts.length < 50) throw new Error(`${source.split(' ')[0]} returned an empty chain`);
       const near = gammaRead(ch, 45), week = gammaRead(ch, 7);
       return {
-        sym, spot: ch.spot, chainAsOf: ch.asOf, contracts: ch.contracts.length,
+        sym, spot: ch.spot, chainAsOf: ch.asOf ?? Date.now(), contracts: ch.contracts.length, chainSource: source, chainNote: note || undefined,
         gex: { ...near, profile: near.profile.map(([s, g]) => [+s.toFixed(2), Math.round(g)]) },
         gexWeek: { callWall: week.callWall, putWall: week.putWall, flip: week.flip, total: week.total },
         surface: ivSurface(ch), pc: pcRatios(ch), grid: strikeGrid(ch), prem: premiumTotals(ch),
         flow: (() => { const u = unusualActivity(ch, ch.spot > 1000 ? { minPremium: 100_000 } : {}); return { unusual: u, summary: unusualSummary(u), maxPain: maxPain(ch) }; })(),
       };
     });
-    return json({ ...val, stale, asOf: Date.now(), source: 'Cboe delayed option chain (~15 min delayed); GEX assumes dealers long calls / short puts' }, { sMaxAge: life });
+    return json({ ...val, stale, asOf: Date.now(), source: `${val.chainSource ?? 'Delayed option chain'}; GEX assumes dealers long calls / short puts${val.chainNote ? `; ${val.chainNote}` : ''}` }, { sMaxAge: life });
   } catch (e) { return json({ sym, error: (e as Error).message }, { status: 502 }); }
 }

@@ -188,14 +188,14 @@ export default function Gamma({ mode, onChart }: { mode: DataMode; onChart: (s: 
       {d && g && (
         <div className="gx-grid">
           <section className="panel gx-card">
-            <div className="gx-h"><Q k="calc" src="calculated on the desk from the delayed option chain (Cboe, ~15 min)" /><b>Gamma by strike</b><span className="small muted">expiries within {g.maxDte} days · red = puts, green = calls, dot = net</span>
+            <div className="gx-h"><Q k="calc" src="calculated on the desk from the delayed option chain (Alpaca or Cboe, ~15 min)" /><b>Gamma by strike</b><span className="small muted">expiries within {g.maxDte} days · red = puts, green = calls, dot = net</span>
               <Seg value={String(range) as '0.05'} onChange={(v) => setRange(+v)} options={[{ id: '0.03', label: '±3%' }, { id: '0.05', label: '±5%' }, { id: '0.08', label: '±8%' }] as { id: '0.05'; label: string }[]} /></div>
             <StrikeChart g={g} range={range} />
           </section>
           <div className="gx-col">
-            <section className="panel gx-card"><div className="gx-h"><Q k="calc" src="calculated on the desk from the delayed option chain (Cboe, ~15 min)" /><b>Gamma profile</b><span className="small muted">net gamma if price moved here (±10%)</span></div><Profile g={g} /></section>
-            <section className="panel gx-card"><div className="gx-h"><Q k="calc" src="calculated on the desk from the delayed option chain (Cboe, ~15 min)" /><b>Implied volatility surface</b><span className="small muted">% per year · out-of-the-money options · skew = IV at −5% minus +5%</span></div><Surface rows={d.surface} /></section>
-            <section className="panel gx-card"><div className="gx-h"><Q k="calc" src="calculated on the desk from the delayed option chain (Cboe, ~15 min)" /><b>Term structure</b><span className="small muted">at-the-money IV by days to expiry{d.surface.length > 1 && d.surface[0].atm != null && d.surface[d.surface.length - 1].atm != null ? (d.surface[0].atm! > d.surface[d.surface.length - 1].atm! ? ' · inverted: near-term fear' : ' · upward: calm') : ''}</span></div><Term rows={d.surface} /></section>
+            <section className="panel gx-card"><div className="gx-h"><Q k="calc" src="calculated on the desk from the delayed option chain (Alpaca or Cboe, ~15 min)" /><b>Gamma profile</b><span className="small muted">net gamma if price moved here (±10%)</span></div><Profile g={g} /></section>
+            <section className="panel gx-card"><div className="gx-h"><Q k="calc" src="calculated on the desk from the delayed option chain (Alpaca or Cboe, ~15 min)" /><b>Implied volatility surface</b><span className="small muted">% per year · out-of-the-money options · skew = IV at −5% minus +5%</span></div><Surface rows={d.surface} /></section>
+            <section className="panel gx-card"><div className="gx-h"><Q k="calc" src="calculated on the desk from the delayed option chain (Alpaca or Cboe, ~15 min)" /><b>Term structure</b><span className="small muted">at-the-money IV by days to expiry{d.surface.length > 1 && d.surface[0].atm != null && d.surface[d.surface.length - 1].atm != null ? (d.surface[0].atm! > d.surface[d.surface.length - 1].atm! ? ' · inverted: near-term fear' : ' · upward: calm') : ''}</span></div><Term rows={d.surface} /></section>
           </div>
         </div>
       )}
@@ -208,13 +208,13 @@ export default function Gamma({ mode, onChart }: { mode: DataMode; onChart: (s: 
       {d && g && (
         <div className="gx-grid gx-grid2">
           <section className="panel gx-card">
-            <div className="gx-h"><Q k="calc" src="calculated on the desk from the delayed option chain (Cboe, ~15 min)" /><b>Options activity</b><span className="small muted">contracts trading above their open interest · max pain by expiry</span></div>
+            <div className="gx-h"><Q k="calc" src="calculated on the desk from the delayed option chain (Alpaca or Cboe, ~15 min)" /><b>Options activity</b><span className="small muted">contracts trading above their open interest · max pain by expiry</span></div>
             <FlowPanel flow={d.flow} sym={sym} />
           </section>
           <section className="panel gx-card"><Readings spot={d.spot} g={g} surface={d.surface} pc={d.pc} flow={d.flow} /></section>
         </div>
       )}
-      <p className="note gx-pad">How to read it: walls are the strikes with the most dealer gamma; price often stalls near the call wall and finds support near the put wall while gamma is positive. Under the flip, moves tend to speed up. These are estimates from open interest (updated once a day by the exchange) and assume dealers are long calls and short puts; they are not certain. Source: Cboe delayed option chain, about 15 minutes behind.</p>
+      <p className="note gx-pad">How to read it: walls are the strikes with the most dealer gamma; price often stalls near the call wall and finds support near the put wall while gamma is positive. Under the flip, moves tend to speed up. These are estimates from open interest (updated once a day by the exchange) and assume dealers are long calls and short puts; they are not certain. Source: Alpaca options (or Cboe for indexes), about 15 minutes behind.</p>
     </div>
   );
 }
