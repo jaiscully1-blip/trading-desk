@@ -21,3 +21,6 @@ export interface DeskCtx {
 }
 export const Desk = createContext<DeskCtx>({ stars: [], toggleStar: () => {}, names: {}, openCompany: () => {}, openArticle: () => {}, openInfo: () => {} });
 export const useDesk = () => useContext(Desk);
+
+/** Open another desk page from anywhere (the app listens). */
+export const goPage = (page: string) => window.dispatchEvent(new CustomEvent('desk:page', { detail: page }));

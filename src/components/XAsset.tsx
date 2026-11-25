@@ -5,6 +5,7 @@
 import type { CarryRow } from '../../shared/xasset';
 import { useApi } from '../data/apis';
 import { Fresh, Q } from './common';
+import { goPage } from '../lib/deskctx';
 
 interface X {
   carry: { rows: CarryRow[]; rates: { cur: string; label: string; rate: number | null; at: string }[]; jpy: { date: string; levNet: number; assetNet: number; levChg: number } | null } | null;
@@ -100,7 +101,7 @@ export function VolIncome({ live }: { live: boolean }) {
           <p className="small gx-pad"><b>VIX term structure: {v.term.state ?? '—'}</b> (VIX ÷ VIX 3-month = {f2(v.term.ratio)}). {v.term.state === 'backwardation' ? 'Near-term fear is above longer-term: short-vol positions are under pressure and dealers may have to buy back protection.' : v.term.state === 'contango' ? 'Normal shape: selling options (covered calls, short vol) is being paid, and that steady selling tends to dampen moves.' : 'Roughly flat.'}
             {vix != null && v.spxHv21 != null && <> VIX {vix.toFixed(1)} vs the S&P's actual 1-month volatility {(v.spxHv21 * 100).toFixed(1)}%: {vix > v.spxHv21 * 100 ? 'options are priced above what the market is doing (sellers earn a premium)' : 'options are cheap versus actual moves (risky for option sellers)'}.</>}</p>
           <p className="small gx-pad"><b>Dispersion:</b> implied correlation {f2(cor)} and dispersion index {f2(dspx)}. Low correlation with high dispersion means single stocks are moving apart while the index stays calm, the setup dispersion traders sell index vol and buy single-stock vol against. If correlation jumps, everything moves together and that trade loses.</p>
-          <p className="small muted gx-pad">Squeeze risk (short interest, borrow) is on the Shorts & Supply page.</p>
+          <p className="small muted gx-pad">Squeeze risk (short interest, borrow): <button className="link" onClick={() => goPage('plumbing')}>Shorts &amp; Supply →</button></p>
         </div>
         <table className="cs-t"><thead><tr><th>Gauge / product</th><th>Last</th><th>1 mo</th><th>1 yr</th></tr></thead><tbody>
           {v.rows.filter((q) => q.sym !== '^GSPC').map((q) => <tr key={q.sym}><td>{VOL_NAME[q.sym] ?? q.sym}</td><td className="num">{f2(q.last)}</td><td className="num">{pc(q.m1)}</td><td className="num">{pc(q.y1)}</td></tr>)}

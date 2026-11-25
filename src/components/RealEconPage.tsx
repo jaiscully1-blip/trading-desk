@@ -133,7 +133,7 @@ function Econ({ live }: { live: boolean }) {
   );
 }
 
-function Weather({ live }: { live: boolean }) {
+export function Weather({ live }: { live: boolean }) {
   const d = useJson<{ alerts: { event: string; n: number; states: string[]; until: string | null; sectors: string[] }[]; asOf: number; source: string; error?: string }>(live ? '/api/research?fn=wx' : null);
   return (
     <Card title="Weather risk · severe and extreme alerts" src={d?.source} at={d?.asOf}>
@@ -148,14 +148,14 @@ function Weather({ live }: { live: boolean }) {
   );
 }
 
-export default function RealEconPage({ mode }: { mode: DataMode }) {
+export default function RealEconPage({ mode, onWeather }: { mode: DataMode; onWeather?: () => void }) {
   const live = mode.kind === 'live';
   return (
     <div className="page ad">
-      <PageHero page="realecon" title="Real Economy" sub="Planes, jets, trains, power, fuel, freight and weather: what the physical economy is doing. Data to research with, not advice." />
+      <PageHero page="realecon" title="Real Economy" sub="Planes, jets, trains, power, fuel and freight: what the physical economy is doing. Data to research with, not advice." />
       <div className="ad-grid">
         <Air live={live} />
-        <Weather live={live} />
+        <section className="ad-card"><header className="ad-h"><h3>Severe weather</h3></header><p className="small">Weather alerts and the kinds of stocks they touch now live on <button className="link" onClick={onWeather}>World Monitor → US map</button>, next to drought and FEMA disasters.</p></section>
         <Econ live={live} />
         <Jets live={live} />
       </div>

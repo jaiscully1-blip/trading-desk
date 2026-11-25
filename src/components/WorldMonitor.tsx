@@ -12,6 +12,8 @@ import { BLOCKED, CAT_LABEL, FEEDS, type Cat, type WEvent } from '../../shared/w
 import { load, save, usePersisted } from '../lib/store';
 import { Fresh, PageTabs, Q } from './common';
 import CommodityMap from './CommodityMap';
+import { Weather } from './RealEconPage';
+import type { ReactNode } from 'react';
 
 type Tab = 'feed' | 'us' | 'world' | 'dir';
 interface Data { events: WEvent[]; status: Record<string, { ok: boolean; n: number; err?: string }>; asOf: number; source: string }
@@ -104,12 +106,14 @@ function Directory() {
   );
 }
 
-export default function WorldMonitor({ mode, onChart, onWatch }: { mode: DataMode; onChart: (s: string) => void; onWatch: (s: string) => void }) {
+export default function WorldMonitor({ mode, onChart, onWatch, newsMap, startTab }: { mode: DataMode; onChart: (s: string) => void; onWatch: (s: string) => void; newsMap?: (close: () => void) => ReactNode; startTab?: Tab }) {
   const [tab, setTab] = usePersisted<Tab>('wmTab', 'feed');
+  const [mapKind, setMapKind] = usePersisted<'news' | 'agency'>('wmMapKind', 'news');
+  useEffect(() => { if (startTab) setTab(startTab); }, [startTab]); // eslint-disable-line react-hooks/exhaustive-deps
   const [cats, setCats] = usePersisted<Cat[]>('wmCats', []);
   const [minSev, setMinSev] = usePersisted<number>('wmSev', 1);
   const live = mode.kind === 'live';
-  const { d, err } = useWmon(live && tab !== 'us' && tab !== 'dir');
+  const { d, err } = useWmon(live && (tab === 'feed' || (tab === 'world' && mapKind === 'agency')));
   const [seen] = useState(() => { const s = load<number>('wmSeen', 0); save('wmSeen', Date.now()); return s; });
   const shown = useMemo(() => (d?.events ?? []).filter((e) => e.sev >= minSev && (!cats.length || cats.includes(e.cat))), [d, cats, minSev]);
   const counts = useMemo(() => { const c: Partial<Record<Cat, number>> = {}; for (const e of d?.events ?? []) if (e.sev >= minSev) c[e.cat] = (c[e.cat] ?? 0) + 1; return c; }, [d, minSev]);
@@ -127,7 +131,7 @@ export default function WorldMonitor({ mode, onChart, onWatch }: { mode: DataMod
           </div>
         </div>
         {!live && tab !== 'dir' && <p className="small muted gx-pad">World Monitor only shows real agency data, so it needs live mode. The Directory tab works anywhere.</p>}
-        {live && (tab === 'feed' || tab === 'world') && <>
+        {live && (tab === 'feed' || (tab === 'world' && mapKind === 'agency')) && <>
           {err && !d && <p className="small down gx-pad">Could not load the feeds: {err}</p>}
           {!d && !err && <p className="small muted gx-pad">Loading {FEEDS.length} agency feeds…</p>}
           {d && <p className="small gx-pad">{severe.length ? <><b className="down">Severe now:</b> {severe.slice(0, 4).map((e) => e.title).join(' · ')}</> : <>No severe events in the feeds right now.</>} <span className="muted">· {FEEDS.length - bad.length}/{FEEDS.length} feeds loaded{bad.length ? ` (not loaded: ${bad.map(([k, s]) => `${feedOf(k)?.agency ?? k}: ${s.err}`).join('; ')})` : ''}</span></p>}
@@ -145,8 +149,11 @@ export default function WorldMonitor({ mode, onChart, onWatch }: { mode: DataMod
           <p className="note small gx-pad">Each item comes straight from the agency named under it. Severity is the desk's own rough grading (for example M6+ quakes, orange/red GDACS alerts, Level 4 travel advisories). Not investment advice.</p>
         </section>
       )}
-      {live && tab === 'world' && d && <WorldMap events={shown} seen={seen} />}
+      {tab === 'world' && <div className="wmn-kind"><button className={`chip sm ${mapKind === 'news' ? 'on' : ''}`} onClick={() => setMapKind('news')}>News, conflicts, shipping</button><button className={`chip sm ${mapKind === 'agency' ? 'on' : ''}`} onClick={() => setMapKind('agency')}>Agency events</button></div>}
+      {tab === 'world' && mapKind === 'news' && newsMap && <div className="wmn-newsmap">{newsMap(() => setTab('feed'))}</div>}
+      {live && tab === 'world' && mapKind === 'agency' && d && <WorldMap events={shown} seen={seen} />}
       {tab === 'us' && <CommodityMap mode={mode} onChart={onChart} onWatch={onWatch} />}
+      {tab === 'us' && live && <div className="ad-grid wmn-wx"><Weather live={live} /></div>}
       {tab === 'dir' && <Directory />}
     </div>
   );

@@ -246,6 +246,10 @@ export default function App() {
   const [scanPrefs, setScanPrefs] = usePersisted<{ playbookId: string; includeMovers: boolean }>('scanPrefs', { playbookId: DEFAULT_PLAYBOOKS[0].id, includeMovers: false });
   const [pbOpen, setPbOpen] = useState(false);
   const [ciOpen, setCiOpen] = useState(false);
+  useEffect(() => { const f = (e: Event) => { const p = (e as CustomEvent<string>).detail; if (p) setPage(p as Page); }; window.addEventListener('desk:page', f); return () => window.removeEventListener('desk:page', f); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  const [wmStart, setWmStart] = useState<'feed' | 'us' | 'world' | 'dir' | undefined>(undefined);
+  // the old World map page now lives in World Monitor (World map tab)
+  useEffect(() => { if (page === 'map') { setWmStart('world'); setPage('cmap'); } }, [page]); // eslint-disable-line react-hooks/exhaustive-deps
   // Journal lives in IndexedDB (screenshots); account rules are small and live with the other settings
   const [trades, setTrades, jLoaded] = useIdbState<Trade[]>('journal', []);
   const [transfers, setTransfers, trLoaded] = useIdbState<Transfer[]>('transfers', []);
@@ -316,7 +320,7 @@ export default function App() {
   const scan = useScan(universe, lateMode, (s) => DEMO_QUOTES[s]?.last ?? 100);
   const macro = useMacro(dataMode);
   const market = useMarketStatus(dataMode);
-  const worldData = useWorld(dataMode, page === 'map');
+  const worldData = useWorld(dataMode, page === 'map' || page === 'cmap');
   // always loaded (cheap: the server caches it for hours) so sector rotation pings work on every page
   const flowsData = useFlows(lateMode, true);
   // Hold Alt / Option to see every keyboard shortcut on screen
@@ -793,7 +797,7 @@ export default function App() {
     ...(isOwner() ? [{ id: 'order', label: 'Webull order ticket (you approve every order)', run: () => openOrder({ sym: sel, side: 'BUY', type: 'LIMIT' }, Number.isFinite(quotes[sel]?.last) ? quotes[sel].last : null) }] : []),
     { id: 'gamma', label: 'Gamma & IV: call wall, put wall, zero-gamma flip, IV surface (SPY, QQQ, IWM, SPX)', hint: 'V', run: () => setPage('gamma') },
     { id: 'morning', label: 'Morning plan: premarket movers, sectors, setups, events (before 11am)', hint: 'W', run: () => setPage('morning') },
-    { id: 'map', label: 'World map page', hint: 'M', run: () => setPage('map') },
+    { id: 'map', label: 'World map (World Monitor)', hint: 'M', run: () => setPage('map') },
     { id: 'globe', label: 'Sector rotation page', hint: 'G', run: () => setPage('flows') },
     { id: 'etfs', label: 'ETFs & sectors: heatmap, ETF holdings, baskets', hint: 'U', run: () => setPage('etfs') },
     { id: 'mute1', label: 'Mute notifications for 1 hour', hint: '', run: () => { setMute({ until: Date.now() + 3600_000 }); } },
@@ -1017,9 +1021,9 @@ export default function App() {
   } else if (page === 'plumbing') {
     body = <Suspense fallback={<section className="panel"><div className="ph-body">Loading…</div></section>}><PlumbingPage mode={dataMode} sel={sel} /></Suspense>;
   } else if (page === 'cmap') {
-    body = <Suspense fallback={<section className="panel"><div className="ph-body">Loading…</div></section>}><WorldMonitor mode={dataMode} onChart={toDesk} onWatch={addSym} /></Suspense>;
+    body = <Suspense fallback={<section className="panel"><div className="ph-body">Loading…</div></section>}><WorldMonitor mode={dataMode} onChart={toDesk} onWatch={addSym} startTab={wmStart} newsMap={(close) => <WorldMap mode={dataMode} data={worldData} symbols={[...new Set([...INDEXES, ...wlSyms, ...universe])]} names={Object.fromEntries(Object.values(quotes).map((x) => [x.sym, x.name]))} onSelect={toDesk} onClose={close} />} /></Suspense>;
   } else if (page === 'realecon') {
-    body = <Suspense fallback={<section className="panel"><div className="ph-body">Loading…</div></section>}><RealEconPage mode={dataMode} /></Suspense>;
+    body = <Suspense fallback={<section className="panel"><div className="ph-body">Loading…</div></section>}><RealEconPage mode={dataMode} onWeather={() => { setWmStart('us'); setPage('cmap'); }} /></Suspense>;
   } else if (page === 'quant') {
     body = <Suspense fallback={<section className="panel"><div className="ph-body">Loading…</div></section>}><QuantLabPage sel={sel} /></Suspense>;
   } else if (page === 'altdata') {
@@ -1044,13 +1048,11 @@ export default function App() {
         </Suspense>
       </div>
     );
-  } else if (page === 'map' || page === 'flows') {
+  } else if (page === 'flows') {
     body = (
       <div className="page">
         <Suspense fallback={<section className="panel"><div className="ph-body">Loading…</div></section>}>
-          {page === 'map'
-            ? <WorldMap mode={dataMode} data={worldData} symbols={[...new Set([...INDEXES, ...wlSyms, ...universe])]} names={Object.fromEntries(Object.values(quotes).map((x) => [x.sym, x.name]))} onSelect={toDesk} onClose={() => setPage('desk')} />
-            : flowView === 'companies'
+          {flowView === 'companies'
               ? <CompanyMap mode={dataMode} extra={flowSwitch} onChart={toDesk} onClose={() => setPage('desk')} />
               : <Rotation data={flowsData} onSelect={toDesk} extra={flowSwitch} />}
         </Suspense>
@@ -1088,7 +1090,7 @@ export default function App() {
         <TopStrip
           movement={movement} vol={vol} moveStats={dayStats}
           quotes={quotes} clk={clk} mode={mode} override={override} onOverride={setOverride} onSelect={setSel}
-          onAccount={() => setDrawer((d) => !d)} accountOpen={drawer} theme={theme} onTheme={toggleTheme} onCmd={() => setCmdOpen(true)} onWorld={() => setPage('map')} checkin={checkin} onCheckIn={() => setCiOpen(true)}
+          onAccount={() => setDrawer((d) => !d)} accountOpen={drawer} theme={theme} onTheme={toggleTheme} onCmd={() => setCmdOpen(true)} onWorld={() => { setWmStart('world'); setPage('cmap'); }} checkin={checkin} onCheckIn={() => setCiOpen(true)}
           account={{ guard: g, settings, demo: views.some((v) => v.t.demo), demoPrices }}
           marketSource={market?.status?.source}
           quoteFresh={quoteFresh} quoteAsOf={live ? qs?.asOf : DEMO_AT} quoteSource={live ? qs?.source : 'Generated sample quotes'} macro={macro} live={live}

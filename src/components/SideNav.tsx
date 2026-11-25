@@ -78,8 +78,8 @@ export const NAV_GROUPS: { id: GroupId; label: string; pages: Page[] }[] = [
   { id: 'today', label: 'Today', pages: ['morning', 'home', 'news', 'messages', 'calendar'] },
   { id: 'charts', label: 'Charts', pages: ['desk', 'mtf', 'patterns', 'company', 'crypto'] },
   { id: 'scan', label: 'Scan', pages: ['scanner', 'flows', 'etfs', 'smart', 'insiders', 'plumbing', 'credit', 'distress'] },
-  { id: 'flow', label: 'Flow and risk', pages: ['global', 'policy', 'gamma', 'map', 'odds', 'status'] },
-  { id: 'alt', label: 'Alt data', pages: ['altdata', 'quant', 'tesla', 'realecon', 'cmap'] },
+  { id: 'flow', label: 'Flow and risk', pages: ['global', 'policy', 'gamma', 'cmap', 'odds', 'status'] },
+  { id: 'alt', label: 'Alt data', pages: ['altdata', 'quant', 'tesla', 'realecon'] },
   { id: 'journal', label: 'Journal', pages: ['journal', 'essay', 'learn'] },
 ];
 export const pageGroup = (p: Page): GroupId => NAV_GROUPS.find((g) => g.pages.includes(p))?.id ?? 'today';
