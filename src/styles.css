@@ -3725,3 +3725,6 @@ svg[data-hover] { cursor: crosshair; touch-action: pan-y; }
 /* nothing on the desk drags out as a ghost image */
 img, a, svg { -webkit-user-drag: none; }
 [draggable="true"] { -webkit-user-drag: element; }
+
+/* EU deficits table */
+.edp h4 { margin: 10px 14px 4px; font-size: 13px; } .edp-wrap { overflow-x: auto; } .edp-eu td { font-weight: 600; border-bottom: 2px solid var(--line-2); }

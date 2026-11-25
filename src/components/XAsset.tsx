@@ -14,6 +14,7 @@ interface X {
   margin: { month: string; debit: number; credit: number }[] | null;
   lenders: { sym: string; name: string; last: number | null; m1: number | null; m3: number | null; y1: number | null }[] | null;
   vol: { rows: { sym: string; last: number | null; m1: number | null; y1: number | null; hv: number | null }[]; term: { ratio: number | null; state: string | null }; spxHv21: number | null } | null;
+  edp?: { years: string[]; rows: { geo: string; name: string; deficit: (number | null)[]; debt: (number | null)[] }[]; updated: string } | null;
   errors: Record<string, string>; asOf: number; source: string;
 }
 const useX = (on: boolean) => useApi<X>(on ? '/api/research?fn=xasset' : null, 30 * 60_000, 15 * 60_000);
@@ -59,6 +60,8 @@ export function CarryGlobal({ live }: { live: boolean }) {
           <p className="small muted gx-pad">Change in brackets is versus about a year earlier. Government debt here is at market value, so it can fall when yields rise.</p>
         </div>
       </div>}
+      {x?.edp && <EdpTable e={x.edp} />}
+      <Err x={x} k="edp" />
     </section>
   );
 }
@@ -109,5 +112,27 @@ export function VolIncome({ live }: { live: boolean }) {
       </div>}
       <p className="small muted gx-pad">Covered-call and income ETFs sell calls every month; the steady supply of options can calm the index. Their 1-year return next to SPY / QQQ shows what giving up the upside cost. Not advice.</p>
     </section>
+  );
+}
+
+/** EU excessive deficit procedure: deficit (limit −3% of GDP) and debt (limit 60%), from Eurostat's twice-yearly notification. */
+function EdpTable({ e }: { e: { years: string[]; rows: { geo: string; name: string; deficit: (number | null)[]; debt: (number | null)[] }[]; updated: string } }) {
+  const n = e.years.length;
+  const lastIdx = (xs: (number | null)[]) => { for (let i = xs.length - 1; i >= 0; i--) if (xs[i] != null) return i; return -1; };
+  const rows = [...e.rows].sort((a, b) => (a.geo === 'EU27_2020' ? -1 : b.geo === 'EU27_2020' ? 1 : (a.deficit[lastIdx(a.deficit)] ?? 0) - (b.deficit[lastIdx(b.deficit)] ?? 0)));
+  const over = rows.filter((r) => r.geo !== 'EU27_2020' && (r.deficit[lastIdx(r.deficit)] ?? 0) < -3);
+  return (
+    <div className="edp">
+      <h4>EU deficits and debt (excessive deficit procedure)</h4>
+      <p className="small gx-pad">EU rules: deficit no worse than −3% of GDP, debt under 60%. {over.length ? <><b className="down">Over the 3% line in {e.years[n - 1]}: {over.map((r) => r.name).join(', ')}.</b> Countries over it can be placed in (or kept in) the procedure, which pushes them to cut spending. That pressure shows up in their bond yields and the euro.</> : 'No tracked country is over the 3% line.'}</p>
+      <div className="edp-wrap"><table className="cs-t"><thead><tr><th>Country</th>{e.years.map((y) => <th key={'d' + y}>Deficit {y}</th>)}<th>Debt {e.years[n - 1]}</th><th>Debt change</th></tr></thead><tbody>
+        {rows.map((r) => { const di = lastIdx(r.debt), debt = di >= 0 ? r.debt[di] : null, prev = di > 0 ? r.debt[di - 1] : null; return (
+          <tr key={r.geo} className={r.geo === 'EU27_2020' ? 'edp-eu' : ''}><td>{r.name}</td>
+            {r.deficit.map((v, i) => <td key={i} className={`num ${v != null && v < -3 ? 'down' : ''}`}>{v == null ? '—' : `${v.toFixed(1)}%`}</td>)}
+            <td className={`num ${debt != null && debt > 60 ? 'warn-txt' : ''}`}>{debt == null ? '—' : `${debt.toFixed(0)}%`}</td>
+            <td className="num muted">{debt != null && prev != null ? `${debt - prev >= 0 ? '+' : ''}${(debt - prev).toFixed(1)} pts` : '—'}</td></tr>); })}
+      </tbody></table></div>
+      <p className="small muted gx-pad">Eurostat EDP notification, updated twice a year (April and October); latest {e.updated || '—'}. Red deficit = worse than −3%; amber debt = over 60%. Which countries are formally in the procedure: <a href="https://economy-finance.ec.europa.eu/economic-and-fiscal-governance/stability-and-growth-pact/corrective-arm-excessive-deficit-procedure_en" target="_blank" rel="noreferrer">European Commission</a>.</p>
+    </div>
   );
 }

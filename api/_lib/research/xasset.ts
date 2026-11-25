@@ -1,6 +1,6 @@
 // GET /api/research?fn=xasset -> carry trades, bond carry + European yields, global debt (BIS), margin debt (FINRA),
 // private-credit lenders (BDCs), options income / short vol / dispersion gauges. Each part cached and failing on its own.
-import { BDCS, CARRY, DEBT_CTY, RATES, TENS, VOL_SYMS, carryRow, chgPct, marginRows, termRead, vol } from '../../../shared/xasset.js';
+import { BDCS, CARRY, DEBT_CTY, EDP_GEO, RATES, TENS, VOL_SYMS, carryRow, chgPct, marginRows, parseEdp, termRead, vol } from '../../../shared/xasset.js';
 import { parseFredSeries } from '../../../shared/parse.js';
 import { parseSpark } from '../../../shared/distressGather.js';
 import { unzipFile } from './cds.js';
@@ -23,7 +23,7 @@ const part = <T>(id: string, ttl: number, fn: () => Promise<T>, errors: Record<s
 export async function xasset(): Promise<Response> {
   const errors: Record<string, string> = {};
   const fred = hasKey('fred');
-  const [carry, bonds, debt, margin, lenders, volx] = await Promise.all([
+  const [carry, bonds, debt, margin, lenders, volx, edp] = await Promise.all([
     part('carry', 3 * 3600, async () => {
       if (!fred) throw new Error('needs FRED_API_KEY');
       const rates: Record<string, number | null> = {}, rateAt: Record<string, string> = {};
@@ -67,6 +67,13 @@ export async function xasset(): Promise<Response> {
       const rows = VOL_SYMS.map((s) => { const c = px.get(s) ?? []; return { sym: s, last: last(s), m1: chgPct(c, 21), y1: chgPct(c, 250), hv: /^\^/.test(s) ? null : vol(c, 21) }; });
       return { rows, term: termRead(last('^VIX'), last('^VIX3M')), spxHv21: vol(px.get('^GSPC') ?? [], 21) };
     }, errors),
+    part('edp', 24 * 3600, async () => {
+      const since = new Date().getUTCFullYear() - 4;
+      const r = await fetch(`https://ec.europa.eu/eurostat/api/dissemination/statistics/1.0/data/gov_10dd_edpt1?format=JSON&lang=EN&unit=PC_GDP&sector=S13&na_item=B9&na_item=GD&${EDP_GEO.map((g) => `geo=${g}`).join('&')}&sinceTimePeriod=${since}`, { headers: YH });
+      if (!r.ok) throw new Error(`Eurostat HTTP ${r.status}`);
+      const j = await r.json();
+      return { ...parseEdp(j), updated: String(j?.updated ?? '').slice(0, 10) };
+    }, errors),
   ]);
-  return json({ carry, bonds, debt, margin, lenders, vol: volx, errors, asOf: Date.now(), source: 'FRED (OECD rates, 10y yields), Yahoo Finance prices (unofficial), ECB euro area yield curves, BIS total credit, FINRA margin statistics, CFTC Traders in Financial Futures' }, { sMaxAge: 1800 });
+  return json({ carry, bonds, debt, margin, lenders, vol: volx, edp, errors, asOf: Date.now(), source: 'FRED (OECD rates, 10y yields), Yahoo Finance prices (unofficial), ECB euro area yield curves, BIS total credit, Eurostat EDP notification, FINRA margin statistics, CFTC Traders in Financial Futures' }, { sMaxAge: 1800 });
 }

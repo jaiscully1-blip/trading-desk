@@ -53,3 +53,14 @@ describe('earnings scoreboard companies', () => {
     expect(b.companies.Energy).toBeUndefined(); // no estimate: not scored
   });
 });
+
+import { parseEdp } from '../shared/xasset';
+describe('EU deficit procedure data', () => {
+  it('reads Eurostat JSON-stat into rows per country', () => {
+    const j = { id: ['freq', 'unit', 'sector', 'na_item', 'geo', 'time'], size: [1, 1, 1, 2, 2, 2], value: { 0: -1.9, 1: -2.2, 2: -4.7, 3: -5.4, 4: 61.4, 5: 62.8, 6: 112.6, 7: 115.7 },
+      dimension: { na_item: { category: { index: { B9: 0, GD: 1 } } }, geo: { category: { index: { DE: 0, FR: 1 }, label: { DE: 'Germany', FR: 'France' } } }, time: { category: { index: { 2024: 0, 2025: 1 } } } } };
+    const e = parseEdp(j);
+    expect(e.years).toEqual(['2024', '2025']);
+    expect(e.rows[1]).toEqual({ geo: 'FR', name: 'France', deficit: [-4.7, -5.4], debt: [112.6, 115.7] });
+  });
+});
