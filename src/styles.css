@@ -3808,3 +3808,7 @@ img, a, svg { -webkit-user-drag: none; }
 .agy-who { color: var(--accent, #F9AE77); white-space: nowrap; }
 .agy-hit { border-color: var(--warn, #d9a441); }
 .agy-sum { margin: 4px 0 2px 18px; } .agy-sum ul { margin: 2px 0 4px; padding-left: 18px; } .agy-sum li { cursor: help; }
+
+/* SPVs & off-balance-sheet (Company page) */
+.spv-group { margin-top: 6px; }
+.spv-quotes { margin: 2px 0 4px; padding-left: 18px; display: grid; gap: 4px; line-height: 1.45; }
