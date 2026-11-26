@@ -245,7 +245,7 @@ export async function patentrollout(req: Request): Promise<Response> {
     const rows = (await cached(`pat:latest:${q}`, 86400, async () => parseRows(await odp(latestBody(q))))).val;
     const excerpt = (await cached(`excerpt:${f.filing.url}`, 30 * 86400, async () => tenKExcerpt(htmlToText(await secText(f.filing!.url))))).val;
     const titles = rows.map((r) => r.title);
-    const key = `pat:rollout:${f.filing.url}:${rows.map((r) => r.app).join(',')}`;
+    const key = `pat:rollout2:${f.filing.url}:${rows.map((r) => r.app).join(',')}`;
     const out = (await cached(key, 7 * 86400, async () => {
       const sents = candidateSentences(excerpt, titles);
       if (!sents.length) return { items: titles.map(() => ({ verdict: 'no_evidence', quote: '', dropped: false })), model: null };
