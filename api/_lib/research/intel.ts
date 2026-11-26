@@ -14,15 +14,15 @@ import { parseTranscript, quarterCandidates } from '../../../shared/transcript.j
 import { COMPANIES } from '../../../shared/data/companies.js';
 
 const SYM = /^[A-Z][A-Z0-9.\-]{0,9}$/;
-const doc = (cik: number, acc: string, file: string) => `https://www.sec.gov/Archives/edgar/data/${cik}/${acc.replace(/-/g, '')}/${file}`;
+export const doc = (cik: number, acc: string, file: string) => `https://www.sec.gov/Archives/edgar/data/${cik}/${acc.replace(/-/g, '')}/${file}`;
 
-async function filer(sym: string) {
+export async function filer(sym: string) {
   const tickers = (await cached('sec:tickers', 86400, async () => parseSecTickers(await secJson('https://www.sec.gov/files/company_tickers.json')))).val;
   const t = tickers.find((x) => x.ticker === sym);
   if (!t) return null;
   const sub = (await cached(`sub:${t.cik}`, 6 * 3600, () => secJson(`https://data.sec.gov/submissions/CIK${String(t.cik).padStart(10, '0')}.json`))).val;
   const r = sub?.filings?.recent ?? {};
-  const rows = (Array.isArray(r.form) ? r.form : []).map((form: string, i: number) => ({ form, date: r.filingDate[i] as string, acc: r.accessionNumber[i] as string, file: r.primaryDocument[i] as string, items: String(r.items?.[i] ?? '') }));
+  const rows = (Array.isArray(r.form) ? r.form : []).map((form: string, i: number) => ({ form, date: r.filingDate[i] as string, acc: r.accessionNumber[i] as string, file: r.primaryDocument[i] as string, items: String(r.items?.[i] ?? ''), period: (r.reportDate?.[i] as string | undefined) || null }));
   return { cik: t.cik, name: t.title, rows };
 }
 
