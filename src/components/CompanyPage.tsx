@@ -3,6 +3,7 @@
 import { FilingsIntel } from './FilingsIntel';
 import { PatentsSection } from './PatentsSection';
 import { FilingBrief } from './FilingBrief';
+import { SpvSection } from './SpvSection';
 import { ConsensusGauge } from './ConsensusGauge';
 import { FundCharts } from './FundCharts';
 import { TranscriptView } from './Transcript';
@@ -227,6 +228,7 @@ export default function CompanyPage({ sym, mode, onOpen, onChart, onPatterns }: 
               <FilingBrief sym={sym} />
               <FilingsIntel sym={sym} />
               <PatentsSection sym={sym} />
+              <SpvSection sym={sym} />
             </div>
           </div>
         )}

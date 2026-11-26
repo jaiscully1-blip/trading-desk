@@ -52,7 +52,7 @@ export function odp(body: object): Promise<any> {
 
 /** Subsidiary names from the newest 10-K's Exhibit 21. The file is found by name (ex21 / exhibit21) or, when the name
  *  says nothing, by its document type on the filing's index page. Empty when the filing has none. */
-async function subsidiaries(filingUrl: string): Promise<string[]> {
+export async function subsidiaries(filingUrl: string): Promise<string[]> {
   const dir = filingUrl.slice(0, filingUrl.lastIndexOf('/'));
   const names: string[] = ((await secJson(`${dir}/index.json`))?.directory?.item ?? []).map((i: any) => String(i.name));
   let url = names.find((n) => /ex-?21|exhibit-?21/i.test(n) && /\.(htm|html|txt)$/i.test(n));
