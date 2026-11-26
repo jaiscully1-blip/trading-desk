@@ -10,15 +10,17 @@ export function titleWords(title: string): string[] {
 }
 const sentences = (text: string) => text.replace(/\s+/g, ' ').split(/(?<=[.!?])\s+(?=[A-Z])/).filter((s) => s.length >= 40 && s.length <= 600);
 
-/** The 10-K sentences that share the most content words with any of the titles (at most `max`, best first). */
-export function candidateSentences(text: string, titles: string[], max = 60): string[] {
-  const words = titles.map(titleWords);
-  const scored = sentences(text).map((s) => {
-    const sw = new Set(s.toLowerCase().split(/[^a-z0-9-]+/).map(stem));
-    const best = Math.max(0, ...words.map((ws) => ws.filter((w) => sw.has(w)).length));
-    return { s, best };
-  }).filter((x) => x.best >= 1);
-  return [...new Map(scored.sort((a, b) => b.best - a.best).map((x) => [x.s, x])).keys()].slice(0, max);
+/** For each title, the 10-K sentences sharing the most content words with it (up to `perTitle` each), so one busy topic
+ *  cannot crowd out the others; then de-duplicated, at most `max` in all. */
+export function candidateSentences(text: string, titles: string[], max = 90, perTitle = 4): string[] {
+  const all = sentences(text).map((s) => ({ s, sw: new Set(s.toLowerCase().split(/[^a-z0-9-]+/).map(stem)) }));
+  const out: string[] = [];
+  for (const t of titles) {
+    const ws = titleWords(t);
+    const best = all.map((x) => ({ s: x.s, n: ws.filter((w) => x.sw.has(w)).length })).filter((x) => x.n >= 1).sort((a, b) => b.n - a.n).slice(0, perTitle);
+    for (const b of best) if (!out.includes(b.s)) out.push(b.s);
+  }
+  return out.slice(0, max);
 }
 
 const flat = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
@@ -34,9 +36,9 @@ export const ROLLOUT_SCHEMA = {
 export function rolloutPrompt(company: string, titles: string[], sents: string[]): string {
   return `You check whether ${company}'s patented technology shows up in what the company sells or is developing, using ONLY the numbered sentences from its latest 10-K annual report below. No outside knowledge.
 For each patent title return:
-- verdict: "in_products" if a sentence describes a product or service the company sells that uses this technology; "in_development" if a sentence describes it in research, a pipeline, trials or a product not yet launched; otherwise "no_evidence".
+- verdict: "in_products" if a sentence shows the company sells a product or service for the SAME specific purpose or target as the patent (the same disease and drug type or target, the same device, the same function); "in_development" if a sentence shows that purpose or target in research, a pipeline, clinical trials or a product not yet launched; otherwise "no_evidence".
 - quote: the one sentence that supports the verdict, copied EXACTLY, word for word, from the list. Empty string for "no_evidence".
-Be strict: a sentence that only shares a word is not evidence. When unsure, answer "no_evidence".
+A sentence that only shares a general word (for example "cells" or "methods") is not evidence. When unsure, answer "no_evidence".
 
 PATENT TITLES:
 ${titles.map((t, i) => `${i}. ${t}`).join('\n')}

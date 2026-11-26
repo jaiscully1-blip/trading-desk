@@ -12,6 +12,12 @@ describe('rollout evidence', () => {
     expect(s).toContain('Our mRNA platform uses lipid nanoparticles to deliver mRNA into cells.');
     expect(s.some((x) => x.includes('office space'))).toBe(false);
   });
+  it('gives every title its own sentences so a busy topic cannot crowd out the rest', () => {
+    const busy = Array.from({ length: 80 }, (_, i) => `Our stem cell derived beta cell program number ${i} continues to advance in the clinic.`).join(' ');
+    const text = `${busy} We market TRIKAFTA, a CFTR modulator, to treat cystic fibrosis in eligible patients.`;
+    const s = candidateSentences(text, ...[Array.from({ length: 20 }, () => 'Enhanced differentiation of stem cell beta cells').concat(['Methods of treatment for cystic fibrosis'])]);
+    expect(s.some((x) => x.includes('TRIKAFTA'))).toBe(true);
+  });
   it('checks quotes against the 10-K and drops invented ones', () => {
     expect(quoteFound('our RSV vaccine candidate is in Phase 3 clinical trials', TENK)).toBe(true);
     const r = checkRollout({ items: [
