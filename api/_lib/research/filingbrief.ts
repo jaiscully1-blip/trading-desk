@@ -1,7 +1,7 @@
 // GET /api/research?fn=filingbrief&symbol=NVDA[&acc=0001045810-26-000021] -> the main points of a 10-Q, 10-K or earnings
 // release: official numbers from SEC XBRL (no AI), an AI brief whose every quote is checked against the filing, and
 // open-market insider buys and sells in the last 90 days (Form 4). Free sources; cached per filing. Facts, not advice.
-import { BRIEF_SCHEMA, briefChoices, briefNumbers, briefPrompt, briefText, checkBrief, insiderSummary, keySentences, type BriefKind } from '../../../shared/filingBrief.js';
+import { BRIEF_SCHEMA, exhibitFromIndex, briefChoices, briefNumbers, briefPrompt, briefText, checkBrief, insiderSummary, keySentences, type BriefKind } from '../../../shared/filingBrief.js';
 import { htmlToText } from '../../../shared/company.js';
 import { fundSeries } from '../../../shared/fundseries.js';
 import { geminiJson, hasAi, secJson, secText } from '../adapters.js';
@@ -26,10 +26,17 @@ export async function filingbrief(req: Request): Promise<Response> {
     // the document: the filing itself, or the press release attached to an earnings 8-K (exhibit 99)
     let url = doc(f.cik, pick.acc, pick.file);
     if (kind === 'earnings') {
-      const idx = await secJson(`https://www.sec.gov/Archives/edgar/data/${f.cik}/${pick.acc.replace(/-/g, '')}/index.json`);
-      const ex = (idx?.directory?.item ?? []).find((i: any) => /ex-?99/i.test(i.name) && /\.htm/i.test(i.name));
-      if (ex) url = doc(f.cik, pick.acc, ex.name);
+      // the press release is exhibit 99.1; file names vary ("q3fy27pr.htm"), so read its type from the filing index page
+      const dir = `https://www.sec.gov/Archives/edgar/data/${f.cik}/${pick.acc.replace(/-/g, '')}`;
+      const href = exhibitFromIndex(await secText(`${dir}/${pick.acc}-index.html`, 15000), /^EX-99(\.1)?$/i);
+      if (href) url = new URL(href, 'https://www.sec.gov').toString();
+      else {
+        const idx = await secJson(`${dir}/index.json`);
+        const ex = (idx?.directory?.item ?? []).find((i: any) => /ex-?99/i.test(i.name) && /\.htm/i.test(i.name));
+        if (ex) url = doc(f.cik, pick.acc, ex.name);
+      }
     }
+    if (url === doc(f.cik, pick.acc, pick.file) && kind === 'earnings') errors.document = 'Could not find the press release in this 8-K, so the brief reads the cover page.';
     const text = (await cached(`fb:text:${url}`, 30 * 86400, async () => htmlToText(await secText(url, 30000)))).val;
 
     // official numbers (SEC XBRL), lined up with the period the filing covers
@@ -40,7 +47,7 @@ export async function filingbrief(req: Request): Promise<Response> {
     let brief: { headline: string; points: { topic: string; text: string; quote: string }[]; dropped: number; model: string | null } | null = null;
     if (hasAi()) {
       try {
-        brief = (await cached(`fb:brief:${pick.acc}`, 30 * 86400, async () => {
+        brief = (await cached(`fb:brief2:${pick.acc}`, 30 * 86400, async () => {
           const sents = keySentences(briefText(text, kind));
           if (sents.length < 3) return { headline: '', points: [], dropped: 0, model: null };
           const r = await geminiJson(briefPrompt(f.name, kind, pick.date, sents), BRIEF_SCHEMA);

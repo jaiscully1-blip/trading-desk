@@ -20,6 +20,12 @@ export function briefChoices(rows: FilingRef[], n = 8): (FilingRef & { kind: Bri
   return out;
 }
 
+/** A filing index page's link for a document type (e.g. EX-99.1), whatever the file is called ("q3fy27pr.htm"). */
+export function exhibitFromIndex(html: string, type: RegExp): string | null {
+  for (const m of html.matchAll(/<td[^>]*>\s*([A-Z0-9.\-]+)\s*<\/td>\s*<td[^>]*>\s*<a href="([^"]+)"/gi)) if (type.test(m[1])) return m[2];
+  return null;
+}
+
 /** The parts of the filing worth reading. 10-Q: MD&A (Item 2) and Part II risk factors; 10-K: MD&A (Item 7) and market
  *  risk (7A); earnings release: the whole text. */
 export function briefText(text: string, kind: BriefKind): string {
@@ -95,6 +101,7 @@ export function briefNumbers(fs: FundSeries, kind: BriefKind, periodEnd: string 
 export function insiderSummary(txs: InsiderTx[], now: Date, days = 90) {
   const since = new Date(now.getTime() - days * 86400000).toISOString().slice(0, 10);
   const recent = txs.filter((t) => t.date >= since && (t.code === 'P' || t.code === 'S'));
-  const sum = (code: string) => recent.filter((t) => t.code === code).reduce((s, t) => ({ n: s.n + 1, value: s.value + (t.value ?? 0) }), { n: 0, value: 0 });
+  // value = total of the trades that state one; `priced` = how many did (Form 4s sometimes give no price)
+  const sum = (code: string) => recent.filter((t) => t.code === code).reduce((s, t) => ({ n: s.n + 1, value: s.value + (t.value ?? 0), priced: s.priced + (t.value ? 1 : 0) }), { n: 0, value: 0, priced: 0 });
   return { since, buys: sum('P'), sells: sum('S'), rows: recent.slice(0, 12) };
 }

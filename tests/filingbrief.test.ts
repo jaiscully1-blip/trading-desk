@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { briefChoices, briefNumbers, briefText, checkBrief, insiderSummary, keySentences } from '../shared/filingBrief';
+import { exhibitFromIndex, briefChoices, briefNumbers, briefText, checkBrief, insiderSummary, keySentences } from '../shared/filingBrief';
 
 const P = (end: string, revenue: number) => ({ end, label: end, revenue, netIncome: null, eps: null, grossMargin: null, opMargin: null, netMargin: null, fcf: null, shares: null, cash: null, debt: null });
 
@@ -36,6 +36,14 @@ describe('filing brief helpers', () => {
   it('sums open-market insider buys and sells in the last 90 days', () => {
     const tx = (date: string, code: string, value: number) => ({ date, filed: date, who: 'A', role: 'CEO', code, kind: '', shares: 1, price: 1, value, after: null, url: '' });
     const s = insiderSummary([tx('2026-11-01', 'S', 500), tx('2026-10-01', 'P', 100), tx('2026-01-01', 'S', 999), tx('2026-11-02', 'M', 50)], new Date('2026-11-26'));
-    expect([s.buys, s.sells]).toEqual([{ n: 1, value: 100 }, { n: 1, value: 500 }]);
+    expect([s.buys, s.sells]).toEqual([{ n: 1, value: 100, priced: 1 }, { n: 1, value: 500, priced: 1 }]);
+  });
+});
+
+describe('earnings release exhibit', () => {
+  it('finds EX-99.1 by type on the index page, whatever the file name', () => {
+    const html = '<tr><td scope="row">1</td><td scope="row">8-K</td><td scope="row"><a href="/x/nvda-20261117.htm">a</a></td></tr><tr><td scope="row">EX-99.1</td><td scope="row"><a href="/x/q3fy27pr.htm">q3fy27pr.htm</a></td></tr><tr><td scope="row">EX-99.2</td><td scope="row"><a href="/x/cfo.htm">c</a></td></tr>';
+    expect(exhibitFromIndex(html, /^EX-99(\.1)?$/i)).toBe('/x/q3fy27pr.htm');
+    expect(exhibitFromIndex(html, /^EX-21/i)).toBeNull();
   });
 });

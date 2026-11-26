@@ -11,7 +11,7 @@ interface Resp {
   filing?: { acc: string; kind: string; date: string; url: string; period: string | null };
   numbers?: { cur: Pt; yearAgo: Pt | null; prior: Pt | null; basis: 'quarter' | 'year' } | null;
   brief?: { headline: string; points: { topic: string; text: string; quote: string }[]; dropped: number; model: string | null } | null;
-  insiders?: { since: string; buys: { n: number; value: number }; sells: { n: number; value: number }; rows: { date: string; who: string; role: string; code: string; shares: number; price: number | null; value: number | null; url: string }[] } | null;
+  insiders?: { since: string; buys: { n: number; value: number; priced?: number }; sells: { n: number; value: number; priced?: number }; rows: { date: string; who: string; role: string; code: string; shares: number; price: number | null; value: number | null; url: string }[] } | null;
   errors?: Record<string, string>; source?: string;
 }
 
@@ -23,6 +23,8 @@ const ROWS: { k: keyof Pt; label: string; fmt: (v: number | null) => string; isP
   { k: 'grossMargin', label: 'Gross margin', fmt: pct, isPct: true }, { k: 'opMargin', label: 'Operating margin', fmt: pct, isPct: true }, { k: 'fcf', label: 'Free cash flow', fmt: money },
   { k: 'cash', label: 'Cash', fmt: money }, { k: 'debt', label: 'Debt', fmt: money }, { k: 'shares', label: 'Shares out', fmt: (v) => (v == null ? '—' : `${(v / 1e6).toFixed(0)}M`) },
 ];
+/** Total value, or 'value not stated' when the filings gave no price; 'at least' when only some did. */
+const amt = (x: { n: number; value: number; priced?: number }) => (x.n === 0 ? '$0' : !x.value ? 'value not stated' : x.priced != null && x.priced < x.n ? `at least ${money(x.value)}` : money(x.value));
 const KIND: Record<string, string> = { '10-Q': 'Quarterly report (10-Q)', '10-K': 'Annual report (10-K)', earnings: 'Earnings release (8-K)' };
 
 function Change({ a, b, isPct }: { a: number | null; b: number | null | undefined; isPct?: boolean }) {
@@ -65,7 +67,7 @@ export function FilingBrief({ sym }: { sym: string }) {
           </div>
           {n && (
             <div className="fi-box">
-              <h5>Numbers · {n.basis === 'year' ? `fiscal year ${n.cur.label}` : n.cur.label} <Fresh kind="eod" src="SEC XBRL financial data (official, from the filings)" /></h5>
+              <h5>Numbers · {n.basis === 'year' ? 'fiscal year' : 'quarter'} ended {n.cur.end} <Fresh kind="eod" src="SEC XBRL financial data (official, from the filings)" /></h5>
               <table className="ad-table"><thead><tr><th /><th className="r">This {n.basis}</th><th className="r">vs a year ago</th>{n.basis === 'quarter' && <th className="r">vs last quarter</th>}</tr></thead><tbody>
                 {ROWS.filter((r) => n.cur[r.k] != null).map((r) => (
                   <tr key={r.k}><td>{r.label}</td><td className="r num">{r.fmt(n.cur[r.k] as number | null)}</td>
@@ -73,15 +75,16 @@ export function FilingBrief({ sym }: { sym: string }) {
                     {n.basis === 'quarter' && <td className="r num"><Change a={n.cur[r.k] as number | null} b={n.prior?.[r.k] as number | null | undefined} isPct={r.isPct} /></td>}</tr>
                 ))}
               </tbody></table>
+              {d.filing?.kind === 'earnings' && Date.parse(d.filing.date) - Date.parse(n.cur.end) > 60 * 86400000 && <p className="small down">This release covers a newer quarter that is not in SEC's data yet (it arrives with the 10-Q). These are the latest filed numbers, for the quarter ended {n.cur.end}.</p>}
               <p className="note small">Official numbers the company reported to the SEC (XBRL). Margins change in percentage points.</p>
             </div>
           )}
           {d.insiders && (
             <div className="fi-box">
               <h5>Insiders · open-market trades since {d.insiders.since} <Fresh kind="eod" src="SEC Form 4 filings" /></h5>
-              <p className="small">Buys: <b className="num">{d.insiders.buys.n}</b> ({money(d.insiders.buys.value)}) · Sells: <b className="num">{d.insiders.sells.n}</b> ({money(d.insiders.sells.value)})</p>
+              <p className="small">Buys: <b className="num">{d.insiders.buys.n}</b> ({amt(d.insiders.buys)}) · Sells: <b className="num">{d.insiders.sells.n}</b> ({amt(d.insiders.sells)})</p>
               {d.insiders.rows.length > 0 && <table className="ad-table"><tbody>{d.insiders.rows.slice(0, 8).map((t, i) => (
-                <tr key={i}><td className="num small">{t.date}</td><td className="small">{t.who} <span className="muted">{t.role}</span></td><td className={`small ${t.code === 'P' ? 'up' : 'down'}`}>{t.code === 'P' ? 'Buy' : 'Sell'}</td><td className="r num small">{money(t.value)}</td></tr>
+                <tr key={i}><td className="num small">{t.date}</td><td className="small">{t.who} <span className="muted">{t.role}</span></td><td className={`small ${t.code === 'P' ? 'up' : 'down'}`}>{t.code === 'P' ? 'Buy' : 'Sell'}</td><td className="r num small">{t.value ? money(t.value) : <span className="muted">not stated</span>}</td></tr>
               ))}</tbody></table>}
               <p className="note small">Open-market buys (code P) and sells (code S) only; option exercises, awards and tax withholding are left out. Planned sales (10b5-1) look the same here.</p>
             </div>
