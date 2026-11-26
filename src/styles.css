@@ -3778,3 +3778,6 @@ img, a, svg { -webkit-user-drag: none; }
 .pt-what-row td { background: var(--panel-2, rgba(127,127,127,.06)); }
 .pt-what-row p { margin: 4px 0; line-height: 1.45; }
 .pt-ev { white-space: nowrap; } .pt-ev-in_products { color: var(--up); font-weight: 600; } .pt-ev-in_development { color: var(--warn, #d9a441); } .pt-ev-no_evidence { color: var(--muted); }
+.pt-notes { margin: 2px 0 6px; padding-left: 18px; }
+.pt-night { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 6px; }
+.pt-night ul { margin: 2px 0 0 4px; padding-left: 18px; }

@@ -9,21 +9,32 @@ import { finnhubPeers, geminiJson, hasAi, secJson, secText } from '../adapters.j
 import { companyDrugs, fdaIndex, type ObFile } from '../../../shared/orangeBook.js';
 import { GP_ID_RE, PLAIN_SCHEMA, ROLLOUT_SCHEMA, candidateSentences, checkRollout, gpAbstract, gpId, plainPrompt, rolloutPrompt } from '../../../shared/patentEvidence.js';
 import { tenKExcerpt } from '../../../shared/company.js';
+import type { PatentsNightFile } from '../../../shared/patentNotes.js';
 import { SYMBOL_RE, cached, getCached, getJson, hasKey, json, key, setCached, take } from '../core.js';
 import { BASELINE_Q, CPC_FORMS, RADAR, hasGroup, plausibleSub, orQ, prefixVariants, radarBody, radarWindows, themeQ, topFacet, type CpcForm, type RadarKind } from '../../../shared/patentRadar.js';
 
 // FDA Orange Book file written weekly by .github/workflows/orangebook.yml (public repo; same reading as the Kronos file)
 const REPO = process.env.GITHUB_REPO || 'jaiscully1-blip/trading-desk';
 const GH_TOKEN = process.env.GITHUB_TOKEN;
-async function orangeBook(): Promise<ObFile | null> {
-  const url = GH_TOKEN ? `https://api.github.com/repos/${REPO}/contents/published/orangebook.json` : `https://raw.githubusercontent.com/${REPO}/main/published/orangebook.json`;
+async function published(name: string, ttl: number): Promise<any | null> {
+  const url = GH_TOKEN ? `https://api.github.com/repos/${REPO}/contents/published/${name}` : `https://raw.githubusercontent.com/${REPO}/main/published/${name}`;
   const init = GH_TOKEN ? { headers: { authorization: `Bearer ${GH_TOKEN}`, accept: 'application/vnd.github.raw+json', 'x-github-api-version': '2022-11-28' } } : undefined;
-  try { const f = (await cached('orangebook', 86400, () => getJson(url, 'github', 15000, init))).val; return f?.schema === 1 && Array.isArray(f.rows) ? f : null; } catch { return null; }
+  try { return (await cached(`pub:${name}`, ttl, () => getJson(url, 'github', 15000, init))).val; } catch { return null; }
+}
+async function orangeBook(): Promise<ObFile | null> {
+  const f = await published('orangebook.json', 86400);
+  return f?.schema === 1 && Array.isArray(f.rows) ? f : null;
+}
+/** The nightly file (scripts/patents-build.ts), when it ran in the last 4 days (it runs Tue-Sat). Never in the nightly job itself. */
+async function nightly(): Promise<PatentsNightFile | null> {
+  if (process.env.GITHUB_ACTIONS) return null;
+  const f = await published('patents.json', 1800);
+  return f?.schema === 1 && f.asOf && Date.now() - Date.parse(f.asOf) < 4 * 86400000 ? f : null;
 }
 
 let chain: Promise<unknown> = Promise.resolve();
 /** One USPTO call at a time on this server, with one patient retry after a 429. */
-function odp(body: object): Promise<any> {
+export function odp(body: object): Promise<any> {
   const run = async () => {
     if (!take('patentsview')) throw new Error('USPTO budget used up for now');
     const call = () => getJson(ODP_SEARCH, 'patentsview', 20000, { method: 'POST', body: JSON.stringify(body), headers: { 'X-API-KEY': key('patentsview') } });
@@ -70,6 +81,12 @@ export async function patents(req: Request): Promise<Response> {
   const sym = (new URL(req.url).searchParams.get('symbol') ?? '').toUpperCase();
   if (!SYMBOL_RE.test(sym)) return json({ error: 'bad symbol' }, { status: 400 });
   if (!hasKey('patentsview')) return json({ sym, needsKey: true });
+  // tickers on the nightly list open instantly from the nightly file (live=1 asks the USPTO now)
+  if (!new URL(req.url).searchParams.get('live')) {
+    const n = await nightly();
+    const stored = n?.patents?.[sym] as Record<string, unknown> | undefined;
+    if (n && stored) return json({ ...stored, nightly: n.asOf, notes: n.tickers[sym]?.notes ?? [] }, { sMaxAge: 600 });
+  }
   const started = Date.now(), budget = 25_000;
   const errors: Record<string, string> = {};
   const safe = async <T,>(k: string, f: () => Promise<T>): Promise<T | null> => { try { return await f(); } catch (e) { errors[k] = String((e as Error).message).slice(0, 160); return null; } };
@@ -137,8 +154,12 @@ export async function patents(req: Request): Promise<Response> {
 // Patents & Tech page: theme radar and watchlist summary. Same queue and caches as the Company section.
 
 /** GET fn=patentradar -> per theme: made public and granted, last 90 days vs the same days a year earlier, top filers. */
-export async function patentradar(): Promise<Response> {
+export async function patentradar(req?: Request): Promise<Response> {
   if (!hasKey('patentsview')) return json({ needsKey: true });
+  if (!req || !new URL(req.url).searchParams.get('live')) {
+    const n = await nightly();
+    if (n?.radar && (n.radar as any).complete) return json({ ...(n.radar as object), nightly: n.asOf }, { sMaxAge: 600 });
+  }
   const started = Date.now(), budget = 25_000;
   const errors: Record<string, string> = {};
   const w = radarWindows(new Date());
@@ -279,4 +300,11 @@ export async function patentabstract(req: Request): Promise<Response> {
     }
     return json({ id, url: page, abstract, plain, model }, { sMaxAge: abstract ? 86400 : 0 });
   } catch (e) { return json({ id, url: page, error: String((e as Error).message).slice(0, 160) }); }
+}
+
+/** GET fn=patentnotes -> the nightly notes per ticker on the list, and when the check last ran. */
+export async function patentnotes(): Promise<Response> {
+  const n = await published('patents.json', 1800);
+  if (!n || n.schema !== 1) return json({ notRunYet: true });
+  return json({ asOf: n.asOf, tickers: n.tickers, errors: n.errors ?? {}, stale: Date.now() - Date.parse(n.asOf) > 4 * 86400000 }, { sMaxAge: 600 });
 }

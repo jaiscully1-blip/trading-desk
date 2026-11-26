@@ -1,0 +1,41 @@
+# Nightly patent check for the tickers in patents/tickers.txt: patents filed and granted (5 years by quarter), the latest
+# filings, FDA-listed drugs, the theme radar, and quiet notes (new filings this week, a new tech area, a trend change).
+# Commits ONLY published/patents.json, read by the desk's Patents section and Patents & Tech page. Free official data
+# (USPTO Open Data Portal, SEC, FDA). Information only, not advice. Nothing here can trade.
+# Secrets: USPTO_API_KEY (same key as in Vercel), SEC_USER_AGENT (already used by the Insiders job). Optional: FINNHUB_API_KEY.
+name: Patents
+
+on:
+  schedule:
+    - cron: "30 9 * * 2-6"   # 09:30 UTC Tue-Sat: after the USPTO's weekly grants (Tuesday) and publications (Thursday)
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: patents
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Check patents for the listed tickers
+        env:
+          USPTO_API_KEY: ${{ secrets.USPTO_API_KEY }}
+          SEC_USER_AGENT: ${{ secrets.SEC_USER_AGENT }}
+          FINNHUB_API_KEY: ${{ secrets.FINNHUB_API_KEY }}
+        run: npx --yes tsx@4.19.2 scripts/patents-build.ts
+      - name: Save results (only published/patents.json)
+        run: |
+          git config user.name "patents-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add published/patents.json
+          git diff --cached --quiet || git commit -m "Patents $(date -u +%F)"
+          git pull --rebase --quiet && git push
