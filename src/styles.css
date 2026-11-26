@@ -3798,3 +3798,13 @@ img, a, svg { -webkit-user-drag: none; }
 .rp-stress { color: var(--down); } .rp-ease { color: var(--up); } .rp-normal { color: var(--muted); font-weight: 500; }
 .rp-table tr { cursor: help; }
 .rp-table td:first-child { width: 96px; }
+
+/* Agencies page */
+.agy-kw { display: grid; gap: 3px; margin-bottom: 8px; } .agy-kw input { max-width: 520px; }
+.agy-filters { align-items: center; margin-bottom: 6px; } .agy-filters input { width: 200px; }
+.agy-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.agy-item { border-top: 1px solid var(--line); padding: 5px 0; }
+.agy-row { display: flex; flex-wrap: wrap; gap: 6px; align-items: baseline; }
+.agy-who { color: var(--accent, #F9AE77); white-space: nowrap; }
+.agy-hit { border-color: var(--warn, #d9a441); }
+.agy-sum { margin: 4px 0 2px 18px; } .agy-sum ul { margin: 2px 0 4px; padding-left: 18px; } .agy-sum li { cursor: help; }

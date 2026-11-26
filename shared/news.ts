@@ -38,7 +38,8 @@ export function parseFeed(xml: string, src: string): { title: string; url: strin
     const title = tag(b, 'title');
     let url = tag(b, 'link');
     if (!url) url = /<link[^>]*href="([^"]+)"/i.exec(b)?.[1] ?? '';
-    const when = tag(b, 'pubDate') || tag(b, 'published') || tag(b, 'updated') || tag(b, 'dc:date');
+    // some feeds (ESMA) carry no date field, only a <time datetime="..."> inside the (escaped) description
+    const when = tag(b, 'pubDate') || tag(b, 'published') || tag(b, 'updated') || tag(b, 'dc:date') || (/datetime=(?:"|&quot;)([0-9T:+\-.Z]+)(?:"|&quot;)/.exec(b)?.[1] ?? '');
     const t = Date.parse(when);
     const summary = (tag(b, 'description') || tag(b, 'summary')).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 1200) || undefined;
     if (title && Number.isFinite(t)) out.push({ title, url: safeUrl(url), t, src, summary });

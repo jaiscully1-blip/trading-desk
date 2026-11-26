@@ -6,7 +6,7 @@ import { createPortal } from 'react-dom';
 import { downloadDesk, exportDesk, importDesk, parseDeskFile, type DeskFile } from '../lib/deskfile';
 import { currentAccount, initials, isOwner, leave, makeOwner, verifyDeskPassword } from '../lib/accounts';
 
-export type Page = 'morning' | 'home' | 'messages' | 'desk' | 'patterns' | 'company' | 'scanner' | 'map' | 'flows' | 'smart' | 'etfs' | 'gamma' | 'odds' | 'journal' | 'calendar' | 'status' | 'distress' | 'insiders' | 'credit' | 'mtf' | 'global' | 'news' | 'essay' | 'tesla' | 'altdata' | 'realecon' | 'plumbing' | 'policy' | 'learn' | 'crypto' | 'quant' | 'cmap' | 'weekly' | 'ai' | 'patents';
+export type Page = 'morning' | 'home' | 'messages' | 'desk' | 'patterns' | 'company' | 'scanner' | 'map' | 'flows' | 'smart' | 'etfs' | 'gamma' | 'odds' | 'journal' | 'calendar' | 'status' | 'distress' | 'insiders' | 'credit' | 'mtf' | 'global' | 'news' | 'essay' | 'tesla' | 'altdata' | 'realecon' | 'plumbing' | 'policy' | 'learn' | 'crypto' | 'quant' | 'cmap' | 'weekly' | 'ai' | 'patents' | 'agencies';
 export type GroupId = 'today' | 'charts' | 'scan' | 'flow' | 'alt' | 'sys' | 'journal';
 
 /** 24x24 stroke paths (own drawings, simple shapes) */
@@ -36,6 +36,7 @@ const ICON: Record<Page | 'account', string> = {
   cmap: 'M3 6l6-3 6 3 6-3v15l-6 3-6-3-6 3z M9 3v15 M15 6v15',
   weekly: 'M4 5h16v15H4z M4 9h16 M8 3v4 M16 3v4 M7 13h2 M11 13h2 M15 13h2 M7 16h2',
   ai: 'M12 3v3 M12 18v3 M3 12h3 M18 12h3 M7 7l2 2 M15 15l2 2 M17 7l-2 2 M9 15l-2 2 M9 9h6v6H9z',
+  agencies: 'M3 21h18 M5 21V10 M9 21V10 M15 21V10 M19 21V10 M2 9l10-6 10 6z M12 6.5h.01',
   patents: 'M9 18h6 M10 21h4 M12 3a6 6 0 0 0-3.5 10.9c.6.4 1 1.1 1 1.8V16h5v-.3c0-.7.4-1.4 1-1.8A6 6 0 0 0 12 3z',
   altdata: 'M4 19V9 M10 19V5 M16 19v-7 M22 19H2',
   quant: 'M5 17l4-5 4 3 6-8 M5 7h.01 M9 5h.01 M17 15h.01 M20 19H4V4',
@@ -66,6 +67,7 @@ const P: Record<Page, { label: string; hint: string; key: string }> = {
   cmap: { label: 'World Monitor', hint: 'agency feeds, US drought and disaster map, world map, agency directory', key: '' },
   realecon: { label: 'Real Economy', hint: 'air traffic, CEO jets, rail, power, fuel, freight, weather', key: '⇧E' },
   ai: { label: 'AI & Models', hint: 'local models on this Mac (Ollama and others), Claude, Kronos and bots: what is running', key: '' },
+  agencies: { label: 'Agencies', hint: 'BIS, ECB, Bank of England, Fed, FSB, OCC and more: newest publications, keyword notes, summaries', key: '' },
   patents: { label: 'Patents & Tech', hint: 'company patents, theme radar across every sector, watchlist patent trend', key: '' },
   altdata: { label: 'Alt Data', hint: 'hiring, app ranks, interest, GitHub, players, social, prices', key: '⇧A' },
   tesla: { label: 'Lots', hint: 'registrations, satellite lot fullness, inventory', key: '⇧T' },
@@ -84,7 +86,7 @@ export const NAV_GROUPS: { id: GroupId; label: string; pages: Page[] }[] = [
   { id: 'today', label: 'Today', pages: ['morning', 'home', 'news', 'messages', 'calendar'] },
   { id: 'charts', label: 'Charts', pages: ['desk', 'mtf', 'patterns', 'company', 'crypto'] },
   { id: 'scan', label: 'Scan', pages: ['scanner', 'flows', 'etfs', 'insiders', 'plumbing', 'credit', 'distress'] },
-  { id: 'flow', label: 'Flow and risk', pages: ['global', 'policy', 'gamma', 'cmap'] },
+  { id: 'flow', label: 'Flow and risk', pages: ['global', 'policy', 'gamma', 'cmap', 'agencies'] },
   { id: 'alt', label: 'Alt data', pages: ['altdata', 'patents', 'quant', 'tesla', 'realecon'] },
   { id: 'sys', label: 'Data & AI', pages: ['status', 'ai'] },
   { id: 'journal', label: 'Journal', pages: ['journal', 'weekly', 'essay', 'learn'] },
