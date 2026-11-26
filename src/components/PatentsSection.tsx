@@ -1,15 +1,16 @@
 // Patents section on the Company page: filed vs granted per quarter (5 years), trend, peers, tech areas and the latest
 // filings, from the USPTO Open Data Portal. Opens on demand. The server counts one quarter at a time (the USPTO key allows
 // one call at a time), so a first look can take a few rounds; this keeps asking until every quarter is in.
-import { useEffect, useRef, useState } from 'react';
+import { Fragment, useEffect, useRef, useState } from 'react';
 import { Fresh } from './common';
 
 interface Q { label: string; done: boolean; filed: number | null; granted: number | null }
-interface Row { cpc?: string[]; app: string; title: string; filed: string | null; published: string | null; granted: string | null; patentNo: string | null; status: string; kind: string; areas: string[] }
+interface Row { gp?: string | null; fda?: string[] | null; pubNo?: string | null; cpc?: string[]; app: string; title: string; filed: string | null; published: string | null; granted: string | null; patentNo: string | null; status: string; kind: string; areas: string[] }
 interface Data {
   error?: string; needsKey?: boolean; name?: string; names?: string[]; subsidiaries?: number; qForm?: string; complete?: boolean;
   quarters?: Q[]; trend?: { last: number; prior: number; pct: number; word: string } | null; latest?: Row[];
   mix?: { area: string; n: number; isNew: boolean }[]; peers?: { sym: string; name: string; last: number | null; prior: number | null }[];
+  fda?: Drug[] | null; obAsOf?: string | null;
   errors?: Record<string, string>; source?: string;
 }
 
@@ -42,6 +43,89 @@ function Chart({ qs }: { qs: Q[] }) {
       <polyline points={line('granted')} className="pt-granted" />
       {qs.map((q, i) => <g key={i}>{(['filed', 'granted'] as const).map((k) => (q[k] == null ? null : <circle key={k} cx={x(i)} cy={y(q[k]!)} r={2.6} className={`pt-dot pt-${k}`}><title>{`${q.label}: ${q[k]!.toLocaleString()} ${k}${q.done ? '' : ' (quarter in progress)'}`}</title></circle>))}</g>)}
     </svg>
+  );
+}
+
+interface Drug { trade: string; ingredient: string; applicant: string; patents: { no: string; expires: string | null }[]; lastExpiry: string | null }
+/** FDA Orange Book: the company's listed brand drugs and when their patents run out (a "patent cliff" view). */
+function FdaBox({ drugs, asOf }: { drugs: Drug[]; asOf: string | null }) {
+  const today = new Date().toISOString().slice(0, 10);
+  const next = (d: Drug) => d.patents.find((p) => p.expires && p.expires >= today)?.expires ?? null;
+  return (
+    <div className="fi-box pt-wide">
+      <h5>FDA-listed drugs · patent expiries <Fresh kind="eod" src={`FDA Orange Book${asOf ? `, file read ${asOf}` : ''} (updated about monthly)`} /></h5>
+      <table className="ad-table"><thead><tr><th>Drug</th><th className="r">Listed patents</th><th>Next expiry</th><th>Last expiry</th></tr></thead><tbody>
+        {drugs.map((d) => (
+          <tr key={d.trade} title={`${d.applicant} · patents: ${d.patents.map((p) => `${p.no} (${p.expires ?? '?'})`).join(', ')}`}>
+            <td><b>{d.trade}</b> <span className="small muted">{d.ingredient.toLowerCase()}</span></td>
+            <td className="r num">{d.patents.length}</td><td className="num small">{next(d) ?? 'all past'}</td>
+            <td className={`num small${d.lastExpiry && d.lastExpiry < String(new Date().getFullYear() + 3) ? ' down' : ''}`}>{d.lastExpiry ?? '—'}</td>
+          </tr>
+        ))}
+      </tbody></table>
+      <p className="note small">Hard evidence: these patents cover drugs the FDA has approved. Red = the last listed patent runs out within about 3 years (generics can follow; other protections such as exclusivity are not shown). The Orange Book lists pill-type (small-molecule) drugs only: vaccines and antibodies are not in it.</p>
+    </div>
+  );
+}
+
+type Ev = { app: string; verdict: 'in_products' | 'in_development' | 'no_evidence'; quote: string; dropped: boolean };
+const EV: Record<Ev['verdict'], string> = { in_products: 'In products (AI guess)', in_development: 'In development (AI guess)', no_evidence: 'No 10-K evidence' };
+
+/** Latest filings: evidence column (FDA, AI check on demand) and a "What is it?" line per patent. */
+function Latest({ rows, sym }: { rows: Row[]; sym: string }) {
+  const [ev, setEv] = useState<{ items?: Ev[]; error?: string; model?: string | null; filing?: { date: string; url: string }; note?: string } | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [open, setOpen] = useState<Record<string, { abstract?: string | null; plain?: string | null; model?: string | null; url?: string; error?: string } | 'loading'>>({});
+  useEffect(() => { setEv(null); setOpen({}); }, [sym]);
+  const check = () => { setBusy(true); getDeskJson<any>(`/api/research?fn=patentrollout&symbol=${sym}`).then(setEv).catch((e) => setEv({ error: (e as Error).message })).finally(() => setBusy(false)); };
+  const what = (r: Row) => {
+    if (!r.gp) return;
+    if (open[r.app]) { const n = { ...open }; delete n[r.app]; setOpen(n); return; }
+    setOpen((o) => ({ ...o, [r.app]: 'loading' }));
+    getDeskJson<any>(`/api/research?fn=patentabstract&id=${encodeURIComponent(r.gp)}&title=${encodeURIComponent(r.title)}`).then((j) => setOpen((o) => ({ ...o, [r.app]: j })))
+      .catch((e) => setOpen((o) => ({ ...o, [r.app]: { error: (e as Error).message } })));
+  };
+  const byApp = new Map((ev?.items ?? []).map((x) => [x.app, x]));
+  return (
+    <div className="fi-box pt-wide">
+      <h5>Latest filings made public</h5>
+      <div className="pt-ev-bar">
+        {!ev && <button className="btn sm" onClick={check} disabled={busy}>{busy ? 'Reading the 10-K…' : 'Check which are in products (AI guess)'}</button>}
+        {ev?.error && <span className="small down">{ev.error}</span>}
+        {ev?.items && <span className="small muted">AI guess from the {ev.filing ? <a href={ev.filing.url} target="_blank" rel="noreferrer noopener">10-K filed {ev.filing.date}</a> : '10-K'}{ev.model ? ` · ${ev.model}` : ''}. Hover a verdict for the quote; every quote was checked to be in the filing.</span>}
+      </div>
+      <table className="ad-table pt-table"><thead><tr><th>Title</th><th>Filed</th><th>Public</th><th>Granted</th><th>Status</th><th>Evidence</th><th>Tech area</th></tr></thead><tbody>
+        {rows.map((r) => {
+          const e = byApp.get(r.app), o = open[r.app];
+          return (
+            <Fragment key={r.app}>
+              <tr>
+                <td><a href={`https://patentcenter.uspto.gov/applications/${encodeURIComponent(r.app)}`} target="_blank" rel="noreferrer noopener">{r.title || '(no title)'}</a>{r.patentNo && <span className="small muted"> · US {r.patentNo}</span>}
+                  {r.gp && <> <button className="pt-what" onClick={() => what(r)} aria-expanded={!!o}>{o ? 'hide' : 'What is it?'}</button></>}</td>
+                <td className="num small">{r.filed ?? '—'}</td><td className="num small">{r.published ?? '—'}</td><td className="num small">{r.granted ?? '—'}</td>
+                <td className={`small pt-${r.kind}`} title={r.status}>{KIND[r.kind] ?? r.status}</td>
+                <td className="small">
+                  {r.fda?.length ? <span className="chip sm up" title="Listed in the FDA Orange Book for an approved drug">In use (FDA): {r.fda.slice(0, 2).join(', ')}</span>
+                    : e ? <span className={`pt-ev pt-ev-${e.verdict}`} title={e.quote ? `10-K: "${e.quote}"` : e.dropped ? 'The AI gave a quote that is not in the 10-K, so it was discarded.' : 'The 10-K does not mention this technology. That does not mean it is unused.'}>{EV[e.verdict]}</span>
+                    : <span className="muted">—</span>}
+                </td>
+                <td className="small" title={r.cpc?.length ? `Classification codes: ${r.cpc.join(', ')}` : undefined}>{r.areas.join(', ')}</td>
+              </tr>
+              {o && (
+                <tr className="pt-what-row"><td colSpan={7}>
+                  {o === 'loading' ? <span className="small muted">Opening the patent…</span> : o.error ? <span className="small down">{o.error}</span> : <>
+                    {o.plain && <p className="small"><b>In plain English:</b> {o.plain} <span className="muted">(AI summary of the abstract{o.model ? `, ${o.model}` : ''}; can be wrong)</span></p>}
+                    {o.abstract ? <p className="small muted">Abstract: {o.abstract}</p> : <p className="small muted">No abstract found on the public patent page.</p>}
+                    {o.url && <a className="small" href={o.url} target="_blank" rel="noreferrer noopener">Full patent on Google Patents (public page)</a>}
+                  </>}
+                </td></tr>
+              )}
+            </Fragment>
+          );
+        })}
+      </tbody></table>
+      <p className="note small">Titles open the official record in USPTO Patent Center. "In use (FDA)" is hard evidence. AI verdicts are a guess from the latest 10-K and can be wrong; "No 10-K evidence" means the annual report does not say, not that the technology is unused.</p>
+    </div>
   );
 }
 
@@ -97,21 +181,8 @@ export function PatentsView({ sym, open = true }: { sym: string; open?: boolean 
               <p className="note small">From the patents' official classification codes. "New" means it shows up this year and not in the older filings in this list.</p>
             </div>
           )}
-          {!!d.latest?.length && (
-            <div className="fi-box pt-wide">
-              <h5>Latest filings made public</h5>
-              <table className="ad-table pt-table"><thead><tr><th>Title</th><th>Filed</th><th>Public</th><th>Granted</th><th>Status</th><th>Tech area</th></tr></thead><tbody>
-                {d.latest.map((r) => (
-                  <tr key={r.app}>
-                    <td><a href={`https://patentcenter.uspto.gov/applications/${encodeURIComponent(r.app)}`} target="_blank" rel="noreferrer noopener">{r.title || '(no title)'}</a>{r.patentNo && <span className="small muted"> · US {r.patentNo}</span>}</td>
-                    <td className="num small">{r.filed ?? '—'}</td><td className="num small">{r.published ?? '—'}</td><td className="num small">{r.granted ?? '—'}</td>
-                    <td className={`small pt-${r.kind}`} title={r.status}>{KIND[r.kind] ?? r.status}</td><td className="small" title={r.cpc?.length ? `Classification codes: ${r.cpc.join(', ')}` : undefined}>{r.areas.join(', ')}</td>
-                  </tr>
-                ))}
-              </tbody></table>
-              <p className="note small">Titles open the official record in USPTO Patent Center. Plain-English descriptions and whether the company uses the tech come in the next steps.</p>
-            </div>
-          )}
+          {!!d.fda?.length && <FdaBox drugs={d.fda} asOf={d.obAsOf ?? null} />}
+          {!!d.latest?.length && <Latest rows={d.latest} sym={sym} />}
           {d.errors && Object.keys(d.errors).length > 0 && <p className="small muted pt-wide">Some parts did not load: {Object.entries(d.errors).map(([k, v]) => `${k}: ${v}`).join(' · ')}</p>}
           {d.source && <p className="note small pt-wide">{d.source}. Research only, not advice.</p>}
         </div>

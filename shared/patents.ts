@@ -143,14 +143,14 @@ export function cpcArea(code: string): string {
   return SECTION[c[0] ?? ''] ?? 'Other';
 }
 
-export interface PatentRow { cpc: string[]; app: string; title: string; filed: string | null; published: string | null; granted: string | null; patentNo: string | null; status: string; kind: PatentStatus; areas: string[] }
+export interface PatentRow { pubNo: string | null; cpc: string[]; app: string; title: string; filed: string | null; published: string | null; granted: string | null; patentNo: string | null; status: string; kind: PatentStatus; areas: string[] }
 export function parseRows(j: any): PatentRow[] {
   return (j?.patentFileWrapperDataBag ?? []).map((r: any) => {
     const m = r?.applicationMetaData ?? {};
     const status = String(m.applicationStatusDescriptionText ?? '');
     const cpc: string[] = Array.isArray(m.cpcClassificationBag) ? m.cpcClassificationBag.map(String) : [];
     return {
-      cpc: cpc.slice(0, 6), app: String(r?.applicationNumberText ?? ''), title: String(m.inventionTitle ?? '').replace(/\s+/g, ' ').trim(),
+      pubNo: m.earliestPublicationNumber ? String(m.earliestPublicationNumber) : null, cpc: cpc.slice(0, 6), app: String(r?.applicationNumberText ?? ''), title: String(m.inventionTitle ?? '').replace(/\s+/g, ' ').trim(),
       filed: m.filingDate ?? null, published: m.earliestPublicationDate ?? null, granted: m.grantDate ?? null, patentNo: m.patentNumber ? String(m.patentNumber) : null,
       status, kind: statusKind(status), areas: [...new Set(cpc.map(cpcArea))].slice(0, 3),
     };

@@ -1,0 +1,41 @@
+# Weekly FDA Orange Book: which patents cover approved brand drugs, and when they expire. Free FDA download, no key.
+# Commits ONLY published/orangebook.json, read by the Patents section ("In use (FDA)" and each drug company's patent expiries).
+# Facts from the FDA list, not advice. Nothing here can trade.
+name: Orange Book
+
+on:
+  schedule:
+    - cron: "15 11 * * 1"   # Mondays 11:15 UTC; FDA updates the files about monthly
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: orangebook
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Download the FDA Orange Book files
+        run: |
+          mkdir -p ob
+          curl -sSfL -A "trading-desk-orangebook (GitHub Actions)" -o ob/ob.zip "https://www.fda.gov/media/76860/download?attachment"
+          unzip -o -q ob/ob.zip -d ob
+          ls -la ob
+      - name: Build published/orangebook.json
+        run: npx --yes tsx@4.19.2 scripts/orangebook-build.ts ob
+      - name: Save results (only published/orangebook.json)
+        run: |
+          git config user.name "orangebook-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add published/orangebook.json
+          git diff --cached --quiet || git commit -m "Orange Book $(date -u +%F)"
+          git pull --rebase --quiet && git push

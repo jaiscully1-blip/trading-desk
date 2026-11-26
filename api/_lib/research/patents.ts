@@ -5,9 +5,21 @@
 // the page asks again and the next request carries on where this one stopped.
 import { PATENT_ALIASES, aliasNames, countBody, ex21FromIndex, countOf, exhibit21Names, grantTrend, lastQuarters, latestBody, ODP_SEARCH, ownerQ, parseRows, simpleQ, techMix, type CountKind } from '../../../shared/patents.js';
 import { cleanCoName, htmlToText, latestAnnual, parseSecTickers, secProfile } from '../../../shared/company.js';
-import { finnhubPeers, secJson, secText } from '../adapters.js';
+import { finnhubPeers, geminiJson, hasAi, secJson, secText } from '../adapters.js';
+import { companyDrugs, fdaIndex, type ObFile } from '../../../shared/orangeBook.js';
+import { GP_ID_RE, PLAIN_SCHEMA, ROLLOUT_SCHEMA, candidateSentences, checkRollout, gpAbstract, gpId, plainPrompt, rolloutPrompt } from '../../../shared/patentEvidence.js';
+import { tenKExcerpt } from '../../../shared/company.js';
 import { SYMBOL_RE, cached, getCached, getJson, hasKey, json, key, setCached, take } from '../core.js';
 import { BASELINE_Q, CPC_FORMS, RADAR, hasGroup, plausibleSub, orQ, prefixVariants, radarBody, radarWindows, themeQ, topFacet, type CpcForm, type RadarKind } from '../../../shared/patentRadar.js';
+
+// FDA Orange Book file written weekly by .github/workflows/orangebook.yml (public repo; same reading as the Kronos file)
+const REPO = process.env.GITHUB_REPO || 'jaiscully1-blip/trading-desk';
+const GH_TOKEN = process.env.GITHUB_TOKEN;
+async function orangeBook(): Promise<ObFile | null> {
+  const url = GH_TOKEN ? `https://api.github.com/repos/${REPO}/contents/published/orangebook.json` : `https://raw.githubusercontent.com/${REPO}/main/published/orangebook.json`;
+  const init = GH_TOKEN ? { headers: { authorization: `Bearer ${GH_TOKEN}`, accept: 'application/vnd.github.raw+json', 'x-github-api-version': '2022-11-28' } } : undefined;
+  try { const f = (await cached('orangebook', 86400, () => getJson(url, 'github', 15000, init))).val; return f?.schema === 1 && Array.isArray(f.rows) ? f : null; } catch { return null; }
+}
 
 let chain: Promise<unknown> = Promise.resolve();
 /** One USPTO call at a time on this server, with one patient retry after a 429. */
@@ -51,7 +63,7 @@ async function filerNames(tickers: { cik: number; ticker: string; title: string 
   })).val : null;
   const name = sub?.sec.name ? cleanCoName(sub.sec.name) : t?.title ? cleanCoName(t.title) : sym;
   const subs = sub?.filing ? (await cached(`ex21v2:${sub.filing.url}`, 30 * 86400, () => subsidiaries(sub.filing!.url))).val : [];
-  return { name, subs, names: aliasNames(name, subs, PATENT_ALIASES[sym] ?? []) };
+  return { name, subs, filing: sub?.filing ?? null, names: aliasNames(name, subs, PATENT_ALIASES[sym] ?? []) };
 }
 
 export async function patents(req: Request): Promise<Response> {
@@ -64,7 +76,7 @@ export async function patents(req: Request): Promise<Response> {
 
   // company name, newest 10-K and its subsidiaries (same SEC caches the Company page uses)
   const tickers = hasKey('sec') ? await safe('sec', async () => (await cached('sec:tickers', 86400, async () => parseSecTickers(await secJson('https://www.sec.gov/files/company_tickers.json')))).val) : null;
-  const me = (await safe('subsidiaries', () => filerNames(tickers, sym))) ?? { name: sym, subs: [] as string[], names: aliasNames(sym, [], PATENT_ALIASES[sym] ?? []) };
+  const me = (await safe('subsidiaries', () => filerNames(tickers, sym))) ?? { name: sym, subs: [] as string[], filing: null, names: aliasNames(sym, [], PATENT_ALIASES[sym] ?? []) };
   const { name, subs, names } = me;
 
   // which query form the server accepts (the OR form is preferred; fall back once if it is rejected)
@@ -107,10 +119,16 @@ export async function patents(req: Request): Promise<Response> {
     peers.push(row);
   }
 
+  // FDA Orange Book: the company's listed drugs and patent expiries, and which latest patents cover an approved drug
+  const ob = await orangeBook();
+  const fda = ob ? companyDrugs(ob, names).slice(0, 40) : null;
+  const idx = ob ? fdaIndex(ob) : null;
+  const rows = (latest ?? []).map((r) => ({ ...r, gp: gpId(r.patentNo, r.pubNo), fda: r.patentNo && idx ? idx.get(r.patentNo.replace(/[^A-Z0-9]/gi, '').toUpperCase()) ?? null : null }));
+
   const year = new Date().getUTCFullYear();
-  return json({
+  return json({ fda, obAsOf: ob?.asOf ?? null,
     sym, name, names, subsidiaries: subs.length, qForm, complete,
-    quarters: counts, trend: grantTrend(counts), latest: latest ?? [], mix: techMix(latest ?? [], year), peers, errors, asOf: Date.now(),
+    quarters: counts, trend: grantTrend(counts), latest: rows, mix: techMix(latest ?? [], year), peers, errors, asOf: Date.now(),
     source: 'USPTO Open Data Portal (official, refreshed daily) · names from the company and its 10-K subsidiary list (SEC EDGAR)',
   }, { sMaxAge: complete && !Object.keys(errors).length ? 3600 : 0 });
 }
@@ -207,4 +225,58 @@ export async function patentwatch(req: Request): Promise<Response> {
     rows.push(row);
   }
   return json({ rows, complete, window: { last: w1, prior: w0 }, asOf: Date.now() }, { sMaxAge: complete ? 3600 : 0 });
+}
+
+// ---------------------------------------------------------------------------------------------------------------------
+// Rollout evidence and plain-English descriptions (Company section and Patents & Tech page). Labeled AI; quotes verified.
+
+/** GET fn=patentrollout&symbol=VRTX -> for each of the latest filings: in products / in development / no evidence,
+ *  with the 10-K sentence that shows it (checked to be in the 10-K). Free AI chain; cached a week per 10-K. */
+export async function patentrollout(req: Request): Promise<Response> {
+  const sym = (new URL(req.url).searchParams.get('symbol') ?? '').toUpperCase();
+  if (!SYMBOL_RE.test(sym)) return json({ error: 'bad symbol' }, { status: 400 });
+  if (!hasKey('patentsview') || !hasKey('sec')) return json({ error: 'Needs the USPTO key and SEC_USER_AGENT.' });
+  if (!hasAi()) return json({ error: 'Needs a free AI key in Vercel: GEMINI_API_KEY or GROQ_API_KEY.' });
+  try {
+    const tickers = (await cached('sec:tickers', 86400, async () => parseSecTickers(await secJson('https://www.sec.gov/files/company_tickers.json')))).val;
+    const f = await filerNames(tickers, sym);
+    if (!f.filing) return json({ error: 'No annual report (10-K) found for this company, so there is nothing to compare against.' });
+    const q = ownerQ(f.names);
+    const rows = (await cached(`pat:latest:${q}`, 86400, async () => parseRows(await odp(latestBody(q))))).val;
+    const excerpt = (await cached(`excerpt:${f.filing.url}`, 30 * 86400, async () => tenKExcerpt(htmlToText(await secText(f.filing!.url))))).val;
+    const titles = rows.map((r) => r.title);
+    const key = `pat:rollout:${f.filing.url}:${rows.map((r) => r.app).join(',')}`;
+    const out = (await cached(key, 7 * 86400, async () => {
+      const sents = candidateSentences(excerpt, titles);
+      if (!sents.length) return { items: titles.map(() => ({ verdict: 'no_evidence', quote: '', dropped: false })), model: null };
+      const r = await geminiJson(rolloutPrompt(f.name, titles, sents), ROLLOUT_SCHEMA);
+      return { items: checkRollout(r.data, titles.length, excerpt), model: r.model };
+    })).val;
+    return json({ sym, filing: { date: f.filing.date, url: f.filing.url, form: f.filing.form }, model: out.model, items: rows.map((r, i) => ({ app: r.app, ...out.items[i] })),
+      note: 'AI guess from the company\'s latest 10-K: each quote was checked to be in the filing. "No evidence" means the 10-K does not say, not that the tech is unused.' }, { sMaxAge: 3600 });
+  } catch (e) { return json({ error: String((e as Error).message).slice(0, 200) }); }
+}
+
+/** GET fn=patentabstract&id=US12345678&title=... -> the abstract (public Google Patents page) and a one-line plain-English
+ *  summary (free AI chain, labeled). Cached 30 days per patent. */
+export async function patentabstract(req: Request): Promise<Response> {
+  const u = new URL(req.url);
+  const id = (u.searchParams.get('id') ?? '').toUpperCase();
+  const title = (u.searchParams.get('title') ?? '').slice(0, 300);
+  if (!GP_ID_RE.test(id)) return json({ error: 'bad patent id' }, { status: 400 });
+  const page = `https://patents.google.com/patent/${id}/en`;
+  try {
+    const abstract = (await cached(`gp:abs:${id}`, 30 * 86400, async () => {
+      if (!take('googlepatents')) throw new Error('Too many patent pages opened just now; try again in a minute.');
+      const r = await fetch(page, { headers: { 'user-agent': 'Mozilla/5.0 (compatible; trading-desk research)' }, signal: AbortSignal.timeout(12000) });
+      if (r.status === 404) return null;
+      if (!r.ok) throw new Error(`Google Patents answered HTTP ${r.status}`);
+      return gpAbstract(await r.text());
+    })).val;
+    let plain: string | null = null, model: string | null = null;
+    if (abstract && hasAi()) {
+      try { const p = (await cached(`gp:plain:${id}`, 30 * 86400, async () => { const r = await geminiJson(plainPrompt(title, abstract), PLAIN_SCHEMA); return { plain: String(r.data?.plain ?? '').slice(0, 300), model: r.model }; })).val; plain = p.plain || null; model = p.model; } catch { /* abstract alone is still useful */ }
+    }
+    return json({ id, url: page, abstract, plain, model }, { sMaxAge: abstract ? 86400 : 0 });
+  } catch (e) { return json({ id, url: page, error: String((e as Error).message).slice(0, 160) }); }
 }
