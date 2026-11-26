@@ -96,7 +96,8 @@ function Lookup({ initial }: { initial: { q: string; ticker: string } }) {
 
 export default function CreditSwaps({ live }: { live: boolean }) {
   const c2 = useJson<C2>(live ? '/api/research?fn=credit2' : null, 30 * 60_000);
-  const [pick, setPick] = usePersisted<string>('csPick', 'ORACLE CORPORATION');
+  const [saved, setPick] = usePersisted<string>('csPick', 'ORACLE CORPORATION');
+  const pick = /[¿]/.test(saved) || !saved.trim() ? 'ORACLE CORPORATION' : saved; // a name saved before DTCC's blanked names were fixed
   const [find, setFind] = useState('');
   const cds = useJson<Cds>(live ? `/api/research?fn=cds&name=${encodeURIComponent(pick)}` : null, 10 * 60_000);
   if (!live) return <p className="hw-pad muted">Credit & Swaps reads real data only, so it needs the live desk.</p>;
@@ -133,7 +134,7 @@ export default function CreditSwaps({ live }: { live: boolean }) {
           <datalist id="cs-names">{(k?.names ?? []).map((n) => <option key={n} value={n} />)}</datalist></div>
         {k && <div className="cs-grid">
           <div><NameTable rows={k.singles.slice(0, 25)} pick={pick} onPick={setPick} title="Company" /></div>
-          <div>{k.detail && k.detail.length ? <Detail name={pick} trades={k.detail} /> : <p className="small muted gx-pad">{pick}: no trades in the last 5 days.</p>}
+          <div>{k.detail && k.detail.length ? <Detail name={pick} trades={k.detail} /> : <p className="small muted gx-pad">{pick}: no trades in the last 5 days.{pick !== 'ORACLE CORPORATION' && <> <button className="linkish" onClick={() => setPick('ORACLE CORPORATION')}>Back to Oracle</button></>}</p>}
             <NameTable rows={k.sovs.slice(0, 10)} pick={pick} onPick={setPick} title="Country" /></div>
         </div>}
       </section>

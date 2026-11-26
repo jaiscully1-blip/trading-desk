@@ -58,7 +58,7 @@ export function TopStrip({
     <header className="top top3">
       {/* zone 1: markets */}
       <div className="top-zone tz-markets">
-        <MarketChips live={live} quotes={quotes} onSelect={onSelect} />
+        <MarketChips live={live} quotes={quotes} onSelect={onSelect} open={clk.session === 'Regular session'} />
         <span className="tz-status"><Fresh kind={quoteFresh} at={quoteAsOf} src={quoteSource} />{movement && <MovementBadge m={movement} vol={vol} stats={moveStats} />}</span>
       </div>
       {/* zone 2: search */}
