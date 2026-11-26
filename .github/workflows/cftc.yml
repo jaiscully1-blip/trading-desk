@@ -1,0 +1,35 @@
+# Weekly CFTC credit-swaps snapshot (gross notional outstanding and transaction tickets, high yield vs investment grade).
+# The CFTC pages only show the current week, so this keeps the history. Commits ONLY published/cftc-cds.json, read by the
+# Credit page's Risk on / off tab. Free public data, no key. Information only, not advice. Nothing here can trade.
+name: CFTC swaps
+
+on:
+  schedule:
+    - cron: "0 14 * * 1,4"   # Mondays and Thursdays 14:00 UTC; the report updates weekly (a run that finds the same week changes nothing)
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: cftc
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Read this week's CFTC credit tables
+        run: npx --yes tsx@4.19.2 scripts/cftc-build.ts
+      - name: Save results (only published/cftc-cds.json)
+        run: |
+          git config user.name "cftc-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add published/cftc-cds.json
+          git diff --cached --quiet || git commit -m "CFTC swaps $(date -u +%F)"
+          git pull --rebase --quiet && git push
