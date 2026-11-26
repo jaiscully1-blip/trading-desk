@@ -16,7 +16,9 @@ const list = parseTickerList(readFileSync('patents/tickers.txt', 'utf8'));
 const week = lastWeek(new Date());
 const out: PatentsNightFile = { schema: 1, asOf: new Date().toISOString(), tickers: {}, patents: {}, radar: null, errors: {} };
 
+const pause = (ms: number) => new Promise((r) => setTimeout(r, ms));
 for (const sym of list) {
+  await pause(1500); // SEC asks for at most 10 requests a second; each ticker makes a burst of them
   try {
     let r: any = null;
     for (let i = 0; i < 15 && !r?.complete; i++) r = await (await patents(new Request(`https://desk/api/research?fn=patents&symbol=${sym}&live=1`))).json();
@@ -34,7 +36,11 @@ for (const sym of list) {
     out.tickers[sym] = t;
     out.patents[sym] = r;
     console.log(`${sym}: ${published} made public, ${granted} granted this week; ${t.notes.length} notes`);
-  } catch (e) { out.errors[sym] = String((e as Error).message).slice(0, 160); console.error(sym, out.errors[sym]); }
+  } catch (e) {
+    out.errors[sym] = String((e as Error).message).slice(0, 160); console.error(sym, out.errors[sym]);
+    // keep the last good data for this ticker rather than saving nothing (or zeros); the notes say it was not checked
+    if (prev?.tickers?.[sym] && prev.patents?.[sym]) { out.tickers[sym] = { ...prev.tickers[sym], notes: [] }; out.patents[sym] = prev.patents[sym]; }
+  }
 }
 
 try {

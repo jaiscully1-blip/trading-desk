@@ -405,18 +405,29 @@ export async function finnhubEarnings(from: string, to: string, symbol = ''): Pr
 }
 
 export const secHeaders = () => ({ 'user-agent': key('sec'), 'accept-encoding': 'gzip, deflate' });
+/** SEC asks for at most 10 requests a second and answers 429 when a burst goes over: wait and try again (twice). */
+async function secRetry<T>(f: () => Promise<T>): Promise<T> {
+  for (let i = 0; ; i++) {
+    try { return await f(); } catch (e) {
+      if (i >= 2 || !/429/.test(String((e as Error).message))) throw e;
+      await new Promise((r) => setTimeout(r, 1500 * (i + 1)));
+    }
+  }
+}
 export async function secJson(url: string): Promise<any> {
   need('sec');
-  return getJson(url, 'sec', 12000, { headers: secHeaders() });
+  return secRetry(() => getJson(url, 'sec', 12000, { headers: secHeaders() }));
 }
 export async function secText(url: string, timeoutMs = 20000): Promise<string> {
   need('sec');
   const ctl = new AbortController();
   const t = setTimeout(() => ctl.abort(), timeoutMs);
   try {
-    const r = await fetch(url, { signal: ctl.signal, headers: { ...secHeaders(), accept: 'text/html,*/*' } });
-    if (!r.ok) throw new ProviderError('sec', `HTTP ${r.status}`, r.status >= 500);
-    return await r.text();
+    return await secRetry(async () => {
+      const r = await fetch(url, { signal: ctl.signal, headers: { ...secHeaders(), accept: 'text/html,*/*' } });
+      if (!r.ok) throw new ProviderError('sec', `HTTP ${r.status}`, r.status >= 500);
+      return r.text();
+    });
   } finally { clearTimeout(t); }
 }
 

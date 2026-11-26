@@ -73,8 +73,10 @@ async function filerNames(tickers: { cik: number; ticker: string; title: string 
     return { filing: latestAnnual(j, t.cik), sec: secProfile(j) };
   })).val : null;
   const name = sub?.sec.name ? cleanCoName(sub.sec.name) : t?.title ? cleanCoName(t.title) : sym;
-  const subs = sub?.filing ? (await cached(`ex21v2:${sub.filing.url}`, 30 * 86400, () => subsidiaries(sub.filing!.url))).val : [];
-  return { name, subs, filing: sub?.filing ?? null, names: aliasNames(name, subs, PATENT_ALIASES[sym] ?? []) };
+  // a failed subsidiary list is not a failed lookup: carry on with the company's own name (and say so)
+  let subs: string[] = [], subsError: string | null = null;
+  if (sub?.filing) { try { subs = (await cached(`ex21v2:${sub.filing.url}`, 30 * 86400, () => subsidiaries(sub.filing!.url))).val; } catch (e) { subsError = String((e as Error).message).slice(0, 120); } }
+  return { name, subs, subsError, filing: sub?.filing ?? null, names: aliasNames(name, subs, PATENT_ALIASES[sym] ?? []) };
 }
 
 export async function patents(req: Request): Promise<Response> {
@@ -93,7 +95,10 @@ export async function patents(req: Request): Promise<Response> {
 
   // company name, newest 10-K and its subsidiaries (same SEC caches the Company page uses)
   const tickers = hasKey('sec') ? await safe('sec', async () => (await cached('sec:tickers', 86400, async () => parseSecTickers(await secJson('https://www.sec.gov/files/company_tickers.json')))).val) : null;
-  const me = (await safe('subsidiaries', () => filerNames(tickers, sym))) ?? { name: sym, subs: [] as string[], filing: null, names: aliasNames(sym, [], PATENT_ALIASES[sym] ?? []) };
+  // never search patents by the ticker: if the company's name can't be looked up, say so instead of returning wrong zeros
+  const me = await safe('names', () => filerNames(tickers, sym));
+  if (!me || !tickers?.some((x) => x.ticker === sym)) return json({ sym, error: `Could not look up ${sym}'s company name at the SEC just now${errors.names || errors.sec ? ` (${errors.names ?? errors.sec})` : ''}. Try again in a minute.`, errors }, { sMaxAge: 0 });
+  if (me.subsError) errors.subsidiaries = me.subsError;
   const { name, subs, names } = me;
 
   // which query form the server accepts (the OR form is preferred; fall back once if it is rejected)
@@ -123,7 +128,8 @@ export async function patents(req: Request): Promise<Response> {
   const peers: { sym: string; name: string; last: number | null; prior: number | null }[] = [];
   for (const p of peerSyms) {
     if (Date.now() - started > budget) { complete = false; peers.push({ sym: p, name: p, last: null, prior: null }); continue; }
-    const pf = (await safe('peers', () => filerNames(tickers, p))) ?? { name: p, subs: [] as string[], names: [p] };
+    const pf = await safe('peers', () => filerNames(tickers, p));
+    if (!pf) { peers.push({ sym: p, name: p, last: null, prior: null }); continue; } // no name, no search (a ticker is not a patent owner)
     const pn = pf.name, pq = ownerQ(pf.names);
     const row = { sym: p, name: pn, last: null as number | null, prior: null as number | null };
     for (const [w, f] of [[w1, 'last'], [w0, 'prior']] as const) {
