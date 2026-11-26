@@ -90,6 +90,7 @@ const InsiderPage = lazy(() => import('./components/InsiderPage'));
 const CalmMode = lazy(() => import('./components/CalmMode'));
 const AiPage = lazy(() => import('./components/AiPage'));
 const PatentsPage = lazy(() => import('./components/PatentsPage'));
+const AgenciesPage = lazy(() => import('./components/AgenciesPage'));
 const DataStatus = lazy(() => import('./components/DataStatus'));
 const RiverScene = lazy(() => import('./components/RiverScene'));
 import { popout, PageTabs } from './components/common';
@@ -805,6 +806,7 @@ export default function App() {
     { id: 'health', label: 'Desk health report: failed or slow data, errors, sources (copy for Claude)', run: () => openHealth() },
     { id: 'reloadall', label: 'Reload all data (skip every cache)', run: () => { import('./lib/health').then((m) => m.reloadAll()); } },
     { id: 'quant', label: 'Quant Lab: relationship finder, correlations with factors, earnings and Amazon review tone', run: () => setPage('quant') },
+    { id: 'agencies', label: 'Agencies: BIS, ECB, Bank of England, Fed, FSB, OCC publications, keyword notes, summaries', run: () => setPage('agencies') },
     { id: 'patents', label: 'Patents & Tech: company patents, theme radar, watchlist patent trend', run: () => setPage('patents') },
     { id: 'ai', label: 'AI & Models: local Ollama models, other local LLMs, Claude, Kronos and bots', run: () => setPage('ai') },
     { id: 'altdata', label: 'Alt Data: hiring, app ranks, Wikipedia interest, GitHub, Steam, Reddit and StockTwits, price basket', hint: 'Shift A', run: () => setPage('altdata') },
@@ -1056,6 +1058,8 @@ export default function App() {
     body = <Suspense fallback={<section className="panel"><div className="ph-body">Loading…</div></section>}><RealEconPage mode={dataMode} onWeather={() => { setWmStart('us'); setPage('cmap'); }} /></Suspense>;
   } else if (page === 'quant') {
     body = <Suspense fallback={<section className="panel"><div className="ph-body">Loading…</div></section>}><QuantLabPage sel={sel} /></Suspense>;
+  } else if (page === 'agencies') {
+    body = <div className="page"><Suspense fallback={<section className="panel"><div className="ph-body">Loading…</div></section>}><AgenciesPage /></Suspense></div>;
   } else if (page === 'patents') {
     body = <div className="page"><Suspense fallback={<section className="panel"><div className="ph-body">Loading…</div></section>}><PatentsPage watchlist={wlSyms} initial={companySym} /></Suspense></div>;
   } else if (page === 'ai') {

@@ -3,7 +3,7 @@
 import { ProviderError } from '../../shared/parse.js';
 import { clock } from '../../shared/clock.js';
 
-export type Provider = 'fdic' | 'googlepatents' | 'groq' | 'openrouter' | 'twelvedata' | 'finnhub' | 'alphavantage' | 'fred' | 'finra' | 'kalshi' | 'gdelt' | 'binance' | 'coingecko' | 'sec' | 'gemini' | 'wikipedia' | 'aisstream' | 'polymarket' | 'github' | 'yahoo' | 'openfigi' | 'ark' | 'tradingview' | 'alpaca' | 'cboe' | 'nasdaq' | 'earningsapi' | 'tradetime' | 'zillow' | 'mempool' | 'dataroma' | 'apewisdom' | 'rdw' | 'copernicus' | 'stocktwits' | 'opensky' | 'adsblol' | 'adsbfi' | 'eia' | 'noaa' | 'patentsview' | 'courtlistener' | 'french' | 'steam' | 'cfpb' | 'nhtsa' | 'openfda' | 'fema' | 'usdm' | 'agencies' | 'dtcc' | 'cftc';
+export type Provider = 'pubs' | 'fdic' | 'googlepatents' | 'groq' | 'openrouter' | 'twelvedata' | 'finnhub' | 'alphavantage' | 'fred' | 'finra' | 'kalshi' | 'gdelt' | 'binance' | 'coingecko' | 'sec' | 'gemini' | 'wikipedia' | 'aisstream' | 'polymarket' | 'github' | 'yahoo' | 'openfigi' | 'ark' | 'tradingview' | 'alpaca' | 'cboe' | 'nasdaq' | 'earningsapi' | 'tradetime' | 'zillow' | 'mempool' | 'dataroma' | 'apewisdom' | 'rdw' | 'copernicus' | 'stocktwits' | 'opensky' | 'adsblol' | 'adsbfi' | 'eia' | 'noaa' | 'patentsview' | 'courtlistener' | 'french' | 'steam' | 'cfpb' | 'nhtsa' | 'openfda' | 'fema' | 'usdm' | 'agencies' | 'dtcc' | 'cftc';
 
 export const KEY_ENV: Record<Provider, string> = {
   twelvedata: 'TWELVEDATA_API_KEY',
@@ -17,6 +17,7 @@ export const KEY_ENV: Record<Provider, string> = {
   coingecko: '',
   sec: 'SEC_USER_AGENT', // not a key: SEC asks automated tools to send a contact email in the User-Agent
   gemini: 'GEMINI_API_KEY',
+  pubs: '', // central bank and regulator publication feeds (Agencies page), no key
   fdic: '', // FDIC BankFind public API (call reports), no key
   googlepatents: '', // public patent pages (abstracts), fetched one at a time when a patent is opened
   groq: 'GROQ_API_KEY', // free plan, backup AI when Gemini fails
@@ -86,6 +87,7 @@ const LIMITS: Record<Provider, { perMin: number; perDay: number }> = {
   coingecko: { perMin: 5, perDay: 500 },
   sec: { perMin: 300, perDay: 20000 }, // SEC fair access: 10 requests/second
   gemini: { perMin: 8, perDay: 200 }, // free tier; each company is read once and cached
+  pubs: { perMin: 60, perDay: 3000 }, // 18 public feeds cached 30 min, plus summaries cached 30 days
   fdic: { perMin: 120, perDay: 5000 }, // public API, no published limit: kept modest; quarterly data is cached a day or more
   googlepatents: { perMin: 20, perDay: 400 }, // unofficial public pages (robots.txt allows /patent/): kept light, cached 30 days
   groq: { perMin: 25, perDay: 900 }, // free plan: 30 requests/min, 1,000/day per model (console.groq.com/docs/rate-limits), kept under
