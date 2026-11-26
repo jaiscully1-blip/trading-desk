@@ -6,8 +6,9 @@ export const ODP_SEARCH = 'https://api.uspto.gov/api/v1/patent/applications/sear
 
 /** Company name as patent applicants usually write it: drop share classes and legal suffixes. */
 export function applicantName(name: string): string {
-  let s = name.replace(/\s+class\s+[a-c]\b.*$/i, '').trim();
+  let s = name.replace(/\s+class\s+[a-c]\b.*$/i, '').replace(/,\s*an?\s+[A-Z][\w ]*?(corporation|company|limited liability company|partnership)\b.*$/i, '').trim();
   for (let i = 0; i < 3; i++) s = s.replace(/,?\s+(inc|corp|corporation|co|company|ltd|limited|plc|holdings?|group|n\.?v|s\.?a|ag|se|pte|llc|ulc)\.?$/i, '').trim();
+  s = s.replace(/\s*(&|and)$/i, '').trim(); // "Eli Lilly & Co" -> "Eli Lilly", not "Eli Lilly &"
   return s;
 }
 
@@ -48,7 +49,8 @@ export function exhibit21Names(text: string): string[] {
     if (l.length < 4 || l.length > 90) continue;
     // table rows flatten to "ModernaTX, Inc. Delaware": keep the name up to its last legal suffix, drop the jurisdiction
     const m = /^(.*\b(?:inc|llc|l\.l\.c|ltd|limited|corp|corporation|company|gmbh|ag|b\.v|n\.v|s\.a|s\.a\.s|s\.l|s\.r\.l|plc|pty|k\.k|oy|ab|lp|l\.p|ulc)(?:\.|\b))/i.exec(l);
-    if (m) out.push(m[1].replace(/[\s,]+$/, ''));
+    // table fragments like "(2) a subsidiary of ..." or "..., a Delaware corporation" are not names
+    if (m && !/^\(|\ba subsidiary of\b|^(a|an|the)\s/i.test(m[1])) out.push(m[1].replace(/,\s*an?\s+[A-Z][\w ]*$/i, '').replace(/[\s,]+$/, ''));
   }
   return [...new Set(out)];
 }

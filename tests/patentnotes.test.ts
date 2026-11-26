@@ -23,3 +23,13 @@ describe('nightly patent notes', () => {
     expect(buildNotes({ week: { published: 0, granted: 0, from: 'a', to: 'b' }, trendWord: 'speeding up', trendPct: 40, recentAreas: ['Robots'] }, null)).toEqual([]);
   });
 });
+
+describe('new tech areas need a real earlier run', () => {
+  it('does not call everything new after an empty run, and separates areas with semicolons', async () => {
+    const { buildNotes } = await import('../shared/patentNotes');
+    const empty = { sym: 'AAPL', name: 'Apple', names: [], week: { published: 0, granted: 0, from: 'a', to: 'b' }, trendWord: null, trendPct: null, areasSeen: [], notes: [] };
+    expect(buildNotes({ week: { published: 0, granted: 0, from: 'a', to: 'b' }, trendWord: null, trendPct: null, recentAreas: ['Robots'] }, empty)).toEqual([]);
+    const seen = { ...empty, areasSeen: ['Computing'] };
+    expect(buildNotes({ week: { published: 0, granted: 0, from: 'a', to: 'b' }, trendWord: null, trendPct: null, recentAreas: ['Computing, physics, measuring', 'Robots'] }, seen)).toEqual(['First filing seen in Computing, physics, measuring; Robots.']);
+  });
+});
