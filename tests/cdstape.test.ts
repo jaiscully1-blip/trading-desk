@@ -4,7 +4,8 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { cdsTrades, impliedSpread, parseCsv } from '../shared/cds';
 
-const ts = cdsTrades(parseCsv(readFileSync(new URL('./fixtures/dtcc-sample.csv', import.meta.url), 'utf8')));
+const rows = parseCsv(readFileSync(new URL('./fixtures/dtcc-sample.csv', import.meta.url), 'utf8'));
+const ts = cdsTrades(rows);
 
 describe('CDS tape: bad DTCC rows', () => {
   it('never shows a zero or negative spread', () => {
@@ -26,5 +27,10 @@ describe('CDS tape: bad DTCC rows', () => {
     expect(impliedSpread(1.34, -11576, 5, 1)).toBeNull();
     expect(impliedSpread(1.34, 0, 5, 1)).toBeNull();
     expect(impliedSpread(1.34, 100, 5, 1)).toBeGreaterThan(100);
+  });
+  it('shows no spread for quotes under 1bp (a reporting unit mix-up)', () => {
+    const o = rows.find((r: any) => r['UPI Underlier Name'] === 'ORACLE CORPORATION')!;
+    const q = (id: string, sp: string) => ({ ...o, 'Dissemination Identifier': id, 'Spread-Leg 1': sp, 'Other payment type': '', 'Other payment amount': '' });
+    expect(cdsTrades([q('X1', '0.0000495'), q('X2', '0.0049')]).map((t) => t.spreadBp)).toEqual([null, 49]);
   });
 });

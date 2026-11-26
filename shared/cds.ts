@@ -67,7 +67,8 @@ export function cdsTrades(rows: Record<string, string>[]): CdsTrade[] {
     if (quoted != null && PRICE_QUOTED.test(name) && coupon != null && quoted * 1e4 > 50 && quoted * 1e4 < 150) {
       const px = quoted * 1e4, up = 100 - px; // price above 100: the protection seller pays upfront
       spreadBp = impliedSpread(Math.abs(up), coupon * 1e4, years, up >= 0 ? 1 : -1); spreadSrc = spreadBp != null ? 'quoted' : null;
-    } else if (quoted != null && quoted > 0 && quoted < 0.5) { spreadBp = Math.round(quoted * 1e5) / 10; spreadSrc = 'quoted'; }
+    } else if (quoted != null && quoted >= 1e-4 && quoted < 0.5) { // under 1bp is a reporter's unit mix-up (e.g. Volvo 0.0000495): show nothing, don't guess
+      spreadBp = Math.round(quoted * 1e5) / 10; spreadSrc = 'quoted'; }
     else if (upPct != null && coupon != null && r['Other payment type'] === 'UFRO') {
       const c = coupon * 1e4, up = impliedSpread(upPct, c, years, 1), dn = impliedSpread(upPct, c, years, -1);
       if (up != null && dn == null) { spreadBp = up; spreadSrc = 'implied'; }
