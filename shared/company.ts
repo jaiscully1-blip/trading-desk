@@ -36,7 +36,7 @@ export function htmlToText(html: string): string {
 }
 
 /** Find a 10-K item's body: the LAST heading match that is followed by real text (the first matches are the table of contents). */
-function section(text: string, start: RegExp, end: RegExp, max: number): string {
+export function section(text: string, start: RegExp, end: RegExp, max: number): string {
   const starts = [...text.matchAll(new RegExp(start.source, 'gi'))].map((m) => m.index!);
   for (let k = starts.length - 1; k >= 0; k--) {
     const s = starts[k];

@@ -3781,3 +3781,11 @@ img, a, svg { -webkit-user-drag: none; }
 .pt-notes { margin: 2px 0 6px; padding-left: 18px; }
 .pt-night { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 6px; }
 .pt-night ul { margin: 2px 0 0 4px; padding-left: 18px; }
+
+/* Filing brief (Company page) */
+.fb-points { margin: 4px 0; padding-left: 18px; display: grid; gap: 6px; font-size: 13px; line-height: 1.45; }
+.fb-points li { cursor: help; }
+.fb select { max-width: 320px; }
+/* Banks & hedging (Credit page) */
+.bh-row { cursor: pointer; } .bh-row:hover td { background: var(--panel-2, rgba(127,127,127,.06)); }
+.bh-table td:first-child { white-space: nowrap; }
