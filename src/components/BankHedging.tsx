@@ -13,7 +13,7 @@ const pc = (v: number | null | undefined) => (v == null ? '—' : `${v > 0 ? '+'
 const cls = (v: number | null | undefined, big = 15) => (v == null ? '' : v >= big ? 'down' : v <= -big ? 'up' : ''); // more protection bought = more hedging = stress-side colour
 
 /** Protection bought and sold over time (lines), one panel. */
-function Lines({ pts }: { pts: { q: string; bought: number | null; sold: number | null }[] }) {
+export function Lines({ pts }: { pts: { q: string; bought: number | null; sold: number | null }[] }) {
   const W = 640, H = 160, L = 46, R = 8, T = 10, B = 20;
   const vals = pts.flatMap((p) => [p.bought ?? 0, p.sold ?? 0]);
   const max = Math.max(1, ...vals);
@@ -71,6 +71,37 @@ function Search() {
   );
 }
 
+interface Holder { code: string; label: string; note?: string; outstanding: number | null; share: number | null; bought: number | null; sold: number | null; net: number | null; boughtH: number | null; boughtY: number | null }
+interface HoldResp { error?: string; label?: string; total?: number; rows?: Holder[]; history?: { periods: string[]; sectors: Record<string, { period: string; bought: number | null; sold: number | null }[]> }; notes?: string[]; source?: string }
+/** Who holds credit protection, all firms (BIS, half-yearly). */
+function Holders() {
+  const [d, setD] = useState<HoldResp | null>(null);
+  const [open, setOpen] = useState('');
+  useEffect(() => { getDeskJson<HoldResp>('/api/research?fn=cdsholders').then(setD).catch((e) => setD({ error: (e as Error).message })); }, []);
+  if (!d) return <div className="fi-box pt-wide"><p className="small muted">Reading BIS statistics…</p></div>;
+  if (d.error) return <div className="fi-box pt-wide"><p className="small down">Who holds credit protection: {d.error}</p></div>;
+  const hist = open && d.history ? d.history.sectors[open].map((p) => ({ q: p.period, bought: p.bought, sold: p.sold })) : null;
+  return (
+    <div className="fi-box pt-wide">
+      <h5>Who holds credit protection · all firms, {d.label} <Fresh kind="eod" src="BIS OTC derivatives statistics, half-yearly" /></h5>
+      <p className="small">All credit default swaps outstanding: <b className="num">{money(d.total)}</b>. Bought = protection the sector holds; sold = protection it provides. Click a row for its history since 2010.</p>
+      {!!d.notes?.length && <ul className="small pt-notes">{d.notes.map((n) => <li key={n}>{n}</li>)}</ul>}
+      <table className="ad-table bh-table"><thead><tr><th>Holder</th><th className="r">Share of all CDS</th><th className="r">Bought</th><th className="r">Sold</th><th className="r">Net bought</th><th className="r">Bought, 6 mo</th><th className="r">Bought, 1 yr</th></tr></thead><tbody>
+        {(d.rows ?? []).map((r) => (
+          <tr key={r.code} className="bh-row" onClick={() => setOpen(open === r.code || r.bought == null ? '' : r.code)} title={r.note}>
+            <td><b>{r.label}</b></td><td className="r num">{r.share != null ? `${r.share.toFixed(1)}%` : '—'}</td>
+            <td className="r num">{money(r.bought)}</td><td className="r num">{money(r.sold)}</td>
+            <td className={`r num ${r.net == null ? '' : r.net > 0 ? 'down' : 'up'}`}>{r.net == null ? '—' : money(r.net)}</td>
+            <td className={`r num ${cls(r.boughtH)}`}>{pc(r.boughtH)}</td><td className={`r num ${cls(r.boughtY, 30)}`}>{pc(r.boughtY)}</td>
+          </tr>
+        ))}
+      </tbody></table>
+      {hist && <><Lines pts={hist} /><p className="small muted">{(d.rows ?? []).find((r) => r.code === open)?.label}: protection bought (orange) and sold (blue), every half-year.</p></>}
+      <p className="note small">The BIS collects this from the big dealer banks, so each sector is seen through its trades with them (what dealers sold to a sector is what it bought). Company-by-company CDS buying is not published anywhere for free; "Non-financial companies" is the closest honest answer. Cleared trades sit with the clearing houses.</p>
+    </div>
+  );
+}
+
 export default function BankHedging({ live }: { live: boolean }) {
   const [d, setD] = useState<Resp | null>(null);
   useEffect(() => { if (!live) return; getDeskJson<Resp>('/api/research?fn=bankhedge').then(setD).catch((e) => setD({ error: (e as Error).message })); }, [live]);
@@ -102,6 +133,7 @@ export default function BankHedging({ live }: { live: boolean }) {
         <p className="note small">Bank-level call reports (not the holding company). "Unused loan commitments" = credit lines and loan promises customers have not drawn yet. Tier 1 leverage = Tier 1 capital / average assets; regulators' well-capitalized line is 5%.</p>
       </div>
       <Search />
+      <Holders />
       {d.errors && Object.keys(d.errors).length > 0 && <p className="small muted pt-wide">Some parts did not load: {Object.entries(d.errors).map(([k, v]) => `${k}: ${v}`).join(' · ')}</p>}
       {d.source && <p className="note small pt-wide">{d.source} Research only, not advice.</p>}
     </div>
