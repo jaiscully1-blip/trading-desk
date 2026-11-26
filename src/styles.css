@@ -3773,3 +3773,8 @@ img, a, svg { -webkit-user-drag: none; }
 .pp-search input { width: 160px; text-transform: uppercase; }
 .pp-sym { margin: 4px 0 8px; }
 .pr-table .pr-group td { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); padding-top: 12px; border-top: 0; }
+.pt-ev-bar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.pt-what { background: none; border: 0; padding: 0 2px; color: var(--accent, #F9AE77); font-size: 11.5px; cursor: pointer; text-decoration: underline dotted; }
+.pt-what-row td { background: var(--panel-2, rgba(127,127,127,.06)); }
+.pt-what-row p { margin: 4px 0; line-height: 1.45; }
+.pt-ev { white-space: nowrap; } .pt-ev-in_products { color: var(--up); font-weight: 600; } .pt-ev-in_development { color: var(--warn, #d9a441); } .pt-ev-no_evidence { color: var(--muted); }
