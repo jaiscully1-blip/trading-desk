@@ -29,16 +29,18 @@ export function rpv01(spreadBp: number, years: number, r = 0.04, rec = 0.4): num
 }
 /** Spread (bp) where (S − C) × RPV01(S) = upfront; side +1 = buyer pays (S above coupon), −1 = seller pays (S below). */
 export function impliedSpread(upfrontPct: number, couponBp: number, years: number, side: 1 | -1): number | null {
+  if (!(couponBp > 0 && couponBp <= 2000)) return null; // a CDS coupon is a small positive rate (25-1000bp); DTCC sometimes has junk
   const target = (side * upfrontPct) / 100;
   let lo = side > 0 ? couponBp : 0, hi = side > 0 ? 5000 : couponBp;
   const f = (s: number) => ((s - couponBp) / 1e4) * rpv01(s, years) - target;
   if (f(lo) * f(hi) > 0) return null;
   for (let i = 0; i < 60; i++) { const m = (lo + hi) / 2; if (f(lo) * f(m) <= 0) hi = m; else lo = m; }
-  return Math.round(((lo + hi) / 2) * 10) / 10;
+  const s = Math.round(((lo + hi) / 2) * 10) / 10;
+  return s > 0 ? s : null; // a spread can't be zero or negative
 }
 
 /** bond descriptions and placeholders DTCC sometimes puts in the name field */
-const NOISE = /^(no name obtainable|basket|bond)?$|\b(BD|BDS|BOND|NT|NTS|NOTES?|DEBS?|TRANCHE|REGS|144A|TREASURY BILL|DTD|GTD)\b|\d+[,.]\d+/i;
+const NOISE = /^(no name obtainable|basket|bond|registered ?govt ?bonds|treasury financial bills)?$|\b(BD|BDS|BOND|NT|NTS|NOTES?|DEBS?|TRANCHE|REGS|144A|TREASURY BILL|DTD|GTD)\b|\d+[,.]\d+/i;
 /** these indexes trade on price (e.g. 104.9), and DTCC puts the price in the spread field */
 const PRICE_QUOTED = /^CDX\.(NA\.HY|EM)/;
 const num = (s: string) => { const n = Number(String(s).replace(/[,+]/g, '')); return Number.isFinite(n) && s !== '' ? n : null; };
@@ -71,7 +73,10 @@ export function cdsTrades(rows: Record<string, string>[]): CdsTrade[] {
       if (up != null && dn == null) { spreadBp = up; spreadSrc = 'implied'; }
       else if (up != null && dn != null) { spreadBp = up; altBp = dn; spreadSrc = 'ambiguous'; }
     }
-    out.push({ id: r['Dissemination Identifier'], t, name: !name || NOISE.test(name) ? '' : name, ref: r['Underlier ID-Leg 1'] ?? '', kind, years: Math.round(years * 10) / 10, maturity: mat, couponBp: coupon != null ? Math.round(coupon * 1e4) : null, notional, capped: /\+$/.test(nRaw), upfrontPct: upPct != null ? Math.round(upPct * 100) / 100 : null, spreadBp, spreadSrc, altBp, cleared: r['Cleared'] === 'Y' || r['Cleared'] === 'I', platform: r['Platform identifier'] ?? '' });
+    // DTCC replaces some non-Latin names with "¿¿¿": keep the trade, name it by its reference code instead
+    const ref = (r['Underlier ID-Leg 1'] ?? '').trim();
+    const shown = /^[¿?\s]+$/.test(name) ? (ref ? `Name not given by DTCC (ref ${ref})` : '') : name;
+    out.push({ id: r['Dissemination Identifier'], t, name: !shown || NOISE.test(shown) ? (shown.startsWith('Name not given') ? shown : '') : shown, ref: r['Underlier ID-Leg 1'] ?? '', kind, years: Math.round(years * 10) / 10, maturity: mat, couponBp: coupon != null ? Math.round(coupon * 1e4) : null, notional, capped: /\+$/.test(nRaw), upfrontPct: upPct != null ? Math.round(upPct * 100) / 100 : null, spreadBp, spreadSrc, altBp, cleared: r['Cleared'] === 'Y' || r['Cleared'] === 'I', platform: r['Platform identifier'] ?? '' });
   }
   return out.sort((a, b) => a.t - b.t);
 }
