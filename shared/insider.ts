@@ -2,7 +2,14 @@
 export interface InsiderTx { date: string; filed: string; who: string; role: string; code: string; kind: string; shares: number; price: number | null; value: number | null; after: number | null; url: string }
 
 const CODE: Record<string, string> = { P: 'Buy', S: 'Sell', M: 'Option exercise', A: 'Award', F: 'Tax withholding', G: 'Gift', D: 'Returned to company', C: 'Conversion', X: 'Option exercise', W: 'Will/inheritance' };
-const tag = (xml: string, t: string) => new RegExp(`<${t}>\\s*(?:<value>)?\\s*([^<]*?)\\s*(?:</value>)?\\s*</${t}>`, 'i').exec(xml)?.[1]?.trim() ?? '';
+// A field's text: the <value> inside it when there is one (prices often carry a <footnoteId/> after the value, e.g.
+// weighted-average sale prices), else the field's own text.
+const tag = (xml: string, t: string) => {
+  const block = new RegExp(`<${t}>([\\s\\S]*?)</${t}>`, 'i').exec(xml)?.[1];
+  if (block == null) return '';
+  const v = /<value>\s*([^<]*?)\s*<\/value>/i.exec(block);
+  return (v ? v[1] : block.replace(/<[^>]+>/g, '')).trim();
+};
 const decode = (s: string) => s.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&#39;|&apos;/g, "'").replace(/&quot;/g, '"');
 
 /** submissions JSON -> newest Form 4 filings with the URL of their raw XML. */
