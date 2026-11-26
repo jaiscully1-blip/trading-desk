@@ -3812,3 +3812,9 @@ img, a, svg { -webkit-user-drag: none; }
 /* SPVs & off-balance-sheet (Company page) */
 .spv-group { margin-top: 6px; }
 .spv-quotes { margin: 2px 0 4px; padding-left: 18px; display: grid; gap: 4px; line-height: 1.45; }
+
+/* header on holidays / early-close days: the "Closed" pill is a fourth zone; keep every zone on one row (it used to wrap to a
+   hidden second row, pushing the chips to the top edge and hiding the account zone), badge on one line */
+.top.top3 { grid-auto-flow: column; grid-template-rows: 100%; grid-auto-columns: auto; }
+.top.top3 > * { align-self: center; }
+.tz-status, .tz-status .mv-wrap, .tz-status .mv-cell { white-space: nowrap; }

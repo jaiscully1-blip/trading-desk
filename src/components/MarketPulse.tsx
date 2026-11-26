@@ -1,5 +1,6 @@
 // Header market zone: SPY, QQQ, IWM and DIA as matching chips (price, change, today's line) plus an advance / decline chip.
-// Prices come from the desk's live quotes when it has them, else from the pulse feed (Yahoo, ~15 min delayed); the lines
+// Prices: during the regular session the desk's live quotes (all four always quoted); otherwise, and as a fallback, the
+// pulse feed's official close (Yahoo, ~15 min delayed); the lines
 // and breadth only show with live data (breadth from the TradingView screener). Nothing made up in demo mode.
 import { useEffect, useState } from 'react';
 import type { Quote } from '../types';
@@ -17,7 +18,7 @@ function Spark({ v, up }: { v: number[]; up: boolean }) {
   return <svg className="mc-spark" width={w} height={h} viewBox={`0 0 ${w} ${h}`} aria-hidden="true"><polyline points={pts} fill="none" stroke={up ? 'var(--up)' : 'var(--down)'} strokeWidth="1.4" strokeLinejoin="round" /></svg>;
 }
 
-export function MarketChips({ live, quotes, onSelect }: { live: boolean; quotes: Record<string, Quote>; onSelect: (s: string) => void }) {
+export function MarketChips({ live, quotes, onSelect, open = true }: { live: boolean; quotes: Record<string, Quote>; onSelect: (s: string) => void; open?: boolean }) {
   const [d, setD] = useState<Pulse | null>(null);
   useEffect(() => {
     if (!live) { setD(null); return; }
@@ -32,7 +33,9 @@ export function MarketChips({ live, quotes, onSelect }: { live: boolean; quotes:
     <div className="mp-cell" title={d ? `Lines: today so far. ${d.source}.` : undefined}>
       {SYMS.map((s) => {
         const q = quotes[s], p = d?.rows.find((r) => r.sym === s);
-        const last = q && Number.isFinite(q.last) ? q.last : p?.last, chg = q && Number.isFinite(q.chgPct) ? q.chgPct : p?.chgPct;
+        // market shut: the official close (pulse) for all four, not one venue's last trade (IEX's 3:59:59 print differs by cents)
+        const useLive = q && Number.isFinite(q.last) && Number.isFinite(q.chgPct) && (open || !p);
+        const last = useLive ? q.last : p?.last, chg = useLive ? q.chgPct : p?.chgPct;
         if (last == null || chg == null) return null;
         return (
           <button key={s} className="mc-chip" onClick={() => onSelect(s)} title={`${s}: open on the desk`}>

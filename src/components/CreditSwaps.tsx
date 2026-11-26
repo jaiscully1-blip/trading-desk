@@ -4,6 +4,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { paceMs } from '../lib/pace';
 import type { CdsTrade, NameSum } from '../../shared/cds';
+import { tiwKey } from '../../shared/tiw';
 import { usePersisted } from '../lib/store';
 import { Fresh, Q } from './common';
 import { LeverageW } from './XAsset';
@@ -27,21 +28,34 @@ function useJson<T>(url: string | null, every = 0): { d: T | null; err: string; 
 interface C2 { ladder: { grade: string; oas: D; yld: D }[]; moodys: ({ id: string; label: string } & D)[]; proxies: { sym: string; what: string; last: number | null; m1: number | null; m3: number | null; y1: number | null }[]; hy: D; divergence: { bp: number | null; spy: number | null; flag: string | null }; cot: { label: string; date: string; assetNet: number; levNet: number; levNetChg: number; oi: number }[]; errors: Record<string, string>; asOf: number; source: string }
 interface D { last: number | null; date: string | null; m1: number | null; y1: number | null }
 interface Cds { days: string[]; trades: number; singles: NameSum[]; sovs: NameSum[]; indexes: NameSum[]; names: string[]; detail?: CdsTrade[]; errors: string[]; asOf: number; source: string }
+// DTCC activity files: quarter[key] = [dealers, avg daily notional, trades a day, index member 1/0]; six[key] = [avg weekly
+// notional, trades a week, last 8 weeks' pace / average]
+interface Act { quarter: Record<string, [number, number, number, number]>; six: Record<string, [number, number, number | null]>; quarterLabel: string | null; sixLabel: string | null; quarterUrl: string | null; sixUrl: string | null; pickUp: { name: string; ratio: number; week: number }[]; slowDown: { name: string; ratio: number; week: number }[]; errors: string[]; asOf: number; source: string }
+const pace = (r: number | null | undefined) => (r == null ? null : r >= 1.5 ? <span className="up small" title="Last 8 weeks vs its six-month weekly average (DTCC Top 1,000 file)"> {r.toFixed(1)}× lately</span> : r <= 0.5 ? <span className="muted small" title="Last 8 weeks vs its six-month weekly average (DTCC Top 1,000 file)"> {r.toFixed(1)}× lately</span> : null);
+function ActCell({ act, name }: { act: Act | null; name: string }) {
+  if (!act) return <td className="num muted">…</td>;
+  const k = tiwKey(name), q = act.quarter[k], sx = act.six[k];
+  if (!q && !sx) return <td className="num muted small" title="Not in DTCC's quarterly or Top 1,000 activity files">—</td>;
+  return <td className="num small" title={q ? `${act.quarterLabel}: ${q[0]} dealers, ${q[2]} trades a day` : act.sixLabel ?? ''}>{q ? `${usd(q[1])}/day` : `${usd(sx![0])}/wk`}{pace(sx?.[2])}</td>;
+}
+
 interface Look { funds: { total: number; hits: { who: string; date: string; url: string }[] } | null; lenders: { total: number; hits: { who: string; date: string; form: string; url: string }[] } | null; company: { name: string; price: number | null; vol: number | null; equity: number | null; totalDebt: { val: number; end: string } | null; stDebt: { val: number; end: string } | null; maturities: { label: string; val: number }[]; debtHistory: [string, number][]; merton: { dd: number; pd: number } | null } | null; errors: Record<string, string>; asOf: number; source: string }
 
-function NameTable({ rows, pick, onPick, title }: { rows: NameSum[]; pick: string; onPick: (n: string) => void; title: string }) {
+function NameTable({ rows, pick, onPick, title, act }: { rows: NameSum[]; pick: string; onPick: (n: string) => void; title: string; act?: Act | null }) {
   return (
-    <table className="cs-t"><thead><tr><th>{title}</th><th>Trades</th><th>5y spread</th><th>5-day change</th></tr></thead>
+    <table className="cs-t"><thead><tr><th>{title}</th><th>Trades</th><th>5y spread</th><th>5-day change</th>{act !== undefined && <th title="How much CDS on this name usually trades (DTCC quarterly file)">Usual activity</th>}</tr></thead>
       <tbody>{rows.map((r) => (
         <tr key={r.name} className={pick === r.name ? 'on' : ''} onClick={() => onPick(r.name)}>
           <td>{r.name}</td><td className="num">{r.n}{r.capped ? <span className="muted small"> ({r.capped} capped)</span> : null}</td>
           <td className="num">{bp(r.last5y)}{r.last5ySrc === 'implied' ? <span className="muted small" title="Backed out of the upfront payment"> est.</span> : null}</td>
           <td className={`num ${r.last5y != null && r.first5y != null ? (r.last5y > r.first5y ? 'down' : 'up') : ''}`}>{r.last5y != null && r.first5y != null ? `${r.last5y - r.first5y >= 0 ? '+' : ''}${Math.round(r.last5y - r.first5y)}bp` : '—'}</td>
+          {act !== undefined && <ActCell act={act} name={r.name} />}
         </tr>))}</tbody></table>
   );
 }
 
-function Detail({ name, trades }: { name: string; trades: CdsTrade[] }) {
+function Detail({ name, trades, act }: { name: string; trades: CdsTrade[]; act: Act | null }) {
+  const q = act?.quarter[tiwKey(name)], sx = act?.six[tiwKey(name)];
   const five = trades.filter((t) => t.spreadBp != null && t.spreadSrc !== 'ambiguous' && t.years >= 4.4 && t.years <= 5.6);
   const curve = useMemo(() => { const m = new Map<string, CdsTrade>(); for (const t of trades) if (t.spreadBp != null && t.spreadSrc !== 'ambiguous') m.set(t.maturity.slice(0, 4), t); return [...m.entries()].sort((a, b) => a[0].localeCompare(b[0])); }, [trades]);
   const W = 520, H = 140, lo = Math.min(...five.map((t) => t.spreadBp!)), hi = Math.max(...five.map((t) => t.spreadBp!)), pad = (hi - lo) * 0.15 || 5;
@@ -56,6 +70,7 @@ function Detail({ name, trades }: { name: string; trades: CdsTrade[] }) {
       </svg>}
       {curve.length > 1 && <p className="small">Curve (latest trade per maturity year): {curve.map(([yr, t]) => `${yr}: ${t.spreadBp}bp`).join(' · ')}</p>}
       <p className="small muted">Filled dots = spread DTCC printed; hollow = estimated from the upfront payment. 5-year trades shown.</p>
+      {act && <p className="small">{q || sx ? <>Usual activity (DTCC): {q && <>about {usd(q[1])} a day, {q[2]} trades a day, {q[0]} dealers{q[3] ? ', in an index' : ''} <span className="muted">({act.quarterLabel})</span></>}{q && sx && ' · '}{sx && <>{usd(sx[0])} a week on average{sx[2] != null && <>, last 8 weeks {sx[2].toFixed(1)}× that pace</>} <span className="muted">(six months to {act.sixLabel?.replace(/^.*through week ending /, '') ?? '—'})</span></>}</> : <span className="muted">Not in DTCC's activity files (quarterly list or Top 1,000).</span>}</p>}
     </div>
   );
 }
@@ -96,8 +111,10 @@ function Lookup({ initial }: { initial: { q: string; ticker: string } }) {
 
 export default function CreditSwaps({ live }: { live: boolean }) {
   const c2 = useJson<C2>(live ? '/api/research?fn=credit2' : null, 30 * 60_000);
-  const [pick, setPick] = usePersisted<string>('csPick', 'ORACLE CORPORATION');
+  const [saved, setPick] = usePersisted<string>('csPick', 'ORACLE CORPORATION');
+  const pick = /[¿]/.test(saved) || !saved.trim() ? 'ORACLE CORPORATION' : saved; // a name saved before DTCC's blanked names were fixed
   const [find, setFind] = useState('');
+  const actR = useJson<Act>(live ? '/api/research?fn=cdsactivity' : null, 6 * 3600_000), act = actR.d;
   const cds = useJson<Cds>(live ? `/api/research?fn=cds&name=${encodeURIComponent(pick)}` : null, 10 * 60_000);
   if (!live) return <p className="hw-pad muted">Credit & Swaps reads real data only, so it needs the live desk.</p>;
   const d = c2.d, k = cds.d;
@@ -132,10 +149,22 @@ export default function CreditSwaps({ live }: { live: boolean }) {
           <input className="cs-find" list="cs-names" value={find} onChange={(e) => setFind(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && find.trim()) { setPick(find.trim().toUpperCase()); setFind(''); } }} placeholder="Find a name ↵" aria-label="Find a CDS name" />
           <datalist id="cs-names">{(k?.names ?? []).map((n) => <option key={n} value={n} />)}</datalist></div>
         {k && <div className="cs-grid">
-          <div><NameTable rows={k.singles.slice(0, 25)} pick={pick} onPick={setPick} title="Company" /></div>
-          <div>{k.detail && k.detail.length ? <Detail name={pick} trades={k.detail} /> : <p className="small muted gx-pad">{pick}: no trades in the last 5 days.</p>}
-            <NameTable rows={k.sovs.slice(0, 10)} pick={pick} onPick={setPick} title="Country" /></div>
+          <div><NameTable rows={k.singles.slice(0, 25)} pick={pick} onPick={setPick} title="Company" act={act} /></div>
+          <div>{k.detail && k.detail.length ? <Detail name={pick} trades={k.detail} act={act} /> : <p className="small muted gx-pad">{pick}: no trades in the last 5 days.{pick !== 'ORACLE CORPORATION' && <> <button className="linkish" onClick={() => setPick('ORACLE CORPORATION')}>Back to Oracle</button></>}</p>}
+            <NameTable rows={k.sovs.slice(0, 10)} pick={pick} onPick={setPick} title="Country" act={act} /></div>
         </div>}
+      </section>
+      <section className="panel">
+        <div className="gx-h"><Q k="eod" src="DTCC Trade Information Warehouse public activity reports, quarterly and six-monthly" /><b>CDS trading picking up or slowing</b><span className="small muted">last 8 weeks vs each name's six-month weekly average · names trading $100M+ a week</span>{act && <Fresh kind="eod" at={act.asOf} src={act.source} />}</div>
+        {actR.err && <p className="small down gx-pad">{actR.err}</p>}
+        {act && <div className="cs-grid">
+          {([['Picking up', act.pickUp], ['Slowing', act.slowDown]] as const).map(([t, xs]) => (
+            <table key={t} className="cs-t"><thead><tr><th>{t}</th><th>Usual week</th><th>Last 8 weeks</th></tr></thead>
+              <tbody>{xs.map((x) => <tr key={x.name} className={pick === x.name ? 'on' : ''} onClick={() => setPick(x.name)}><td>{x.name}</td><td className="num">{usd(x.week)}</td><td className={`num ${x.ratio >= 1.5 ? 'up' : x.ratio <= 0.5 ? 'muted' : ''}`}>{x.ratio.toFixed(2)}× pace</td></tr>)}</tbody></table>
+          ))}
+        </div>}
+        {act && <p className="small muted gx-pad">This is how much protection changed hands, not how much is outstanding (DTCC's outstanding-positions numbers are in a paid service). A name trading far above its usual pace often has news, hedging or a downgrade fear behind it; it says nothing about direction. Files: <a href={act.sixUrl ?? 'https://www.dtcc.com/repository-otc-data'} target="_blank" rel="noreferrer">{act.sixLabel}</a>{act.quarterUrl && <> · <a href={act.quarterUrl} target="_blank" rel="noreferrer">quarterly, {act.quarterLabel}</a></>}. Updated quarterly, so this is background, not today's market.</p>}
+        {act && act.errors.length > 0 && <p className="small muted gx-pad">Not loaded this time: {act.errors.join(' · ')}</p>}
       </section>
       <LeverageW live={live} />
       <Lookup initial={pick === 'ORACLE CORPORATION' ? { q: 'Oracle Corporation', ticker: 'ORCL' } : { q: pick.replace(/\b(INC|CORP|CORPORATION|LLC|PLC|CO|LTD)\.?$/i, '').trim(), ticker: '' }} />
@@ -155,7 +184,7 @@ export default function CreditSwaps({ live }: { live: boolean }) {
         <div className="gx-h"><b>More free sources (open in your browser)</b></div>
         <ul className="small cs-ul gx-pad">
           <li>Rating histories, every rating incl. CLO / CMBS tranches (SEC Rule 17g-7): <a href="https://ratings.moodys.com/sec-17g-7b" target="_blank" rel="noreferrer">Moody's</a> · <a href="https://www.fitchratings.com/ratings-history-disclosure" target="_blank" rel="noreferrer">Fitch</a> · <a href="https://disclosure.spglobal.com/ratings/en/regulatory/ratings-history" target="_blank" rel="noreferrer">S&P</a> (S&P blocks the desk's automated requests; it opens fine in a browser)</li>
-          <li><a href="https://www.dtcc.com/repository-otc-data" target="_blank" rel="noreferrer">DTCC weekly CDS positions</a>: gross and net protection outstanding on the top 1,000 names</li>
+          <li><a href="https://www.dtcc.com/repository-otc-data" target="_blank" rel="noreferrer">DTCC CDS activity reports</a>: how much trades per name (now on the desk, above). DTCC's gross / net protection outstanding is only in its paid CDS Kinetics service.</li>
           <li><a href="https://www.occ.gov/publications-and-resources/publications/quarterly-report-on-bank-trading-and-derivatives-activities/index-quarterly-report-on-bank-trading.html" target="_blank" rel="noreferrer">OCC bank derivatives report</a>: how much credit protection the big banks bought and sold</li>
           <li><a href="https://www.finra.org/finra-data/fixed-income" target="_blank" rel="noreferrer">FINRA TRACE</a>: corporate bond trades (a free FINRA account unlocks the API; then the desk can show bond-implied spreads)</li>
           <li><a href="https://www.sec.gov/data-research/sec-markets-data/form-n-port-data-sets" target="_blank" rel="noreferrer">SEC N-PORT data sets</a>: every fund's full holdings each quarter, incl. CDS with counterparties</li>

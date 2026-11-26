@@ -47,7 +47,7 @@ export const PROVIDER_INFO: Record<string, ProviderInfo> = {
   courtlistener: { label: 'CourtListener', feeds: 'Federal court cases naming the company (Filings Intel)', fallback: 'Setup steps shown' },
   noaa: { label: 'NOAA weather alerts', feeds: 'Severe weather risk by sector', fallback: 'Section left empty' },
   fema: { label: 'FEMA disaster declarations', feeds: 'Commodity map: recent disasters by state', fallback: 'Layer left empty' },
-  dtcc: { label: 'DTCC public swap data', feeds: 'Credit & Swaps: CDS tape, index CDS', fallback: 'CDS tape left empty' },
+  dtcc: { label: 'DTCC public swap data', feeds: 'Credit & Swaps: CDS tape, index CDS, per-name trading activity (quarterly files)', fallback: 'CDS tape left empty' },
   cftc: { label: 'CFTC Commitments of Traders', feeds: 'Credit & Swaps: Treasury futures positioning', fallback: 'Section left empty' },
   agencies: { label: 'Agency feeds (World Monitor)', feeds: 'World Monitor: disasters, outbreaks, recalls, rules, travel, cyber, airports', fallback: 'That feed shows as not loaded' },
   usdm: { label: 'US Drought Monitor', feeds: 'Commodity map: drought by state', fallback: 'Layer left empty' },

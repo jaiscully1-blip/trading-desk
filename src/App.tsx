@@ -324,9 +324,9 @@ export default function App() {
   const movers = useMovers(dataMode, scanPrefs.includeMovers || homeHasMovers);
   // QQQ is always scanned (SPY is added server-side) so the index day trades get playbook grades too
   const universe = useUniverse(['QQQ', ...wlSyms], live ? scanList : [...scanList, ...Object.keys(DEMO_QUOTES).filter((s) => !INDEXES.includes(s))], movers?.movers, scanPrefs.includeMovers);
-  // USO/UUP are the fear strip's live oil and dollar proxies
+  // USO/UUP are the fear strip's live oil and dollar proxies; IWM/DIA keep all four header chips on one feed
   // tickers with an active price alert are always quoted (they come before the scan universe in the 56-ticker budget)
-  const quoteSyms = useMemo(() => [...new Set([...INDEXES, 'USO', 'UUP', sel, ...alertSyms, ...stars, ...wlSyms, ...universe])].slice(0, 56), [wlSyms, sel, universe, stars, alertSyms]);
+  const quoteSyms = useMemo(() => [...new Set([...INDEXES, 'IWM', 'DIA', 'USO', 'UUP', sel, ...alertSyms, ...stars, ...wlSyms, ...universe])].slice(0, 56), [wlSyms, sel, universe, stars, alertSyms]);
   const qs = useQuotes(quoteSyms, dataMode);
   const feed = useFeed(useMemo(() => [...wlSyms, ...universe].slice(0, 80), [wlSyms, universe]), dataMode, page === 'messages' || (page === 'home' && homeHasMsgs) || alertWords.length > 0); // keyword alerts keep the feed running on every page
   const scan = useScan(universe, lateMode, (s) => DEMO_QUOTES[s]?.last ?? 100);
