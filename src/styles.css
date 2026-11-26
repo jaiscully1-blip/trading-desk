@@ -3751,7 +3751,9 @@ img, a, svg { -webkit-user-drag: none; }
 .lai-setup > summary { cursor: pointer; padding-bottom: 4px; color: var(--muted); }
 
 /* Patents section (Company page) */
-.pt .pt-wide { grid-column: 1 / -1; }
+/* full-width boxes in any of these grids (Patents, Filing brief, Banks & hedging); boxes may shrink so tables never spill out */
+.fi-grid > .pt-wide { grid-column: 1 / -1; }
+.fi-grid > .fi-box { min-width: 0; }
 .pt-chart { width: 100%; height: auto; max-height: 220px; }
 .pt-shade { fill: var(--panel-2, rgba(127,127,127,.08)); }
 .pt-grid { stroke: var(--line); stroke-width: 1; }
