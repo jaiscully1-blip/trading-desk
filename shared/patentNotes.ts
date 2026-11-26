@@ -33,8 +33,9 @@ export function buildNotes(cur: { week: TickerNight['week']; trendWord: string |
     out.push(`This week (${w.from} to ${w.to}): ${parts.join(', ')}.`);
   }
   if (prev) {
-    const fresh = [...new Set(cur.recentAreas)].filter((a) => !prev.areasSeen.includes(a));
-    if (fresh.length) out.push(`First filing seen in ${fresh.join(', ')}.`);
+    // only compare with a run that actually saw this company's tech areas (an empty earlier run would make everything "new")
+    const fresh = prev.areasSeen.length ? [...new Set(cur.recentAreas)].filter((a) => !prev.areasSeen.includes(a)) : [];
+    if (fresh.length) out.push(`First filing seen in ${fresh.join('; ')}.`); // area names contain commas
     if (cur.trendWord && prev.trendWord && cur.trendWord !== prev.trendWord && cur.trendPct != null) out.push(`Grants over the last 12 months are now ${cur.trendWord} (${cur.trendPct >= 0 ? '+' : ''}${Math.round(cur.trendPct)}% vs the year before; was ${prev.trendWord}).`);
   }
   return out;

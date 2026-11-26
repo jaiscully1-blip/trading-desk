@@ -64,3 +64,13 @@ describe('quarters, status, areas, trend', () => {
     expect(grantTrend(qs.slice(0, 5))).toBeNull();
   });
 });
+
+describe('name clean-up from real nightly run 2026-11-26', () => {
+  it('drops a dangling "&" and table fragments', async () => {
+    const { applicantName, exhibit21Names, aliasNames } = await import('../shared/patents');
+    expect(applicantName('ELI LILLY & Co')).toBe('ELI LILLY');
+    expect(applicantName('Vertex Holdings, Inc., a Delaware corporation')).toBe('Vertex'); // 'Holdings' is a suffix the cleaner already drops
+    expect(exhibit21Names('(2) a subsidiary of Vertex Pharmaceuticals Incorporated\nVertex Pharmaceuticals (Europe) Limited England')).toEqual(['Vertex Pharmaceuticals (Europe) Limited']);
+    expect(aliasNames('Eli Lilly & Co', ['Eli Lilly Asia, Inc.'])).toEqual(['Eli Lilly', 'Eli Lilly Asia']);
+  });
+});
