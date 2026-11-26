@@ -1,0 +1,17 @@
+# Tickers for the nightly patent check (one per line, # starts a comment, up to 40).
+# The Patents Action reads this every weekday night and writes published/patents.json: patents filed and granted,
+# the latest filings, FDA-listed drugs, and quiet notes (new filings this week, a new tech area, a trend change).
+# To use your watchlist: on the desk's Patents & Tech page press "Copy my watchlist", then paste it here.
+# Information only. Nothing here can trade.
+NVDA
+AAPL
+MSFT
+GOOGL
+AMZN
+META
+AVGO
+AMD
+TSLA
+LLY
+VRTX
+MRNA

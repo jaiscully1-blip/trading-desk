@@ -33,6 +33,7 @@ function Rel({ t, b }: { t: number | null; b: number | null }) {
 const num = (v: number | null) => (v == null ? '…' : v.toLocaleString());
 
 interface Radar {
+  nightly?: string;
   base?: { cur: { published: number | null; granted: number | null }; prev: { published: number | null; granted: number | null } };
   error?: string; needsKey?: boolean; unavailable?: boolean; why?: string; complete?: boolean; windows?: { cur: { from: string; to: string }; prev: { from: string; to: string } };
   themes?: { id: string; label: string; group: string; cur: { published: number | null; granted: number | null }; prev: { published: number | null; granted: number | null }; top: { name: string; n: number }[]; unmatched?: boolean }[];
@@ -46,6 +47,7 @@ function RadarPanel() {
       <div className="gx-h"><b>Theme radar</b><span className="small muted">US patents made public and granted, last 90 days vs the same 90 days a year earlier</span><Fresh kind="eod" src="USPTO Open Data Portal (official, refreshed daily)" /></div>
       <div className="gx-pad">
         {!d && <p className="small muted">Counting by theme…</p>}
+        {d?.nightly && <p className="small muted">From the nightly check, {new Date(d.nightly).toLocaleString()}.</p>}
         {d?.error && <p className="small down">{d.error}</p>}
         {d?.needsKey && <p className="small muted">Needs the free USPTO key (<code>USPTO_API_KEY</code> in Vercel).</p>}
         {d?.unavailable && <p className="small down">The radar can't count by theme yet: {d.why}</p>}
@@ -75,6 +77,34 @@ function RadarPanel() {
   );
 }
 
+const LIST_URL = 'https://github.com/jaiscully1-blip/trading-desk/edit/main/patents/tickers.txt';
+interface Notes { notRunYet?: boolean; error?: string; asOf?: string; stale?: boolean; tickers?: Record<string, { sym: string; name: string; notes: string[]; week: { published: number | null; granted: number | null; from: string; to: string } }>; errors?: Record<string, string> }
+/** Nightly notes for the tickers in patents/tickers.txt, and how to change that list. */
+function NotesPanel({ watchlist, onOpen }: { watchlist: string[]; onOpen: (s: string) => void }) {
+  const [d, setD] = useState<Notes | null>(null);
+  const [copied, setCopied] = useState('');
+  useEffect(() => { getDeskJson<Notes>('/api/research?fn=patentnotes').then(setD).catch((e) => setD({ error: (e as Error).message })); }, []);
+  const copy = () => { void navigator.clipboard?.writeText(watchlist.slice(0, 40).join('\n')).then(() => setCopied(`Copied ${Math.min(40, watchlist.length)} tickers. Paste them into the list on GitHub.`), () => setCopied('Could not copy here.')); };
+  const rows = Object.values(d?.tickers ?? {});
+  return (
+    <section className="panel">
+      <div className="gx-h"><b>Nightly notes</b><span className="small muted">the tickers on your nightly list, checked every weekday night</span>{d?.asOf && <Fresh kind="eod" src={`Nightly patent check, ${new Date(d.asOf).toLocaleString()}`} />}</div>
+      <div className="gx-pad">
+        <div className="pt-ev-bar"><button className="btn sm" onClick={copy} disabled={!watchlist.length}>Copy my watchlist</button><a className="btn sm" href={LIST_URL} target="_blank" rel="noreferrer noopener">Edit the nightly list</a>{copied && <span className="small muted">{copied}</span>}</div>
+        {!d && <p className="small muted">Loading…</p>}
+        {d?.error && <p className="small down">{d.error}</p>}
+        {d?.notRunYet && <p className="small muted">The nightly check has not run yet. It runs Tuesday to Saturday morning; to run it now: GitHub, then Actions, then Patents, then Run workflow. It needs the <code>USPTO_API_KEY</code> secret in GitHub (same key as in Vercel).</p>}
+        {d?.stale && <p className="small down">The last nightly check is more than 4 days old: check GitHub, then Actions, then Patents.</p>}
+        {rows.length > 0 && <ul className="pt-night">{rows.map((r) => (
+          <li key={r.sym}><button className="btn sm" onClick={() => onOpen(r.sym)}>{r.sym}</button> <span className="small muted">{r.name}</span>
+            {r.notes.length ? <ul className="small">{r.notes.map((n) => <li key={n}>{n}</li>)}</ul> : <span className="small muted"> · nothing new this week</span>}</li>
+        ))}</ul>}
+        {d?.errors && Object.keys(d.errors).length > 0 && <p className="small muted">Not checked last night: {Object.entries(d.errors).map(([k, v]) => `${k} (${v})`).join(' · ')}</p>}
+      </div>
+    </section>
+  );
+}
+
 interface Watch { error?: string; needsKey?: boolean; complete?: boolean; rows?: { sym: string; name: string; names: string[]; last: number | null; prior: number | null; error: string | null }[] }
 function WatchPanel({ syms, onOpen }: { syms: string[]; onOpen: (s: string) => void }) {
   const list = syms.slice(0, 30);
@@ -98,7 +128,7 @@ function WatchPanel({ syms, onOpen }: { syms: string[]; onOpen: (s: string) => v
               </tr>
             ))}
           </tbody></table>
-          <p className="note small">Hover a row to see the names searched. Weekly notes (new filings, new tech areas) arrive with the nightly check.</p>
+          <p className="note small">Hover a row to see the names searched. Notes on new filings and new tech areas are in Nightly notes above (for the tickers on the nightly list).</p>
         </>}
       </div>
     </section>
@@ -120,6 +150,7 @@ export default function PatentsPage({ watchlist, initial }: { watchlist: string[
         </form>
         {sym && <div className="gx-pad"><h4 className="pp-sym">{sym}</h4><PatentsView sym={sym} /></div>}
       </section>
+      <NotesPanel watchlist={watchlist} onOpen={open} />
       <RadarPanel />
       <WatchPanel syms={watchlist} onOpen={open} />
       <p className="note small">Research only, not advice. Data: USPTO Open Data Portal, plus company subsidiary lists from SEC 10-K filings.</p>

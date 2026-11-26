@@ -10,7 +10,7 @@ interface Data {
   error?: string; needsKey?: boolean; name?: string; names?: string[]; subsidiaries?: number; qForm?: string; complete?: boolean;
   quarters?: Q[]; trend?: { last: number; prior: number; pct: number; word: string } | null; latest?: Row[];
   mix?: { area: string; n: number; isNew: boolean }[]; peers?: { sym: string; name: string; last: number | null; prior: number | null }[];
-  fda?: Drug[] | null; obAsOf?: string | null;
+  fda?: Drug[] | null; obAsOf?: string | null; nightly?: string; notes?: string[];
   errors?: Record<string, string>; source?: string;
 }
 
@@ -132,18 +132,19 @@ function Latest({ rows, sym }: { rows: Row[]; sym: string }) {
 /** The whole patents view for one ticker. Asks the server until every quarter is counted. */
 export function PatentsView({ sym, open = true }: { sym: string; open?: boolean }) {
   const [d, setD] = useState<Data | null>(null);
+  const [live, setLive] = useState(false);
   const tries = useRef(0);
-  useEffect(() => { setD(null); tries.current = 0; }, [sym]);
+  useEffect(() => { setD(null); tries.current = 0; setLive(false); }, [sym]);
   useEffect(() => {
     if (!open || (d && (d.complete || d.error || d.needsKey))) return;
     let stop = false;
-    const go = () => getDeskJson<Data>(`/api/research?fn=patents&symbol=${sym}`).then((j: Data) => { if (!stop) { tries.current += 1; setD(j); } })
+    const go = () => getDeskJson<Data>(`/api/research?fn=patents&symbol=${sym}${live ? '&live=1' : ''}`).then((j: Data) => { if (!stop) { tries.current += 1; setD(j); } })
       .catch((e) => { if (!stop) setD({ error: (e as Error).message ?? String(e) }); });
     // first ask now; while counting continues, ask again every 3 s (at most ~2 minutes)
     const t = setTimeout(go, d ? 3000 : 0);
     if (tries.current > 40) setD({ ...(d ?? {}), complete: true, errors: { ...(d?.errors ?? {}), counts: 'stopped waiting; open the section again to continue' } });
     return () => { stop = true; clearTimeout(t); };
-  }, [open, d, sym]);
+  }, [open, d, sym, live]);
 
   const qs = d?.quarters ?? [];
   const have = qs.reduce((s, q) => s + (q.filed != null ? 1 : 0) + (q.granted != null ? 1 : 0), 0);
@@ -156,6 +157,8 @@ export function PatentsView({ sym, open = true }: { sym: string; open?: boolean 
         <div className="fi-grid pt">
           <div className="fi-box pt-wide">
             <h5>Filed vs granted per quarter · 5 years <Fresh kind="eod" src="USPTO Open Data Portal (official, refreshed daily)" /></h5>
+            {d.nightly && <p className="small muted">From the nightly check, {new Date(d.nightly).toLocaleString()} · <button className="pt-what" onClick={() => { tries.current = 0; setLive(true); setD(null); }}>check the USPTO now</button></p>}
+            {!!d.notes?.length && <ul className="small pt-notes">{d.notes.map((n) => <li key={n}>{n}</li>)}</ul>}
             <p className="small muted">Searched as {d.names?.map((n) => <span key={n} className="chip sm">{n}</span>)} {d.subsidiaries ? `(company + matching names from ${d.subsidiaries} subsidiaries in its 10-K)` : '(no subsidiary list found in the 10-K)'} · {d.qForm}</p>
             {!d.complete && <p className="small muted">Counting quarter by quarter ({have} of {qs.length * 2} done)… the USPTO allows one lookup at a time, so a first look takes a moment. Saved after this.</p>}
             {qs.length > 0 && <Chart qs={qs} />}
