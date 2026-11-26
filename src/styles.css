@@ -3786,3 +3786,6 @@ img, a, svg { -webkit-user-drag: none; }
 .fb-points { margin: 4px 0; padding-left: 18px; display: grid; gap: 6px; font-size: 13px; line-height: 1.45; }
 .fb-points li { cursor: help; }
 .fb select { max-width: 320px; }
+/* Banks & hedging (Credit page) */
+.bh-row { cursor: pointer; } .bh-row:hover td { background: var(--panel-2, rgba(127,127,127,.06)); }
+.bh-table td:first-child { white-space: nowrap; }

@@ -15,6 +15,7 @@ export const PROVIDER_INFO: Record<string, ProviderInfo> = {
   coingecko: { label: 'CoinGecko', feeds: 'Crypto prices (backup)', fallback: 'None' },
   sec: { label: 'SEC EDGAR', feeds: 'Filings, 13F, insider Form 4, IPO filings', fallback: 'None (official source)' },
   gemini: { label: 'Gemini (free tier)', feeds: 'Plain-English filing summaries, AI analysts', fallback: 'Groq, then OpenRouter (when their keys are set)' },
+  fdic: { label: 'FDIC call reports', feeds: 'Banks & hedging: protection bought / sold, Tier 1 capital, unused loan commitments', fallback: 'Tab shows what loaded' },
   googlepatents: { label: 'Google Patents (public pages)', feeds: 'Patent abstracts when you open a patent', fallback: 'Title only', unofficial: true },
   groq: { label: 'Groq (free plan)', feeds: 'Backup AI when Gemini fails: filing reads, briefing summary', fallback: 'OpenRouter free models' },
   openrouter: { label: 'OpenRouter (free models)', feeds: 'Last backup AI (50 a day)', fallback: 'Summaries are skipped' },
