@@ -3791,3 +3791,10 @@ img, a, svg { -webkit-user-drag: none; }
 /* Banks & hedging (Credit page) */
 .bh-row { cursor: pointer; } .bh-row:hover td { background: var(--panel-2, rgba(127,127,127,.06)); }
 .bh-table td:first-child { white-space: nowrap; }
+
+/* Risk on / off (Credit page) */
+.rp-line { margin: 2px 0 6px; }
+.rp-r { font-weight: 600; white-space: nowrap; }
+.rp-stress { color: var(--down); } .rp-ease { color: var(--up); } .rp-normal { color: var(--muted); font-weight: 500; }
+.rp-table tr { cursor: help; }
+.rp-table td:first-child { width: 96px; }

@@ -25,14 +25,14 @@ export function unzipFile(buf: Buffer, want?: string): string {
 }
 export const unzipFirst = (buf: Buffer) => unzipFile(buf);
 
-const etDay = (ms: number) => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York' }).format(ms);
-function lastDays(n: number, now = Date.now()): string[] {
+export const etDay = (ms: number) => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York' }).format(ms);
+export function lastDays(n: number, now = Date.now()): string[] {
   const out: string[] = [];
   for (let i = 0; out.length < n && i < 12; i++) { const d = etDay(now - i * 86400_000); const wd = new Date(`${d}T12:00:00Z`).getUTCDay(); if (wd > 0 && wd < 6) out.push(d); }
   return out;
 }
 
-async function dayFile(side: 'sec' | 'cftc', day: string): Promise<CdsTrade[]> {
+export async function dayFile(side: 'sec' | 'cftc', day: string): Promise<CdsTrade[]> {
   const today = day === etDay(Date.now());
   const { val } = await cached(`cds:${side}:${day}`, today ? 900 : 7 * 86400, async () => {
     if (!take('dtcc')) throw new Error('rate limited');
