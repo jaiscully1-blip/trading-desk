@@ -50,3 +50,8 @@ export function liveDiag(status: number, html: string): string {
   if (!/"isLive(?:Now|Content)"\s*:\s*true/.test(html)) return 'not live';
   return 'no video id';
 }
+
+/** streamList from feed items (kind 'live', text = channel name, url = YouTube watch link). */
+export function liveStreamsOf(items: { kind: string; text?: string; url?: string }[]): Stream[] {
+  return streamList(items.flatMap((x) => { const v = x.kind === 'live' ? /v=([\w-]{11})/.exec(x.url ?? '')?.[1] : undefined; return v && x.text ? [{ name: x.text, videoId: v }] : []; }));
+}

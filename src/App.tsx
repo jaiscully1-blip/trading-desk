@@ -128,6 +128,9 @@ import { useMorning } from './data/morning';
 import type { OrderDraft } from '../shared/orders';
 import { Messages } from './components/Messages';
 import { useFeed } from './data/feed';
+import { TvWindows } from './components/TvWindows';
+import { openTv } from './lib/tv';
+import { liveStreamsOf } from '../shared/livestreams';
 import type { HomeLayout, Workspaces } from './components/Home';
 import { COMMODITIES } from '../shared/commodities';
 
@@ -604,6 +607,8 @@ export default function App() {
   const [orderReq, setOrderReq] = useState<{ initial: Partial<OrderDraft>; last?: number | null } | null>(null);
   // the Webull ticket belongs to the owner's account only; other accounts never open it
   const openOrder = useCallback((initial: Partial<OrderDraft>, last?: number | null) => { if (isOwner()) setOrderReq({ initial, last }); }, []);
+  // live TV: every channel the feed found live plus the 24/7 ones (floating windows play on every page)
+  const tvStreams = useMemo(() => liveStreamsOf(feed?.items ?? []), [feed?.items]);
   const desk: DeskCtx = useMemo(() => ({ stars, toggleStar, names, openCompany, openArticle: setArticle, openInfo, openOrder, alertWords, setAlertWords, priceAlerts, setPriceAlerts }), [stars, toggleStar, names, openCompany, openInfo, openOrder, alertWords, setAlertWords, priceAlerts, setPriceAlerts]);
 
   const fired = useRef<Set<string>>(new Set(load<string[]>('pingFired', [])));
@@ -823,6 +828,7 @@ export default function App() {
     { id: 'risk', label: 'Open risk / position size', hint: 'R', run: () => setTab('risk') },
     { id: 'account', label: 'Open account drawer', hint: 'A', run: () => setDrawer(true) },
     ...(isOwner() ? [{ id: 'order', label: 'Webull order ticket (you approve every order)', run: () => openOrder({ sym: sel, side: 'BUY', type: 'LIMIT' }, Number.isFinite(quotes[sel]?.last) ? quotes[sel].last : null) }] : []),
+    { id: 'tv', label: 'Live TV: open a floating news channel (Bloomberg, Yahoo Finance, Sky, Al Jazeera...)', run: () => { const s = tvStreams.find((x) => x.name === 'Bloomberg TV') ?? tvStreams[0]; if (s && !openTv(s)) flash('Up to 6 TV windows at once', 3000); } },
     { id: 'gamma', label: 'Gamma & IV: call wall, put wall, zero-gamma flip, IV surface (SPY, QQQ, IWM, SPX)', hint: 'V', run: () => setPage('gamma') },
     { id: 'morning', label: 'Morning plan: premarket movers, sectors, setups, events (before 11am)', hint: 'W', run: () => setPage('morning') },
     { id: 'map', label: 'World map (World Monitor)', hint: 'M', run: () => setPage('map') },
@@ -1155,6 +1161,7 @@ export default function App() {
       {syncOpen && <SyncDialog user={cloudUser?.email ?? null} onClose={() => setSyncOpen(false)} />}
       {overlay === 'help' && <OverlayView kind="help" onClose={() => setOverlay(null)} />}
       <Suspense fallback={null}>{article && <ReaderOverlay a={article} mode={dataMode} onClose={() => setArticle(null)}  />}</Suspense>
+      <TvWindows streams={tvStreams} />
       <Suspense fallback={null}>{orderReq && isOwner() && <OrderTicket initial={orderReq.initial} last={orderReq.last ?? (orderReq.initial.sym && Number.isFinite(quotes[orderReq.initial.sym]?.last) ? quotes[orderReq.initial.sym].last : null)} live={live} equity={settings.startBalance == null ? null : g.equity} onClose={() => setOrderReq(null)} onPlaced={(t) => flash(`Sent to Webull: ${t}`, 5000)} />}</Suspense>
       <PingStack pings={pings} onOpen={toDesk} onDismiss={(id) => setPings((x) => x.filter((p) => p.id !== id))} />
     </div>
