@@ -5,7 +5,7 @@
 
 /** stack = the order countries were added in (1 = the first 15; 2 = the next biggest markets and startup hubs; ...). */
 export interface Country { cc: string; name: string; wiki: string; spotify: boolean; steam: boolean; stack?: number }
-/** Shipped in stacks, best data first: stack 1 = Jai's first 15 (2026-11-27), stack 2 = the next 15. wiki = the Wikipedia language most read there (English is shared by several). */
+/** Shipped in stacks, best data first: stack 1 = Jai's first 15 (2026-11-27), stack 2 = the next 15, stack 3 = 16 more. wiki = the Wikipedia language most read there (English is shared by several). */
 export const COUNTRIES: Country[] = [
   { cc: 'us', name: 'United States', wiki: 'en', spotify: true, steam: true },
   { cc: 'gb', name: 'United Kingdom', wiki: 'en', spotify: true, steam: true },
@@ -38,6 +38,23 @@ export const COUNTRIES: Country[] = [
   { cc: 'vn', name: 'Vietnam', wiki: 'vi', spotify: true, steam: true, stack: 2 },
   { cc: 'th', name: 'Thailand', wiki: 'th', spotify: true, steam: true, stack: 2 },
   { cc: 'ph', name: 'Philippines', wiki: 'en', spotify: true, steam: true, stack: 2 },
+  // stack 3 (2026-11-27): emerging markets and smaller rich markets
+  { cc: 'ar', name: 'Argentina', wiki: 'es', spotify: true, steam: true, stack: 3 },
+  { cc: 'za', name: 'South Africa', wiki: 'en', spotify: true, steam: true, stack: 3 },
+  { cc: 'eg', name: 'Egypt', wiki: 'ar', spotify: true, steam: true, stack: 3 },
+  { cc: 'ke', name: 'Kenya', wiki: 'en', spotify: false, steam: true, stack: 3 },
+  { cc: 'cl', name: 'Chile', wiki: 'es', spotify: true, steam: true, stack: 3 },
+  { cc: 'co', name: 'Colombia', wiki: 'es', spotify: true, steam: true, stack: 3 },
+  { cc: 'my', name: 'Malaysia', wiki: 'ms', spotify: true, steam: true, stack: 3 },
+  { cc: 'pk', name: 'Pakistan', wiki: 'ur', spotify: true, steam: true, stack: 3 },
+  { cc: 'ie', name: 'Ireland', wiki: 'en', spotify: true, steam: true, stack: 3 },
+  { cc: 'at', name: 'Austria', wiki: 'de', spotify: true, steam: true, stack: 3 },
+  { cc: 'be', name: 'Belgium', wiki: 'nl', spotify: true, steam: true, stack: 3 },
+  { cc: 'dk', name: 'Denmark', wiki: 'da', spotify: true, steam: true, stack: 3 },
+  { cc: 'no', name: 'Norway', wiki: 'no', spotify: true, steam: true, stack: 3 },
+  { cc: 'fi', name: 'Finland', wiki: 'fi', spotify: true, steam: true, stack: 3 },
+  { cc: 'nz', name: 'New Zealand', wiki: 'en', spotify: true, steam: true, stack: 3 },
+  { cc: 'pt', name: 'Portugal', wiki: 'pt', spotify: true, steam: true, stack: 3 },
 ];
 /** Wikipedia languages read (one list per language, stored under `wiki:<lang>`). */
 export const WIKI_LANGS = [...new Set(COUNTRIES.map((c) => c.wiki))];
@@ -56,7 +73,7 @@ export function appleTop(j: any, cc: string, src: 'apps-free' | 'apps-paid'): It
 }
 
 // Wikipedia front pages, search pages and other non-article titles: never a trend
-const WIKI_SKIP = /:|^(Main_Page|Wikipedia|Special|Portal|Pagina_principale|Página_principal|Accueil|Hauptseite|Hoofdpagina|Huvudsida|Strona_główna|Anasayfa|עמוד_ראשי|Trang_Chính|หน้าหลัก|メインページ|大文|首页|मुख्य_पृष्ठ|Halaman_Utama|الصفحة_الرئيسية|-)$/i;
+const WIKI_SKIP = /:|^(Main_Page|Wikipedia|Special|Portal|Pagina_principale|Página_principal|Accueil|Hauptseite|Hoofdpagina|Huvudsida|Laman_Utama|صفحہ_اول|Forside|Hovedside|Etusivu|Strona_główna|Anasayfa|עמוד_ראשי|Trang_Chính|หน้าหลัก|メインページ|大文|首页|मुख्य_पृष्ठ|Halaman_Utama|الصفحة_الرئيسية|-)$/i;
 /** Wikimedia "top" pageviews for one language and day: articles only, front page and search pages dropped. */
 export function wikiTop(j: any, lang: string, max = 30): Item[] {
   const arts = ((j?.items?.[0]?.articles ?? []) as any[]).filter((a) => a?.article && !WIKI_SKIP.test(String(a.article)));
@@ -267,6 +284,23 @@ export const BAN_FEEDS: { cc: string; hl: string; gl: string; q: string; ceid?: 
   { cc: 'vn', hl: 'vi', gl: 'VN', q: 'cấm (ứng dụng OR sản phẩm OR bán OR nhập khẩu) when:7d' },
   { cc: 'th', hl: 'th', gl: 'TH', q: '(ห้าม OR แบน) (แอป OR สินค้า OR จำหน่าย OR นำเข้า) when:7d' },
   { cc: 'ph', hl: 'en-PH', gl: 'PH', q: '(banned OR "ban on" OR "bans") (app OR product OR sale OR import OR platform) when:7d' },
+  // stack 3
+  { cc: 'ar', hl: 'es-419', gl: 'AR', ceid: 'AR:es-419', q: '(prohibición OR prohíbe OR prohibido) (aplicación OR producto OR venta OR importación) when:7d' },
+  { cc: 'za', hl: 'en-ZA', gl: 'ZA', q: '(banned OR "ban on" OR "bans") (app OR product OR sale OR import OR platform) when:7d' },
+  { cc: 'eg', hl: 'ar', gl: 'EG', q: 'حظر (تطبيق OR منتج OR بيع OR استيراد) when:7d' },
+  { cc: 'ke', hl: 'en-KE', gl: 'KE', q: '(banned OR "ban on" OR "bans") (app OR product OR sale OR import OR platform) when:7d' },
+  { cc: 'cl', hl: 'es-419', gl: 'CL', ceid: 'CL:es-419', q: '(prohibición OR prohíbe OR prohibido) (aplicación OR producto OR venta OR importación) when:7d' },
+  { cc: 'co', hl: 'es-419', gl: 'CO', ceid: 'CO:es-419', q: '(prohibición OR prohíbe OR prohibido) (aplicación OR producto OR venta OR importación) when:7d' },
+  { cc: 'my', hl: 'ms', gl: 'MY', q: '(larangan OR diharamkan OR dilarang) (aplikasi OR produk OR jualan OR import) when:7d' },
+  { cc: 'pk', hl: 'en-PK', gl: 'PK', q: '(banned OR "ban on" OR "bans") (app OR product OR sale OR import OR platform) when:7d' },
+  { cc: 'ie', hl: 'en-IE', gl: 'IE', q: '(banned OR "ban on" OR "bans") (app OR product OR sale OR import OR platform) when:7d' },
+  { cc: 'at', hl: 'de', gl: 'AT', q: '(Verbot OR verboten OR Verkaufsverbot) (App OR Produkt OR Verkauf OR Import) when:7d' },
+  { cc: 'be', hl: 'nl', gl: 'BE', q: '(verbod OR verboden OR verbiedt) (app OR product OR verkoop OR import) when:7d' },
+  { cc: 'dk', hl: 'da', gl: 'DK', q: '(forbud OR forbyder OR forbudt) (app OR produkt OR salg OR import) when:7d' },
+  { cc: 'no', hl: 'no', gl: 'NO', q: '(forbud OR forbyr OR forbudt) (app OR produkt OR salg OR import) when:7d' },
+  { cc: 'fi', hl: 'fi', gl: 'FI', q: '(kielto OR kieltää OR kielletty) (sovellus OR tuote OR myynti OR tuonti) when:7d' },
+  { cc: 'nz', hl: 'en-NZ', gl: 'NZ', q: '(banned OR "ban on" OR "bans") (app OR product OR sale OR import OR platform) when:7d' },
+  { cc: 'pt', hl: 'pt-PT', gl: 'PT', ceid: 'PT:pt-150', q: '(proibição OR proibido OR proíbe) (aplicação OR produto OR venda OR importação) when:7d' },
 ];
 export const banUrl = (f: (typeof BAN_FEEDS)[number]) => `https://news.google.com/rss/search?q=${encodeURIComponent(f.q)}&hl=${f.hl}&gl=${f.gl}&ceid=${f.ceid ?? `${f.gl}:${f.hl.split('-')[0]}`}`;
 // crime and court stories that only mention "ban" in passing
