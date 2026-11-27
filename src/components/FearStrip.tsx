@@ -9,6 +9,7 @@ export function FearStrip({ macro, quotes, live }: { macro: MacroResult | null; 
   const spy = quotes.SPY?.last;
   const vix = live ? macro?.vix?.value : DEMO_MACRO.vix;
   const em = vix && spy ? (spy * vix) / 100 / Math.sqrt(252) : null;
+  // FRED gives these spreads in percentage points (0.24 = 24bp)
   const bp = (x: number | undefined | null) => (x == null ? '—' : `${x >= 0 ? '+' : ''}${(x * 100).toFixed(0)}bp`);
   const uso = quotes.USO, uup = quotes.UUP;
   // anything without a value is left out entirely (see the desk guide for how to switch each one on)
@@ -26,8 +27,8 @@ export function FearStrip({ macro, quotes, live }: { macro: MacroResult | null; 
         const tip = `Desk Fear & Greed: our own blend of free data, not CNN's index.\n${fg.parts.map((p) => `${p.label}: ${p.score} (${p.detail})`).join('\n')}${fg.date ? `\nAs of ${fg.date} close` : ''}`;
         return Item({ q: "calc", qs: "the desk's own blend of free data, not CNN's index", l: "Fear & Greed", v: String(fg.score), sub: fg.label, cls: fg.score < 45 ? 'down' : fg.score > 55 ? 'up' : '', title: tip });
       })()}
-      {Item({ q: "eod", qs: "FRED T10Y2Y", l: "2s10s", v: live ? bp(macro?.t10y2y ? macro.t10y2y.value / 100 : null) : '+52bp', cls: live && (macro?.t10y2y?.value ?? 0) < 0 ? 'down' : '', title: "10-year minus 2-year Treasury (FRED). Negative = inverted" })}
-      {Item({ q: "eod", qs: "FRED T10Y3M", l: "3m10y", v: live ? bp(macro?.t10y3m ? macro.t10y3m.value / 100 : null) : '+38bp', cls: live && (macro?.t10y3m?.value ?? 0) < 0 ? 'down' : '', title: "10-year minus 3-month Treasury (FRED)" })}
+      {Item({ q: "eod", qs: "FRED T10Y2Y", l: "2s10s", v: live ? bp(macro?.t10y2y ? macro.t10y2y.value : null) : '+52bp', cls: live && (macro?.t10y2y?.value ?? 0) < 0 ? 'down' : '', title: "10-year minus 2-year Treasury (FRED). Negative = inverted" })}
+      {Item({ q: "eod", qs: "FRED T10Y3M", l: "3m10y", v: live ? bp(macro?.t10y3m ? macro.t10y3m.value : null) : '+38bp', cls: live && (macro?.t10y3m?.value ?? 0) < 0 ? 'down' : '', title: "10-year minus 3-month Treasury (FRED)" })}
       {Item({ q: "eod", qs: "FRED DGS10", l: "10Y", v: live ? (macro?.tnx ? `${macro.tnx.value.toFixed(2)}%` : '—') : `${DEMO_MACRO.tnx.toFixed(2)}%` })}
       {Item({ q: "live", qs: "USO quote", l: "Oil (USO)", v: uso && Number.isFinite(uso.last) ? uso.last.toFixed(2) : '—', sub: uso ? pct(uso.chgPct, 1) : undefined, cls: tone(uso?.chgPct ?? 0), title: "USO oil ETF as a live proxy" })}
       {Item({ q: "live", qs: "UUP quote", l: "Dollar (UUP)", v: uup && Number.isFinite(uup.last) ? uup.last.toFixed(2) : '—', sub: uup ? pct(uup.chgPct, 1) : undefined, cls: tone(uup?.chgPct ?? 0), title: "UUP dollar ETF as a live proxy" })}
