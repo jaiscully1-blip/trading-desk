@@ -31,14 +31,16 @@ const tryAdd = async (label: string, items: Item[], f: () => Promise<Item[]>) =>
 const prev: TrendDb = (() => { try { return existsSync(OUT) ? JSON.parse(readFileSync(OUT, 'utf8')) : emptyDb(); } catch { return emptyDb(); } })();
 const items: Item[] = [];
 
-for (const c of COUNTRIES) {
-  for (const [feed, src] of [['top-free', 'apps-free'], ['top-paid', 'apps-paid']] as const) {
-    await tryAdd(`apps ${c.cc} ${feed}`, items, async () => appleTop(await get(`https://rss.marketingtools.apple.com/api/v2/${c.cc}/apps/${feed}/25/apps.json`), c.cc, src));
-    await sleep(300);
-  }
-  if (c.steam) { await tryAdd(`steam ${c.cc}`, items, async () => steamTop(await get(`https://store.steampowered.com/api/featuredcategories?cc=${c.cc}&l=english`), c.cc)); await sleep(800); }
-  if (c.spotify) { await tryAdd(`music ${c.cc}`, items, async () => kworbTop(await get(`https://kworb.net/spotify/country/${c.cc}_daily.html`, 'text'), c.cc)); await sleep(1500); }
+/** Run jobs a few at a time (each with a pause after it), so a slow source does not hold up the whole night. */
+async function pool<T>(jobs: T[], n: number, run: (j: T) => Promise<void>, pauseMs: number) {
+  let i = 0;
+  await Promise.all(Array.from({ length: Math.min(n, jobs.length) }, async () => { while (i < jobs.length) { const j = jobs[i++]; await run(j); await sleep(pauseMs); } }));
 }
+// charts per country, by source: Apple (slowest, 4 at a time), Steam (3), Spotify via Kworb (2, it is a small site)
+await pool(COUNTRIES.flatMap((c) => (['top-free', 'top-paid'] as const).map((feed) => ({ c, feed }))), 4, ({ c, feed }) =>
+  tryAdd(`apps ${c.cc} ${feed}`, items, async () => appleTop(await get(`https://rss.marketingtools.apple.com/api/v2/${c.cc}/apps/${feed}/25/apps.json`), c.cc, feed === 'top-free' ? 'apps-free' : 'apps-paid')), 300);
+await pool(COUNTRIES.filter((c) => c.steam), 3, (c) => tryAdd(`steam ${c.cc}`, items, async () => steamTop(await get(`https://store.steampowered.com/api/featuredcategories?cc=${c.cc}&l=english`), c.cc)), 800);
+await pool(COUNTRIES.filter((c) => c.spotify), 2, (c) => tryAdd(`music ${c.cc}`, items, async () => kworbTop(await get(`https://kworb.net/spotify/country/${c.cc}_daily.html`, 'text'), c.cc)), 1500);
 // Wikipedia publishes a day's most-read list the next day: read yesterday's
 const [y, m, d] = yesterday.split('-');
 for (const lang of WIKI_LANGS) {
