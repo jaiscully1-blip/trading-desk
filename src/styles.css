@@ -3860,3 +3860,9 @@ img, a, svg { -webkit-user-drag: none; }
 .nv-item:hover .nv-key { opacity: 0; }
 .show-keys .nv-item .nv-key { opacity: 1; }
 .nv-gh { padding: 2px 6px 4px; }
+
+/* Calendars: Forex Factory forecast on US releases, and the world releases list */
+.econ-fc { grid-column: 1 / -1; color: var(--muted); }
+.econ-fc b { color: var(--text); }
+.wr-day { margin: 8px 0 2px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; font-size: 10.5px; }
+.wr-ccy { display: inline-block; min-width: 30px; font: 600 11px "IBM Plex Mono", monospace; color: var(--muted); }

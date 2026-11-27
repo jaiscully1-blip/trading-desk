@@ -1,12 +1,19 @@
-// GET /api/calendar?symbols=NVDA,AMD -> economic releases (FRED) with "what usually happens", FOMC + Kalshi odds, earnings, IPOs
+// GET /api/calendar?symbols=NVDA,AMD -> economic releases (FRED) with "what usually happens" and the forecast / previous
+// (Forex Factory), non-US releases this week (Forex Factory), FOMC + Kalshi odds, earnings, IPOs
 import { ECON, FOMC, usualMove, type Earning, type Ipo, type Odds, type Usual } from '../shared/calendar.js';
 import { alphaEarnings, alphaIpos, fredReleaseDates, fredReleases, kalshiFedOdds } from './_lib/adapters.js';
-import { SYMBOL_RE, cached, hasKey, json, markFresh } from './_lib/core.js';
+import { SYMBOL_RE, cached, getJson, hasKey, json, markFresh, take } from './_lib/core.js';
+import { parseFf, usForecast, worldList, type WorldEvent } from '../shared/ffcal.js';
 import { loadSeries } from './_lib/series.js';
 
 const ymd = (ms: number) => new Date(ms).toISOString().slice(0, 10);
 
-export interface EconEvent { key: string; label: string; date: string; time: string; impact: 1 | 2 | 3; note: string; usual: Usual | null }
+export interface EconEvent { key: string; label: string; date: string; time: string; impact: 1 | 2 | 3; note: string; usual: Usual | null; fc?: { title: string; forecast: string; previous: string } | null }
+
+async function ffWeek(): Promise<WorldEvent[]> {
+  if (!take('forexfactory')) throw new Error('rate limited');
+  return parseFf(await getJson('https://nfs.faireconomy.media/ff_calendar_thisweek.json', 'forexfactory', 8000, { headers: { 'user-agent': 'Mozilla/5.0 (trade-desk-research; personal project)' } }));
+}
 
 async function econ(): Promise<EconEvent[]> {
   const releases = (await cached('fred:releases', 7 * 86400, fredReleases)).val;
@@ -32,17 +39,19 @@ export async function GET(req: Request): Promise<Response> {
   const errors: Record<string, string> = {};
   const safe = async <T>(name: string, f: () => Promise<T>): Promise<T | null> => { try { return await f(); } catch (e) { errors[name] = (e as Error).message.slice(0, 160); return null; } };
 
-  const [econEvents, odds, earnings, ipos] = await Promise.all([
+  const [econEvents, odds, earnings, ipos, ff] = await Promise.all([
     hasKey('fred') ? safe('econ', () => cached('cal:econ', 6 * 3600, econ).then((r) => r.val)) : Promise.resolve(null),
     safe('odds', () => cached<Odds | null>('cal:odds', 600, kalshiFedOdds).then((r) => r.val)),
     hasKey('alphavantage') ? safe('earnings', () => cached<Earning[]>('cal:earn', 12 * 3600, alphaEarnings).then((r) => r.val)) : Promise.resolve(null),
     hasKey('alphavantage') ? safe('ipos', () => cached<Ipo[]>('cal:ipo', 12 * 3600, alphaIpos).then((r) => r.val)) : Promise.resolve(null),
+    safe('world', () => cached('cal:ff', 3600, ffWeek).then((r) => r.val)),
   ]);
 
   const today = ymd(Date.now()), weekOut = ymd(Date.now() + 7 * 86400_000);
   return json({
     asOf: Date.now(),
-    econ: econEvents,
+    econ: econEvents && ff ? econEvents.map((e) => ({ ...e, fc: usForecast(e.key, e.date, ff) })) : econEvents,
+    world: ff ? worldList(ff, Date.now()) : null,
     fomc: FOMC,
     odds,
     earnings: earnings
