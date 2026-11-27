@@ -12,6 +12,7 @@ import { keywordHits } from '../../shared/catalysts';
 import { MacroClock } from './MacroClock';
 import { MyLinks } from './MyLinks';
 import { LivePlayer, type VMode } from './LivePlayer';
+import { streamList, type Stream } from '../../shared/livestreams';
 
 type Filter = 'all' | 'earn' | 'cat' | 'gov' | 'mine';
 const CAT = ['catalyst', 'stake', 'insider', 'wire', 'fund'];
@@ -43,11 +44,22 @@ export function Messages({ feed, cal, nowMs, onChart, compact = false }: { feed:
   const shown = all.filter((x) => x.kind !== 'live' && f !== 'mine' && (f === 'all' || (f === 'earn' ? ['filing', 'earnings', 'result'].includes(x.kind) : f === 'cat' ? CAT.includes(x.kind) : ['fed', 'whitehouse', 'econ'].includes(x.kind))));
   useEffect(() => { box.current?.scrollTo({ top: box.current.scrollHeight }); }, [shown.length, f]);
   const vid = (u?: string) => u?.match(/v=([\w-]{11})/)?.[1];
-  const active = (watch && lives.some((l) => vid(l.url) === watch) ? watch : null) ?? vid(lives.find((l) => l.text === chan)?.url) ?? vid(lives[0]?.url) ?? null;
-  const hitsOf = (m: FeedItem) => (alertWords.length ? keywordHits(m, alertWords) : []);
+  // every channel the server found live, plus the 24/7 channels it could not confirm (played through the channel's live embed)
+  const streams = useMemo(() => streamList(lives.flatMap((l) => { const v = vid(l.url); return v && l.text ? [{ name: l.text, videoId: v }] : []; })), [lives.map((l) => l.url).join(' ')]); // eslint-disable-line react-hooks/exhaustive-deps
+  const cur: Stream | null = streams.find((x) => x.key === watch) ?? streams.find((x) => x.name === chan) ?? streams[0] ?? null;
+  const active = cur?.key ?? null;
+  const pick = (k: string) => { const x = streams.find((y) => y.key === k); if (!x) return; setWatch(x.key); setChan(x.name); if (vsize === 'off') setVsize(compact ? 's' : 'm'); };
+  const picker = streams.length > 0 && (
+    <label className="live-pick" title="Free YouTube live streams. Marked live = confirmed just now; 24/7 channels are offered even when the check could not reach YouTube">
+      <span className="vp-dot" aria-hidden="true">●</span>
+      <select value={cur?.key ?? ''} onChange={(e) => pick(e.target.value)} aria-label="Live channel">
+        {(['Markets', 'World news', 'Government'] as const).map((g) => { const xs = streams.filter((x) => x.group === g); return xs.length ? <optgroup key={g} label={g}>{xs.map((x) => <option key={x.key} value={x.key}>{x.name}{x.confirmed ? ' · live now' : ' · 24/7'}</option>)}</optgroup> : null; })}
+      </select>
+    </label>
+  );  const hitsOf = (m: FeedItem) => (alertWords.length ? keywordHits(m, alertWords) : []);
   let lastDay = '';
   const split = !compact && vsize === 'split' && !!active;
-  const liveTitle = lives.find((l) => vid(l.url) === active)?.text ?? 'Live';
+  const liveTitle = cur?.name ?? 'Live';
   const MODES: { id: VMode; label: string; hint: string }[] = compact
     ? [{ id: 'off', label: 'Off', hint: 'Hide the live video' }, { id: 's', label: 'S', hint: 'Small' }, { id: 'm', label: 'M', hint: 'Medium' }, { id: 'l', label: 'L', hint: 'Large' }]
     : [{ id: 'off', label: 'Off', hint: 'Hide the live video' }, { id: 'mini', label: '–', hint: 'Minimize to a small bar (keeps playing)' }, { id: 's', label: 'S', hint: 'Small, in the page' }, { id: 'm', label: 'M', hint: 'Medium, in the page' }, { id: 'l', label: 'L', hint: 'Large, in the page' }, { id: 'split', label: '◧ Half', hint: 'Video on the right half of the screen, messages on the left' }, { id: 'float', label: '⧉ Float', hint: 'Floating window: drag it anywhere, resize from its corner' }];
@@ -56,8 +68,8 @@ export function Messages({ feed, cal, nowMs, onChart, compact = false }: { feed:
      <div className="msgs-col">
       <div className="msgs-bar">
         <Seg value={f} onChange={setF} options={[{ id: 'all', label: 'All' }, { id: 'earn', label: 'Earnings' }, { id: 'cat', label: 'Filings & press' }, { id: 'gov', label: 'Fed · Gov · Econ' }, { id: 'mine', label: 'My links' }]} />
-        {lives.length > 0 && <div className="live-chips">{lives.map((l) => <button key={l.id} className={`live-chip ${vid(l.url) === active && vsize !== 'off' ? 'on' : ''}`} onClick={() => { setWatch(vid(l.url) ?? null); setChan(l.text ?? ''); if (vsize === 'off') setVsize(compact ? 's' : 'm'); }}>● {l.text}</button>)}</div>}
-        {lives.length > 0 && (
+        {picker}
+        {streams.length > 0 && (
           <div className="vid-size" role="group" aria-label="Live video size">
             <span className="small muted">Video</span>
             {MODES.map((z) => <button key={z.id} className={`chip sm ${vsize === z.id ? 'on' : ''}`} onClick={() => setVsize(z.id)} aria-pressed={vsize === z.id} title={z.hint}>{z.label}</button>)}
@@ -75,7 +87,7 @@ export function Messages({ feed, cal, nowMs, onChart, compact = false }: { feed:
       )}
       {active && compact && vsize !== 'off' && (
         <div className={`msgs-live vs-${vsize}`}>
-          <iframe src={`https://www.youtube-nocookie.com/embed/${active}?autoplay=0`} title="Live stream" allow="encrypted-media; picture-in-picture" allowFullScreen loading="lazy" />
+          <iframe src={`${cur!.src}${cur!.src.includes('?') ? '&' : '?'}autoplay=0`} title="Live stream" allow="encrypted-media; picture-in-picture" allowFullScreen loading="lazy" />
         </div>
       )}
       {active && !compact && ['s', 'm', 'l'].includes(vsize) && <div className={`msgs-live vs-${vsize}`}><div className="msgs-slot" ref={slot} /></div>}
@@ -104,10 +116,10 @@ export function Messages({ feed, cal, nowMs, onChart, compact = false }: { feed:
       {split && (
         <aside className="msgs-vside" aria-label="Live video">
           <div className="msgs-slot" ref={slot} />
-          <div className="msgs-vchans">{lives.map((l) => <button key={l.id} className={`live-chip ${vid(l.url) === active ? 'on' : ''}`} onClick={() => { setWatch(vid(l.url) ?? null); setChan(l.text ?? ''); }}>● {l.text}</button>)}</div>
+          <div className="msgs-vchans">{picker}</div>
         </aside>
       )}
-      {active && !compact && vsize !== 'off' && <LivePlayer vid={active} title={liveTitle} mode={vsize} setMode={setVsize} slot={slot} />}
+      {active && !compact && vsize !== 'off' && <LivePlayer src={cur!.src} title={liveTitle} mode={vsize} setMode={setVsize} slot={slot} />}
     </div>
   );
 }

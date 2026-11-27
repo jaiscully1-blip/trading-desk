@@ -1,6 +1,7 @@
 // GET /api/research?fn=feed&symbols=NVDA,AMD -> messages: earnings filings (SEC 8-K item 2.02, near real time), earnings
 // calendar + beat/miss (Finnhub, delayed), Fed speeches/testimony and White House releases (RSS), and live streams (YouTube).
 import { BIG_CAPS, earningsMessages, parseEdgar8k, parseYoutubeLive, type FeedItem } from '../../../shared/feed.js';
+import { CHANNELS, liveDiag } from '../../../shared/livestreams.js';
 import { parseSecTickers, type SecTicker } from '../../../shared/company.js';
 import { finnhubEarnings, getText, nasdaqEarnings, rssFeed, secJson, secText } from '../adapters.js';
 import { parseNasdaqEarnings } from '../../../shared/eventsCal.js';
@@ -23,29 +24,19 @@ const RSS = [
   { kind: 'fed' as const, name: 'Fed press releases', url: 'https://www.federalreserve.gov/feeds/press_all.xml' },
   { kind: 'whitehouse' as const, name: 'White House', url: 'https://www.whitehouse.gov/briefings-statements/feed/' },
 ];
-/** YouTube channels checked for a live stream (order = order of the chips: markets first, then world news, then government). */
-export const STREAMS = [
-  { name: 'Bloomberg TV', handle: 'markets' },
-  { name: 'Yahoo Finance', handle: 'YahooFinance' },
-  { name: 'CNBC', handle: 'CNBCtelevision' },
-  { name: 'Schwab Network', handle: 'SchwabNetwork' },
-  { name: 'Fox Business', handle: 'FoxBusiness' },
-  { name: 'Reuters', handle: 'Reuters' },
-  // world news channels that run 24/7 YouTube streams
-  { name: 'Sky News', handle: 'SkyNews' },
-  { name: 'Al Jazeera English', handle: 'aljazeeraenglish' },
-  { name: 'DW News', handle: 'dwnews' },
-  { name: 'France 24', handle: 'France24_en' },
-  { name: 'NBC News NOW', handle: 'NBCNews' },
-  { name: 'ABC News Live', handle: 'ABCNews' },
-  { name: 'CBS News 24/7', handle: 'CBSNews' },
-  { name: 'LiveNOW from FOX', handle: 'LiveNOWFOX' },
-  { name: 'Euronews', handle: 'euronews' },
-  // government
-  { name: 'White House', handle: 'WhiteHouse' },
-  { name: 'Federal Reserve', handle: 'federalreserve' },
-  { name: 'C-SPAN', handle: 'cspan' },
-];
+/** YouTube channels checked for a live stream: the shared list (Messages offers the 24/7 ones even when this check fails). */
+export const STREAMS = CHANNELS;
+const YT_HEADERS = { 'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36', 'accept-language': 'en-US,en;q=0.9', accept: 'text/html', cookie: 'CONSENT=YES+1; SOCS=CAI' };
+/** A channel's live video id, or why there is none (kept 3 minutes). */
+async function ytLive(handle: string): Promise<{ id: string | null; why: string }> {
+  const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), 7000);
+  try {
+    const r = await fetch(`https://www.youtube.com/@${handle}/live`, { headers: YT_HEADERS, signal: ctl.signal });
+    const html = r.ok ? await r.text() : '';
+    const id = r.ok ? parseYoutubeLive(html) : null;
+    return { id, why: id ? 'live' : liveDiag(r.status, html) };
+  } catch (e) { return { id: null, why: (e as Error).name === 'AbortError' ? 'timed out' : (e as Error).message.slice(0, 40) }; } finally { clearTimeout(t); }
+}
 const ymd = (ms: number) => new Date(ms).toISOString().slice(0, 10);
 
 export async function GET(req: Request): Promise<Response> {
@@ -143,15 +134,15 @@ export async function GET(req: Request): Promise<Response> {
   for (const r of RSS) jobs.push(run(r.name, async () => (await cached(`rss:${r.name}`, 600, () => rssFeed(r.name, r.url))).val
     .filter((x) => now - x.t < 4 * 86400_000)
     .map((x) => ({ id: `${r.kind}:${x.url || x.title}`, t: x.t, kind: r.kind, title: x.title, text: r.name, url: x.url }))));
+  const ytWhy: string[] = [];
   jobs.push(run('YouTube live', async () => {
     const live = await Promise.all(STREAMS.map(async (s, i) => {
-      try {
-        const id = (await cached(`yt:${s.handle}`, 180, async () => parseYoutubeLive(await getText(`https://www.youtube.com/@${s.handle}/live`, 7000)))).val;
-        return id ? [{ id: `live:${id}`, t: now - (STREAMS.length - i), kind: 'live' as const, title: `${s.name} is live now`, text: s.name, url: `https://www.youtube.com/watch?v=${id}` }] : [];
-      } catch { return []; }
+      const r = (await cached(`yt2:${s.handle}`, 180, () => ytLive(s.handle))).val;
+      if (!r.id) { if (r.why !== 'not live') ytWhy.push(`${s.name}: ${r.why}`); return []; }
+      return [{ id: `live:${r.id}`, t: now - (STREAMS.length - i), kind: 'live' as const, title: `${s.name} is live now`, text: s.name, url: `https://www.youtube.com/watch?v=${r.id}` }];
     }));
     return live.flat();
-  }));
+  }).then(() => { const src = sources.find((x) => x.name === 'YouTube live'); if (src && ytWhy.length) src.error = `not readable: ${ytWhy.join(', ')}`.slice(0, 400); }));
   await Promise.race([Promise.all(jobs), new Promise((r) => setTimeout(r, 5000))]);
   const slow = [...waiting];
   for (const name of slow) sources.push({ name, ok: false, count: 0, error: 'slow: still loading, shows on the next refresh' });

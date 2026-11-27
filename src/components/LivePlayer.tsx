@@ -9,7 +9,7 @@ export type VMode = 'off' | 'mini' | 's' | 'm' | 'l' | 'split' | 'float';
 interface Box { left: number; top: number; width: number; height: number }
 const HEAD = 26;
 
-export function LivePlayer({ vid, title, mode, setMode, slot }: { vid: string; title: string; mode: Exclude<VMode, 'off'>; setMode: (m: VMode) => void; slot: RefObject<HTMLDivElement | null> }) {
+export function LivePlayer({ src, title, mode, setMode, slot }: { src: string; title: string; mode: Exclude<VMode, 'off'>; setMode: (m: VMode) => void; slot: RefObject<HTMLDivElement | null> }) {
   const [fl, setFl] = usePersisted<{ x: number; y: number; w: number }>('liveFloat', { x: -1, y: -1, w: 420 });
   const [last, setLast] = usePersisted<VMode>('liveLastMode', 'm');
   const [slotBox, setSlotBox] = useState<Box | null>(null);
@@ -74,7 +74,7 @@ export function LivePlayer({ vid, title, mode, setMode, slot }: { vid: string; t
           <button onClick={() => setMode('off')} title="Close the video" aria-label="Close video">×</button>
         </div>
       )}
-      <iframe src={`https://www.youtube-nocookie.com/embed/${vid}?autoplay=0`} title="Live stream" allow="autoplay; encrypted-media; picture-in-picture" allowFullScreen />
+      <iframe src={`${src}${src.includes('?') ? '&' : '?'}autoplay=0`} title="Live stream" allow="autoplay; encrypted-media; picture-in-picture" allowFullScreen />
       {mode === 'float' && <div className="vp-grip" onPointerDown={(e) => down(e, 'size')} title="Drag to resize" aria-hidden="true" />}
     </div>,
     document.body,
