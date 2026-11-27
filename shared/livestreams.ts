@@ -1,7 +1,8 @@
 // Free YouTube live streams for the Messages video player (and its floating window). allDay = the channel runs a 24/7
 // stream, so it is always offered: by its live video when the server confirmed one, else through YouTube's own
 // "this channel's live stream" embed. Event channels (government, Reuters, CNBC...) show only when the server finds them live.
-// Checked 2026-11-26: all allDay channels were live and allowed embedding. CNBC and Fox Business have no free 24/7 stream.
+// Checked 2026-11-26 in a browser: every allDay channel plays, Sky News and both ABC channels only by their known 24/7 video
+// (their channel embed says "unavailable"). CNBC and Fox Business have no free 24/7 stream.
 
 export interface Channel { name: string; handle: string; id: string; allDay: boolean; group: 'Markets' | 'World news' | 'Government'; /** a known 24/7 video, for channels whose channel embed shows "unavailable" */ video?: string }
 export const CHANNELS: Channel[] = [
@@ -16,13 +17,13 @@ export const CHANNELS: Channel[] = [
   { name: 'DW News', handle: 'dwnews', id: 'UCknLrEdhRCp1aegoMqRaCZg', allDay: true, group: 'World news' },
   { name: 'France 24', handle: 'France24_en', id: 'UCQfwfsi5VrQ8yKZ-UWmAEFg', allDay: true, group: 'World news' },
   { name: 'NBC News NOW', handle: 'NBCNews', id: 'UCeY0bbntWzzVIaj2z3QigXg', allDay: true, group: 'World news' },
-  { name: 'ABC News Live', handle: 'ABCNews', id: 'UCBi2mrWuNuyYy4gbM6fU18Q', allDay: true, group: 'World news' },
+  { name: 'ABC News Live', handle: 'ABCNews', id: 'UCBi2mrWuNuyYy4gbM6fU18Q', allDay: true, group: 'World news', video: '0HDN5-2M1VE' },
   { name: 'CBS News 24/7', handle: 'CBSNews', id: 'UC8p1vwvWtl6T73JiExfWs1g', allDay: false, group: 'World news' },
-  { name: 'LiveNOW from FOX', handle: 'LiveNOWFOX', id: 'UCJg9wBPyKMNA5sRDnvzmkdg', allDay: true, group: 'World news' },
+  { name: 'LiveNOW from FOX', handle: 'LiveNOWFOX', id: 'UCJg9wBPyKMNA5sRDnvzmkdg', allDay: false, group: 'World news' }, // runs event streams, no fixed 24/7 one
   { name: 'Euronews', handle: 'euronews', id: 'UCSrZ3UV4jOidv8ppoVuvW9Q', allDay: true, group: 'World news' },
   { name: 'TRT World', handle: 'trtworld', id: 'UC7fWeaHhqgM4Ry-RMpM2YYw', allDay: true, group: 'World news' },
   { name: 'NHK World-Japan', handle: 'NHKWORLDJAPAN', id: 'UCSPEjw8F2nQDtmUKPFNF7_A', allDay: true, group: 'World news' },
-  { name: 'ABC News Australia', handle: 'abcnewsaustralia', id: 'UCVgO39Bk5sMo66-6o6Spn6Q', allDay: true, group: 'World news' },
+  { name: 'ABC News Australia', handle: 'abcnewsaustralia', id: 'UCVgO39Bk5sMo66-6o6Spn6Q', allDay: true, group: 'World news', video: 'vOTiJkg1voo' },
   { name: 'White House', handle: 'WhiteHouse', id: 'UCYxRlFDqcWM4y7FfpiAN3KQ', allDay: false, group: 'Government' },
   { name: 'Federal Reserve', handle: 'federalreserve', id: 'UCAzhpt9DmG6PnHXjmJTvRGQ', allDay: false, group: 'Government' },
   { name: 'C-SPAN', handle: 'cspan', id: 'UCb--64Gl51jIEVE-GLDAVTg', allDay: false, group: 'Government' },
