@@ -69,7 +69,7 @@ export function TopStrip({
 
       {(clk.holiday || clk.earlyClose) && (
         <div className="top-group">
-          {clk.holiday && <span className="pill bad" title="Market closed">Closed · {clk.holiday}</span>}
+          {clk.holiday && <span className="pill bad" title={`Market closed: ${clk.holiday}`}>Closed<span className="hol-name"> · {clk.holiday}</span></span>}
           {clk.earlyClose && <span className="pill warn" title={clk.earlyClose}>Early close {clk.closeSod === 13 * 3600 ? '1 PM' : ''}</span>}
         </div>
       )}
@@ -109,6 +109,6 @@ function PaceBtn({ session }: { session: ClockState['session'] }) {
   const m = usePace();
   useEffect(() => { document.documentElement.dataset.session = PHASE[session]; }, [session]);
   const now = session === 'Regular session' ? 'market open: normal speed' : session === 'Closed' ? 'market closed: refreshing every 15+ min' : `${session.toLowerCase()}: 3× slower`;
-  return <button className={`chip sm pace-btn pace-${m}`} onClick={() => setPace(NEXT[m])} title={`Refresh speed: ${PACE_LABEL[m]}. Auto follows market hours (${now}). Fast = twice as fast during the open. Saver = 4× slower, to save free-API budget and battery. Click to switch.`}>{m === 'auto' ? '⏱' : m === 'fast' ? '⚡' : '🌙'} {PACE_LABEL[m]}</button>;
+  return <button className={`chip sm pace-btn pace-${m}`} aria-label={`Refresh speed: ${PACE_LABEL[m]}`} onClick={() => setPace(NEXT[m])} title={`Refresh speed: ${PACE_LABEL[m]}. Auto follows market hours (${now}). Fast = twice as fast during the open. Saver = 4× slower, to save free-API budget and battery. Click to switch.`}>{m === 'auto' ? '⏱' : m === 'fast' ? '⚡' : '🌙'}<span className="pace-lbl"> {PACE_LABEL[m]}</span></button>;
 }
 

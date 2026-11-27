@@ -3818,3 +3818,21 @@ img, a, svg { -webkit-user-drag: none; }
 .top.top3 { grid-auto-flow: column; grid-template-rows: 100%; grid-auto-columns: auto; }
 .top.top3 > * { align-self: center; }
 .tz-status, .tz-status .mv-wrap, .tz-status .mv-cell { white-space: nowrap; }
+
+/* header, compact (2026-11-26): three index chips sized to their content and never cut; the search box takes what is left
+   (120-320px); refresh speed shows as its icon only (label in the tooltip); the status badge drops first on narrow screens */
+.top.top3 { display: flex; align-items: center; gap: 12px; }
+.top.top3 > * { flex: none; }
+.top.top3 > .top-search { flex: 1 1 320px; min-width: 120px; max-width: 320px; }
+.top.top3 > .tz-you { margin-left: auto; }
+.tz-markets { container-type: normal; flex-wrap: nowrap; }
+.tz-markets .mp-cell { flex-wrap: nowrap; height: auto; overflow: visible; padding-top: 0; }
+.tz-markets .mc-chip { padding: 0 8px; gap: 6px; font-size: 12px; height: 26px; }
+.tz-markets .mc-chip:nth-child(n) { display: inline-flex; }
+.pace-lbl { display: none; }
+.top.top3 { container: hdr / inline-size; }
+/* by the header's own width: status badge first, then the holiday name, then a whole chip (never half a price) */
+@container hdr (max-width: 1400px) { .tz-status { display: none; } }
+@container hdr (max-width: 1260px) { .hol-name { display: none; } }
+@container hdr (max-width: 1120px) { .top.top3 > .top-search { min-width: 90px; } .tz-markets .mc-chip:nth-child(3) { display: none; } }
+@container hdr (max-width: 960px) { .tz-markets .mc-chip:nth-child(2) { display: none; } }
