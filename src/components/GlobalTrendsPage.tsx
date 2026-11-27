@@ -9,7 +9,9 @@ import { getDeskJson } from './PatentsSection';
 import { Fresh, Seg } from './common';
 
 type Resp = TrendSummary & { error?: string; errors?: string[]; source?: string };
-type Tab = 'spread' | 'countries' | 'world' | 'wiki';
+type Tab = 'spread' | 'countries' | 'startups' | 'bans' | 'world' | 'wiki';
+const money = (v: number | null | undefined) => (v == null ? '—' : v >= 1e9 ? `$${(v / 1e9).toFixed(1)}B` : v >= 1e6 ? `$${(v / 1e6).toFixed(1)}M` : v >= 1e3 ? `$${Math.round(v / 1e3)}K` : `$${v}`);
+const edgar = (r: { cik: string; adsh: string }) => `https://www.sec.gov/Archives/edgar/data/${r.cik}/${r.adsh.replace(/-/g, '')}/`;
 const flag = (cc: string) => (cc.length === 2 ? String.fromCodePoint(...[...cc.toUpperCase()].map((c) => 0x1f1a5 + c.charCodeAt(0))) : '🌐');
 const day = (d: string) => new Date(`${d}T12:00:00Z`).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 const CHART_SRC: Src[] = ['apps-free', 'apps-paid', 'music', 'steam'];
@@ -49,7 +51,7 @@ export default function GlobalTrendsPage() {
           {!d && <p className="small muted">Reading the trends database…</p>}
           {d?.error && <p className="small down">{d.error === 'not-run-yet' ? 'The nightly collector has not run yet.' : d.error}</p>}
           {d && !d.error && <>
-            <Seg value={tab} onChange={setTab} options={[{ id: 'spread', label: 'Spreading' }, { id: 'countries', label: 'Countries' }, { id: 'world', label: 'Worldwide' }, { id: 'wiki', label: 'What people read' }]} />
+            <Seg value={tab} onChange={setTab} options={[{ id: 'spread', label: 'Spreading' }, { id: 'countries', label: 'Countries' }, { id: 'startups', label: 'Startups' }, { id: 'bans', label: 'Bans & recalls' }, { id: 'world', label: 'Worldwide' }, { id: 'wiki', label: 'What people read' }]} />
             {d.warmingUp && <p className="note small">The database is {d.nights} night{d.nights === 1 ? '' : 's'} old. "Spreading" and "new this week" need a few nights to compare (from about {day(new Date(Date.parse(`${d.updated}T12:00:00Z`) + (4 - d.nights) * 86400_000).toISOString().slice(0, 10))}); until then this shows tonight's charts.</p>}
           </>}
         </div>
@@ -88,6 +90,36 @@ export default function GlobalTrendsPage() {
           </div>
         </section>
       )}
+
+      {d && !d.error && tab === 'startups' && (() => { const r = d.startups; return <>
+        <section className="panel">
+          <div className="gx-h"><b>Startup radar</b><span className="small muted">US companies raising money in the last 7 days (SEC Form D) · investment funds left out · filings since {day(r.from)}</span></div>
+          <div className="gx-pad">
+            {r.warmingUp && <p className="note small">Only {r.weeks} week{r.weeks === 1 ? '' : 's'} of earlier filings so far: "surge" (an industry raising at least twice its usual pace) switches on after 3 weeks.</p>}
+            <table className="ad-table gtr-t"><thead><tr><th>Industry</th><th className="r">Raises, 7 days</th><th className="r">Sold so far</th><th className="r">Usual per week</th><th className="r">Founded this / last year</th></tr></thead><tbody>
+              {r.industries.map((x) => <tr key={x.industry}><td>{x.industry}{x.surge && <span className="chip sm up" title="At least 3 raises and twice the usual weekly pace">surge</span>}</td><td className="r num">{x.n7}</td><td className="r num">{money(x.sold7)}</td><td className="r num muted">{r.warmingUp ? '—' : x.perWeek}</td><td className="r num">{x.young7 || ''}</td></tr>)}
+            </tbody></table>
+            <p className="note small">Form D is filed after a private sale of shares starts; "sold so far" is what the company reported at filing. Most startups raising from investors file one, but not all.</p>
+          </div>
+        </section>
+        <div className="gtr-two">
+          <section className="panel"><div className="gx-h"><b>Biggest raises, 7 days</b></div><div className="gx-pad"><table className="ad-table gtr-t"><tbody>{r.biggest.map((x) => <tr key={x.adsh}><td><a href={edgar(x)} target="_blank" rel="noreferrer noopener">{x.name}</a><div className="muted small">{x.industry} · {x.state}{x.yearInc ? ` · founded ${x.yearInc}` : ''}</div></td><td className="r num">{money(x.sold)}<div className="muted small">of {money(x.offering)}</div></td></tr>)}</tbody></table></div></section>
+          <section className="panel"><div className="gx-h"><b>Young companies raising</b><span className="small muted">founded this year or last</span></div><div className="gx-pad"><table className="ad-table gtr-t"><tbody>{r.young.map((x) => <tr key={x.adsh}><td><a href={edgar(x)} target="_blank" rel="noreferrer noopener">{x.name}</a><div className="muted small">{x.industry} · {x.state} · founded {x.yearInc}</div></td><td className="r num">{money(x.sold)}</td></tr>)}</tbody></table>
+            {!!r.states.length && <p className="small muted">By state (7 days): {r.states.map((x) => `${x.state} ${x.n}`).join(' · ')}</p>}</div></section>
+        </div>
+      </>; })()}
+
+      {d && !d.error && tab === 'bans' && <>
+        <section className="panel">
+          <div className="gx-h"><b>Ban watch</b><span className="small muted">news of bans on apps, products, sales or imports, by country, in its own language (last 14 days)</span></div>
+          <div className="gx-pad gtr-cols">{d.bans.filter((b) => b.items.length).map((b) => <div key={b.cc} className="fi-box"><h5>{flag(b.cc)} {b.name} <span className="muted small">{b.items.length}</span></h5><ul className="gtr-news">{b.items.map((n) => <li key={n.id}><a href={n.url} target="_blank" rel="noreferrer noopener">{n.title}</a><span className="muted small"> · {n.source} · {day(n.date)}</span></li>)}</ul></div>)}</div>
+          <p className="note small gx-pad">Headlines from Google News searches (an unofficial feed), matched by words like "ban" in each language: some are about another country's ban or only mention one. There is no mainland China edition.</p>
+        </section>
+        <section className="panel">
+          <div className="gx-h"><b>US recalls</b><span className="small muted">Consumer Product Safety Commission and FDA, last 14 days</span></div>
+          <div className="gx-pad"><ul className="gtr-news">{d.recalls.map((n) => <li key={n.id}>{n.url ? <a href={n.url} target="_blank" rel="noreferrer noopener">{n.title}</a> : n.title}<span className="muted small"> · {n.source} · {day(n.date)}</span></li>)}</ul></div>
+        </section>
+      </>}
 
       {d && !d.error && tab === 'world' && (
         <section className="panel">

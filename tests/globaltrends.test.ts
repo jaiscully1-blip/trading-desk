@@ -40,6 +40,10 @@ describe('global trends: sources', () => {
     expect(h.every((x) => /^\d+$/.test(x.cik))).toBe(true);
     const d = formdDoc(fx('formd-doc.xml'), { adsh: '0002166928-26-000001', cik: '2166928', date: '2026-11-25' })!;
     expect(d).toMatchObject({ name: 'Jerico Music LLC', industry: 'Other Technology', state: 'TX', offering: 350000, sold: 25000, yearInc: '2021', fund: false });
+    const veh = formdDoc(fx('formd-doc.xml').replace('Jerico Music LLC', 'RHP Partners III REIT Sub 5, LLC'), { adsh: 'x', cik: '1', date: '2026-11-25' })!;
+    expect(veh.fund).toBe(true); // an investment vehicle, not a startup
+    const old = formdDoc(fx('formd-doc.xml').replace(/<yearOfInc>[\s\S]*?<\/yearOfInc>/, '<yearOfInc><overFiveYears>true</overFiveYears></yearOfInc>'), { adsh: 'y', cik: '1', date: '2026-11-25' })!;
+    expect(old.yearInc).toBe(''); // older than five years: no year, and none taken from elsewhere in the filing
   });
 });
 
@@ -94,5 +98,32 @@ describe('global trends: page summary', () => {
     expect(kr.now['apps-free']!.find((x) => x.id === 'a')!.trend).toBe(-1); // was 1 a week earlier, now 2
     expect(s.local.map((x) => [x.id, x.cc])).toEqual([['c', 'kr'], ['b', 'us']]); // each on one country's chart only ('a' is in two)
 
+  });
+});
+
+describe('global trends: ban watch and startup radar', () => {
+  it('reads Google News headlines, splitting off the source and dropping crime stories', async () => {
+    const { gnewsItems, addNews, banUrl, BAN_FEEDS } = await import('../shared/globaltrends');
+    const n = gnewsItems(fx('gnews-jp.xml'), 'jp');
+    expect(n.length).toBeGreaterThan(5);
+    expect(n[0].title).toBe('ベトナムのたばこ規制改正｜EC販売禁止と18歳未満への販売対策');
+    expect(n[0]).toMatchObject({ cc: 'jp', kind: 'ban', source: 'https://access-online.net/' });
+    expect(n.some((x) => /書類送検|逮捕/.test(x.title))).toBe(false);
+    const db = addNews(addNews(emptyDb(), n, '2026-11-27'), n, '2026-11-27');
+    expect(db.news!.length).toBe(n.length); // the same headlines twice are kept once
+    expect(banUrl(BAN_FEEDS.find((f) => f.cc === 'jp')!)).toContain('&hl=ja&gl=JP&ceid=JP:ja');
+  });
+  it('startup radar: companies only, by industry this week, surge only with enough history', async () => {
+    const { startupRadar } = await import('../shared/globaltrends');
+    const R = (date: string, industry: string, sold: number, extra: Partial<import('../shared/globaltrends').Raise> = {}) => ({ adsh: `${date}${industry}${sold}`, cik: '1', name: `${industry} ${sold}`, industry, state: 'CA', offering: sold, sold, yearInc: '2026', date, fund: false, ...extra });
+    const early = Array.from({ length: 5 }, (_, i) => R(`2026-10-${String(1 + i * 7).padStart(2, '0')}`, 'Biotechnology', 1e6));
+    const now = [R('2026-11-25', 'Biotechnology', 5e6), R('2026-11-26', 'Biotechnology', 2e6), R('2026-11-26', 'Biotechnology', 1e6), R('2026-11-25', 'Other Technology', 9e6), R('2026-11-25', 'Pooled Investment Fund', 50e6, { fund: true })];
+    const r = startupRadar([...early, ...now], '2026-11-27');
+    expect(r.warmingUp).toBe(false);
+    expect(r.industries[0]).toMatchObject({ industry: 'Biotechnology', n7: 3, sold7: 8e6, surge: true });
+    expect(r.industries.find((x) => x.industry === 'Pooled Investment Fund')).toBeUndefined();
+    expect(r.biggest[0].name).toBe('Other Technology 9000000');
+    expect(startupRadar(now, '2026-11-27').warmingUp).toBe(true);
+    expect(startupRadar(now, '2026-11-27').industries.every((x) => !x.surge)).toBe(true);
   });
 });

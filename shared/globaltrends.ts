@@ -88,19 +88,23 @@ export interface Raise { adsh: string; cik: string; name: string; industry: stri
 export const formdHits = (j: any): { adsh: string; cik: string; date: string }[] => ((j?.hits?.hits ?? []) as any[])
   .filter((h) => h?._source?.form === 'D' && h._source.ciks?.[0]).map((h) => ({ adsh: String(h._id).split(':')[0], cik: String(h._source.ciks[0]).replace(/^0+/, ''), date: String(h._source.file_date ?? '') }));
 /** One Form D's primary_doc.xml: who, what industry, where, how much offered and sold so far. Funds flagged (not startups). */
+/** Names of investment vehicles rather than operating companies (fund feeders, REIT subsidiaries, SPV series...). */
+const VEHICLE = /\b(fund|funds|reit|spv|feeder|series [a-z0-9]+|sub \d+|co-?invest\w*|l\.?p\.?|partners [ivx]+|capital partners|investors?( llc)?|member llc|sponsor( llc)?|propco|acquisition( co)?)\b/i;
 export function formdDoc(xml: string, meta: { adsh: string; cik: string; date: string }): Raise | null {
   const tag = (t: string) => unesc(new RegExp(`<${t}>([^<]*)</${t}>`).exec(xml)?.[1]?.trim() ?? '');
   const name = tag('entityName'); if (!name) return null;
   const industry = tag('industryGroupType');
-  const year = /<yearOfInc>[\s\S]*?<value>([^<]*)<\/value>/.exec(xml)?.[1] ?? '';
+  // only inside <yearOfInc> (companies older than five years give no year there; never take a <value> from elsewhere)
+  const year = /<value>([^<]*)<\/value>/.exec(/<yearOfInc>([\s\S]*?)<\/yearOfInc>/.exec(xml)?.[1] ?? '')?.[1] ?? '';
   const money = (t: string) => { const v = tag(t); return /^\d+(\.\d+)?$/.test(v) ? Number(v) : null; }; // "Indefinite" -> null
-  return { ...meta, name, industry, state: tag('stateOrCountry'), offering: money('totalOfferingAmount'), sold: money('totalAmountSold'), yearInc: /^\d{4}$/.test(year) ? year : '', fund: /pooled investment fund/i.test(industry) || /<investmentFundType>/.test(xml) };
+  return { ...meta, name, industry, state: tag('stateOrCountry'), offering: money('totalOfferingAmount'), sold: money('totalAmountSold'), yearInc: /^\d{4}$/.test(year) ? year : '', fund: /pooled investment fund/i.test(industry) || /<investmentFundType>/.test(xml) || VEHICLE.test(name) };
 }
 
 // ---------- the database: one record per thing ----------
 export interface Seen { first: string; last: string; days: number; best: number; r: [string, number][] }
 export interface Rec { src: Src; id: string; name: string; by?: string; url?: string; note?: string; seen: Record<string, Seen> }
-export interface TrendDb { v: 1; updated: string; nights: string[]; items: Record<string, Rec>; raises: Raise[]; errors: string[] }
+export interface News { id: string; cc: string; title: string; url: string; source: string; date: string; kind: 'ban' | 'recall' }
+export interface TrendDb { v: 1; updated: string; nights: string[]; items: Record<string, Rec>; raises: Raise[]; errors: string[]; news?: News[] }
 export const emptyDb = (): TrendDb => ({ v: 1, updated: '', nights: [], items: {}, raises: [], errors: [] });
 
 /** Add one night's lists. A thing seen again on a new night extends its record; its last 30 ranks are kept per place. */
@@ -153,7 +157,7 @@ export function spreading(db: TrendDb, minPlaces = 2): Spread[] {
 export interface Row { id: string; src: Src; name: string; by?: string; url?: string; note?: string; rank: number; first: string; days: number; best: number; trend: number | null }
 export interface CountrySum { cc: string; name: string; now: Partial<Record<Src, Row[]>>; fresh: Row[]; heat: number; heatBy: Partial<Record<Src, number>> }
 export interface Wide { id: string; src: Src; name: string; by?: string; url?: string; places: { cc: string; rank: number }[] }
-export interface TrendSummary { updated: string; nights: number; warmingUp: boolean; spreading: (Spread & { originName: string })[]; wide: Wide[]; local: (Row & { cc: string })[]; countries: CountrySum[]; world: Partial<Record<Src, Row[]>>; wiki: { lang: string; rows: Row[] }[] }
+export interface TrendSummary { updated: string; nights: number; warmingUp: boolean; spreading: (Spread & { originName: string })[]; startups: StartupRadar; bans: { cc: string; name: string; items: News[] }[]; recalls: News[]; wide: Wide[]; local: (Row & { cc: string })[]; countries: CountrySum[]; world: Partial<Record<Src, Row[]>>; wiki: { lang: string; rows: Row[] }[] }
 
 const NAME: Record<string, string> = Object.fromEntries(COUNTRIES.map((c) => [c.cc, c.name]));
 export const placeName = (w: string) => NAME[w] ?? (w.startsWith('wiki:') ? `Wikipedia (${w.slice(5)})` : w === 'world' ? 'Worldwide' : w);
@@ -199,5 +203,79 @@ export function summarize(db: TrendDb, perList = 10): TrendSummary {
   }
   wide.sort((a, b) => b.places.length - a.places.length || a.places[0].rank - b.places[0].rank);
   local.sort((a, b) => a.rank - b.rank || a.cc.localeCompare(b.cc));
-  return { updated, nights: db.nights.length, warmingUp, wide: wide.slice(0, 40), local: local.slice(0, 120), spreading: spreading(db).slice(0, 80).map((s) => ({ ...s, originName: placeName(s.origin) })), countries, world, wiki };
+  const recentNews = (db.news ?? []).filter((n) => n.date >= new Date(Date.parse(`${updated}T00:00:00Z`) - 14 * 86400_000).toISOString().slice(0, 10));
+  const bans = BAN_FEEDS.map((f) => ({ cc: f.cc, name: NAME[f.cc] ?? f.cc, items: recentNews.filter((n) => n.kind === 'ban' && n.cc === f.cc).slice(0, 15) }));
+  return { updated, nights: db.nights.length, warmingUp, startups: startupRadar(db.raises, updated), bans, recalls: recentNews.filter((n) => n.kind === 'recall').slice(0, 30), wide: wide.slice(0, 40), local: local.slice(0, 120), spreading: spreading(db).slice(0, 80).map((s) => ({ ...s, originName: placeName(s.origin) })), countries, world, wiki };
+}
+
+
+// ---------- ban watch: news of bans per country (Google News search, local language) and US recalls ----------
+/** One Google News RSS search per country, in its own language: bans on apps, products, sales or imports in the last week.
+ *  Google News has no mainland China edition. Headlines only; unofficial feed. */
+export const BAN_FEEDS: { cc: string; hl: string; gl: string; q: string }[] = [
+  ...['us', 'gb', 'ca', 'au', 'in', 'ng'].map((cc) => ({ cc, hl: cc === 'us' ? 'en-US' : `en-${cc.toUpperCase()}`, gl: cc.toUpperCase(), q: '(banned OR "ban on" OR "bans") (app OR product OR sale OR import OR platform) when:7d' })),
+  { cc: 'de', hl: 'de', gl: 'DE', q: '(Verbot OR verboten OR Verkaufsverbot) (App OR Produkt OR Verkauf OR Import) when:7d' },
+  { cc: 'fr', hl: 'fr', gl: 'FR', q: '(interdiction OR interdit) (application OR produit OR vente OR importation) when:7d' },
+  { cc: 'jp', hl: 'ja', gl: 'JP', q: '禁止 (アプリ OR 製品 OR 販売 OR 輸入) when:7d' },
+  { cc: 'kr', hl: 'ko', gl: 'KR', q: '금지 (앱 OR 제품 OR 판매 OR 수입) when:7d' },
+  { cc: 'br', hl: 'pt-BR', gl: 'BR', q: '(proibição OR proibido OR proíbe) (aplicativo OR produto OR venda OR importação) when:7d' },
+  { cc: 'mx', hl: 'es-419', gl: 'MX', q: '(prohibición OR prohíbe OR prohibido) (aplicación OR producto OR venta OR importación) when:7d' },
+  { cc: 'id', hl: 'id', gl: 'ID', q: '(larangan OR dilarang) (aplikasi OR produk OR penjualan OR impor) when:7d' },
+  { cc: 'ae', hl: 'ar', gl: 'AE', q: 'حظر (تطبيق OR منتج OR بيع OR استيراد) when:7d' },
+];
+export const banUrl = (f: (typeof BAN_FEEDS)[number]) => `https://news.google.com/rss/search?q=${encodeURIComponent(f.q)}&hl=${f.hl}&gl=${f.gl}&ceid=${f.gl}:${f.hl.split('-')[0]}`;
+// crime and court stories that only mention "ban" in passing
+const NOT_A_BAN = /arrest|逮捕|書類送検|murder|殺|police|경찰|체포|Polizei|Mord|burn ban|fire ban|travel ban|ban(ned)? from (the )?(game|match|league|driving)/i;
+/** Google News RSS items: headline (the " - Source" tail split off), link, date. */
+export function gnewsItems(xml: string, cc: string): News[] {
+  const out: News[] = [];
+  for (const it of xml.match(/<item>[\s\S]*?<\/item>/g) ?? []) {
+    const raw = unesc(/<title>([\s\S]*?)<\/title>/.exec(it)?.[1] ?? '').trim(), url = /<link>([^<]+)<\/link>/.exec(it)?.[1] ?? '';
+    const source = unesc(/<source[^>]*>([^<]+)<\/source>/.exec(it)?.[1] ?? '');
+    const title = source && raw.endsWith(` - ${source}`) ? raw.slice(0, -source.length - 3) : raw;
+    const t = Date.parse(/<pubDate>([^<]+)<\/pubDate>/.exec(it)?.[1] ?? '');
+    if (!title || !url || NOT_A_BAN.test(title)) continue;
+    out.push({ id: `ban:${cc}:${title.slice(0, 80)}`, cc, title, url, source, date: Number.isFinite(t) ? new Date(t).toISOString().slice(0, 10) : '', kind: 'ban' });
+  }
+  return out;
+}
+/** Merge tonight's headlines in (deduped by headline): 30 days at most, the newest 30 per country (and 30 recalls). */
+export function addNews(db: TrendDb, items: News[], today: string): TrendDb {
+  const cut = new Date(Date.parse(`${today}T00:00:00Z`) - 30 * 86400_000).toISOString().slice(0, 10);
+  const map = new Map((db.news ?? []).map((n) => [n.id, n]));
+  for (const n of items) if (!map.has(n.id)) map.set(n.id, n);
+  const kept = new Map<string, number>();
+  const news = [...map.values()].filter((n) => n.date >= cut).sort((a, b) => b.date.localeCompare(a.date)).filter((n) => { const k = `${n.kind}:${n.cc}`, c = (kept.get(k) ?? 0) + 1; kept.set(k, c); return c <= 30; });
+  return { ...db, news };
+}
+
+// ---------- startup radar: Form D raises by industry ----------
+export interface IndustryRow { industry: string; n7: number; sold7: number; perWeek: number; surge: boolean; young7: number }
+export interface StartupRadar { from: string; to: string; weeks: number; warmingUp: boolean; industries: IndustryRow[]; biggest: Raise[]; young: Raise[]; states: { state: string; n: number; sold: number }[] }
+/** US companies (not investment funds) raising money: by industry this week vs their weekly average before, the biggest
+ *  raises, the youngest companies (founded this year or last), and states. "Surge" = 3+ raises this week and at least
+ *  twice the earlier weekly average (only once there are 3+ earlier weeks to compare). */
+export function startupRadar(raises: Raise[], today: string): StartupRadar {
+  const cos = raises.filter((r) => !r.fund && !VEHICLE.test(r.name) && r.date); // vehicles saved before the name check too
+  const wk = new Date(Date.parse(`${today}T00:00:00Z`) - 7 * 86400_000).toISOString().slice(0, 10);
+  const from = cos.reduce((m, r) => (r.date < m ? r.date : m), today);
+  const priorDays = Math.max(0, (Date.parse(`${wk}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86400_000);
+  const weeks = priorDays / 7, warmingUp = weeks < 3;
+  const yr = Number(today.slice(0, 4));
+  const by = new Map<string, IndustryRow>();
+  for (const r of cos) {
+    const k = r.industry || 'Not stated';
+    const row = by.get(k) ?? { industry: k, n7: 0, sold7: 0, perWeek: 0, surge: false, young7: 0 };
+    if (r.date > wk) { row.n7++; row.sold7 += r.sold ?? 0; if (Number(r.yearInc) >= yr - 1) row.young7++; } else row.perWeek += 1;
+    by.set(k, row);
+  }
+  const industries = [...by.values()].map((r) => { const perWeek = weeks > 0 ? Math.round((r.perWeek / weeks) * 10) / 10 : 0; return { ...r, perWeek, surge: !warmingUp && r.n7 >= 3 && r.n7 >= 2 * Math.max(perWeek, 0.5) }; })
+    .filter((r) => r.n7 > 0).sort((a, b) => Number(b.surge) - Number(a.surge) || b.n7 - a.n7 || b.sold7 - a.sold7);
+  const recent = cos.filter((r) => r.date > wk);
+  const st = new Map<string, { state: string; n: number; sold: number }>();
+  for (const r of recent) { const k = r.state || '—'; const x = st.get(k) ?? { state: k, n: 0, sold: 0 }; x.n++; x.sold += r.sold ?? 0; st.set(k, x); }
+  return { from, to: today, weeks: Math.round(weeks * 10) / 10, warmingUp, industries,
+    biggest: [...recent].sort((a, b) => (b.sold ?? 0) - (a.sold ?? 0)).slice(0, 25),
+    young: recent.filter((r) => Number(r.yearInc) >= yr - 1).sort((a, b) => (b.sold ?? 0) - (a.sold ?? 0)).slice(0, 40),
+    states: [...st.values()].sort((a, b) => b.n - a.n).slice(0, 15) };
 }
