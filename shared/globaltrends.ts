@@ -148,3 +148,56 @@ export function spreading(db: TrendDb, minPlaces = 2): Spread[] {
   }
   return out.sort((a, b) => (b.later.at(-1)!.first.localeCompare(a.later.at(-1)!.first)) || b.places - a.places);
 }
+
+// ---------- page summary (computed on the server from the database) ----------
+export interface Row { id: string; src: Src; name: string; by?: string; url?: string; note?: string; rank: number; first: string; days: number; best: number; trend: number | null }
+export interface CountrySum { cc: string; name: string; now: Partial<Record<Src, Row[]>>; fresh: Row[]; heat: number; heatBy: Partial<Record<Src, number>> }
+export interface Wide { id: string; src: Src; name: string; by?: string; url?: string; places: { cc: string; rank: number }[] }
+export interface TrendSummary { updated: string; nights: number; warmingUp: boolean; spreading: (Spread & { originName: string })[]; wide: Wide[]; local: (Row & { cc: string })[]; countries: CountrySum[]; world: Partial<Record<Src, Row[]>>; wiki: { lang: string; rows: Row[] }[] }
+
+const NAME: Record<string, string> = Object.fromEntries(COUNTRIES.map((c) => [c.cc, c.name]));
+export const placeName = (w: string) => NAME[w] ?? (w.startsWith('wiki:') ? `Wikipedia (${w.slice(5)})` : w === 'world' ? 'Worldwide' : w);
+
+/** A place's row for a thing on the latest night: rank now, and the change vs about a week earlier (positive = climbing). */
+function rowAt(r: Rec, where: string, updated: string): Row | null {
+  const s = r.seen[where]; if (!s || s.last !== updated) return null;
+  const now = s.r.at(-1)![1];
+  const weekAgo = new Date(Date.parse(`${updated}T00:00:00Z`) - 7 * 86400_000).toISOString().slice(0, 10);
+  const then = [...s.r].reverse().find(([d]) => d <= weekAgo)?.[1];
+  return { id: r.id, src: r.src, name: r.name, by: r.by, url: r.url, note: r.note, rank: now, first: s.first, days: s.days, best: s.best, trend: then != null ? then - now : null };
+}
+
+/** Everything the Global trends page shows. "New" = first seen in the last 7 days, but only once the database is a few
+ *  nights old (on the first nights everything is "new", so the page shows the charts instead and says it is warming up). */
+export function summarize(db: TrendDb, perList = 10): TrendSummary {
+  const updated = db.updated, start = db.nights[0] ?? updated;
+  const warmingUp = db.nights.length < 4;
+  const weekAgo = new Date(Date.parse(`${updated}T00:00:00Z`) - 7 * 86400_000).toISOString().slice(0, 10);
+  const recs = Object.values(db.items);
+  const countries: CountrySum[] = COUNTRIES.map((c) => {
+    const now: Partial<Record<Src, Row[]>> = {}, heatBy: Partial<Record<Src, number>> = {}, fresh: Row[] = [];
+    for (const r of recs) {
+      const row = rowAt(r, c.cc, updated); if (!row) continue;
+      (now[r.src] ??= []).push(row);
+      if (!warmingUp && row.first > start && row.first >= weekAgo) { fresh.push(row); heatBy[r.src] = (heatBy[r.src] ?? 0) + 1; }
+    }
+    for (const k of Object.keys(now) as Src[]) now[k] = now[k]!.sort((a, b) => a.rank - b.rank).slice(0, perList);
+    return { cc: c.cc, name: c.name, now, fresh: fresh.sort((a, b) => a.rank - b.rank).slice(0, 20), heat: fresh.length, heatBy };
+  });
+  const world: Partial<Record<Src, Row[]>> = {};
+  for (const r of recs) { const row = rowAt(r, 'world', updated); if (row) (world[r.src] ??= []).push(row); }
+  for (const k of Object.keys(world) as Src[]) world[k] = world[k]!.sort((a, b) => a.rank - b.rank).slice(0, 20);
+  const wiki = WIKI_LANGS.map((lang) => ({ lang, rows: recs.map((r) => rowAt(r, `wiki:${lang}`, updated)).filter((x): x is Row => !!x).sort((a, b) => a.rank - b.rank).slice(0, perList) }));
+  // on the charts in many countries now, and big in only one (top 10 there, on no other country's chart: a copycat lead)
+  const CHART: Src[] = ['apps-free', 'apps-paid', 'steam', 'music'];
+  const wide: Wide[] = [], local: (Row & { cc: string })[] = [];
+  for (const r of recs) {
+    if (!CHART.includes(r.src)) continue;
+    const places = COUNTRIES.flatMap((c) => { const x = rowAt(r, c.cc, updated); return x ? [{ cc: c.cc, rank: x.rank }] : []; });
+    if (places.length >= 5) wide.push({ id: r.id, src: r.src, name: r.name, by: r.by, url: r.url, places: places.sort((a, b) => a.rank - b.rank) });
+    if (places.length === 1 && places[0].rank <= 10 && Object.keys(r.seen).filter((w) => NAME[w]).length === 1) { const x = rowAt(r, places[0].cc, updated)!; local.push({ ...x, cc: places[0].cc }); }
+  }
+  wide.sort((a, b) => b.places.length - a.places.length || a.places[0].rank - b.places[0].rank);
+  local.sort((a, b) => a.rank - b.rank || a.cc.localeCompare(b.cc));
+  return { updated, nights: db.nights.length, warmingUp, wide: wide.slice(0, 40), local: local.slice(0, 120), spreading: spreading(db).slice(0, 80).map((s) => ({ ...s, originName: placeName(s.origin) })), countries, world, wiki };
+}
