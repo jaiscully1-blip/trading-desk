@@ -2,7 +2,7 @@
 // holiday in its day tile. Colors by kind (earnings mint, economy sky, Fed gold, IPO violet, holiday coral), your own
 // tickers starred and sorted first, company logos on earnings, today glowing. Click a company for its peek, any other
 // event for what it is and why it matters, or a day for everything on it.
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { ymdLocal as ymd } from '../lib/format';
 import type { EarnItem, IpoItem } from '../../shared/eventsCal';
 import type { EconEvent } from '../data/news';
@@ -150,6 +150,27 @@ export function MonthCalendar({ live, econ, mySyms, trades = [], onWatch }: { li
   const [heatOn, setHeatOn] = usePersisted('mcalHeat', true);
   const [view, setView] = usePersisted<'month' | 'week'>('mcalView', 'month');
   const [wk, setWk] = useState(() => { const x = new Date(); x.setDate(x.getDate() - ((x.getDay() + 6) % 7)); return ymd(x); });
+  // open on today: every time the calendar opens (and on Today), scroll today's day into the middle of the calendar's own
+  // scroll area (never the whole desk). Retries for a moment while the page lays out.
+  const todayEl = useRef<HTMLDivElement | null>(null);
+  const [goToday, setGoToday] = useState(1);
+  useEffect(() => {
+    if (!goToday) return;
+    let tries = 0, t: ReturnType<typeof setTimeout>;
+    const go = () => {
+      const el = todayEl.current;
+      let sc: HTMLElement | null = el?.parentElement ?? null;
+      while (sc && !(sc.scrollHeight > sc.clientHeight + 4 && /(auto|scroll)/.test(getComputedStyle(sc).overflowY))) sc = sc.parentElement;
+      if (el && sc) {
+        const r = el.getBoundingClientRect(), b = sc.getBoundingClientRect();
+        sc.scrollTo({ top: sc.scrollTop + (r.top - b.top) - (b.height - r.height) / 2, behavior: tries ? 'smooth' : 'auto' });
+        setGoToday(0);
+      } else if (el && tries > 3) setGoToday(0); // fits without scrolling
+      else if (tries++ < 20) t = setTimeout(go, 100);
+    };
+    go();
+    return () => clearTimeout(t);
+  }, [goToday, view, ym.y, ym.m]);
   const weekDays = useMemo(() => Array.from({ length: 5 }, (_, i) => ymd(new Date(Date.parse(`${wk}T12:00:00`) + i * 86400_000))), [wk]);
   const moveWeek = (k: number) => { const x = new Date(Date.parse(`${wk}T12:00:00`) + k * 7 * 86400_000); setWk(ymd(x)); setYm({ y: x.getFullYear(), m: x.getMonth() }); };
   const heat = useMemo(() => new Map([...byDay].map(([k, xs]) => [k, heatOf(xs)])), [byDay]);
@@ -184,7 +205,7 @@ export function MonthCalendar({ live, econ, mySyms, trades = [], onWatch }: { li
         <button className="btn sm" onClick={() => (view === 'week' ? moveWeek(-1) : move(-1))} aria-label="Previous">‹</button>
         <b className="mcal-month">{view === 'week' ? `Week of ${new Date(`${wk}T12:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}` : first.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</b>
         <button className="btn sm" onClick={() => (view === 'week' ? moveWeek(1) : move(1))} aria-label="Next">›</button>
-        <button className="btn sm" onClick={() => { setYm({ y: now.getFullYear(), m: now.getMonth() }); const x = new Date(); x.setDate(x.getDate() - ((x.getDay() + 6) % 7)); setWk(ymd(x)); }}>Today</button>
+        <button className="btn sm" onClick={() => { setYm({ y: now.getFullYear(), m: now.getMonth() }); const x = new Date(); x.setDate(x.getDate() - ((x.getDay() + 6) % 7)); setWk(ymd(x)); setGoToday((n) => n + 1); }}>Today</button>
         <span className="mcal-legend">{KINDS.map((x) => <button key={x.k} className={`mcal-key k-${x.k} ${on[x.k] ? 'on' : ''}`} onClick={() => setOn({ ...on, [x.k]: !on[x.k] })} aria-pressed={on[x.k]}>{x.label}</button>)}
           <button className={`mcal-key k-mine ${mineOnly ? 'on' : ''}`} onClick={() => setMineOnly(!mineOnly)} aria-pressed={mineOnly}>★ My tickers only</button>
           <button className={`mcal-key k-heat ${heatOn ? 'on' : ''}`} onClick={() => setHeatOn(!heatOn)} aria-pressed={heatOn} title="Tiles glow brighter on market-moving days">Heat</button></span>
@@ -208,7 +229,7 @@ export function MonthCalendar({ live, econ, mySyms, trades = [], onWatch }: { li
         {weekDays.map((k) => {
           const evs = byDay.get(k) ?? [], hol = evs.find((e) => e.kind === 'hol');
           return (
-            <div key={k} className={`mcal-col ${k === today ? 'today' : ''} ${k < today ? 'past' : ''}`} style={heatOn ? { ['--h' as string]: Math.min(1, (heat.get(k) ?? 0) / 12) } : undefined}>
+            <div key={k} ref={k === today ? todayEl : undefined} className={`mcal-col ${k === today ? 'today' : ''} ${k < today ? 'past' : ''}`} style={heatOn ? { ['--h' as string]: Math.min(1, (heat.get(k) ?? 0) / 12) } : undefined}>
               <div className="mcal-colh"><b>{new Date(`${k}T12:00:00`).toLocaleDateString('en-US', { weekday: 'long', day: 'numeric' })}</b>{dayPnl.has(k) && <span className={`mcal-pnl ${dayPnl.get(k)! >= 0 ? 'up' : 'dn'}`}>{sUsd(dayPnl.get(k)!)}</span>}{hol && <span className="mcal-hol">{hol.label} · closed</span>}</div>
               {([['all', 'All day · or time not set'], ['pre', '🌅 Before the open'], ['mid', '🏛 During the session'], ['post', '🌙 After the close']] as const).map(([slot, name]) => {
                 const xs = evs.filter((e) => e.kind !== 'hol' && slotOf(e) === slot);
@@ -229,7 +250,7 @@ export function MonthCalendar({ live, econ, mySyms, trades = [], onWatch }: { li
           const k = ymd(c), evs = byDay.get(k) ?? [], out = c.getMonth() !== ym.m, hol = evs.find((e) => e.kind === 'hol');
           const shown = evs.filter((e) => e.kind !== 'hol').slice(0, 6), more = evs.filter((e) => e.kind !== 'hol').length - shown.length;
           return (
-            <div key={k} className={`mcal-day ${out ? 'out' : ''} ${k === today ? 'today' : ''} ${k < today ? 'past' : ''} ${hol ? 'hol' : ''} ${day === k ? 'sel' : ''} ${heatOn ? 'heat' : ''}`} style={heatOn ? { ['--h' as string]: Math.min(1, (heat.get(k) ?? 0) / 12) } : undefined} onClick={() => setDay(day === k ? null : k)} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter') setDay(k); }}>
+            <div key={k} ref={k === today && !out ? todayEl : undefined} className={`mcal-day ${out ? 'out' : ''} ${k === today ? 'today' : ''} ${k < today ? 'past' : ''} ${hol ? 'hol' : ''} ${day === k ? 'sel' : ''} ${heatOn ? 'heat' : ''}`} style={heatOn ? { ['--h' as string]: Math.min(1, (heat.get(k) ?? 0) / 12) } : undefined} onClick={() => setDay(day === k ? null : k)} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter') setDay(k); }}>
               <div className="mcal-dn"><span>{c.getDate()}</span>{dayPnl.has(k) && <span className={`mcal-pnl ${dayPnl.get(k)! >= 0 ? 'up' : 'dn'}`} style={{ ['--s' as string]: 0.45 + 0.55 * Math.min(1, Math.abs(dayPnl.get(k)!) / pnlMax) }} title={`Your realized P&L: ${sUsd(dayPnl.get(k)!)}`}>{sUsd(dayPnl.get(k)!)}</span>}{hol && <span className="mcal-hol" title={hol.label}>closed</span>}{!covered(k) && !out && live && <span className="mcal-nc" title="Outside the loaded window (about a week back to five weeks ahead): earnings and IPOs not loaded for this day">·</span>}</div>
               <div className="mcal-evs">
                 {shown.map((e) => <button key={e.key} className={`mcal-ev k-${e.kind} ${e.mine ? 'mine' : ''} ${e.big ? 'big' : ''} ${e.result ?? ''}`} data-sym={e.kind === 'earn' ? e.sym : undefined} title={`${e.label}${e.time ? ` · ${e.time}` : ''}${e.sub ? ` · ${e.sub}` : ''}`} onClick={(ev) => { ev.stopPropagation(); e.run(); }}>{e.mine && '★ '}{e.label}{e.move != null && <span className="mcal-mv" title="Options-implied move for the report">±{e.move.toFixed(1)}%</span>}{e.kind !== 'earn' && e.time ? <span className="mcal-t"> {e.time}</span> : null}</button>)}
