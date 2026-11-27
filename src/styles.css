@@ -3893,3 +3893,24 @@ img, a, svg { -webkit-user-drag: none; }
 .mtf-h:active { cursor: grabbing; }
 .mtf-h select { cursor: pointer; }
 .mtf-grip { color: var(--faint); font-size: 12px; margin-right: -2px; }
+
+/* Global trends page */
+.gtr .gx-pad > .seg { margin-bottom: 6px; }
+.gtr-two { display: grid; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); gap: 12px; }
+.gtr-t td { vertical-align: top; }
+.gtr-t .chip { margin: 0 4px 4px 0; }
+.gtr-fl { display: inline-block; margin-right: 6px; font-size: 15px; }
+.gtr-fl sub { font-size: 9.5px; color: var(--muted); margin-left: 1px; }
+.gtr-cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 10px; }
+.gtr-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.gtr-list li { display: grid; grid-template-columns: 24px 1fr auto; gap: 6px; align-items: baseline; font-size: 12.5px; }
+.gtr-rank { color: var(--muted); text-align: right; }
+.gtr-name { min-width: 0; overflow-wrap: anywhere; }
+.gtr-note { display: block; }
+.gtr-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 6px; margin-bottom: 12px; }
+.gtr-tile { display: flex; align-items: center; gap: 6px; padding: 6px 8px; border: 1px solid var(--line); border-radius: 8px; text-align: left; background: color-mix(in srgb, var(--up) calc(var(--h, 0) * 45%), var(--panel-2)); }
+.gtr-tile.on { border-color: var(--link); box-shadow: inset 0 0 0 1px var(--link); }
+.gtr-tile b { margin-left: auto; }
+.gtr-flag { font-size: 18px; }
+.gtr-country h4 { margin: 4px 0 8px; }
+.gtr-country > .fi-box { margin-bottom: 10px; }

@@ -72,3 +72,27 @@ describe('global trends: database', () => {
     expect(db.raises).toHaveLength(0);
   });
 });
+
+describe('global trends: page summary', () => {
+  const night = (db: ReturnType<typeof emptyDb>, date: string, rows: [string, string, number][]) => mergeNight(db, rows.map(([id, where, rank]) => ({ src: 'apps-free' as const, where, id, name: id, rank })), date);
+  it('shows charts but no "new" while warming up, then new-this-week per country', async () => {
+    const { summarize } = await import('../shared/globaltrends');
+    let db = night(emptyDb(), '2026-11-01', [['a', 'kr', 1], ['b', 'us', 1]]);
+    let s = summarize(db);
+    expect(s.warmingUp).toBe(true);
+    expect(s.countries.find((c) => c.cc === 'kr')!.now['apps-free']![0].id).toBe('a');
+    expect(s.countries.every((c) => c.heat === 0)).toBe(true);
+    for (const d of ['2026-11-02', '2026-11-03', '2026-11-08']) db = night(db, d, [['a', 'kr', 1], ['b', 'us', 1]]);
+    db = night(db, '2026-11-10', [['a', 'kr', 2], ['b', 'us', 1], ['c', 'kr', 1], ['a', 'us', 9]]);
+    s = summarize(db);
+    expect(s.warmingUp).toBe(false);
+    const kr = s.countries.find((c) => c.cc === 'kr')!;
+    expect(kr.fresh.map((x) => x.id)).toEqual(['c']);
+    expect(kr.heat).toBe(1);
+    expect(s.countries.find((c) => c.cc === 'us')!.fresh.map((x) => x.id)).toEqual(['a']);
+    expect(s.spreading[0]).toMatchObject({ id: 'a', origin: 'kr', originName: 'South Korea' });
+    expect(kr.now['apps-free']!.find((x) => x.id === 'a')!.trend).toBe(-1); // was 1 a week earlier, now 2
+    expect(s.local.map((x) => [x.id, x.cc])).toEqual([['c', 'kr'], ['b', 'us']]); // each on one country's chart only ('a' is in two)
+
+  });
+});
