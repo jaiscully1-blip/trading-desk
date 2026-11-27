@@ -5,6 +5,7 @@ import { cssVar } from '../lib/format';
 import { CandlestickSeries, ColorType, CrosshairMode, HistogramSeries, createChart, type IChartApi, type ISeriesApi, type UTCTimestamp } from 'lightweight-charts';
 import { usePersisted } from '../lib/store';
 import { Fresh, Seg } from './common';
+import { CryptoDeriv } from './CryptoDeriv';
 
 type TF = '15m' | '1H' | 'D' | 'W';
 interface Bar { time: number; open: number; high: number; low: number; close: number; volume?: number }
@@ -99,6 +100,7 @@ export default function CryptoCharts() {
       <div className={`cr-grid ${pick === 'both' ? 'two' : ''}`}>
         {SYMS.filter((s) => pick === 'both' || s === pick).map((s) => <CryptoChart key={s} sym={s} tf={tf} />)}
       </div>
+      <CryptoDeriv />
     </div>
   );
 }

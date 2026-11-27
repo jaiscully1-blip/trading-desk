@@ -3836,3 +3836,18 @@ img, a, svg { -webkit-user-drag: none; }
 @container hdr (max-width: 1260px) { .hol-name { display: none; } }
 @container hdr (max-width: 1120px) { .top.top3 > .top-search { min-width: 90px; } .tz-markets .mc-chip:nth-child(3) { display: none; } }
 @container hdr (max-width: 960px) { .tz-markets .mc-chip:nth-child(2) { display: none; } }
+
+/* BTC / ETH: derivatives across exchanges */
+.cd { margin-top: 12px; }
+.cd-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 12px; padding: 0 12px 8px; }
+.cd-card { border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; background: var(--panel-2); min-width: 0; }
+.cd-card h4 { margin: 0 0 6px; }
+.cd-tot td { border-top: 1px solid var(--line); font-weight: 600; }
+.cd-row { display: flex; flex-direction: column; gap: 3px; margin: 10px 0 0; }
+.cd-line { width: 100%; height: 40px; }
+.cd-range { position: relative; height: 6px; border-radius: 3px; background: linear-gradient(90deg, var(--down), var(--line-2) 50%, var(--up)); margin: 4px 0; }
+.cd-range i { position: absolute; top: -3px; width: 3px; height: 12px; background: var(--text); border-radius: 1px; transform: translateX(-1px); }
+.cd-notes { margin: 8px 0 0; padding-left: 16px; }
+/* the BTC / ETH page scrolls, so the derivatives panel under the charts keeps its full height */
+.page > .cr { flex: 1; min-height: 0; overflow-y: auto; }
+.cr > .cd { flex: none; }
