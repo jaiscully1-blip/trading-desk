@@ -56,10 +56,32 @@ export function Calendars({ cal, now: appNow, onSelect, mySyms, mode, news }: { 
             <span className="small muted econ-u">
               {e.usual ? `SPY moved ${e.usual.avgAbsMove.toFixed(2)}% avg on the last ${e.usual.n} (vs ${e.usual.baseline.toFixed(2)}% typical), up ${e.usual.upPct.toFixed(0)}%` : 'no history'}
             </span>
+            {e.fc && <span className="small econ-fc" title={`Forex Factory: ${e.fc.title}`}>{e.fc.title}: forecast <b className="num">{e.fc.forecast || '—'}</b> · previous <span className="num">{e.fc.previous || '—'}</span></span>}
           </div>
         ))}
         {cal?.econ && !cal.econ.length && <p className="muted small">Nothing scheduled in the next 60 days.</p>}
         {!cal?.econ && <p className="muted small">{errs.econ ?? (fr === 'pending' ? 'Loading…' : 'Set FRED_API_KEY for the economic calendar.')}</p>}
+      </section>
+
+      <section className="cal-sec">
+        <h4>World releases this week <span className="muted small">outside the US · medium and high impact · New York time</span>{cal?.world && <Fresh kind="delayed" src="Forex Factory weekly calendar file (forecast and previous; no actual results), refreshed about every 60 min" />}</h4>
+        {cal?.world?.length ? (() => {
+          let last = '';
+          return cal.world.map((e, i) => {
+            const day = e.date !== last ? (last = e.date) : null;
+            return (
+              <div key={i}>
+                {day && <div className="small muted wr-day">{dow(e.date)}</div>}
+                <div className="econ wr">
+                  <span className="num small">{e.impact === 0 ? 'all day' : e.time}</span>
+                  <span className={`imp imp-${Math.max(1, e.impact)}`} title={e.impact === 0 ? 'Market holiday' : `${['', 'Low', 'Medium', 'High'][e.impact]} impact`}>{e.impact === 0 ? 'holiday' : `${'●'.repeat(e.impact)}${'○'.repeat(3 - e.impact)}`}</span>
+                  <b><span className="wr-ccy">{e.ccy}</span> {e.title}</b>
+                  {(e.forecast || e.previous) && <span className="small muted econ-u">forecast <span className="num">{e.forecast || '—'}</span> · previous <span className="num">{e.previous || '—'}</span></span>}
+                </div>
+              </div>
+            );
+          });
+        })() : <p className="muted small">{cal?.world ? 'No medium or high-impact releases outside the US left this week.' : cal?.errors?.world ? `Not loaded: ${cal.errors.world}` : fr === 'demo' ? 'Live data only.' : 'Loading…'}</p>}
       </section>
 
       <section className="cal-sec">

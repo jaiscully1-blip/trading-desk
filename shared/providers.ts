@@ -49,6 +49,7 @@ export const PROVIDER_INFO: Record<string, ProviderInfo> = {
   fema: { label: 'FEMA disaster declarations', feeds: 'Commodity map: recent disasters by state', fallback: 'Layer left empty' },
   dtcc: { label: 'DTCC public swap data', feeds: 'Credit & Swaps: CDS tape, index CDS, per-name trading activity (quarterly files)', fallback: 'CDS tape left empty' },
   cftc: { label: 'CFTC Commitments of Traders', feeds: 'Credit & Swaps: Treasury futures positioning', fallback: 'Section left empty' },
+  forexfactory: { label: 'Forex Factory calendar (weekly file)', feeds: 'Calendars: world releases, forecast and previous for US releases', fallback: 'US releases without forecasts; no world list' },
   cryptoex: { label: 'Crypto exchanges (OKX, Kraken Futures, Deribit public data)', feeds: 'BTC / ETH: funding, open interest, long / short ratio, liquidations', fallback: 'Venue left out of the table' },
   agencies: { label: 'Agency feeds (World Monitor)', feeds: 'World Monitor: disasters, outbreaks, recalls, rules, travel, cyber, airports', fallback: 'That feed shows as not loaded' },
   usdm: { label: 'US Drought Monitor', feeds: 'Commodity map: drought by state', fallback: 'Layer left empty' },

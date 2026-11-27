@@ -1,3 +1,4 @@
+import type { WorldEvent } from '../../shared/ffcal';
 import { useEffect, useMemo, useState } from 'react';
 import type { Freshness, Headline } from '../types';
 import type { DataMode } from './live';
@@ -33,11 +34,13 @@ export function useNews(symbols: string[], mode: DataMode, demo: Headline[]): Ne
   return mode.kind === 'live' ? st : demoState;
 }
 
-export interface EconEvent { key: string; label: string; date: string; time: string; impact: 1 | 2 | 3; note: string; usual: Usual | null }
+export interface EconEvent { key: string; label: string; date: string; time: string; impact: 1 | 2 | 3; note: string; usual: Usual | null; fc?: { title: string; forecast: string; previous: string } | null }
 export interface CalendarState {
   asOf: number;
   freshness: Freshness;
   econ: EconEvent[] | null;
+  /** non-US medium / high releases this week (Forex Factory); null in demo or when unavailable */
+  world?: WorldEvent[] | null;
   odds: Odds | null;
   earnings: { mine: Earning[]; week: Earning[] } | null;
   ipos: Ipo[] | null;

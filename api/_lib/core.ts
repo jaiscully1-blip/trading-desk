@@ -3,7 +3,7 @@
 import { ProviderError } from '../../shared/parse.js';
 import { clock } from '../../shared/clock.js';
 
-export type Provider = 'bis' | 'pubs' | 'fdic' | 'googlepatents' | 'groq' | 'openrouter' | 'twelvedata' | 'finnhub' | 'alphavantage' | 'fred' | 'finra' | 'kalshi' | 'gdelt' | 'binance' | 'coingecko' | 'sec' | 'gemini' | 'wikipedia' | 'aisstream' | 'polymarket' | 'github' | 'yahoo' | 'openfigi' | 'ark' | 'tradingview' | 'alpaca' | 'cboe' | 'nasdaq' | 'earningsapi' | 'tradetime' | 'zillow' | 'mempool' | 'dataroma' | 'apewisdom' | 'rdw' | 'copernicus' | 'stocktwits' | 'opensky' | 'adsblol' | 'adsbfi' | 'eia' | 'noaa' | 'patentsview' | 'courtlistener' | 'french' | 'steam' | 'cfpb' | 'nhtsa' | 'openfda' | 'fema' | 'usdm' | 'agencies' | 'dtcc' | 'cftc' | 'cryptoex';
+export type Provider = 'bis' | 'pubs' | 'fdic' | 'googlepatents' | 'groq' | 'openrouter' | 'twelvedata' | 'finnhub' | 'alphavantage' | 'fred' | 'finra' | 'kalshi' | 'gdelt' | 'binance' | 'coingecko' | 'sec' | 'gemini' | 'wikipedia' | 'aisstream' | 'polymarket' | 'github' | 'yahoo' | 'openfigi' | 'ark' | 'tradingview' | 'alpaca' | 'cboe' | 'nasdaq' | 'earningsapi' | 'tradetime' | 'zillow' | 'mempool' | 'dataroma' | 'apewisdom' | 'rdw' | 'copernicus' | 'stocktwits' | 'opensky' | 'adsblol' | 'adsbfi' | 'eia' | 'noaa' | 'patentsview' | 'courtlistener' | 'french' | 'steam' | 'cfpb' | 'nhtsa' | 'openfda' | 'fema' | 'usdm' | 'agencies' | 'dtcc' | 'cftc' | 'cryptoex' | 'forexfactory';
 
 export const KEY_ENV: Record<Provider, string> = {
   twelvedata: 'TWELVEDATA_API_KEY',
@@ -51,6 +51,7 @@ export const KEY_ENV: Record<Provider, string> = {
   usdm: '', // US Drought Monitor data services (UNL), no key
   dtcc: '', // DTCC public swap dissemination (pddata.dtcc.com), no key
   cftc: '', // CFTC Commitments of Traders (publicreporting.cftc.gov), no key
+  forexfactory: '', // Forex Factory weekly calendar file (nfs.faireconomy.media), no key
   cryptoex: '', // OKX, Kraken Futures, Deribit public market data, no key
   agencies: '', // World Monitor: USGS, NOAA, NIFC, GDACS, IFRC, WHO, CDC, ECDC, FDA, CPSC, Federal Register, SEC, Fed, State, CISA, FAA, UN (all no key)
   patentsview: 'USPTO_API_KEY', // USPTO Open Data Portal API key (free; needs a USPTO.gov account verified with ID.me). PatentsView's own API went offline in 2026
@@ -123,6 +124,7 @@ const LIMITS: Record<Provider, { perMin: number; perDay: number }> = {
   agencies: { perMin: 60, perDay: 6000 },
   dtcc: { perMin: 30, perDay: 1000 },
   cftc: { perMin: 20, perDay: 500 },
+  forexfactory: { perMin: 4, perDay: 60 }, // one small file, cached an hour
   cryptoex: { perMin: 60, perDay: 8000 }, // ~21 calls per refresh, cached 2 min; OKX allows 20 per 2 s per endpoint
   patentsview: { perMin: 480, perDay: 60000 }, // ODP: 5M metadata calls/week, burst 1, 4-15/s (data.uspto.gov/apis/api-rate-limits); calls run one at a time, so ~3-5/s in practice; a fresh radar is ~130 calls
   french: { perMin: 4, perDay: 50 }, // two small files, cached a day
