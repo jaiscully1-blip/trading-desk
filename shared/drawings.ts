@@ -9,7 +9,8 @@ export interface Shape { id: string; kind: Exclude<Tool, 'cursor'>; pts: Pt[]; i
 
 /** points needed before a shape is complete (free draw takes as many as the drag collects) */
 export const NEEDS: Record<Exclude<Tool, 'cursor'>, number> = { trend: 2, ray: 1, fib: 2, rect: 2, tri: 3, text: 1, free: 2 };
-export const FIB_LEVELS = [0, 0.236, 0.382, 0.5, 0.618, 0.786, 1];
+/** the drawn Fib tool: its two ends plus the three levels that matter most for stocks */
+export const FIB_LEVELS = [0, 0.382, 0.5, 0.618, 1];
 
 export type Prim =
   | { k: 'line'; x1: number; y1: number; x2: number; y2: number; dash?: boolean; faint?: boolean }

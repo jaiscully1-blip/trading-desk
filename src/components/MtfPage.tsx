@@ -228,7 +228,7 @@ export default function MtfPage({ mode, mySyms }: { mode: DataMode; mySyms: stri
             {linked ? '🔗 Linked' : 'Unlinked'}
           </button>
           <button className={`chip sm ${draw ? 'on' : ''}`} onClick={() => setDraw(!draw)} aria-pressed={draw} title="Drawing tools on each chart: trendline (with angle and prices), ray, Fib, box, triangle, note, free draw. Drawings are saved per ticker and timeframe.">✎ Draw</button>
-          <button className={`chip sm ${fib ? 'on' : ''}`} onClick={() => setFib(!fib)} aria-pressed={fib} title="Fibonacci levels for today from yesterday's high and low (50% and 61.8% highlighted)">Fib</button>
+          <button className={`chip sm ${fib ? 'on' : ''}`} onClick={() => setFib(!fib)} aria-pressed={fib} title="Fibonacci levels for today from yesterday's high and low: 38.2%, 50% and 61.8% (off until you turn it on)">Fib</button>
           <button className="btn" onClick={resetLayout} title="Put the four charts back in a 2 x 2 grid">Reset layout</button>
         </div>
         <div className="mtf-chips">

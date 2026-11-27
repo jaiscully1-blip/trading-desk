@@ -4,14 +4,13 @@ import { tradeDay } from '../src/components/JournalCalendar';
 import type { TradeView } from '../src/lib/journal';
 
 describe('day fib levels', () => {
-  it('retracements from the high, extensions beyond both ends', () => {
+  it('only the key retracements from the high: 38.2, 50, 61.8', () => {
     const f = dayFibs(110, 100);
     const at = (label: string) => f.find((x) => x.label === label)!.price;
     expect(at('Fib 50')).toBeCloseTo(105);
     expect(at('Fib 61.8')).toBeCloseTo(103.82);
-    expect(at('Fib 23.6')).toBeCloseTo(107.64);
-    expect(at('Fib 1.618 ↑')).toBeCloseTo(116.18);
-    expect(at('Fib 1.618 ↓')).toBeCloseTo(93.82);
+    expect(at('Fib 38.2')).toBeCloseTo(106.18);
+    expect(f.map((x) => x.label)).toEqual(['Fib 38.2', 'Fib 50', 'Fib 61.8']);
     expect(f[0].price).toBeGreaterThan(f[f.length - 1].price); // highest first
     expect(dayFibs(100, 100)).toEqual([]);
   });
