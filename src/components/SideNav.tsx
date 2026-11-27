@@ -30,7 +30,7 @@ const ICON: Record<Page | 'account', string> = {
   learn: 'M3 7l9-4 9 4-9 4z M7 9v5c0 1.7 2.2 3 5 3s5-1.3 5-3V9 M21 7v6',
   essay: 'M4 20h4L19 9l-4-4L4 16z M13.5 6.5l4 4 M4 20h16',
   policy: 'M4 21h16 M6 18V10 M10 18V10 M14 18V10 M18 18V10 M3 8l9-5 9 5z',
-  crypto: 'M9 5v14 M13 5v14 M7 8h7a3 3 0 0 1 0 6H7 M7 14h8a3 3 0 0 1 0 6H7 M7 8V5 M7 20v-1',
+  crypto: 'M12 2.5 5.5 12.6 12 16.4l6.5-3.8z M5.5 14.2 12 21.5l6.5-7.3-6.5 3.9z M12 2.5v13.9 M5.5 12.6 12 9.7l6.5 2.9', // Ethereum-style diamond (Jai's pick)
   plumbing: 'M4 20h16 M6 20v-6 M10.5 20v-9 M15 20v-4 M19 3v8 M16.5 8.5 19 11l2.5-2.5',
   realecon: 'M2 17l5-5 4 3 7-8 M14 7h4v4 M3 21h18',
   cmap: 'M3 6l6-3 6 3 6-3v15l-6 3-6-3-6 3z M9 3v15 M15 6v15',
@@ -81,7 +81,7 @@ const P: Record<Page, { label: string; hint: string; key: string }> = {
   insiders: { label: 'Insiders & funds', hint: 'insider buys and sells, short volume, 13F big-fund holdings', key: '' },
   distress: { label: 'Distress', hint: 'weak companies, turnarounds, sector stress', key: '⇧R' },
   news: { label: 'News', hint: 'top stories, search, news by ticker', key: '⇧N' },
-  global: { label: 'Global → US', hint: 'world markets and news, and how they carry into US stocks', key: '⇧G' },
+  global: { label: 'World markets', hint: 'world markets and news, and how they carry into US stocks', key: '⇧G' },
   status: { label: 'Data status', hint: 'which data sources are working or limited', key: '⇧B' },
 };
 export const NAV_GROUPS: { id: GroupId; label: string; pages: Page[] }[] = [
@@ -189,7 +189,7 @@ export function SideNav({ compact, page, onPage, onCmd, onHelp, onAccount, onCal
           <div key={g.id} className={`nv-group g-${g.id}`}>
             {compact ? <div className="nv-rule" /> : <div className="nv-gh">{g.label}</div>}
             {g.pages.map((id) => (
-              <button key={id} className={`nv-item ${page === id ? 'on' : ''}`} aria-current={page === id ? 'page' : undefined} onClick={() => onPage(id)} title={`${P[id].label} (${P[id].key}): ${P[id].hint}`} aria-label={P[id].label} data-key={P[id].key}>
+              <button key={id} className={`nv-item ${page === id ? 'on' : ''}`} aria-current={page === id ? 'page' : undefined} onClick={() => onPage(id)} title={`${P[id].label}${P[id].key ? ` (${P[id].key})` : ''}: ${P[id].hint}`} aria-label={P[id].label} data-key={P[id].key}>
                 <Icon id={id} />
                 {id === 'status' && dataState && <i className={`nv-dot ${dataState}`} title={dataState === 'live' ? 'Live data connected' : dataState === 'demo' ? 'Demo data: no live keys' : 'Checking the data connection'} />}
                 {!compact && <><span className="nv-l">{P[id].label}</span><span className="nv-key">{P[id].key}</span></>}

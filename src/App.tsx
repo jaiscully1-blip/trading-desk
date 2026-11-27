@@ -769,7 +769,7 @@ export default function App() {
     ['kelly', 'KELLY · Odds of your next trades (simulator)', () => openWidget('sim')], ['calc', 'CALC · Risk and position calculator', () => openWidget('risk')],
     ['note', 'NOTE · Sticky notes', () => openWidget('notes')], ['al', 'AL · Price alerts (any ticker, with sound)', () => openWidget('alerts')], ['kw', 'KW · Keyword alerts (Messages)', () => setPage('messages')],
     ['qm', 'QM · Quote monitor (watchlist on the desk)', () => setPage('desk')], ['shrt', 'SHRT · Most-shorted stocks', () => openWidget('hisi')],
-    ['hous', 'HOUS · Housing (Zillow)', () => openWidget('housing')], ['glob', 'GLOB · Global → US', () => setPage('global')], ['gf', 'GF · Fundamentals charts', () => openWidget('fund', { sym: sel })], ['wn', 'WN · World business news', () => setPage('global')], ['top', 'TOP · Top stories across outlets', () => setPage('news')], ['ni', 'NI · News search', () => setPage('news')], ['cn', 'CN · Company news (by ticker)', () => setPage('news')],
+    ['hous', 'HOUS · Housing (Zillow)', () => openWidget('housing')], ['glob', 'GLOB · World markets', () => setPage('global')], ['gf', 'GF · Fundamentals charts', () => openWidget('fund', { sym: sel })], ['wn', 'WN · World business news', () => setPage('global')], ['top', 'TOP · Top stories across outlets', () => setPage('news')], ['ni', 'NI · News search', () => setPage('news')], ['cn', 'CN · Company news (by ticker)', () => setPage('news')],
   ].map(([id, label, run]) => ({ id: id as string, label: label as string, run: run as () => void, code: true, group: 'Codes' }));
   // codes that take a ticker ("NVDA DES", "AAPL BETA")
   const withSym: Record<string, (s: string) => void> = {
@@ -847,7 +847,7 @@ export default function App() {
     { id: 'credit', label: 'Credit market: spreads, yield curve, stress, bond ETFs, both sides', hint: '', run: () => setPage('credit') },
     { id: 'insiders', label: 'Insiders: who is buying and selling their own stock, short volume, big funds', hint: '', run: () => setPage('insiders') },
     { id: 'distress', label: 'Distress: weak companies, turnarounds, sector stress', hint: '⇧R', run: () => setPage('distress') },
-    { id: 'global', label: 'Global → US: world markets, world news and how they carry into US stocks', hint: '⇧G', run: () => setPage('global') },
+    { id: 'global', label: 'World markets: world indices, futures, FX, world news and how they carry into US stocks', hint: '⇧G', run: () => setPage('global') },
     { id: 'd', label: 'Chart: daily', hint: '1', run: () => setTf('D') },
     { id: '1h', label: 'Chart: 1-hour', hint: '2', run: () => setTf('1H') },
     { id: '5m', label: 'Chart: 5-minute', hint: '3', run: () => setTf('5m') },
