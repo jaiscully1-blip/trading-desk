@@ -11,6 +11,9 @@ describe('live streams', () => {
     expect(s.length).toBe(CHANNELS.filter((c) => c.allDay).length + 1);
     expect(s.map((x) => x.name)).toEqual(CHANNELS.filter((c) => s.some((x) => x.name === c.name)).map((c) => c.name)); // channel order kept
   });
+  it('plays Sky News by its known 24/7 video when the server cannot confirm it', () => {
+    expect(streamList([]).find((x) => x.name === 'Sky News')).toMatchObject({ key: '53SxFKpbKDE', confirmed: false, src: 'https://www.youtube-nocookie.com/embed/53SxFKpbKDE' });
+  });
   it('every channel has a proper channel id (except Fox Business, which has none to embed)', () => {
     for (const c of CHANNELS) if (c.handle !== 'FoxBusiness') expect(c.id).toMatch(/^UC[\w-]{22}$/);
   });

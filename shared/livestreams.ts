@@ -3,7 +3,7 @@
 // "this channel's live stream" embed. Event channels (government, Reuters, CNBC...) show only when the server finds them live.
 // Checked 2026-11-26: all allDay channels were live and allowed embedding. CNBC and Fox Business have no free 24/7 stream.
 
-export interface Channel { name: string; handle: string; id: string; allDay: boolean; group: 'Markets' | 'World news' | 'Government' }
+export interface Channel { name: string; handle: string; id: string; allDay: boolean; group: 'Markets' | 'World news' | 'Government'; /** a known 24/7 video, for channels whose channel embed shows "unavailable" */ video?: string }
 export const CHANNELS: Channel[] = [
   { name: 'Bloomberg TV', handle: 'markets', id: 'UCIALMKvObZNtJ6AmdCLP7Lg', allDay: true, group: 'Markets' },
   { name: 'Yahoo Finance', handle: 'YahooFinance', id: 'UCEAZeUIeJs0IjQiqTCdVSIg', allDay: true, group: 'Markets' },
@@ -11,7 +11,7 @@ export const CHANNELS: Channel[] = [
   { name: 'CNBC', handle: 'CNBCtelevision', id: 'UCrp_UI8XtuYfpiqluWLD7Lw', allDay: false, group: 'Markets' },
   { name: 'Fox Business', handle: 'FoxBusiness', id: '', allDay: false, group: 'Markets' },
   { name: 'Reuters', handle: 'Reuters', id: 'UChqUTb7kYRX8-EiaN3XFrSQ', allDay: false, group: 'World news' },
-  { name: 'Sky News', handle: 'SkyNews', id: 'UCoMdktPbSTixAyNGwb-UYkQ', allDay: true, group: 'World news' },
+  { name: 'Sky News', handle: 'SkyNews', id: 'UCoMdktPbSTixAyNGwb-UYkQ', allDay: true, group: 'World news', video: '53SxFKpbKDE' }, // its channel embed says unavailable; this 24/7 stream plays (checked 2026-11-26)
   { name: 'Al Jazeera English', handle: 'aljazeeraenglish', id: 'UCNye-wNBqNL5ZzHSJj3l8Bg', allDay: true, group: 'World news' },
   { name: 'DW News', handle: 'dwnews', id: 'UCknLrEdhRCp1aegoMqRaCZg', allDay: true, group: 'World news' },
   { name: 'France 24', handle: 'France24_en', id: 'UCQfwfsi5VrQ8yKZ-UWmAEFg', allDay: true, group: 'World news' },
@@ -36,6 +36,7 @@ export function streamList(live: { name: string; videoId: string }[]): Stream[] 
   return CHANNELS.flatMap((c): Stream[] => {
     const l = live.find((x) => x.name === c.name);
     if (l) return [{ key: l.videoId, name: c.name, src: embed(l.videoId), confirmed: true, group: c.group }];
+    if (c.allDay && c.video) return [{ key: c.video, name: c.name, src: embed(c.video), confirmed: false, group: c.group }];
     return c.allDay && c.id ? [{ key: `ch:${c.id}`, name: c.name, src: embed(`live_stream?channel=${c.id}`), confirmed: false, group: c.group }] : [];
   });
 }
