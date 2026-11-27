@@ -245,14 +245,14 @@ export function ChartPanel({
     zp.current.set(z);
   }, [levels, ov, tf, theme, bars, dayTools]);
 
-  // Fibonacci levels for today, anchored to yesterday's high and low (retracements inside, 1.272 / 1.618 extensions beyond)
+  // Fibonacci levels for today, anchored to yesterday's high and low: 38.2 / 50 / 61.8% only, and only when Fib is turned on
   const fibLines = useRef<IPriceLine[]>([]);
   useEffect(() => {
     const x = s.current;
     if (!x) return;
     for (const l of fibLines.current) x.c.removePriceLine(l);
     fibLines.current = [];
-    if (ov.fib === false || tf === 'W' || tf === 'M') return;
+    if (ov.fib !== true || tf === 'W' || tf === 'M') return;
     const hi = levels.find((l) => l.id === 'pdh')?.value, lo = levels.find((l) => l.id === 'pdl')?.value;
     if (hi == null || lo == null) return;
     const gold = cssVar('--warn'), faint = cssVar('--muted');
@@ -346,7 +346,7 @@ export function ChartPanel({
         {dayTools && tf !== 'D' && tf !== 'W' && tf !== 'M' && T('vwap', 'VWAP', 'Session VWAP (intraday). Shown during regular trading hours only.')}
         {T('ma', dayTools ? 'MA 20/50' : 'MA 20/50/200', dayTools ? '20 and 50-period simple moving averages' : 'Market is closed: 20, 50 and 200-period moving averages (long-term view)')}
         {T('lvl', 'Levels', 'Draw key levels on the chart')}
-        <button className={`chip sm ${ov.fib !== false ? 'on' : ''}`} onClick={() => setOv({ ...ov, fib: ov.fib === false })} title="Fibonacci levels for today from yesterday's high and low: 23.6 / 38.2 / 50 / 61.8 / 78.6% inside the range, 1.272 and 1.618 beyond it (50% and 61.8% highlighted)" aria-pressed={ov.fib !== false}>Fib</button>
+        <button className={`chip sm ${ov.fib === true ? 'on' : ''}`} onClick={() => setOv({ ...ov, fib: ov.fib !== true })} title="Fibonacci levels for today from yesterday's high and low: 38.2%, 50% and 61.8% (off until you turn it on; for your own Fib, use the drawing tools)" aria-pressed={ov.fib === true}>Fib</button>
         {GX_SYMS.includes(sym) && mode?.kind === 'live' && <button className={`chip sm ${ov.gx !== false ? 'on' : ''}`} onClick={() => setOv({ ...ov, gx: ov.gx === false })} title={`Dealer gamma: call wall, put wall and zero-gamma flip for the next 7 days (Alpaca or Cboe, delayed ~15 min, estimated from open interest)`} aria-pressed={ov.gx !== false}>Gamma</button>}
         {mode?.kind === 'live' && tf !== 'W' && tf !== 'M' && <button className={`chip sm ${ov.dp !== false ? 'on' : ''}`} onClick={() => setOv({ ...ov, dp: ov.dp === false })} aria-pressed={ov.dp !== false} title={dp?.needsKey ? 'Dark-pool prints need a free Alpaca key (ALPACA_KEY_ID and ALPACA_SECRET_KEY in Vercel).' : `Dark-pool lines: the price levels with the most off-exchange block dollars ($1M+ or 10,000+ shares) over the last 3 sessions. SIP tape via Alpaca free plan, 15+ min delayed. A print has a buyer and a seller: no direction.${dp?.sessions ? ' Read: ' + dp.sessions.map((x) => `${x.day} ${x.coverage.regularMin}/${x.coverage.regularTotal} min of the session`).join(', ') : ''}`}>Dark pool{dp?.needsKey ? ' (key)' : ''}</button>}
         {ov.dp !== false && mode?.kind === 'live' && tf !== 'W' && tf !== 'M' && <button className={`chip sm ${ov.ph !== false ? 'on' : ''}`} onClick={() => setOv({ ...ov, ph: ov.ph === false })} aria-pressed={ov.ph !== false} title="Phantom prints (the desk's own rule, no official definition): off-exchange blocks reported late or out of sequence, average-price or derivatively priced, or printed more than 0.5% away from the market at the time">Phantom</button>}
