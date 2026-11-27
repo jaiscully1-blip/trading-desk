@@ -3,8 +3,9 @@
 // A nightly job turns each night's lists into one record per thing (first and last seen per country, best rank, last 30
 // ranks), so a trend that starts in one country can be seen reaching others. Pure + tested. Research, not advice.
 
-export interface Country { cc: string; name: string; wiki: string; spotify: boolean; steam: boolean }
-/** The first 15 (Jai's list, 2026-11-27). wiki = the Wikipedia language most read there (English is shared by several). */
+/** stack = the order countries were added in (1 = the first 15; 2 = the next biggest markets and startup hubs; ...). */
+export interface Country { cc: string; name: string; wiki: string; spotify: boolean; steam: boolean; stack?: number }
+/** Shipped in stacks, best data first: stack 1 = Jai's first 15 (2026-11-27), stack 2 = the next 15. wiki = the Wikipedia language most read there (English is shared by several). */
 export const COUNTRIES: Country[] = [
   { cc: 'us', name: 'United States', wiki: 'en', spotify: true, steam: true },
   { cc: 'gb', name: 'United Kingdom', wiki: 'en', spotify: true, steam: true },
@@ -21,6 +22,22 @@ export const COUNTRIES: Country[] = [
   { cc: 'au', name: 'Australia', wiki: 'en', spotify: true, steam: true },
   { cc: 'ae', name: 'UAE', wiki: 'ar', spotify: true, steam: true },
   { cc: 'ng', name: 'Nigeria', wiki: 'en', spotify: true, steam: false },
+  // stack 2 (2026-11-27): the next biggest consumer markets and startup hubs
+  { cc: 'it', name: 'Italy', wiki: 'it', spotify: true, steam: true, stack: 2 },
+  { cc: 'es', name: 'Spain', wiki: 'es', spotify: true, steam: true, stack: 2 },
+  { cc: 'nl', name: 'Netherlands', wiki: 'nl', spotify: true, steam: true, stack: 2 },
+  { cc: 'se', name: 'Sweden', wiki: 'sv', spotify: true, steam: true, stack: 2 },
+  { cc: 'ch', name: 'Switzerland', wiki: 'de', spotify: true, steam: true, stack: 2 },
+  { cc: 'pl', name: 'Poland', wiki: 'pl', spotify: true, steam: true, stack: 2 },
+  { cc: 'tr', name: 'Turkey', wiki: 'tr', spotify: true, steam: true, stack: 2 },
+  { cc: 'il', name: 'Israel', wiki: 'he', spotify: true, steam: true, stack: 2 },
+  { cc: 'sa', name: 'Saudi Arabia', wiki: 'ar', spotify: true, steam: true, stack: 2 },
+  { cc: 'sg', name: 'Singapore', wiki: 'en', spotify: true, steam: true, stack: 2 },
+  { cc: 'tw', name: 'Taiwan', wiki: 'zh', spotify: true, steam: true, stack: 2 },
+  { cc: 'hk', name: 'Hong Kong', wiki: 'zh', spotify: true, steam: true, stack: 2 },
+  { cc: 'vn', name: 'Vietnam', wiki: 'vi', spotify: true, steam: true, stack: 2 },
+  { cc: 'th', name: 'Thailand', wiki: 'th', spotify: true, steam: true, stack: 2 },
+  { cc: 'ph', name: 'Philippines', wiki: 'en', spotify: true, steam: true, stack: 2 },
 ];
 /** Wikipedia languages read (one list per language, stored under `wiki:<lang>`). */
 export const WIKI_LANGS = [...new Set(COUNTRIES.map((c) => c.wiki))];
@@ -39,7 +56,7 @@ export function appleTop(j: any, cc: string, src: 'apps-free' | 'apps-paid'): It
 }
 
 // Wikipedia front pages, search pages and other non-article titles: never a trend
-const WIKI_SKIP = /:|^(Main_Page|Wikipedia|Special|Portal|Pagina_principale|Página_principal|Accueil|Hauptseite|メインページ|大文|首页|मुख्य_पृष्ठ|Halaman_Utama|الصفحة_الرئيسية|-)$/i;
+const WIKI_SKIP = /:|^(Main_Page|Wikipedia|Special|Portal|Pagina_principale|Página_principal|Accueil|Hauptseite|Hoofdpagina|Huvudsida|Strona_główna|Anasayfa|עמוד_ראשי|Trang_Chính|หน้าหลัก|メインページ|大文|首页|मुख्य_पृष्ठ|Halaman_Utama|الصفحة_الرئيسية|-)$/i;
 /** Wikimedia "top" pageviews for one language and day: articles only, front page and search pages dropped. */
 export function wikiTop(j: any, lang: string, max = 30): Item[] {
   const arts = ((j?.items?.[0]?.articles ?? []) as any[]).filter((a) => a?.article && !WIKI_SKIP.test(String(a.article)));
@@ -139,14 +156,23 @@ export const addRaises = (db: TrendDb, raises: Raise[]): TrendDb => {
 export interface Spread { id: string; src: Src; name: string; by?: string; url?: string; origin: string; originFirst: string; later: { where: string; first: string; best: number }[]; places: number }
 /** Things on charts in more than one country where at least one country picked it up later than the first: the first
  *  country and the ones that followed, most recent spread first. `wiki:` and `world` lists are left out (not one country). */
+/** The first night each place was collected (its earliest first-seen date): a thing that is "first seen" there on that
+ *  night was already popular before collection started, so it is not new there and not a spread. */
+export function placeSince(db: TrendDb): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const r of Object.values(db.items)) for (const [w, s] of Object.entries(r.seen)) if (!out[w] || s.first < out[w]) out[w] = s.first;
+  return out;
+}
+
 export function spreading(db: TrendDb, minPlaces = 2): Spread[] {
   const out: Spread[] = [];
+  const since = placeSince(db);
   for (const r of Object.values(db.items)) {
     const cs = Object.entries(r.seen).filter(([w]) => !w.startsWith('wiki:') && w !== 'world');
     if (cs.length < minPlaces) continue;
     const sorted = cs.sort((a, b) => a[1].first.localeCompare(b[1].first));
     const [origin, o] = sorted[0];
-    const later = sorted.slice(1).filter(([, s]) => s.first > o.first).map(([where, s]) => ({ where, first: s.first, best: s.best }));
+    const later = sorted.slice(1).filter(([w, s]) => s.first > o.first && s.first > (since[w] ?? '')).map(([where, s]) => ({ where, first: s.first, best: s.best }));
     if (!later.length) continue;
     out.push({ id: r.id, src: r.src, name: r.name, by: r.by, url: r.url, origin, originFirst: o.first, later, places: cs.length });
   }
@@ -157,7 +183,7 @@ export function spreading(db: TrendDb, minPlaces = 2): Spread[] {
 export interface Row { id: string; src: Src; name: string; by?: string; url?: string; note?: string; rank: number; first: string; days: number; best: number; trend: number | null }
 export interface CountrySum { cc: string; name: string; now: Partial<Record<Src, Row[]>>; fresh: Row[]; heat: number; heatBy: Partial<Record<Src, number>> }
 export interface Wide { id: string; src: Src; name: string; by?: string; url?: string; places: { cc: string; rank: number }[] }
-export interface TrendSummary { updated: string; nights: number; warmingUp: boolean; spreading: (Spread & { originName: string })[]; startups: StartupRadar; bans: { cc: string; name: string; items: News[] }[]; recalls: News[]; wide: Wide[]; local: (Row & { cc: string })[]; countries: CountrySum[]; world: Partial<Record<Src, Row[]>>; wiki: { lang: string; rows: Row[] }[] }
+export interface TrendSummary { wideMin: number; updated: string; nights: number; warmingUp: boolean; spreading: (Spread & { originName: string })[]; startups: StartupRadar; bans: { cc: string; name: string; items: News[] }[]; recalls: News[]; wide: Wide[]; local: (Row & { cc: string })[]; countries: CountrySum[]; world: Partial<Record<Src, Row[]>>; wiki: { lang: string; rows: Row[] }[] }
 
 const NAME: Record<string, string> = Object.fromEntries(COUNTRIES.map((c) => [c.cc, c.name]));
 export const placeName = (w: string) => NAME[w] ?? (w.startsWith('wiki:') ? `Wikipedia (${w.slice(5)})` : w === 'world' ? 'Worldwide' : w);
@@ -174,8 +200,10 @@ function rowAt(r: Rec, where: string, updated: string): Row | null {
 /** Everything the Global trends page shows. "New" = first seen in the last 7 days, but only once the database is a few
  *  nights old (on the first nights everything is "new", so the page shows the charts instead and says it is warming up). */
 export function summarize(db: TrendDb, perList = 10): TrendSummary {
-  const updated = db.updated, start = db.nights[0] ?? updated;
+  const updated = db.updated, since = placeSince(db);
   const warmingUp = db.nights.length < 4;
+  // a country added in a later stack warms up on its own: no "new" there until it has 3 nights after its first
+  const nightsSince = (cc: string) => db.nights.filter((n) => n > (since[cc] ?? updated)).length;
   const weekAgo = new Date(Date.parse(`${updated}T00:00:00Z`) - 7 * 86400_000).toISOString().slice(0, 10);
   const recs = Object.values(db.items);
   const countries: CountrySum[] = COUNTRIES.map((c) => {
@@ -183,7 +211,7 @@ export function summarize(db: TrendDb, perList = 10): TrendSummary {
     for (const r of recs) {
       const row = rowAt(r, c.cc, updated); if (!row) continue;
       (now[r.src] ??= []).push(row);
-      if (!warmingUp && row.first > start && row.first >= weekAgo) { fresh.push(row); heatBy[r.src] = (heatBy[r.src] ?? 0) + 1; }
+      if (!warmingUp && nightsSince(c.cc) >= 3 && row.first > (since[c.cc] ?? updated) && row.first >= weekAgo) { fresh.push(row); heatBy[r.src] = (heatBy[r.src] ?? 0) + 1; }
     }
     for (const k of Object.keys(now) as Src[]) now[k] = now[k]!.sort((a, b) => a.rank - b.rank).slice(0, perList);
     return { cc: c.cc, name: c.name, now, fresh: fresh.sort((a, b) => a.rank - b.rank).slice(0, 20), heat: fresh.length, heatBy };
@@ -194,25 +222,26 @@ export function summarize(db: TrendDb, perList = 10): TrendSummary {
   const wiki = WIKI_LANGS.map((lang) => ({ lang, rows: recs.map((r) => rowAt(r, `wiki:${lang}`, updated)).filter((x): x is Row => !!x).sort((a, b) => a.rank - b.rank).slice(0, perList) }));
   // on the charts in many countries now, and big in only one (top 10 there, on no other country's chart: a copycat lead)
   const CHART: Src[] = ['apps-free', 'apps-paid', 'steam', 'music'];
+  const WIDE = Math.max(5, Math.round(COUNTRIES.length / 4)); // "everywhere" = a quarter of the countries or more
   const wide: Wide[] = [], local: (Row & { cc: string })[] = [];
   for (const r of recs) {
     if (!CHART.includes(r.src)) continue;
     const places = COUNTRIES.flatMap((c) => { const x = rowAt(r, c.cc, updated); return x ? [{ cc: c.cc, rank: x.rank }] : []; });
-    if (places.length >= 5) wide.push({ id: r.id, src: r.src, name: r.name, by: r.by, url: r.url, places: places.sort((a, b) => a.rank - b.rank) });
+    if (places.length >= WIDE) wide.push({ id: r.id, src: r.src, name: r.name, by: r.by, url: r.url, places: places.sort((a, b) => a.rank - b.rank) });
     if (places.length === 1 && places[0].rank <= 10 && Object.keys(r.seen).filter((w) => NAME[w]).length === 1) { const x = rowAt(r, places[0].cc, updated)!; local.push({ ...x, cc: places[0].cc }); }
   }
   wide.sort((a, b) => b.places.length - a.places.length || a.places[0].rank - b.places[0].rank);
   local.sort((a, b) => a.rank - b.rank || a.cc.localeCompare(b.cc));
   const recentNews = (db.news ?? []).filter((n) => n.date >= new Date(Date.parse(`${updated}T00:00:00Z`) - 14 * 86400_000).toISOString().slice(0, 10));
   const bans = BAN_FEEDS.map((f) => ({ cc: f.cc, name: NAME[f.cc] ?? f.cc, items: recentNews.filter((n) => n.kind === 'ban' && n.cc === f.cc).slice(0, 15) }));
-  return { updated, nights: db.nights.length, warmingUp, startups: startupRadar(db.raises, updated), bans, recalls: recentNews.filter((n) => n.kind === 'recall').slice(0, 30), wide: wide.slice(0, 40), local: local.slice(0, 120), spreading: spreading(db).slice(0, 80).map((s) => ({ ...s, originName: placeName(s.origin) })), countries, world, wiki };
+  return { wideMin: WIDE, updated, nights: db.nights.length, warmingUp, startups: startupRadar(db.raises, updated), bans, recalls: recentNews.filter((n) => n.kind === 'recall').slice(0, 30), wide: wide.slice(0, 40), local: local.slice(0, 120), spreading: spreading(db).slice(0, 80).map((s) => ({ ...s, originName: placeName(s.origin) })), countries, world, wiki };
 }
 
 
 // ---------- ban watch: news of bans per country (Google News search, local language) and US recalls ----------
 /** One Google News RSS search per country, in its own language: bans on apps, products, sales or imports in the last week.
  *  Google News has no mainland China edition. Headlines only; unofficial feed. */
-export const BAN_FEEDS: { cc: string; hl: string; gl: string; q: string }[] = [
+export const BAN_FEEDS: { cc: string; hl: string; gl: string; q: string; ceid?: string }[] = [
   ...['us', 'gb', 'ca', 'au', 'in', 'ng'].map((cc) => ({ cc, hl: cc === 'us' ? 'en-US' : `en-${cc.toUpperCase()}`, gl: cc.toUpperCase(), q: '(banned OR "ban on" OR "bans") (app OR product OR sale OR import OR platform) when:7d' })),
   { cc: 'de', hl: 'de', gl: 'DE', q: '(Verbot OR verboten OR Verkaufsverbot) (App OR Produkt OR Verkauf OR Import) when:7d' },
   { cc: 'fr', hl: 'fr', gl: 'FR', q: '(interdiction OR interdit) (application OR produit OR vente OR importation) when:7d' },
@@ -222,8 +251,24 @@ export const BAN_FEEDS: { cc: string; hl: string; gl: string; q: string }[] = [
   { cc: 'mx', hl: 'es-419', gl: 'MX', q: '(prohibición OR prohíbe OR prohibido) (aplicación OR producto OR venta OR importación) when:7d' },
   { cc: 'id', hl: 'id', gl: 'ID', q: '(larangan OR dilarang) (aplikasi OR produk OR penjualan OR impor) when:7d' },
   { cc: 'ae', hl: 'ar', gl: 'AE', q: 'حظر (تطبيق OR منتج OR بيع OR استيراد) when:7d' },
+  // stack 2
+  { cc: 'it', hl: 'it', gl: 'IT', q: '(divieto OR vietato OR vieta) (app OR prodotto OR vendita OR importazione) when:7d' },
+  { cc: 'es', hl: 'es', gl: 'ES', q: '(prohibición OR prohíbe OR prohibido) (aplicación OR producto OR venta OR importación) when:7d' },
+  { cc: 'nl', hl: 'nl', gl: 'NL', q: '(verbod OR verboden OR verbiedt) (app OR product OR verkoop OR import) when:7d' },
+  { cc: 'se', hl: 'sv', gl: 'SE', q: '(förbud OR förbjuder OR förbjuds) (app OR produkt OR försäljning OR import) when:7d' },
+  { cc: 'ch', hl: 'de', gl: 'CH', q: '(Verbot OR verboten OR Verkaufsverbot) (App OR Produkt OR Verkauf OR Import) when:7d' },
+  { cc: 'pl', hl: 'pl', gl: 'PL', q: '(zakaz OR zakazuje OR zakazany) (aplikacja OR produkt OR sprzedaż OR import) when:7d' },
+  { cc: 'tr', hl: 'tr', gl: 'TR', q: '(yasak OR yasaklandı OR yasakladı) (uygulama OR ürün OR satış OR ithalat) when:7d' },
+  { cc: 'il', hl: 'he', gl: 'IL', q: '(איסור OR אסר OR נאסר) (אפליקציה OR מוצר OR מכירה OR יבוא) when:7d' },
+  { cc: 'sa', hl: 'ar', gl: 'SA', q: 'حظر (تطبيق OR منتج OR بيع OR استيراد) when:7d' },
+  { cc: 'sg', hl: 'en-SG', gl: 'SG', q: '(banned OR "ban on" OR "bans") (app OR product OR sale OR import OR platform) when:7d' },
+  { cc: 'tw', hl: 'zh-TW', gl: 'TW', ceid: 'TW:zh-Hant', q: '(禁止 OR 禁令 OR 禁售) (App OR 產品 OR 販售 OR 進口) when:7d' },
+  { cc: 'hk', hl: 'zh-HK', gl: 'HK', ceid: 'HK:zh-Hant', q: '(禁止 OR 禁令 OR 禁售) (App OR 產品 OR 銷售 OR 進口) when:7d' },
+  { cc: 'vn', hl: 'vi', gl: 'VN', q: 'cấm (ứng dụng OR sản phẩm OR bán OR nhập khẩu) when:7d' },
+  { cc: 'th', hl: 'th', gl: 'TH', q: '(ห้าม OR แบน) (แอป OR สินค้า OR จำหน่าย OR นำเข้า) when:7d' },
+  { cc: 'ph', hl: 'en-PH', gl: 'PH', q: '(banned OR "ban on" OR "bans") (app OR product OR sale OR import OR platform) when:7d' },
 ];
-export const banUrl = (f: (typeof BAN_FEEDS)[number]) => `https://news.google.com/rss/search?q=${encodeURIComponent(f.q)}&hl=${f.hl}&gl=${f.gl}&ceid=${f.gl}:${f.hl.split('-')[0]}`;
+export const banUrl = (f: (typeof BAN_FEEDS)[number]) => `https://news.google.com/rss/search?q=${encodeURIComponent(f.q)}&hl=${f.hl}&gl=${f.gl}&ceid=${f.ceid ?? `${f.gl}:${f.hl.split('-')[0]}`}`;
 // crime and court stories that only mention "ban" in passing
 const NOT_A_BAN = /arrest|逮捕|書類送検|murder|殺|police|경찰|체포|Polizei|Mord|burn ban|fire ban|travel ban|ban(ned)? from (the )?(game|match|league|driving)/i;
 /** Google News RSS items: headline (the " - Source" tail split off), link, date. */
@@ -239,13 +284,13 @@ export function gnewsItems(xml: string, cc: string): News[] {
   }
   return out;
 }
-/** Merge tonight's headlines in (deduped by headline): 30 days at most, the newest 30 per country (and 30 recalls). */
+/** Merge tonight's headlines in (deduped by headline): 30 days at most, the newest 20 per country (and 20 recalls). */
 export function addNews(db: TrendDb, items: News[], today: string): TrendDb {
   const cut = new Date(Date.parse(`${today}T00:00:00Z`) - 30 * 86400_000).toISOString().slice(0, 10);
   const map = new Map((db.news ?? []).map((n) => [n.id, n]));
   for (const n of items) if (!map.has(n.id)) map.set(n.id, n);
   const kept = new Map<string, number>();
-  const news = [...map.values()].filter((n) => n.date >= cut).sort((a, b) => b.date.localeCompare(a.date)).filter((n) => { const k = `${n.kind}:${n.cc}`, c = (kept.get(k) ?? 0) + 1; kept.set(k, c); return c <= 30; });
+  const news = [...map.values()].filter((n) => n.date >= cut).sort((a, b) => b.date.localeCompare(a.date)).filter((n) => { const k = `${n.kind}:${n.cc}`, c = (kept.get(k) ?? 0) + 1; kept.set(k, c); return c <= 20; });
   return { ...db, news };
 }
 

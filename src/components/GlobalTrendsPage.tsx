@@ -1,4 +1,4 @@
-// Global trends page: what is popular, new or launched in 15 countries (and worldwide), from the nightly database
+// Global trends page: what is popular, new or launched country by country (and worldwide), from the nightly database
 // (published/trends.json). Leads with trends spreading from one country to others; also each country's charts and
 // what is new there this week, things everywhere now, things big in one country only (copycat leads), worldwide AI models /
 // GitHub projects / launches, and each language's most-read Wikipedia pages. Global research, not investment advice.
@@ -46,7 +46,7 @@ export default function GlobalTrendsPage() {
   return (
     <div className="pp gtr">
       <section className="panel">
-        <div className="gx-h"><b>Global trends</b><span className="small muted">what is getting popular, new or launched in 15 countries · research, not investment advice</span>{d?.updated && <Fresh kind="eod" at={Date.parse(`${d.updated}T07:00:00Z`)} src={d.source} />}</div>
+        <div className="gx-h"><b>Global trends</b><span className="small muted">what is getting popular, new or launched in {d?.countries?.length ?? COUNTRIES.length} countries · research, not investment advice</span>{d?.updated && <Fresh kind="eod" at={Date.parse(`${d.updated}T07:00:00Z`)} src={d.source} />}</div>
         <div className="gx-pad">
           {!d && <p className="small muted">Reading the trends database…</p>}
           {d?.error && <p className="small down">{d.error === 'not-run-yet' ? 'The nightly collector has not run yet.' : d.error}</p>}
@@ -71,7 +71,7 @@ export default function GlobalTrendsPage() {
         </section>
         <div className="gtr-two">
           <section className="panel">
-            <div className="gx-h"><b>Everywhere now</b><span className="small muted">on the charts in 5 or more of the 15 countries</span></div>
+            <div className="gx-h"><b>Everywhere now</b><span className="small muted">on the charts in {d.wideMin} or more of the {d.countries.length} countries</span></div>
             <div className="gx-pad"><table className="ad-table gtr-t"><tbody>{d.wide.map((w) => <tr key={w.id}><td><Name r={w} /><div className="muted small">{SRC_LABEL[w.src]}</div></td><td className="small">{w.places.map((p) => <span key={p.cc} title={`${placeName(p.cc)}: #${p.rank}`} className="gtr-fl">{flag(p.cc)}<sub>{p.rank}</sub></span>)}</td></tr>)}</tbody></table></div>
           </section>
           <section className="panel">

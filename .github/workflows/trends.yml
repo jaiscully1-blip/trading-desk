@@ -1,5 +1,5 @@
 # Nightly Global trends: top apps (Apple), most-read Wikipedia pages, top Steam games, Spotify charts (Kworb, unofficial)
-# for 15 countries, plus trending AI models (Hugging Face), fast-rising new GitHub projects, Product Hunt launches and US
+# country by country (shipped in stacks: see shared/globaltrends.ts COUNTRIES), plus trending AI models (Hugging Face), fast-rising new GitHub projects, Product Hunt launches and US
 # startups raising money (SEC Form D). Keeps one record per thing (first / last seen per country) so trends that spread
 # from one country to others can be seen. Commits ONLY published/trends.json. Research, not advice; nothing here can trade.
 # Secrets: SEC_USER_AGENT (already used by the Insiders and Patents jobs). GITHUB_TOKEN is provided by Actions.

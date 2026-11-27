@@ -50,7 +50,7 @@ describe('global trends: sources', () => {
 describe('global trends: database', () => {
   const it1 = (where: string, rank: number, id = 'apple:1'): Item => ({ src: 'apps-free', where, id, name: 'Pickle', rank });
   it('keeps first / last seen per country and spots a spread', () => {
-    let db = mergeNight(emptyDb(), [it1('kr', 5)], '2026-11-01');
+    let db = mergeNight(emptyDb(), [it1('kr', 5), it1('us', 1, 'apple:other')], '2026-11-01'); // the US is collected from night one
     db = mergeNight(db, [it1('kr', 2)], '2026-11-02');
     db = mergeNight(db, [it1('kr', 1), it1('us', 40)], '2026-11-20');
     const s = db.items['apple:1'].seen;
@@ -125,5 +125,22 @@ describe('global trends: ban watch and startup radar', () => {
     expect(r.biggest[0].name).toBe('Other Technology 9000000');
     expect(startupRadar(now, '2026-11-27').warmingUp).toBe(true);
     expect(startupRadar(now, '2026-11-27').industries.every((x) => !x.surge)).toBe(true);
+  });
+});
+
+describe('global trends: adding countries later', () => {
+  it('a country added later shows no false spread or "new" on its first nights', async () => {
+    const { summarize, placeSince } = await import('../shared/globaltrends');
+    const n = (db: ReturnType<typeof emptyDb>, date: string, rows: [string, string, number][]) => mergeNight(db, rows.map(([id, where, rank]) => ({ src: 'apps-free' as const, where, id, name: id, rank })), date);
+    let db = emptyDb();
+    for (const d of ['2026-11-01', '2026-11-02', '2026-11-03', '2026-11-04', '2026-11-05']) db = n(db, d, [['chatgpt', 'us', 1]]);
+    db = n(db, '2026-11-06', [['chatgpt', 'us', 1], ['chatgpt', 'it', 3], ['local', 'it', 1]]); // Italy added tonight
+    expect(placeSince(db).it).toBe('2026-11-06');
+    expect(spreading(db)).toEqual([]); // ChatGPT was already popular in Italy before collection started
+    const it1 = summarize(db).countries.find((c) => c.cc === 'it')!;
+    expect(it1.fresh).toEqual([]); // nothing is "new" in Italy on its first night
+    for (const d of ['2026-11-07', '2026-11-08', '2026-11-09']) db = n(db, d, [['chatgpt', 'us', 1], ['chatgpt', 'it', 3], ['local', 'it', 1]]);
+    db = n(db, '2026-11-10', [['chatgpt', 'us', 1], ['chatgpt', 'it', 3], ['local', 'it', 1], ['newapp', 'us', 5], ['newapp', 'it', 9]]);
+    expect(summarize(db).countries.find((c) => c.cc === 'it')!.fresh.map((x) => x.id)).toEqual(['newapp']);
   });
 });
