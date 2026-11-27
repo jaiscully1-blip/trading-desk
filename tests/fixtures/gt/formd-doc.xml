@@ -1,0 +1,144 @@
+<?xml version="1.0"?>
+<edgarSubmission>
+
+    <schemaVersion>X0708</schemaVersion>
+
+    <submissionType>D</submissionType>
+
+    <testOrLive>LIVE</testOrLive>
+
+    <primaryIssuer>
+        <cik>0002166928</cik>
+        <entityName>Jerico Music LLC</entityName>
+        <issuerAddress>
+            <street1>2556 Santa Barbara Loop</street1>
+            <city>Round Rock</city>
+            <stateOrCountry>TX</stateOrCountry>
+            <stateOrCountryDescription>TEXAS</stateOrCountryDescription>
+            <zipCode>78665</zipCode>
+        </issuerAddress>
+        <issuerPhoneNumber>737-471-4739</issuerPhoneNumber>
+        <jurisdictionOfInc>TEXAS</jurisdictionOfInc>
+        <issuerPreviousNameList>
+            <value>None</value>
+        </issuerPreviousNameList>
+        <edgarPreviousNameList>
+            <value>None</value>
+        </edgarPreviousNameList>
+        <entityType>Limited Liability Company</entityType>
+        <yearOfInc>
+            <withinFiveYears>true</withinFiveYears>
+            <value>2021</value>
+        </yearOfInc>
+    </primaryIssuer>
+
+    <relatedPersonsList>
+        <relatedPersonInfo>
+            <relatedPersonName>
+                <firstName>Adrienne</firstName>
+                <middleName>Noel</middleName>
+                <lastName>Neusch</lastName>
+            </relatedPersonName>
+            <relatedPersonAddress>
+                <street1>2556 Santa Barbara Loop</street1>
+                <city>Round Rock</city>
+                <stateOrCountry>TX</stateOrCountry>
+                <stateOrCountryDescription>TEXAS</stateOrCountryDescription>
+                <zipCode>78665</zipCode>
+            </relatedPersonAddress>
+            <relatedPersonRelationshipList>
+                <relationship>Executive Officer</relationship>
+                <relationship>Director</relationship>
+            </relatedPersonRelationshipList>
+            <relationshipClarification>Manager and CEO of a manager-managed LLC</relationshipClarification>
+        </relatedPersonInfo>
+        <relatedPersonInfo>
+            <relatedPersonName>
+                <firstName>Humberto</firstName>
+                <middleName>Israel</middleName>
+                <lastName>Coello Villanueva</lastName>
+            </relatedPersonName>
+            <relatedPersonAddress>
+                <street1>2556 Santa Barbara Loop</street1>
+                <city>Round Rock</city>
+                <stateOrCountry>TX</stateOrCountry>
+                <stateOrCountryDescription>TEXAS</stateOrCountryDescription>
+                <zipCode>78665</zipCode>
+            </relatedPersonAddress>
+            <relatedPersonRelationshipList>
+                <relationship>Executive Officer</relationship>
+            </relatedPersonRelationshipList>
+            <relationshipClarification>Chief Technology Officer</relationshipClarification>
+        </relatedPersonInfo>
+    </relatedPersonsList>
+
+    <offeringData>
+        <industryGroup>
+            <industryGroupType>Other Technology</industryGroupType>
+        </industryGroup>
+        <issuerSize>
+            <revenueRange>Decline to Disclose</revenueRange>
+        </issuerSize>
+        <federalExemptionsExclusions>
+            <item>06b</item>
+        </federalExemptionsExclusions>
+        <typeOfFiling>
+            <newOrAmendment>
+                <isAmendment>false</isAmendment>
+            </newOrAmendment>
+            <dateOfFirstSale>
+                <value>2026-11-18</value>
+            </dateOfFirstSale>
+        </typeOfFiling>
+        <durationOfOffering>
+            <moreThanOneYear>false</moreThanOneYear>
+        </durationOfOffering>
+        <typesOfSecuritiesOffered>
+            <isDebtType>true</isDebtType>
+            <isOptionToAcquireType>true</isOptionToAcquireType>
+            <isSecurityToBeAcquiredType>true</isSecurityToBeAcquiredType>
+        </typesOfSecuritiesOffered>
+        <businessCombinationTransaction>
+            <isBusinessCombinationTransaction>false</isBusinessCombinationTransaction>
+            <clarificationOfResponse></clarificationOfResponse>
+        </businessCombinationTransaction>
+        <minimumInvestmentAccepted>10000</minimumInvestmentAccepted>
+        <salesCompensationList></salesCompensationList>
+        <offeringSalesAmounts>
+            <totalOfferingAmount>350000</totalOfferingAmount>
+            <totalAmountSold>25000</totalAmountSold>
+            <totalRemaining>325000</totalRemaining>
+            <clarificationOfResponse></clarificationOfResponse>
+        </offeringSalesAmounts>
+        <investors>
+            <hasNonAccreditedInvestors>false</hasNonAccreditedInvestors>
+            <totalNumberAlreadyInvested>1</totalNumberAlreadyInvested>
+        </investors>
+        <salesCommissionsFindersFees>
+            <salesCommissions>
+                <dollarAmount>0</dollarAmount>
+            </salesCommissions>
+            <findersFees>
+                <dollarAmount>0</dollarAmount>
+            </findersFees>
+            <clarificationOfResponse></clarificationOfResponse>
+        </salesCommissionsFindersFees>
+        <useOfProceeds>
+            <grossProceedsUsed>
+                <dollarAmount>25000</dollarAmount>
+                <isEstimate>true</isEstimate>
+            </grossProceedsUsed>
+            <clarificationOfResponse>Estimated CEO compensation during the first 12 months.</clarificationOfResponse>
+        </useOfProceeds>
+        <signatureBlock>
+            <authorizedRepresentative>false</authorizedRepresentative>
+            <signature>
+                <issuerName>Jerico Music LLC</issuerName>
+                <signatureName>Adrienne Noel Neusch</signatureName>
+                <nameOfSigner>Adrienne Noel Neusch</nameOfSigner>
+                <signatureTitle>Manager &amp; CEO</signatureTitle>
+                <signatureDate>2026-11-25</signatureDate>
+            </signature>
+        </signatureBlock>
+    </offeringData>
+</edgarSubmission>
