@@ -1,4 +1,4 @@
-// Global → US page: how the world is trading, the US-listed funds and ADRs that carry it into US hours, how each
+// World markets page (was "Global → US"): how the world is trading, the US-listed funds and ADRs that carry it into US hours, how each
 // market's day has lined up with SPY over two years, and world business headlines tagged by region and US ticker.
 // History, not a forecast; nothing here says to buy or sell.
 import { useMemo, useState } from 'react';
@@ -33,7 +33,7 @@ export default function GlobalPage({ mode, onChart }: { mode: DataMode; onChart:
   return (
     <div className="page gl">
       <section className="panel">
-        <div className="phead"><div className="phead-title">Global → US&nbsp;<span className="muted small">how the world is trading and how it has carried into US stocks</span></div>
+        <div className="phead"><div className="phead-title">World markets&nbsp;<span className="muted small">how the world is trading and how it has carried into US stocks</span></div>
           <div className="phead-ctl">{g.d && <Fresh kind="delayed" at={g.d.asOf} src={g.d.source} />}</div></div>
         {g.err && !g.d && <p className="hw-pad small down">{g.err}</p>}
         {!g.d && !g.err && <p className="hw-pad small muted">Loading world markets… (the first load reads two years of history for each market)</p>}
