@@ -1,0 +1,40 @@
+# Nightly Global trends: top apps (Apple), most-read Wikipedia pages, top Steam games, Spotify charts (Kworb, unofficial)
+# for 15 countries, plus trending AI models (Hugging Face), fast-rising new GitHub projects, Product Hunt launches and US
+# startups raising money (SEC Form D). Keeps one record per thing (first / last seen per country) so trends that spread
+# from one country to others can be seen. Commits ONLY published/trends.json. Research, not advice; nothing here can trade.
+# Secrets: SEC_USER_AGENT (already used by the Insiders and Patents jobs). GITHUB_TOKEN is provided by Actions.
+name: Global trends
+
+on:
+  schedule:
+    - cron: "40 6 * * *"   # 06:40 UTC daily: after Wikipedia publishes yesterday's most-read lists
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: trends
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Collect tonight's lists
+        env:
+          SEC_USER_AGENT: ${{ secrets.SEC_USER_AGENT }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npx --yes tsx@4.19.2 scripts/trends-build.ts
+      - name: Save results (only published/trends.json)
+        run: |
+          git config user.name "trends-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add published/trends.json
+          git diff --cached --quiet || git commit -m "Global trends $(date -u +%F)"
+          git pull --rebase --quiet && git push

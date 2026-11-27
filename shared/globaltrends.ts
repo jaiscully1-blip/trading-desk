@@ -1,0 +1,150 @@
+// Global trends: what is getting popular, new, funded or launched, country by country, from free public sources (Apple's
+// app charts, Wikipedia's most-read pages, Steam, Spotify charts via Kworb, Hugging Face, GitHub, SEC Form D, Product Hunt).
+// A nightly job turns each night's lists into one record per thing (first and last seen per country, best rank, last 30
+// ranks), so a trend that starts in one country can be seen reaching others. Pure + tested. Research, not advice.
+
+export interface Country { cc: string; name: string; wiki: string; spotify: boolean; steam: boolean }
+/** The first 15 (Jai's list, 2026-11-27). wiki = the Wikipedia language most read there (English is shared by several). */
+export const COUNTRIES: Country[] = [
+  { cc: 'us', name: 'United States', wiki: 'en', spotify: true, steam: true },
+  { cc: 'gb', name: 'United Kingdom', wiki: 'en', spotify: true, steam: true },
+  { cc: 'ca', name: 'Canada', wiki: 'en', spotify: true, steam: true },
+  { cc: 'de', name: 'Germany', wiki: 'de', spotify: true, steam: true },
+  { cc: 'fr', name: 'France', wiki: 'fr', spotify: true, steam: true },
+  { cc: 'jp', name: 'Japan', wiki: 'ja', spotify: true, steam: true },
+  { cc: 'kr', name: 'South Korea', wiki: 'ko', spotify: true, steam: true },
+  { cc: 'cn', name: 'China', wiki: 'zh', spotify: false, steam: true },
+  { cc: 'in', name: 'India', wiki: 'hi', spotify: true, steam: true },
+  { cc: 'br', name: 'Brazil', wiki: 'pt', spotify: true, steam: true },
+  { cc: 'mx', name: 'Mexico', wiki: 'es', spotify: true, steam: true },
+  { cc: 'id', name: 'Indonesia', wiki: 'id', spotify: true, steam: true },
+  { cc: 'au', name: 'Australia', wiki: 'en', spotify: true, steam: true },
+  { cc: 'ae', name: 'UAE', wiki: 'ar', spotify: true, steam: true },
+  { cc: 'ng', name: 'Nigeria', wiki: 'en', spotify: true, steam: false },
+];
+/** Wikipedia languages read (one list per language, stored under `wiki:<lang>`). */
+export const WIKI_LANGS = [...new Set(COUNTRIES.map((c) => c.wiki))];
+
+export type Src = 'apps-free' | 'apps-paid' | 'wiki' | 'steam' | 'music' | 'ai-models' | 'github' | 'launches';
+export const SRC_LABEL: Record<Src, string> = { 'apps-free': 'Top free apps', 'apps-paid': 'Top paid apps', wiki: 'Most-read Wikipedia pages', steam: 'Top-selling games (Steam)', music: 'Top songs (Spotify, via Kworb)', 'ai-models': 'Trending AI models (Hugging Face)', github: 'Fastest-rising new GitHub projects', launches: 'Product launches (Product Hunt)' };
+/** One entry on one night's list. `where` = a country code, `wiki:<lang>`, or `world` for global lists. */
+export interface Item { src: Src; where: string; id: string; name: string; rank: number; by?: string; url?: string; note?: string }
+
+const num = (x: unknown) => { const v = Number(String(x ?? '').replace(/,/g, '')); return Number.isFinite(v) ? v : null; };
+const unesc = (s: string) => s.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;|&apos;/g, "'").replace(/&#(\d+);/g, (_, d) => String.fromCodePoint(Number(d)));
+
+/** Apple's marketing-tools chart feed (rss.marketingtools.apple.com/api/v2/<cc>/apps/top-free/25/apps.json). */
+export function appleTop(j: any, cc: string, src: 'apps-free' | 'apps-paid'): Item[] {
+  return ((j?.feed?.results ?? []) as any[]).filter((r) => r?.id && r?.name).map((r, i) => ({ src, where: cc, id: `apple:${r.id}`, name: String(r.name), rank: i + 1, by: r.artistName ? String(r.artistName) : undefined, url: r.url ? String(r.url) : undefined }));
+}
+
+// Wikipedia front pages, search pages and other non-article titles: never a trend
+const WIKI_SKIP = /:|^(Main_Page|Wikipedia|Special|Portal|Pagina_principale|Página_principal|Accueil|Hauptseite|メインページ|大文|首页|मुख्य_पृष्ठ|Halaman_Utama|الصفحة_الرئيسية|-)$/i;
+/** Wikimedia "top" pageviews for one language and day: articles only, front page and search pages dropped. */
+export function wikiTop(j: any, lang: string, max = 30): Item[] {
+  const arts = ((j?.items?.[0]?.articles ?? []) as any[]).filter((a) => a?.article && !WIKI_SKIP.test(String(a.article)));
+  return arts.slice(0, max).map((a, i) => ({ src: 'wiki' as const, where: `wiki:${lang}`, id: `wiki:${lang}:${a.article}`, name: String(a.article).replace(/_/g, ' '), rank: i + 1, url: `https://${lang}.wikipedia.org/wiki/${encodeURIComponent(String(a.article))}`, note: num(a.views) != null ? `${num(a.views)!.toLocaleString('en-US')} views` : undefined }));
+}
+
+/** Steam store "featured categories" for a country: top sellers. */
+export function steamTop(j: any, cc: string): Item[] {
+  const seen = new Set<number>();
+  return ((j?.top_sellers?.items ?? []) as any[]).filter((g) => g?.id && g?.name && !seen.has(g.id) && seen.add(g.id)).map((g, i) => ({ src: 'steam' as const, where: cc, id: `steam:${g.id}`, name: String(g.name), rank: i + 1, url: `https://store.steampowered.com/app/${g.id}` }));
+}
+
+/** Kworb's Spotify daily chart page for a country (unofficial page): track id, title, artist. */
+export function kworbTop(html: string, cc: string, max = 50): Item[] {
+  const out: Item[] = [];
+  for (const row of html.match(/<tr>[\s\S]*?<\/tr>/g) ?? []) {
+    const track = /href="\.\.\/track\/([\w]+)\.html">([^<]+)<\/a>/.exec(row), artist = /href="\.\.\/artist\/[\w]+\.html">([^<]+)<\/a>/.exec(row);
+    if (!track) continue;
+    out.push({ src: 'music', where: cc, id: `spotify:${track[1]}`, name: unesc(track[2]), rank: out.length + 1, by: artist ? unesc(artist[1]) : undefined, url: `https://open.spotify.com/track/${track[1]}` });
+    if (out.length >= max) break;
+  }
+  return out;
+}
+
+/** Hugging Face models sorted by trending score (global). */
+export const hfTrending = (j: any): Item[] => ((Array.isArray(j) ? j : []) as any[]).filter((m) => m?.id).map((m, i) => ({ src: 'ai-models' as const, where: 'world', id: `hf:${m.id}`, name: String(m.id), rank: i + 1, by: String(m.id).split('/')[0], url: `https://huggingface.co/${m.id}`, note: [m.pipeline_tag, num(m.likes) != null ? `${num(m.likes)} likes` : ''].filter(Boolean).join(' · ') || undefined }));
+
+/** GitHub search: repositories created in the last week, most stars first (global). */
+export const ghRising = (j: any): Item[] => ((j?.items ?? []) as any[]).filter((r) => r?.full_name).map((r, i) => ({ src: 'github' as const, where: 'world', id: `gh:${r.full_name}`, name: String(r.full_name), rank: i + 1, url: String(r.html_url ?? `https://github.com/${r.full_name}`), note: [r.description ? String(r.description).slice(0, 120) : '', r.language, `${num(r.stargazers_count) ?? 0} stars`].filter(Boolean).join(' · ') }));
+
+/** Product Hunt's public Atom feed (latest launches, global). */
+export function phFeed(xml: string): Item[] {
+  const out: Item[] = [];
+  for (const e of xml.match(/<entry>[\s\S]*?<\/entry>/g) ?? []) {
+    const id = /<id>[^<]*Post\/(\d+)<\/id>/.exec(e)?.[1], title = /<title>([^<]+)<\/title>/.exec(e)?.[1], link = /<link[^>]+href="([^"]+)"/.exec(e)?.[1];
+    if (!id || !title) continue;
+    const tag = unesc(/<content[^>]*>([\s\S]*?)<\/content>/.exec(e)?.[1] ?? '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().split(' Discussion')[0];
+    out.push({ src: 'launches', where: 'world', id: `ph:${id}`, name: unesc(title), rank: out.length + 1, url: link, note: tag.slice(0, 140) || undefined });
+  }
+  return out;
+}
+
+// ---------- US startups raising money (SEC Form D) ----------
+export interface Raise { adsh: string; cik: string; name: string; industry: string; state: string; offering: number | null; sold: number | null; yearInc: string; date: string; fund: boolean }
+/** EDGAR full-text search hits for form D: new filings only (amendments D/A dropped). */
+export const formdHits = (j: any): { adsh: string; cik: string; date: string }[] => ((j?.hits?.hits ?? []) as any[])
+  .filter((h) => h?._source?.form === 'D' && h._source.ciks?.[0]).map((h) => ({ adsh: String(h._id).split(':')[0], cik: String(h._source.ciks[0]).replace(/^0+/, ''), date: String(h._source.file_date ?? '') }));
+/** One Form D's primary_doc.xml: who, what industry, where, how much offered and sold so far. Funds flagged (not startups). */
+export function formdDoc(xml: string, meta: { adsh: string; cik: string; date: string }): Raise | null {
+  const tag = (t: string) => unesc(new RegExp(`<${t}>([^<]*)</${t}>`).exec(xml)?.[1]?.trim() ?? '');
+  const name = tag('entityName'); if (!name) return null;
+  const industry = tag('industryGroupType');
+  const year = /<yearOfInc>[\s\S]*?<value>([^<]*)<\/value>/.exec(xml)?.[1] ?? '';
+  const money = (t: string) => { const v = tag(t); return /^\d+(\.\d+)?$/.test(v) ? Number(v) : null; }; // "Indefinite" -> null
+  return { ...meta, name, industry, state: tag('stateOrCountry'), offering: money('totalOfferingAmount'), sold: money('totalAmountSold'), yearInc: /^\d{4}$/.test(year) ? year : '', fund: /pooled investment fund/i.test(industry) || /<investmentFundType>/.test(xml) };
+}
+
+// ---------- the database: one record per thing ----------
+export interface Seen { first: string; last: string; days: number; best: number; r: [string, number][] }
+export interface Rec { src: Src; id: string; name: string; by?: string; url?: string; note?: string; seen: Record<string, Seen> }
+export interface TrendDb { v: 1; updated: string; nights: string[]; items: Record<string, Rec>; raises: Raise[]; errors: string[] }
+export const emptyDb = (): TrendDb => ({ v: 1, updated: '', nights: [], items: {}, raises: [], errors: [] });
+
+/** Add one night's lists. A thing seen again on a new night extends its record; its last 30 ranks are kept per place. */
+export function mergeNight(db: TrendDb, items: Item[], date: string): TrendDb {
+  const out: TrendDb = { ...db, updated: date, nights: [...new Set([...db.nights, date])].sort().slice(-120), items: { ...db.items } };
+  for (const it of items) {
+    const rec: Rec = out.items[it.id] ? { ...out.items[it.id], seen: { ...out.items[it.id].seen } } : { src: it.src, id: it.id, name: it.name, seen: {} };
+    rec.name = it.name; if (it.by) rec.by = it.by; if (it.url) rec.url = it.url; if (it.note) rec.note = it.note;
+    const s = rec.seen[it.where];
+    if (!s) rec.seen[it.where] = { first: date, last: date, days: 1, best: it.rank, r: [[date, it.rank]] };
+    else if (s.last !== date) rec.seen[it.where] = { first: s.first, last: date, days: s.days + 1, best: Math.min(s.best, it.rank), r: [...s.r, [date, it.rank] as [string, number]].slice(-30) };
+    else rec.seen[it.where] = { ...s, best: Math.min(s.best, it.rank), r: s.r.map((x) => (x[0] === date ? [date, Math.min(x[1], it.rank)] : x)) as [string, number][] };
+    out.items[it.id] = rec;
+  }
+  return out;
+}
+
+/** Forget things not seen for `keepDays`, and raises older than that, so the file stays small. */
+export function prune(db: TrendDb, today: string, keepDays = 120): TrendDb {
+  const cut = new Date(Date.parse(`${today}T00:00:00Z`) - keepDays * 86400_000).toISOString().slice(0, 10);
+  const items: Record<string, Rec> = {};
+  for (const [k, r] of Object.entries(db.items)) if (Object.values(r.seen).some((s) => s.last >= cut)) items[k] = r;
+  return { ...db, items, raises: db.raises.filter((x) => x.date >= cut) };
+}
+
+/** Add new Form D raises (one row per filing, newest first). */
+export const addRaises = (db: TrendDb, raises: Raise[]): TrendDb => {
+  const have = new Set(db.raises.map((r) => r.adsh));
+  return { ...db, raises: [...raises.filter((r) => !have.has(r.adsh)), ...db.raises].sort((a, b) => b.date.localeCompare(a.date)) };
+};
+
+export interface Spread { id: string; src: Src; name: string; by?: string; url?: string; origin: string; originFirst: string; later: { where: string; first: string; best: number }[]; places: number }
+/** Things on charts in more than one country where at least one country picked it up later than the first: the first
+ *  country and the ones that followed, most recent spread first. `wiki:` and `world` lists are left out (not one country). */
+export function spreading(db: TrendDb, minPlaces = 2): Spread[] {
+  const out: Spread[] = [];
+  for (const r of Object.values(db.items)) {
+    const cs = Object.entries(r.seen).filter(([w]) => !w.startsWith('wiki:') && w !== 'world');
+    if (cs.length < minPlaces) continue;
+    const sorted = cs.sort((a, b) => a[1].first.localeCompare(b[1].first));
+    const [origin, o] = sorted[0];
+    const later = sorted.slice(1).filter(([, s]) => s.first > o.first).map(([where, s]) => ({ where, first: s.first, best: s.best }));
+    if (!later.length) continue;
+    out.push({ id: r.id, src: r.src, name: r.name, by: r.by, url: r.url, origin, originFirst: o.first, later, places: cs.length });
+  }
+  return out.sort((a, b) => (b.later.at(-1)!.first.localeCompare(a.later.at(-1)!.first)) || b.places - a.places);
+}
