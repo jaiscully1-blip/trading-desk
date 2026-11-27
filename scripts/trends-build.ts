@@ -3,7 +3,8 @@
 // `errors` (never filled in). Research, not advice; nothing here can trade. Run locally:
 //   SEC_USER_AGENT="your-app contact@example.com" npx --yes tsx@4.19.2 scripts/trends-build.ts
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
-import { COUNTRIES, WIKI_LANGS, addRaises, appleTop, emptyDb, formdDoc, formdHits, ghRising, hfTrending, kworbTop, mergeNight, phFeed, prune, steamTop, wikiTop, type Item, type Raise, type TrendDb } from '../shared/globaltrends';
+import { cpsc, fda } from '../shared/wmon';
+import { BAN_FEEDS, COUNTRIES, WIKI_LANGS, addNews, addRaises, banUrl, gnewsItems, type News, appleTop, emptyDb, formdDoc, formdHits, ghRising, hfTrending, kworbTop, mergeNight, phFeed, prune, steamTop, wikiTop, type Item, type Raise, type TrendDb } from '../shared/globaltrends';
 
 const OUT = process.env.TRENDS_OUT ?? 'published/trends.json';
 const UA = 'Mozilla/5.0 (compatible; trade-desk-research/0.1; personal research project)';
@@ -17,7 +18,7 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 async function get(url: string, kind: 'json' | 'text' = 'json', headers: Record<string, string> = {}): Promise<any> {
   for (let i = 0; i < 3; i++) {
     let r: Response;
-    try { r = await fetch(url, { headers: { 'user-agent': UA, ...headers }, redirect: 'follow', signal: AbortSignal.timeout(30000) }); }
+    try { r = await fetch(url, { headers: { 'user-agent': UA, ...headers }, redirect: 'follow', signal: AbortSignal.timeout(45000) }); }
     catch (e) { if (i < 2) { await sleep(3000 * (i + 1)); continue; } throw e; } // timeouts and dropped connections: try again
     if (r.status === 429 || r.status >= 500) { await sleep(4000 * (i + 1)); continue; } // back off, then try again
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
@@ -73,7 +74,18 @@ else {
   } catch (e) { errors.push(`form D search: ${(e as Error).message}`); }
 }
 
+// ban watch: one Google News search per country in its own language (slowly: Google rate-limits), and US recalls
+const news: News[] = [];
+for (const f of BAN_FEEDS) {
+  try { news.push(...gnewsItems(await get(banUrl(f), 'text'), f.cc)); } catch (e) { errors.push(`bans ${f.cc}: ${(e as Error).message}`); }
+  await sleep(6000);
+}
+const asNews = (ev: { id: string; title: string; url?: string; t: number }[], source: string): News[] => ev.filter((e) => e.title && Number.isFinite(e.t)).map((e) => ({ id: e.id, cc: 'us', title: e.title, url: e.url ?? '', source, date: new Date(e.t).toISOString().slice(0, 10), kind: 'recall' as const }));
+try { news.push(...asNews(cpsc(await get(`https://www.saferproducts.gov/RestWebServices/Recall?format=json&RecallDateStart=${new Date(Date.now() - 14 * 86400_000).toISOString().slice(0, 10)}`)), 'CPSC')); } catch (e) { errors.push(`recalls CPSC: ${(e as Error).message}`); }
+try { news.push(...asNews(fda(await get('https://api.fda.gov/food/enforcement.json?limit=15&sort=report_date:desc')), 'FDA')); } catch (e) { errors.push(`recalls FDA: ${(e as Error).message}`); }
+
 let db = mergeNight(prev, items, today);
+db = addNews(db, news, today);
 db = addRaises(db, raises);
 db = prune(db, today);
 // Wikipedia's lists churn every day: keep those records 30 days, not 120, so the file stays small
@@ -81,5 +93,5 @@ const cut30 = new Date(Date.now() - 30 * 86400_000).toISOString().slice(0, 10);
 for (const [k, r] of Object.entries(db.items)) if (r.src === 'wiki' && !Object.values(r.seen).some((s) => s.last >= cut30)) delete db.items[k];
 db.errors = errors.slice(0, 60);
 writeFileSync(OUT, JSON.stringify(db));
-console.log(`${today}: ${items.length} list entries, ${Object.keys(db.items).length} records, ${raises.length} new raises (${raises.filter((r) => !r.fund).length} companies), ${errors.length} errors, ${(JSON.stringify(db).length / 1024).toFixed(0)} KB`);
+console.log(`${today}: ${items.length} list entries, ${news.length} ban / recall headlines, ${Object.keys(db.items).length} records, ${raises.length} new raises (${raises.filter((r) => !r.fund).length} companies), ${errors.length} errors, ${(JSON.stringify(db).length / 1024).toFixed(0)} KB`);
 if (errors.length) console.log(errors.slice(0, 20).join('\n'));

@@ -3914,3 +3914,6 @@ img, a, svg { -webkit-user-drag: none; }
 .gtr-flag { font-size: 18px; }
 .gtr-country h4 { margin: 4px 0 8px; }
 .gtr-country > .fi-box { margin-bottom: 10px; }
+.gtr-news { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; font-size: 12.5px; }
+.gtr-news li { overflow-wrap: anywhere; }
+.gtr-t .chip.up { margin-left: 6px; }
