@@ -3851,3 +3851,12 @@ img, a, svg { -webkit-user-drag: none; }
 /* the BTC / ETH page scrolls, so the derivatives panel under the charts keeps its full height */
 .page > .cr { flex: 1; min-height: 0; overflow-y: auto; }
 .cr > .cd { flex: none; }
+
+/* slimmer sidebar (2026-11-26): 214px to 180px, same 14px labels and icons; tighter padding, and the shortcut badges no
+   longer reserve room (the key is in each item's tooltip; hold Alt to see every badge, drawn over the row) */
+.nv { width: 180px; padding: 12px 8px; }
+.nv-item { gap: 9px; padding: 0 8px; }
+.nv-item .nv-key { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); background: var(--panel); }
+.nv-item:hover .nv-key { opacity: 0; }
+.show-keys .nv-item .nv-key { opacity: 1; }
+.nv-gh { padding: 2px 6px 4px; }
