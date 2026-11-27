@@ -3873,3 +3873,23 @@ img, a, svg { -webkit-user-drag: none; }
 .live-pick select { background: transparent; border: 0; color: var(--text); font: 500 12.5px "IBM Plex Mono", monospace; max-width: 230px; padding: 0 4px; cursor: pointer; }
 .live-pick select:focus-visible { outline: 2px solid var(--link); border-radius: 6px; }
 .live-pick option, .live-pick optgroup { background: var(--panel); color: var(--text); }
+
+/* live TV: floating windows (several at once) and the Home widget */
+.tvw .vp-head { gap: 4px; height: 28px; }
+.tvw-min iframe { height: 1px; flex: 0 0 1px; opacity: 0; }
+.tv-sp { flex: 1; }
+.tv-sel { background: transparent; border: 0; color: var(--text); font: 600 11.5px "IBM Plex Mono", monospace; max-width: 210px; min-width: 0; cursor: pointer; padding: 0 2px; }
+.tv-sel option, .tv-sel optgroup { background: var(--panel); color: var(--text); }
+.tvw-home { display: flex; flex-direction: column; gap: 6px; height: 100%; min-height: 0; }
+.tvw-bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.tvw-bar .tv-sel { border: 1px solid var(--line-2); border-radius: 999px; padding: 3px 8px; background: var(--panel-2); }
+.tvw-home iframe { flex: 1; min-height: 120px; width: 100%; border: 0; border-radius: 6px; background: #000; }
+
+/* multi-timeframe (2026-11-26): no tab bars (the chart header drags), each chart a card with an 8px gap, taller charts */
+.mtf-dv { --dv-group-view-background-color: transparent; --dv-separator-border: transparent; }
+.mtf-dv .dv-groupview { padding: 4px; }
+.mtf-cell { background: var(--chart-bg, var(--panel)); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.mtf-h { cursor: grab; user-select: none; }
+.mtf-h:active { cursor: grabbing; }
+.mtf-h select { cursor: pointer; }
+.mtf-grip { color: var(--faint); font-size: 12px; margin-right: -2px; }

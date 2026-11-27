@@ -13,6 +13,7 @@ import { MacroClock } from './MacroClock';
 import { MyLinks } from './MyLinks';
 import { LivePlayer, type VMode } from './LivePlayer';
 import { streamList, type Stream } from '../../shared/livestreams';
+import { openTv } from '../lib/tv';
 
 type Filter = 'all' | 'earn' | 'cat' | 'gov' | 'mine';
 const CAT = ['catalyst', 'stake', 'insider', 'wire', 'fund'];
@@ -28,7 +29,9 @@ export function Messages({ feed, cal, nowMs, onChart, compact = false }: { feed:
   // live video size, remembered separately for the page and the home widget: off hides the player (and stops loading it)
   const [vsizeRaw, setVsize] = usePersisted<VMode>(compact ? 'liveSizeWidget' : 'liveSize', compact ? 's' : 'm');
   // the home widget keeps it simple (off / S / M / L); the page also has mini, half screen and floating
-  const vsize: VMode = compact && !['off', 's', 'm', 'l'].includes(vsizeRaw) ? 's' : vsizeRaw;
+  // the old in-page float became app-wide TV windows (several at once): a saved 'float' now shows medium
+  const vsize: VMode = compact && !['off', 's', 'm', 'l'].includes(vsizeRaw) ? 's' : vsizeRaw === 'float' ? 'm' : vsizeRaw;
+  const [popMsg, setPopMsg] = useState('');
   const slot = useRef<HTMLDivElement>(null);
   const box = useRef<HTMLDivElement>(null);
   const e0 = et(nowMs);
@@ -62,7 +65,7 @@ export function Messages({ feed, cal, nowMs, onChart, compact = false }: { feed:
   const liveTitle = cur?.name ?? 'Live';
   const MODES: { id: VMode; label: string; hint: string }[] = compact
     ? [{ id: 'off', label: 'Off', hint: 'Hide the live video' }, { id: 's', label: 'S', hint: 'Small' }, { id: 'm', label: 'M', hint: 'Medium' }, { id: 'l', label: 'L', hint: 'Large' }]
-    : [{ id: 'off', label: 'Off', hint: 'Hide the live video' }, { id: 'mini', label: '–', hint: 'Minimize to a small bar (keeps playing)' }, { id: 's', label: 'S', hint: 'Small, in the page' }, { id: 'm', label: 'M', hint: 'Medium, in the page' }, { id: 'l', label: 'L', hint: 'Large, in the page' }, { id: 'split', label: '◧ Half', hint: 'Video on the right half of the screen, messages on the left' }, { id: 'float', label: '⧉ Float', hint: 'Floating window: drag it anywhere, resize from its corner' }];
+    : [{ id: 'off', label: 'Off', hint: 'Hide the live video' }, { id: 'mini', label: '–', hint: 'Minimize to a small bar (keeps playing)' }, { id: 's', label: 'S', hint: 'Small, in the page' }, { id: 'm', label: 'M', hint: 'Medium, in the page' }, { id: 'l', label: 'L', hint: 'Large, in the page' }, { id: 'split', label: '◧ Half', hint: 'Video on the right half of the screen, messages on the left' }, { id: 'float', label: '⧉ Float', hint: 'Open this channel in a floating window that keeps playing on every page. Click again (or pick another channel first) to add more windows, up to 6' }];
   return (
     <div className={`msgs ${compact ? 'compact' : ''} ${split ? 'split' : ''}`}>
      <div className="msgs-col">
@@ -72,8 +75,8 @@ export function Messages({ feed, cal, nowMs, onChart, compact = false }: { feed:
         {streams.length > 0 && (
           <div className="vid-size" role="group" aria-label="Live video size">
             <span className="small muted">Video</span>
-            {MODES.map((z) => <button key={z.id} className={`chip sm ${vsize === z.id ? 'on' : ''}`} onClick={() => setVsize(z.id)} aria-pressed={vsize === z.id} title={z.hint}>{z.label}</button>)}
-          </div>
+            {MODES.map((z) => <button key={z.id} className={`chip sm ${vsize === z.id ? 'on' : ''}`} onClick={() => { if (z.id !== 'float') return setVsize(z.id); if (!cur) return; if (openTv({ name: cur.name, src: cur.src })) { setVsize('off'); setPopMsg(''); } else setPopMsg('Up to 6 TV windows at once'); }} aria-pressed={vsize === z.id} title={z.hint}>{z.label}</button>)}
+          {popMsg && <span className="small muted">{popMsg}</span>}</div>
         )}
         {feed?.demo && <span className="fresh fresh-demo">DEMO DATA</span>}
       </div>

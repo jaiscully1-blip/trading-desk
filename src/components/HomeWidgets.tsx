@@ -64,6 +64,7 @@ function DistressHomeW({ d }: P) {
 import { RulesW as RulesInner } from './RulesW';
 import { LeverageCheck } from './LeverageCheck';
 import BennerW from './BennerW';
+import { TvWidget } from './TvWidget';
 function BennerWidget({ d }: P) { return <BennerW now={d.now} />; }
 function LeverageW({ d }: P) { return <LeverageCheck equity={d.equity ?? null} />; }
 function RulesW({ d, cfg, set }: P) { return <RulesInner r={d.rules} now={d.now} cfg={cfg} set={set} />; }
@@ -290,7 +291,12 @@ export function MessagesW({ d }: P) {
   return <Messages feed={d.feed} cal={d.cal} nowMs={d.now} onChart={d.onChart} compact />;
 }
 
+export function TvHomeW({ d }: P) {
+  return <TvWidget feed={d.feed} />;
+}
+
 export const WIDGETS = {
+  tv: { title: 'Live TV', make: TvHomeW },
   stock: { title: 'Stock', make: StockW },
   messages: { title: 'Messages', make: MessagesW },
   macroclock: { title: 'Macro countdowns', make: MacroClockW },

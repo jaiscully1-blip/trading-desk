@@ -125,7 +125,8 @@ function MtfChart({ slot }: { slot: Slot }) {
   const on = ctx.active === slot.id;
   return (
     <div className={`mtf-cell ${on ? 'on' : ''}`} onMouseDown={() => ctx.setActive(slot.id)}>
-      <div className="mtf-h">
+      <div className="mtf-h" draggable onDragStart={(e) => { if ((e.target as HTMLElement).closest('select, button')) { e.preventDefault(); return; } e.dataTransfer.setData(MTF_DRAG, slot.id); e.dataTransfer.effectAllowed = 'move'; }} title="Drag this bar onto another chart: its middle swaps the two charts, an edge splits the space there">
+        <span className="mtf-grip" aria-hidden="true">⠿</span>
         <b className="num">{slot.sym}</b>
         <span className="mtf-n small muted">{name}</span>
         <select value={slot.tf} onChange={(e) => ctx.setSlot(slot.id, { tf: e.target.value as MtfTF })} aria-label="Timeframe" title={ctx.linked ? 'Linked: the ticker follows the search; each chart keeps its timeframe' : 'Timeframe'}>
@@ -142,6 +143,10 @@ function MtfChart({ slot }: { slot: Slot }) {
     </div>
   );
 }
+
+/** drag type: a chart's own header bar moves its panel (the dock's tab bars are hidden to give the charts the room) */
+const MTF_DRAG = 'application/x-mtf-panel';
+const hideHeaders = (a: DockviewReadyEvent['api']) => { for (const g of a.groups) g.header.hidden = true; };
 
 /** one dock panel = one chart slot */
 function Panel(props: IDockviewPanelProps<{ id: string }>) {
@@ -186,6 +191,21 @@ export default function MtfPage({ mode, mySyms }: { mode: DataMode; mySyms: stri
       e.api.addPanel({ id: c.id, component: 'chart', params: { id: c.id }, title: t(c), position: { referencePanel: a.id, direction: 'below' } });
       e.api.addPanel({ id: d.id, component: 'chart', params: { id: d.id }, title: t(d), position: { referencePanel: b.id, direction: 'below' } });
     }
+    hideHeaders(e.api);
+    e.api.onDidAddGroup((g) => { g.header.hidden = true; });
+    // a chart header dragged over the dock: accept it, then move that chart where it was dropped
+    e.api.onUnhandledDragOver((ev) => { if (ev.nativeEvent instanceof DragEvent && ev.nativeEvent.dataTransfer?.types.includes(MTF_DRAG)) ev.accept(); });
+    e.api.onDidDrop((ev) => {
+      const id = ev.nativeEvent instanceof DragEvent ? ev.nativeEvent.dataTransfer?.getData(MTF_DRAG) : '';
+      const p = id ? e.api.getPanel(id) : undefined;
+      if (!p || !ev.group || ev.group === p.group) return;
+      if (ev.position === 'center') {
+        // dropped on another chart's middle: swap what the two charts show (tabs are hidden, so never stack two in one place)
+        const other = ev.group.activePanel?.id;
+        if (other) setSlots((ss) => { const A = ss.find((x) => x.id === id), B = ss.find((x) => x.id === other); return A && B ? ss.map((x) => (x.id === id ? { ...B, id } : x.id === other ? { ...A, id: other } : x)) : ss; });
+      } else p.api.moveTo({ group: ev.group, position: ev.position });
+      hideHeaders(e.api);
+    });
     e.api.onDidLayoutChange(() => { try { setLayout(e.api.toJSON()); } catch { /* ignore */ } });
   };
   const resetLayout = () => { setLayout(null); const a = api.current; if (!a) return; a.clear(); onReady({ api: a } as DockviewReadyEvent); };
@@ -219,7 +239,7 @@ export default function MtfPage({ mode, mySyms }: { mode: DataMode; mySyms: stri
         <div className="mtf-dock">
           <DockviewReact className="dockview-theme-abyss mtf-dv" components={COMPONENTS} onReady={onReady} />
         </div>
-        <p className="note">{linked ? 'Linked: the higher timeframes (1h, daily) show trend structure, the lower ones (3m, 15m) show execution. Pick a ticker and all four follow.' : 'Unlinked: click a chart, then search or tap a ticker to change just that chart. Each chart has its own timeframe.'} Drag a tab to rearrange or split the charts. Prices about 15 minutes delayed.</p>
+        <p className="note">{linked ? 'Linked: the higher timeframes (1h, daily) show trend structure, the lower ones (3m, 15m) show execution. Pick a ticker and all four follow.' : 'Unlinked: click a chart, then search or tap a ticker to change just that chart. Each chart has its own timeframe.'} Drag a chart's header bar onto another chart to swap them, or onto its edge to split the space. Prices about 15 minutes delayed.</p>
       </section>
     </MtfCtx.Provider>
   );

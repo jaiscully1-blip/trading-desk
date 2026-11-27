@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { CHANNELS, liveDiag, streamList } from '../shared/livestreams';
+import { CHANNELS, liveDiag, liveStreamsOf, streamList } from '../shared/livestreams';
 
 describe('live streams', () => {
   it('offers every 24/7 channel, by its live video when confirmed, else by the channel embed', () => {
@@ -22,5 +22,10 @@ describe('live streams', () => {
     expect(liveDiag(200, '<form action="https://consent.youtube.com/save">')).toBe('consent page');
     expect(liveDiag(200, 'Sign in to confirm you&#39;re not a bot')).toBe('bot check');
     expect(liveDiag(200, '{"isLiveContent":false}')).toBe('not live');
+  });
+  it('reads the feed live items (TV windows and the Home widget use this)', () => {
+    const s = liveStreamsOf([{ kind: 'live', text: 'C-SPAN', url: 'https://www.youtube.com/watch?v=KHXsEA4Pg18' }, { kind: 'fed', text: 'Fed', url: 'https://x' }]);
+    expect(s.find((x) => x.name === 'C-SPAN')?.src).toBe('https://www.youtube-nocookie.com/embed/KHXsEA4Pg18');
+    expect(s.filter((x) => x.confirmed).length).toBe(1);
   });
 });
