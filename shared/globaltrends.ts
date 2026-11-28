@@ -6,7 +6,7 @@
 /** stack = the order countries were added in (1 = the first 15; 2 = the next biggest markets and startup hubs; ...). */
 export interface Country { cc: string; name: string; wiki: string; spotify: boolean; steam: boolean; stack?: number }
 /** Shipped in stacks, best data first: stack 1 = Jai's first 15 (2026-11-27), stack 2 = the next 15, stack 3 = 16 more. wiki = the Wikipedia language most read there (English is shared by several). */
-export const COUNTRIES: Country[] = [
+const MAIN: Country[] = [
   { cc: 'us', name: 'United States', wiki: 'en', spotify: true, steam: true },
   { cc: 'gb', name: 'United Kingdom', wiki: 'en', spotify: true, steam: true },
   { cc: 'ca', name: 'Canada', wiki: 'en', spotify: true, steam: true },
@@ -56,8 +56,14 @@ export const COUNTRIES: Country[] = [
   { cc: 'nz', name: 'New Zealand', wiki: 'en', spotify: true, steam: true, stack: 3 },
   { cc: 'pt', name: 'Portugal', wiki: 'pt', spotify: true, steam: true, stack: 3 },
 ];
+// stack 4 (2026-11-28): every other country with Apple app charts (checked one by one); * = it also has a Spotify chart on
+// Kworb. Charts only (no Wikipedia language or ban search): the thinnest data, added last.
+const STACK4 = 'af al dz ao ag am az bs bh bb bz bj bm bt bo* bw vg bn bg* bf kh cm cv ky td cg cd cr* ci cz* dm do* ec* sv* ee* sz fj ga gm ge gr* gd gt* gw gy hn* hu* is* iq jm jo kz* xk kw kg la lv* lr ly lt* lu* mo mg mw mv ml mr mu fm md mn me ms ma* mz mm na nr np ne mk om pw pa* pg py* pe* qa ro* ru* rw st sn rs sc sl si sb lk kn lc vc tj to tt tn tm tc ug ua* uy* uz vu ve* ye zm';
+const regionName = (cc: string) => { try { return new Intl.DisplayNames('en', { type: 'region' }).of(cc.toUpperCase()) ?? cc.toUpperCase(); } catch { return cc.toUpperCase(); } };
+export const COUNTRIES: Country[] = [...MAIN, ...STACK4.split(' ').map((t) => { const cc = t.replace('*', ''); return { cc, name: regionName(cc), wiki: '', spotify: t.endsWith('*'), steam: false, stack: 4 }; })];
+export const STACK_LABEL: Record<number, string> = { 1: 'First 15', 2: 'Next 15', 3: '16 more', 4: 'Rest of the world (app charts only)' };
 /** Wikipedia languages read (one list per language, stored under `wiki:<lang>`). */
-export const WIKI_LANGS = [...new Set(COUNTRIES.map((c) => c.wiki))];
+export const WIKI_LANGS = [...new Set(COUNTRIES.map((c) => c.wiki).filter(Boolean))];
 
 export type Src = 'apps-free' | 'apps-paid' | 'wiki' | 'steam' | 'music' | 'ai-models' | 'github' | 'launches';
 export const SRC_LABEL: Record<Src, string> = { 'apps-free': 'Top free apps', 'apps-paid': 'Top paid apps', wiki: 'Most-read Wikipedia pages', steam: 'Top-selling games (Steam)', music: 'Top songs (Spotify, via Kworb)', 'ai-models': 'Trending AI models (Hugging Face)', github: 'Fastest-rising new GitHub projects', launches: 'Product launches (Product Hunt)' };
@@ -135,6 +141,7 @@ export function formdDoc(xml: string, meta: { adsh: string; cik: string; date: s
 }
 
 // ---------- the database: one record per thing ----------
+/** r = the last 14 nightly ranks (enough for the week-on-week change; keeps the file small with 160+ countries) */
 export interface Seen { first: string; last: string; days: number; best: number; r: [string, number][] }
 export interface Rec { src: Src; id: string; name: string; by?: string; url?: string; note?: string; seen: Record<string, Seen> }
 export interface News { id: string; cc: string; title: string; url: string; source: string; date: string; kind: 'ban' | 'recall' }
@@ -149,7 +156,7 @@ export function mergeNight(db: TrendDb, items: Item[], date: string): TrendDb {
     rec.name = it.name; if (it.by) rec.by = it.by; if (it.url) rec.url = it.url; if (it.note) rec.note = it.note;
     const s = rec.seen[it.where];
     if (!s) rec.seen[it.where] = { first: date, last: date, days: 1, best: it.rank, r: [[date, it.rank]] };
-    else if (s.last !== date) rec.seen[it.where] = { first: s.first, last: date, days: s.days + 1, best: Math.min(s.best, it.rank), r: [...s.r, [date, it.rank] as [string, number]].slice(-30) };
+    else if (s.last !== date) rec.seen[it.where] = { first: s.first, last: date, days: s.days + 1, best: Math.min(s.best, it.rank), r: [...s.r, [date, it.rank] as [string, number]].slice(-14) };
     else rec.seen[it.where] = { ...s, best: Math.min(s.best, it.rank), r: s.r.map((x) => (x[0] === date ? [date, Math.min(x[1], it.rank)] : x)) as [string, number][] };
     out.items[it.id] = rec;
   }
@@ -198,7 +205,7 @@ export function spreading(db: TrendDb, minPlaces = 2): Spread[] {
 
 // ---------- page summary (computed on the server from the database) ----------
 export interface Row { id: string; src: Src; name: string; by?: string; url?: string; note?: string; rank: number; first: string; days: number; best: number; trend: number | null }
-export interface CountrySum { cc: string; name: string; now: Partial<Record<Src, Row[]>>; fresh: Row[]; heat: number; heatBy: Partial<Record<Src, number>> }
+export interface CountrySum { cc: string; name: string; stack: number; now: Partial<Record<Src, Row[]>>; fresh: Row[]; heat: number; heatBy: Partial<Record<Src, number>> }
 export interface Wide { id: string; src: Src; name: string; by?: string; url?: string; places: { cc: string; rank: number }[] }
 export interface TrendSummary { wideMin: number; updated: string; nights: number; warmingUp: boolean; spreading: (Spread & { originName: string })[]; startups: StartupRadar; bans: { cc: string; name: string; items: News[] }[]; recalls: News[]; wide: Wide[]; local: (Row & { cc: string })[]; countries: CountrySum[]; world: Partial<Record<Src, Row[]>>; wiki: { lang: string; rows: Row[] }[] }
 
@@ -206,46 +213,48 @@ const NAME: Record<string, string> = Object.fromEntries(COUNTRIES.map((c) => [c.
 export const placeName = (w: string) => NAME[w] ?? (w.startsWith('wiki:') ? `Wikipedia (${w.slice(5)})` : w === 'world' ? 'Worldwide' : w);
 
 /** A place's row for a thing on the latest night: rank now, and the change vs about a week earlier (positive = climbing). */
-function rowAt(r: Rec, where: string, updated: string): Row | null {
+/** A place's row on the latest collection: rank now, and the change since the collection before (positive = climbing). */
+function rowAt(r: Rec, where: string, updated: string, prev?: string): Row | null {
   const s = r.seen[where]; if (!s || s.last !== updated) return null;
   const now = s.r.at(-1)![1];
-  const weekAgo = new Date(Date.parse(`${updated}T00:00:00Z`) - 7 * 86400_000).toISOString().slice(0, 10);
-  const then = [...s.r].reverse().find(([d]) => d <= weekAgo)?.[1];
+  const then = prev ? [...s.r].reverse().find(([d]) => d <= prev)?.[1] : undefined;
   return { id: r.id, src: r.src, name: r.name, by: r.by, url: r.url, note: r.note, rank: now, first: s.first, days: s.days, best: s.best, trend: then != null ? then - now : null };
 }
 
-/** Everything the Global trends page shows. "New" = first seen in the last 7 days, but only once the database is a few
- *  nights old (on the first nights everything is "new", so the page shows the charts instead and says it is warming up). */
-export function summarize(db: TrendDb, perList = 10): TrendSummary {
+/** Everything the Global trends page shows. "New" = first seen on the latest collection (collected every 2 weeks), once
+ *  there is an earlier collection to compare with; before that the page shows the charts and says it is warming up. */
+/** `lists(cc)` says which countries get their chart lists (the page loads one country's lists when it is opened). */
+export function summarize(db: TrendDb, perList = 10, lists: (cc: string) => boolean = () => true): TrendSummary {
   const updated = db.updated, since = placeSince(db);
-  const warmingUp = db.nights.length < 4;
-  // a country added in a later stack warms up on its own: no "new" there until it has 3 nights after its first
+  // collected every 2 weeks (Jai, 2026-11-28): "new" = first seen on the latest collection; needs one earlier collection
+  const warmingUp = db.nights.length < 2;
+  const prev = db.nights.at(-2);
+  // a country added in a later stack warms up on its own: no "new" there until it has been collected once before
   const nightsSince = (cc: string) => db.nights.filter((n) => n > (since[cc] ?? updated)).length;
-  const weekAgo = new Date(Date.parse(`${updated}T00:00:00Z`) - 7 * 86400_000).toISOString().slice(0, 10);
   const recs = Object.values(db.items);
   const countries: CountrySum[] = COUNTRIES.map((c) => {
     const now: Partial<Record<Src, Row[]>> = {}, heatBy: Partial<Record<Src, number>> = {}, fresh: Row[] = [];
     for (const r of recs) {
-      const row = rowAt(r, c.cc, updated); if (!row) continue;
-      (now[r.src] ??= []).push(row);
-      if (!warmingUp && nightsSince(c.cc) >= 3 && row.first > (since[c.cc] ?? updated) && row.first >= weekAgo) { fresh.push(row); heatBy[r.src] = (heatBy[r.src] ?? 0) + 1; }
+      const row = rowAt(r, c.cc, updated, prev); if (!row) continue;
+      if (lists(c.cc)) (now[r.src] ??= []).push(row);
+      if (!warmingUp && nightsSince(c.cc) >= 1 && row.first > (since[c.cc] ?? updated) && (!prev || row.first > prev)) { fresh.push(row); heatBy[r.src] = (heatBy[r.src] ?? 0) + 1; }
     }
     for (const k of Object.keys(now) as Src[]) now[k] = now[k]!.sort((a, b) => a.rank - b.rank).slice(0, perList);
-    return { cc: c.cc, name: c.name, now, fresh: fresh.sort((a, b) => a.rank - b.rank).slice(0, 20), heat: fresh.length, heatBy };
+    return { cc: c.cc, name: c.name, stack: c.stack ?? 1, now, fresh: lists(c.cc) ? fresh.sort((a, b) => a.rank - b.rank).slice(0, 20) : [], heat: fresh.length, heatBy };
   });
   const world: Partial<Record<Src, Row[]>> = {};
-  for (const r of recs) { const row = rowAt(r, 'world', updated); if (row) (world[r.src] ??= []).push(row); }
+  for (const r of recs) { const row = rowAt(r, 'world', updated, prev); if (row) (world[r.src] ??= []).push(row); }
   for (const k of Object.keys(world) as Src[]) world[k] = world[k]!.sort((a, b) => a.rank - b.rank).slice(0, 20);
-  const wiki = WIKI_LANGS.map((lang) => ({ lang, rows: recs.map((r) => rowAt(r, `wiki:${lang}`, updated)).filter((x): x is Row => !!x).sort((a, b) => a.rank - b.rank).slice(0, perList) }));
+  const wiki = WIKI_LANGS.map((lang) => ({ lang, rows: recs.map((r) => rowAt(r, `wiki:${lang}`, updated, prev)).filter((x): x is Row => !!x).sort((a, b) => a.rank - b.rank).slice(0, perList) }));
   // on the charts in many countries now, and big in only one (top 10 there, on no other country's chart: a copycat lead)
   const CHART: Src[] = ['apps-free', 'apps-paid', 'steam', 'music'];
   const WIDE = Math.max(5, Math.round(COUNTRIES.length / 4)); // "everywhere" = a quarter of the countries or more
   const wide: Wide[] = [], local: (Row & { cc: string })[] = [];
   for (const r of recs) {
     if (!CHART.includes(r.src)) continue;
-    const places = COUNTRIES.flatMap((c) => { const x = rowAt(r, c.cc, updated); return x ? [{ cc: c.cc, rank: x.rank }] : []; });
+    const places = COUNTRIES.flatMap((c) => { const x = rowAt(r, c.cc, updated, prev); return x ? [{ cc: c.cc, rank: x.rank }] : []; });
     if (places.length >= WIDE) wide.push({ id: r.id, src: r.src, name: r.name, by: r.by, url: r.url, places: places.sort((a, b) => a.rank - b.rank) });
-    if (places.length === 1 && places[0].rank <= 10 && Object.keys(r.seen).filter((w) => NAME[w]).length === 1) { const x = rowAt(r, places[0].cc, updated)!; local.push({ ...x, cc: places[0].cc }); }
+    if (places.length === 1 && places[0].rank <= 10 && Object.keys(r.seen).filter((w) => NAME[w]).length === 1) { const x = rowAt(r, places[0].cc, updated, prev)!; local.push({ ...x, cc: places[0].cc }); }
   }
   wide.sort((a, b) => b.places.length - a.places.length || a.places[0].rank - b.places[0].rank);
   local.sort((a, b) => a.rank - b.rank || a.cc.localeCompare(b.cc));
@@ -259,48 +268,48 @@ export function summarize(db: TrendDb, perList = 10): TrendSummary {
 /** One Google News RSS search per country, in its own language: bans on apps, products, sales or imports in the last week.
  *  Google News has no mainland China edition. Headlines only; unofficial feed. */
 export const BAN_FEEDS: { cc: string; hl: string; gl: string; q: string; ceid?: string }[] = [
-  ...['us', 'gb', 'ca', 'au', 'in', 'ng'].map((cc) => ({ cc, hl: cc === 'us' ? 'en-US' : `en-${cc.toUpperCase()}`, gl: cc.toUpperCase(), q: '(banned OR "ban on" OR "bans") (app OR product OR sale OR import OR platform) when:7d' })),
-  { cc: 'de', hl: 'de', gl: 'DE', q: '(Verbot OR verboten OR Verkaufsverbot) (App OR Produkt OR Verkauf OR Import) when:7d' },
-  { cc: 'fr', hl: 'fr', gl: 'FR', q: '(interdiction OR interdit) (application OR produit OR vente OR importation) when:7d' },
-  { cc: 'jp', hl: 'ja', gl: 'JP', q: '禁止 (アプリ OR 製品 OR 販売 OR 輸入) when:7d' },
-  { cc: 'kr', hl: 'ko', gl: 'KR', q: '금지 (앱 OR 제품 OR 판매 OR 수입) when:7d' },
-  { cc: 'br', hl: 'pt-BR', gl: 'BR', q: '(proibição OR proibido OR proíbe) (aplicativo OR produto OR venda OR importação) when:7d' },
-  { cc: 'mx', hl: 'es-419', gl: 'MX', q: '(prohibición OR prohíbe OR prohibido) (aplicación OR producto OR venta OR importación) when:7d' },
-  { cc: 'id', hl: 'id', gl: 'ID', q: '(larangan OR dilarang) (aplikasi OR produk OR penjualan OR impor) when:7d' },
-  { cc: 'ae', hl: 'ar', gl: 'AE', q: 'حظر (تطبيق OR منتج OR بيع OR استيراد) when:7d' },
+  ...['us', 'gb', 'ca', 'au', 'in', 'ng'].map((cc) => ({ cc, hl: cc === 'us' ? 'en-US' : `en-${cc.toUpperCase()}`, gl: cc.toUpperCase(), q: '(banned OR "ban on" OR "bans") (app OR product OR sale OR import OR platform) when:14d' })),
+  { cc: 'de', hl: 'de', gl: 'DE', q: '(Verbot OR verboten OR Verkaufsverbot) (App OR Produkt OR Verkauf OR Import) when:14d' },
+  { cc: 'fr', hl: 'fr', gl: 'FR', q: '(interdiction OR interdit) (application OR produit OR vente OR importation) when:14d' },
+  { cc: 'jp', hl: 'ja', gl: 'JP', q: '禁止 (アプリ OR 製品 OR 販売 OR 輸入) when:14d' },
+  { cc: 'kr', hl: 'ko', gl: 'KR', q: '금지 (앱 OR 제품 OR 판매 OR 수입) when:14d' },
+  { cc: 'br', hl: 'pt-BR', gl: 'BR', q: '(proibição OR proibido OR proíbe) (aplicativo OR produto OR venda OR importação) when:14d' },
+  { cc: 'mx', hl: 'es-419', gl: 'MX', q: '(prohibición OR prohíbe OR prohibido) (aplicación OR producto OR venta OR importación) when:14d' },
+  { cc: 'id', hl: 'id', gl: 'ID', q: '(larangan OR dilarang) (aplikasi OR produk OR penjualan OR impor) when:14d' },
+  { cc: 'ae', hl: 'ar', gl: 'AE', q: 'حظر (تطبيق OR منتج OR بيع OR استيراد) when:14d' },
   // stack 2
-  { cc: 'it', hl: 'it', gl: 'IT', q: '(divieto OR vietato OR vieta) (app OR prodotto OR vendita OR importazione) when:7d' },
-  { cc: 'es', hl: 'es', gl: 'ES', q: '(prohibición OR prohíbe OR prohibido) (aplicación OR producto OR venta OR importación) when:7d' },
-  { cc: 'nl', hl: 'nl', gl: 'NL', q: '(verbod OR verboden OR verbiedt) (app OR product OR verkoop OR import) when:7d' },
-  { cc: 'se', hl: 'sv', gl: 'SE', q: '(förbud OR förbjuder OR förbjuds) (app OR produkt OR försäljning OR import) when:7d' },
-  { cc: 'ch', hl: 'de', gl: 'CH', q: '(Verbot OR verboten OR Verkaufsverbot) (App OR Produkt OR Verkauf OR Import) when:7d' },
-  { cc: 'pl', hl: 'pl', gl: 'PL', q: '(zakaz OR zakazuje OR zakazany) (aplikacja OR produkt OR sprzedaż OR import) when:7d' },
-  { cc: 'tr', hl: 'tr', gl: 'TR', q: '(yasak OR yasaklandı OR yasakladı) (uygulama OR ürün OR satış OR ithalat) when:7d' },
-  { cc: 'il', hl: 'he', gl: 'IL', q: '(איסור OR אסר OR נאסר) (אפליקציה OR מוצר OR מכירה OR יבוא) when:7d' },
-  { cc: 'sa', hl: 'ar', gl: 'SA', q: 'حظر (تطبيق OR منتج OR بيع OR استيراد) when:7d' },
-  { cc: 'sg', hl: 'en-SG', gl: 'SG', q: '(banned OR "ban on" OR "bans") (app OR product OR sale OR import OR platform) when:7d' },
-  { cc: 'tw', hl: 'zh-TW', gl: 'TW', ceid: 'TW:zh-Hant', q: '(禁止 OR 禁令 OR 禁售) (App OR 產品 OR 販售 OR 進口) when:7d' },
-  { cc: 'hk', hl: 'zh-HK', gl: 'HK', ceid: 'HK:zh-Hant', q: '(禁止 OR 禁令 OR 禁售) (App OR 產品 OR 銷售 OR 進口) when:7d' },
-  { cc: 'vn', hl: 'vi', gl: 'VN', q: 'cấm (ứng dụng OR sản phẩm OR bán OR nhập khẩu) when:7d' },
-  { cc: 'th', hl: 'th', gl: 'TH', q: '(ห้าม OR แบน) (แอป OR สินค้า OR จำหน่าย OR นำเข้า) when:7d' },
-  { cc: 'ph', hl: 'en-PH', gl: 'PH', q: '(banned OR "ban on" OR "bans") (app OR product OR sale OR import OR platform) when:7d' },
+  { cc: 'it', hl: 'it', gl: 'IT', q: '(divieto OR vietato OR vieta) (app OR prodotto OR vendita OR importazione) when:14d' },
+  { cc: 'es', hl: 'es', gl: 'ES', q: '(prohibición OR prohíbe OR prohibido) (aplicación OR producto OR venta OR importación) when:14d' },
+  { cc: 'nl', hl: 'nl', gl: 'NL', q: '(verbod OR verboden OR verbiedt) (app OR product OR verkoop OR import) when:14d' },
+  { cc: 'se', hl: 'sv', gl: 'SE', q: '(förbud OR förbjuder OR förbjuds) (app OR produkt OR försäljning OR import) when:14d' },
+  { cc: 'ch', hl: 'de', gl: 'CH', q: '(Verbot OR verboten OR Verkaufsverbot) (App OR Produkt OR Verkauf OR Import) when:14d' },
+  { cc: 'pl', hl: 'pl', gl: 'PL', q: '(zakaz OR zakazuje OR zakazany) (aplikacja OR produkt OR sprzedaż OR import) when:14d' },
+  { cc: 'tr', hl: 'tr', gl: 'TR', q: '(yasak OR yasaklandı OR yasakladı) (uygulama OR ürün OR satış OR ithalat) when:14d' },
+  { cc: 'il', hl: 'he', gl: 'IL', q: '(איסור OR אסר OR נאסר) (אפליקציה OR מוצר OR מכירה OR יבוא) when:14d' },
+  { cc: 'sa', hl: 'ar', gl: 'SA', q: 'حظر (تطبيق OR منتج OR بيع OR استيراد) when:14d' },
+  { cc: 'sg', hl: 'en-SG', gl: 'SG', q: '(banned OR "ban on" OR "bans") (app OR product OR sale OR import OR platform) when:14d' },
+  { cc: 'tw', hl: 'zh-TW', gl: 'TW', ceid: 'TW:zh-Hant', q: '(禁止 OR 禁令 OR 禁售) (App OR 產品 OR 販售 OR 進口) when:14d' },
+  { cc: 'hk', hl: 'zh-HK', gl: 'HK', ceid: 'HK:zh-Hant', q: '(禁止 OR 禁令 OR 禁售) (App OR 產品 OR 銷售 OR 進口) when:14d' },
+  { cc: 'vn', hl: 'vi', gl: 'VN', q: 'cấm (ứng dụng OR sản phẩm OR bán OR nhập khẩu) when:14d' },
+  { cc: 'th', hl: 'th', gl: 'TH', q: '(ห้าม OR แบน) (แอป OR สินค้า OR จำหน่าย OR นำเข้า) when:14d' },
+  { cc: 'ph', hl: 'en-PH', gl: 'PH', q: '(banned OR "ban on" OR "bans") (app OR product OR sale OR import OR platform) when:14d' },
   // stack 3
-  { cc: 'ar', hl: 'es-419', gl: 'AR', ceid: 'AR:es-419', q: '(prohibición OR prohíbe OR prohibido) (aplicación OR producto OR venta OR importación) when:7d' },
-  { cc: 'za', hl: 'en-ZA', gl: 'ZA', q: '(banned OR "ban on" OR "bans") (app OR product OR sale OR import OR platform) when:7d' },
-  { cc: 'eg', hl: 'ar', gl: 'EG', q: 'حظر (تطبيق OR منتج OR بيع OR استيراد) when:7d' },
-  { cc: 'ke', hl: 'en-KE', gl: 'KE', q: '(banned OR "ban on" OR "bans") (app OR product OR sale OR import OR platform) when:7d' },
-  { cc: 'cl', hl: 'es-419', gl: 'CL', ceid: 'CL:es-419', q: '(prohibición OR prohíbe OR prohibido) (aplicación OR producto OR venta OR importación) when:7d' },
-  { cc: 'co', hl: 'es-419', gl: 'CO', ceid: 'CO:es-419', q: '(prohibición OR prohíbe OR prohibido) (aplicación OR producto OR venta OR importación) when:7d' },
-  { cc: 'my', hl: 'ms', gl: 'MY', q: '(larangan OR diharamkan OR dilarang) (aplikasi OR produk OR jualan OR import) when:7d' },
-  { cc: 'pk', hl: 'en-PK', gl: 'PK', q: '(banned OR "ban on" OR "bans") (app OR product OR sale OR import OR platform) when:7d' },
-  { cc: 'ie', hl: 'en-IE', gl: 'IE', q: '(banned OR "ban on" OR "bans") (app OR product OR sale OR import OR platform) when:7d' },
-  { cc: 'at', hl: 'de', gl: 'AT', q: '(Verbot OR verboten OR Verkaufsverbot) (App OR Produkt OR Verkauf OR Import) when:7d' },
-  { cc: 'be', hl: 'nl', gl: 'BE', q: '(verbod OR verboden OR verbiedt) (app OR product OR verkoop OR import) when:7d' },
-  { cc: 'dk', hl: 'da', gl: 'DK', q: '(forbud OR forbyder OR forbudt) (app OR produkt OR salg OR import) when:7d' },
-  { cc: 'no', hl: 'no', gl: 'NO', q: '(forbud OR forbyr OR forbudt) (app OR produkt OR salg OR import) when:7d' },
-  { cc: 'fi', hl: 'fi', gl: 'FI', q: '(kielto OR kieltää OR kielletty) (sovellus OR tuote OR myynti OR tuonti) when:7d' },
-  { cc: 'nz', hl: 'en-NZ', gl: 'NZ', q: '(banned OR "ban on" OR "bans") (app OR product OR sale OR import OR platform) when:7d' },
-  { cc: 'pt', hl: 'pt-PT', gl: 'PT', ceid: 'PT:pt-150', q: '(proibição OR proibido OR proíbe) (aplicação OR produto OR venda OR importação) when:7d' },
+  { cc: 'ar', hl: 'es-419', gl: 'AR', ceid: 'AR:es-419', q: '(prohibición OR prohíbe OR prohibido) (aplicación OR producto OR venta OR importación) when:14d' },
+  { cc: 'za', hl: 'en-ZA', gl: 'ZA', q: '(banned OR "ban on" OR "bans") (app OR product OR sale OR import OR platform) when:14d' },
+  { cc: 'eg', hl: 'ar', gl: 'EG', q: 'حظر (تطبيق OR منتج OR بيع OR استيراد) when:14d' },
+  { cc: 'ke', hl: 'en-KE', gl: 'KE', q: '(banned OR "ban on" OR "bans") (app OR product OR sale OR import OR platform) when:14d' },
+  { cc: 'cl', hl: 'es-419', gl: 'CL', ceid: 'CL:es-419', q: '(prohibición OR prohíbe OR prohibido) (aplicación OR producto OR venta OR importación) when:14d' },
+  { cc: 'co', hl: 'es-419', gl: 'CO', ceid: 'CO:es-419', q: '(prohibición OR prohíbe OR prohibido) (aplicación OR producto OR venta OR importación) when:14d' },
+  { cc: 'my', hl: 'ms', gl: 'MY', q: '(larangan OR diharamkan OR dilarang) (aplikasi OR produk OR jualan OR import) when:14d' },
+  { cc: 'pk', hl: 'en-PK', gl: 'PK', q: '(banned OR "ban on" OR "bans") (app OR product OR sale OR import OR platform) when:14d' },
+  { cc: 'ie', hl: 'en-IE', gl: 'IE', q: '(banned OR "ban on" OR "bans") (app OR product OR sale OR import OR platform) when:14d' },
+  { cc: 'at', hl: 'de', gl: 'AT', q: '(Verbot OR verboten OR Verkaufsverbot) (App OR Produkt OR Verkauf OR Import) when:14d' },
+  { cc: 'be', hl: 'nl', gl: 'BE', q: '(verbod OR verboden OR verbiedt) (app OR product OR verkoop OR import) when:14d' },
+  { cc: 'dk', hl: 'da', gl: 'DK', q: '(forbud OR forbyder OR forbudt) (app OR produkt OR salg OR import) when:14d' },
+  { cc: 'no', hl: 'no', gl: 'NO', q: '(forbud OR forbyr OR forbudt) (app OR produkt OR salg OR import) when:14d' },
+  { cc: 'fi', hl: 'fi', gl: 'FI', q: '(kielto OR kieltää OR kielletty) (sovellus OR tuote OR myynti OR tuonti) when:14d' },
+  { cc: 'nz', hl: 'en-NZ', gl: 'NZ', q: '(banned OR "ban on" OR "bans") (app OR product OR sale OR import OR platform) when:14d' },
+  { cc: 'pt', hl: 'pt-PT', gl: 'PT', ceid: 'PT:pt-150', q: '(proibição OR proibido OR proíbe) (aplicação OR produto OR venda OR importação) when:14d' },
 ];
 export const banUrl = (f: (typeof BAN_FEEDS)[number]) => `https://news.google.com/rss/search?q=${encodeURIComponent(f.q)}&hl=${f.hl}&gl=${f.gl}&ceid=${f.ceid ?? `${f.gl}:${f.hl.split('-')[0]}`}`;
 // crime and court stories that only mention "ban" in passing

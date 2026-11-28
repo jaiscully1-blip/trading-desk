@@ -11,8 +11,6 @@ const UA = 'Mozilla/5.0 (compatible; trade-desk-research/0.1; personal research 
 const SEC_UA = process.env.SEC_USER_AGENT;
 const today = new Date().toISOString().slice(0, 10);
 const yesterday = new Date(Date.now() - 86400_000).toISOString().slice(0, 10);
-// Form D window: the last 3 days (weekends and holidays have no filings; filings already saved are skipped)
-const fdFrom = process.env.TRENDS_FD_FROM ?? new Date(Date.now() - 3 * 86400_000).toISOString().slice(0, 10), fdTo = process.env.TRENDS_FD_TO ?? today;
 const errors: string[] = [];
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 async function get(url: string, kind: 'json' | 'text' = 'json', headers: Record<string, string> = {}): Promise<any> {
@@ -30,6 +28,9 @@ const tryAdd = async (label: string, items: Item[], f: () => Promise<Item[]>) =>
 
 const prev: TrendDb = (() => { try { return existsSync(OUT) ? JSON.parse(readFileSync(OUT, 'utf8')) : emptyDb(); } catch { return emptyDb(); } })();
 const items: Item[] = [];
+// Form D window: since the last collection (every 2 weeks), at most 31 days; filings already saved are skipped
+const day0 = (ms: number) => new Date(ms).toISOString().slice(0, 10);
+const fdFrom = process.env.TRENDS_FD_FROM ?? day0(Math.max(Date.now() - 31 * 86400_000, prev.updated ? Date.parse(`${prev.updated}T00:00:00Z`) - 86400_000 : Date.now() - 15 * 86400_000)), fdTo = process.env.TRENDS_FD_TO ?? today;
 
 /** Run jobs a few at a time (each with a pause after it), so a slow source does not hold up the whole night. */
 async function pool<T>(jobs: T[], n: number, run: (j: T) => Promise<void>, pauseMs: number) {
@@ -60,18 +61,18 @@ else {
   try {
     const have = new Set(prev.raises.map((r) => r.adsh));
     const hits: ReturnType<typeof formdHits> = [];
-    for (let from = 0; from < 1000; from += 100) {
+    for (let from = 0; from < 10000; from += 100) {
       const j = await get(`https://efts.sec.gov/LATEST/search-index?q=%22%22&forms=D&dateRange=custom&startdt=${fdFrom}&enddt=${fdTo}&from=${from}`, 'json', { 'user-agent': SEC_UA });
       hits.push(...formdHits(j));
       if ((j?.hits?.hits?.length ?? 0) < 100) break;
       await sleep(300);
     }
-    for (const h of hits.filter((x) => !have.has(x.adsh)).slice(0, 400)) {
+    for (const h of hits.filter((x) => !have.has(x.adsh)).slice(0, 8000)) {
       try {
         const xml = await get(`https://www.sec.gov/Archives/edgar/data/${h.cik}/${h.adsh.replace(/-/g, '')}/primary_doc.xml`, 'text', { 'user-agent': SEC_UA });
         const r = formdDoc(xml, h); if (r) raises.push(r);
       } catch (e) { errors.push(`form D ${h.adsh}: ${(e as Error).message}`); }
-      await sleep(150);
+      await sleep(110); // SEC allows 10 requests a second
     }
   } catch (e) { errors.push(`form D search: ${(e as Error).message}`); }
 }
