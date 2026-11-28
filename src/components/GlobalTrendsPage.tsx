@@ -2,8 +2,8 @@
 // every 2 weeks (published/trends.json). Leads with trends spreading from one country to others; also each country's charts and
 // what is new there since the last collection, things everywhere now, things big in one country only (copycat leads), worldwide AI models /
 // GitHub projects / launches, and each language's most-read Wikipedia pages. Global research, not investment advice.
-import { useEffect, useState } from 'react';
-import { COUNTRIES, SRC_LABEL, STACK_LABEL, placeName, type CountrySum, type Row, type Src, type TrendSummary } from '../../shared/globaltrends';
+import { useEffect, useRef, useState } from 'react';
+import { COUNTRIES, REGIONS, SRC_LABEL, placeName, type CountrySum, type Row, type Src, type TrendSummary } from '../../shared/globaltrends';
 import { usePersisted } from '../lib/store';
 import { getDeskJson } from './PatentsSection';
 import { Fresh, Seg } from './common';
@@ -62,13 +62,16 @@ function Bans() {
 }
 
 /** One country's lists, loaded when its tile is opened (the page itself carries only the tiles). */
-function Country({ cc, warm }: { cc: string; warm: boolean }) {
+function Country({ cc, warm, jump }: { cc: string; warm: boolean; jump: number }) {
   const [c, setC] = useState<CountrySum | null>(null), [err, setErr] = useState('');
+  const top = useRef<HTMLDivElement>(null);
+  // a tile was clicked: bring this country's data into view once it has loaded (no scrolling down by hand)
+  useEffect(() => { if (jump && c?.cc === cc) top.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, [jump, c, cc]);
   useEffect(() => { setC(null); setErr(''); getDeskJson<{ country?: CountrySum; error?: string }>(`/api/research?fn=trends&cc=${cc}`).then((j) => (j.country ? setC(j.country) : setErr(j.error ?? 'Not available'))).catch((e) => setErr((e as Error).message)); }, [cc]);
-  if (err) return <p className="small down">{err}</p>;
+  if (err) return <p className="small down" ref={top}>{err}</p>;
   if (!c) return <p className="small muted">Loading {placeName(cc)}…</p>;
   return (
-    <div className="gtr-country">
+    <div className="gtr-country" ref={top}>
       <h4>{flag(c.cc)} {c.name}</h4>
       {!warm && <div className="fi-box"><h5>New since the last collection</h5><RowList rows={c.fresh} empty="Nothing new." /></div>}
       <div className="gtr-cols">{CHART_SRC.filter((s) => c.now[s]?.length).map((s) => <div key={s} className="fi-box"><h5>{SRC_LABEL[s]}</h5><RowList rows={c.now[s]} /></div>)}</div>
@@ -80,6 +83,8 @@ export default function GlobalTrendsPage() {
   const [d, setD] = useState<Resp | null>(null);
   const [tab, setTab] = usePersisted<Tab>('gtTab', 'spread');
   const [cc, setCc] = usePersisted<string>('gtCountry', 'kr');
+  const [jump, setJump] = useState(0);
+  const pickCc = (x: string) => { setCc(x); setJump((n) => n + 1); };
   useEffect(() => { getDeskJson<Resp>('/api/research?fn=trends').then(setD).catch((e) => setD({ error: (e as Error).message } as Resp)); }, []);
   const c = d?.countries?.find((x) => x.cc === cc) ?? d?.countries?.[0];
   const maxHeat = Math.max(1, ...(d?.countries ?? []).map((x) => x.heat));
@@ -125,8 +130,8 @@ export default function GlobalTrendsPage() {
         <section className="panel">
           <div className="gx-h"><b>Countries</b><Info t="Click a country for its charts. Once there are two collections, the colour and number show how many new things reached its charts since the last one." /></div>
           <div className="gx-pad">
-            {[1, 2, 3, 4].map((st) => { const xs = d.countries.filter((x) => (x.stack ?? 1) === st); return xs.length ? <div key={st}><div className="small muted gtr-stack">{STACK_LABEL[st]} · {xs.length}</div><div className="gtr-tiles">{xs.map((x) => <button key={x.cc} className={`gtr-tile ${x.cc === c.cc ? 'on' : ''}`} style={{ ['--h' as string]: d.warmingUp ? 0 : x.heat / maxHeat }} onClick={() => setCc(x.cc)} title={d.warmingUp ? x.name : `${x.name}: ${x.heat} new since the last collection`}><span className="gtr-flag">{flag(x.cc)}</span><span className="small">{x.name}</span>{!d.warmingUp && <b className="num">{x.heat}</b>}</button>)}</div></div> : null; })}
-            <Country cc={c.cc} warm={d.warmingUp} />
+            {REGIONS.map((rg) => { const xs = d.countries.filter((x) => x.region === rg); return xs.length ? <div key={rg}><div className="small muted gtr-stack">{rg} · {xs.length}</div><div className="gtr-tiles">{xs.map((x) => <button key={x.cc} className={`gtr-tile ${x.cc === c.cc ? 'on' : ''}`} style={{ ['--h' as string]: d.warmingUp ? 0 : x.heat / maxHeat }} onClick={() => pickCc(x.cc)} title={d.warmingUp ? x.name : `${x.name}: ${x.heat} new since the last collection`}><span className="gtr-flag">{flag(x.cc)}</span><span className="small">{x.name}</span>{!d.warmingUp && <b className="num">{x.heat}</b>}</button>)}</div></div> : null; })}
+            <Country cc={c.cc} warm={d.warmingUp} jump={jump} />
           </div>
         </section>
       )}
