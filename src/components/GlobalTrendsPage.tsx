@@ -3,7 +3,7 @@
 // what is new there this week, things everywhere now, things big in one country only (copycat leads), worldwide AI models /
 // GitHub projects / launches, and each language's most-read Wikipedia pages. Global research, not investment advice.
 import { useEffect, useState } from 'react';
-import { COUNTRIES, SRC_LABEL, placeName, type CountrySum, type Row, type Src, type TrendSummary } from '../../shared/globaltrends';
+import { COUNTRIES, SRC_LABEL, STACK_LABEL, placeName, type CountrySum, type Row, type Src, type TrendSummary } from '../../shared/globaltrends';
 import { usePersisted } from '../lib/store';
 import { getDeskJson } from './PatentsSection';
 import { Fresh, Seg } from './common';
@@ -26,7 +26,31 @@ function RowList({ rows, empty }: { rows: Row[] | undefined; empty?: string }) {
   return <ol className="gtr-list">{rows.map((r) => <li key={r.id}><span className="num gtr-rank">{r.rank}</span><span className="gtr-name"><Name r={r} />{r.note && <span className="muted small gtr-note">{r.note}</span>}</span><Trend t={r.trend} /></li>)}</ol>;
 }
 
-function Country({ c, warm }: { c: CountrySum; warm: boolean }) {
+/** Ban headlines and US recalls, loaded when the tab is opened (Google News links make them heavy). */
+function Bans() {
+  const [b, setB] = useState<{ bans: TrendSummary['bans']; recalls: TrendSummary['recalls']; error?: string } | null>(null);
+  useEffect(() => { getDeskJson<{ bans: TrendSummary['bans']; recalls: TrendSummary['recalls']; error?: string }>('/api/research?fn=trends&part=bans').then(setB).catch((e) => setB({ bans: [], recalls: [], error: (e as Error).message })); }, []);
+  if (!b) return <section className="panel"><div className="gx-pad"><p className="small muted">Loading ban headlines…</p></div></section>;
+  const d = b;
+  return <>
+        <section className="panel">
+          <div className="gx-h"><b>Ban watch</b><span className="small muted">news of bans on apps, products, sales or imports, by country, in its own language (last 14 days)</span></div>
+          <div className="gx-pad gtr-cols">{d.bans.filter((b) => b.items.length).map((b) => <div key={b.cc} className="fi-box"><h5>{flag(b.cc)} {b.name} <span className="muted small">{b.items.length}</span></h5><ul className="gtr-news">{b.items.map((n) => <li key={n.id}><a href={n.url} target="_blank" rel="noreferrer noopener">{n.title}</a><span className="muted small"> · {n.source} · {day(n.date)}</span></li>)}</ul></div>)}</div>
+          <p className="note small gx-pad">Headlines from Google News searches (an unofficial feed), matched by words like "ban" in each language: some are about another country's ban or only mention one. There is no mainland China edition.</p>
+        </section>
+        <section className="panel">
+          <div className="gx-h"><b>US recalls</b><span className="small muted">Consumer Product Safety Commission and FDA, last 14 days</span></div>
+          <div className="gx-pad"><ul className="gtr-news">{d.recalls.map((n) => <li key={n.id}>{n.url ? <a href={n.url} target="_blank" rel="noreferrer noopener">{n.title}</a> : n.title}<span className="muted small"> · {n.source} · {day(n.date)}</span></li>)}</ul></div>
+        </section>
+</>;
+}
+
+/** One country's lists, loaded when its tile is opened (the page itself carries only the tiles). */
+function Country({ cc, warm }: { cc: string; warm: boolean }) {
+  const [c, setC] = useState<CountrySum | null>(null), [err, setErr] = useState('');
+  useEffect(() => { setC(null); setErr(''); getDeskJson<{ country?: CountrySum; error?: string }>(`/api/research?fn=trends&cc=${cc}`).then((j) => (j.country ? setC(j.country) : setErr(j.error ?? 'Not available'))).catch((e) => setErr((e as Error).message)); }, [cc]);
+  if (err) return <p className="small down">{err}</p>;
+  if (!c) return <p className="small muted">Loading {placeName(cc)}…</p>;
   return (
     <div className="gtr-country">
       <h4>{flag(c.cc)} {c.name}</h4>
@@ -85,8 +109,8 @@ export default function GlobalTrendsPage() {
         <section className="panel">
           <div className="gx-h"><b>Countries</b><span className="small muted">{d.warmingUp ? 'tonight\'s charts (new-this-week counts start once the database is a few nights old)' : 'colour = how many new things reached its charts this week'}</span></div>
           <div className="gx-pad">
-            <div className="gtr-tiles">{d.countries.map((x) => <button key={x.cc} className={`gtr-tile ${x.cc === c.cc ? 'on' : ''}`} style={{ ['--h' as string]: d.warmingUp ? 0 : x.heat / maxHeat }} onClick={() => setCc(x.cc)} title={d.warmingUp ? x.name : `${x.name}: ${x.heat} new this week`}><span className="gtr-flag">{flag(x.cc)}</span><span className="small">{x.name}</span>{!d.warmingUp && <b className="num">{x.heat}</b>}</button>)}</div>
-            <Country c={c} warm={d.warmingUp} />
+            {[1, 2, 3, 4].map((st) => { const xs = d.countries.filter((x) => (x.stack ?? 1) === st); return xs.length ? <div key={st}><div className="small muted gtr-stack">{STACK_LABEL[st]} · {xs.length}</div><div className="gtr-tiles">{xs.map((x) => <button key={x.cc} className={`gtr-tile ${x.cc === c.cc ? 'on' : ''}`} style={{ ['--h' as string]: d.warmingUp ? 0 : x.heat / maxHeat }} onClick={() => setCc(x.cc)} title={d.warmingUp ? x.name : `${x.name}: ${x.heat} new this week`}><span className="gtr-flag">{flag(x.cc)}</span><span className="small">{x.name}</span>{!d.warmingUp && <b className="num">{x.heat}</b>}</button>)}</div></div> : null; })}
+            <Country cc={c.cc} warm={d.warmingUp} />
           </div>
         </section>
       )}
@@ -109,17 +133,8 @@ export default function GlobalTrendsPage() {
         </div>
       </>; })()}
 
-      {d && !d.error && tab === 'bans' && <>
-        <section className="panel">
-          <div className="gx-h"><b>Ban watch</b><span className="small muted">news of bans on apps, products, sales or imports, by country, in its own language (last 14 days)</span></div>
-          <div className="gx-pad gtr-cols">{d.bans.filter((b) => b.items.length).map((b) => <div key={b.cc} className="fi-box"><h5>{flag(b.cc)} {b.name} <span className="muted small">{b.items.length}</span></h5><ul className="gtr-news">{b.items.map((n) => <li key={n.id}><a href={n.url} target="_blank" rel="noreferrer noopener">{n.title}</a><span className="muted small"> · {n.source} · {day(n.date)}</span></li>)}</ul></div>)}</div>
-          <p className="note small gx-pad">Headlines from Google News searches (an unofficial feed), matched by words like "ban" in each language: some are about another country's ban or only mention one. There is no mainland China edition.</p>
-        </section>
-        <section className="panel">
-          <div className="gx-h"><b>US recalls</b><span className="small muted">Consumer Product Safety Commission and FDA, last 14 days</span></div>
-          <div className="gx-pad"><ul className="gtr-news">{d.recalls.map((n) => <li key={n.id}>{n.url ? <a href={n.url} target="_blank" rel="noreferrer noopener">{n.title}</a> : n.title}<span className="muted small"> · {n.source} · {day(n.date)}</span></li>)}</ul></div>
-        </section>
-      </>}
+      {d && !d.error && tab === 'bans' && <Bans />}
+
 
       {d && !d.error && tab === 'world' && (
         <section className="panel">

@@ -6,7 +6,7 @@
 /** stack = the order countries were added in (1 = the first 15; 2 = the next biggest markets and startup hubs; ...). */
 export interface Country { cc: string; name: string; wiki: string; spotify: boolean; steam: boolean; stack?: number }
 /** Shipped in stacks, best data first: stack 1 = Jai's first 15 (2026-11-27), stack 2 = the next 15, stack 3 = 16 more. wiki = the Wikipedia language most read there (English is shared by several). */
-export const COUNTRIES: Country[] = [
+const MAIN: Country[] = [
   { cc: 'us', name: 'United States', wiki: 'en', spotify: true, steam: true },
   { cc: 'gb', name: 'United Kingdom', wiki: 'en', spotify: true, steam: true },
   { cc: 'ca', name: 'Canada', wiki: 'en', spotify: true, steam: true },
@@ -56,8 +56,14 @@ export const COUNTRIES: Country[] = [
   { cc: 'nz', name: 'New Zealand', wiki: 'en', spotify: true, steam: true, stack: 3 },
   { cc: 'pt', name: 'Portugal', wiki: 'pt', spotify: true, steam: true, stack: 3 },
 ];
+// stack 4 (2026-11-28): every other country with Apple app charts (checked one by one); * = it also has a Spotify chart on
+// Kworb. Charts only (no Wikipedia language or ban search): the thinnest data, added last.
+const STACK4 = 'af al dz ao ag am az bs bh bb bz bj bm bt bo* bw vg bn bg* bf kh cm cv ky td cg cd cr* ci cz* dm do* ec* sv* ee* sz fj ga gm ge gr* gd gt* gw gy hn* hu* is* iq jm jo kz* xk kw kg la lv* lr ly lt* lu* mo mg mw mv ml mr mu fm md mn me ms ma* mz mm na nr np ne mk om pw pa* pg py* pe* qa ro* ru* rw st sn rs sc sl si sb lk kn lc vc tj to tt tn tm tc ug ua* uy* uz vu ve* ye zm';
+const regionName = (cc: string) => { try { return new Intl.DisplayNames('en', { type: 'region' }).of(cc.toUpperCase()) ?? cc.toUpperCase(); } catch { return cc.toUpperCase(); } };
+export const COUNTRIES: Country[] = [...MAIN, ...STACK4.split(' ').map((t) => { const cc = t.replace('*', ''); return { cc, name: regionName(cc), wiki: '', spotify: t.endsWith('*'), steam: false, stack: 4 }; })];
+export const STACK_LABEL: Record<number, string> = { 1: 'First 15', 2: 'Next 15', 3: '16 more', 4: 'Rest of the world (app charts only)' };
 /** Wikipedia languages read (one list per language, stored under `wiki:<lang>`). */
-export const WIKI_LANGS = [...new Set(COUNTRIES.map((c) => c.wiki))];
+export const WIKI_LANGS = [...new Set(COUNTRIES.map((c) => c.wiki).filter(Boolean))];
 
 export type Src = 'apps-free' | 'apps-paid' | 'wiki' | 'steam' | 'music' | 'ai-models' | 'github' | 'launches';
 export const SRC_LABEL: Record<Src, string> = { 'apps-free': 'Top free apps', 'apps-paid': 'Top paid apps', wiki: 'Most-read Wikipedia pages', steam: 'Top-selling games (Steam)', music: 'Top songs (Spotify, via Kworb)', 'ai-models': 'Trending AI models (Hugging Face)', github: 'Fastest-rising new GitHub projects', launches: 'Product launches (Product Hunt)' };
@@ -135,6 +141,7 @@ export function formdDoc(xml: string, meta: { adsh: string; cik: string; date: s
 }
 
 // ---------- the database: one record per thing ----------
+/** r = the last 14 nightly ranks (enough for the week-on-week change; keeps the file small with 160+ countries) */
 export interface Seen { first: string; last: string; days: number; best: number; r: [string, number][] }
 export interface Rec { src: Src; id: string; name: string; by?: string; url?: string; note?: string; seen: Record<string, Seen> }
 export interface News { id: string; cc: string; title: string; url: string; source: string; date: string; kind: 'ban' | 'recall' }
@@ -149,7 +156,7 @@ export function mergeNight(db: TrendDb, items: Item[], date: string): TrendDb {
     rec.name = it.name; if (it.by) rec.by = it.by; if (it.url) rec.url = it.url; if (it.note) rec.note = it.note;
     const s = rec.seen[it.where];
     if (!s) rec.seen[it.where] = { first: date, last: date, days: 1, best: it.rank, r: [[date, it.rank]] };
-    else if (s.last !== date) rec.seen[it.where] = { first: s.first, last: date, days: s.days + 1, best: Math.min(s.best, it.rank), r: [...s.r, [date, it.rank] as [string, number]].slice(-30) };
+    else if (s.last !== date) rec.seen[it.where] = { first: s.first, last: date, days: s.days + 1, best: Math.min(s.best, it.rank), r: [...s.r, [date, it.rank] as [string, number]].slice(-14) };
     else rec.seen[it.where] = { ...s, best: Math.min(s.best, it.rank), r: s.r.map((x) => (x[0] === date ? [date, Math.min(x[1], it.rank)] : x)) as [string, number][] };
     out.items[it.id] = rec;
   }
@@ -198,7 +205,7 @@ export function spreading(db: TrendDb, minPlaces = 2): Spread[] {
 
 // ---------- page summary (computed on the server from the database) ----------
 export interface Row { id: string; src: Src; name: string; by?: string; url?: string; note?: string; rank: number; first: string; days: number; best: number; trend: number | null }
-export interface CountrySum { cc: string; name: string; now: Partial<Record<Src, Row[]>>; fresh: Row[]; heat: number; heatBy: Partial<Record<Src, number>> }
+export interface CountrySum { cc: string; name: string; stack: number; now: Partial<Record<Src, Row[]>>; fresh: Row[]; heat: number; heatBy: Partial<Record<Src, number>> }
 export interface Wide { id: string; src: Src; name: string; by?: string; url?: string; places: { cc: string; rank: number }[] }
 export interface TrendSummary { wideMin: number; updated: string; nights: number; warmingUp: boolean; spreading: (Spread & { originName: string })[]; startups: StartupRadar; bans: { cc: string; name: string; items: News[] }[]; recalls: News[]; wide: Wide[]; local: (Row & { cc: string })[]; countries: CountrySum[]; world: Partial<Record<Src, Row[]>>; wiki: { lang: string; rows: Row[] }[] }
 
@@ -216,7 +223,8 @@ function rowAt(r: Rec, where: string, updated: string): Row | null {
 
 /** Everything the Global trends page shows. "New" = first seen in the last 7 days, but only once the database is a few
  *  nights old (on the first nights everything is "new", so the page shows the charts instead and says it is warming up). */
-export function summarize(db: TrendDb, perList = 10): TrendSummary {
+/** `lists(cc)` says which countries get their chart lists (the page loads one country's lists when it is opened). */
+export function summarize(db: TrendDb, perList = 10, lists: (cc: string) => boolean = () => true): TrendSummary {
   const updated = db.updated, since = placeSince(db);
   const warmingUp = db.nights.length < 4;
   // a country added in a later stack warms up on its own: no "new" there until it has 3 nights after its first
@@ -227,11 +235,11 @@ export function summarize(db: TrendDb, perList = 10): TrendSummary {
     const now: Partial<Record<Src, Row[]>> = {}, heatBy: Partial<Record<Src, number>> = {}, fresh: Row[] = [];
     for (const r of recs) {
       const row = rowAt(r, c.cc, updated); if (!row) continue;
-      (now[r.src] ??= []).push(row);
+      if (lists(c.cc)) (now[r.src] ??= []).push(row);
       if (!warmingUp && nightsSince(c.cc) >= 3 && row.first > (since[c.cc] ?? updated) && row.first >= weekAgo) { fresh.push(row); heatBy[r.src] = (heatBy[r.src] ?? 0) + 1; }
     }
     for (const k of Object.keys(now) as Src[]) now[k] = now[k]!.sort((a, b) => a.rank - b.rank).slice(0, perList);
-    return { cc: c.cc, name: c.name, now, fresh: fresh.sort((a, b) => a.rank - b.rank).slice(0, 20), heat: fresh.length, heatBy };
+    return { cc: c.cc, name: c.name, stack: c.stack ?? 1, now, fresh: lists(c.cc) ? fresh.sort((a, b) => a.rank - b.rank).slice(0, 20) : [], heat: fresh.length, heatBy };
   });
   const world: Partial<Record<Src, Row[]>> = {};
   for (const r of recs) { const row = rowAt(r, 'world', updated); if (row) (world[r.src] ??= []).push(row); }
