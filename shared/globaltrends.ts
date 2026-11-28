@@ -205,7 +205,7 @@ export function spreading(db: TrendDb, minPlaces = 2): Spread[] {
 
 // ---------- page summary (computed on the server from the database) ----------
 export interface Row { id: string; src: Src; name: string; by?: string; url?: string; note?: string; rank: number; first: string; days: number; best: number; trend: number | null }
-export interface CountrySum { cc: string; name: string; stack: number; now: Partial<Record<Src, Row[]>>; fresh: Row[]; heat: number; heatBy: Partial<Record<Src, number>> }
+export interface CountrySum { cc: string; name: string; stack: number; region: string; now: Partial<Record<Src, Row[]>>; fresh: Row[]; heat: number; heatBy: Partial<Record<Src, number>> }
 export interface Wide { id: string; src: Src; name: string; by?: string; url?: string; places: { cc: string; rank: number }[] }
 export interface TrendSummary { wideMin: number; updated: string; nights: number; warmingUp: boolean; spreading: (Spread & { originName: string })[]; startups: StartupRadar; bans: { cc: string; name: string; items: News[] }[]; recalls: News[]; wide: Wide[]; local: (Row & { cc: string })[]; countries: CountrySum[]; world: Partial<Record<Src, Row[]>>; wiki: { lang: string; rows: Row[] }[] }
 
@@ -240,7 +240,7 @@ export function summarize(db: TrendDb, perList = 10, lists: (cc: string) => bool
       if (!warmingUp && nightsSince(c.cc) >= 1 && row.first > (since[c.cc] ?? updated) && (!prev || row.first > prev)) { fresh.push(row); heatBy[r.src] = (heatBy[r.src] ?? 0) + 1; }
     }
     for (const k of Object.keys(now) as Src[]) now[k] = now[k]!.sort((a, b) => a.rank - b.rank).slice(0, perList);
-    return { cc: c.cc, name: c.name, stack: c.stack ?? 1, now, fresh: lists(c.cc) ? fresh.sort((a, b) => a.rank - b.rank).slice(0, 20) : [], heat: fresh.length, heatBy };
+    return { cc: c.cc, name: c.name, stack: c.stack ?? 1, region: regionOf(c.cc), now, fresh: lists(c.cc) ? fresh.sort((a, b) => a.rank - b.rank).slice(0, 20) : [], heat: fresh.length, heatBy };
   });
   const world: Partial<Record<Src, Row[]>> = {};
   for (const r of recs) { const row = rowAt(r, 'world', updated, prev); if (row) (world[r.src] ??= []).push(row); }
@@ -367,3 +367,20 @@ export function startupRadar(raises: Raise[], today: string): StartupRadar {
     young: recent.filter((r) => Number(r.yearInc) >= yr - 1).sort((a, b) => (b.sold ?? 0) - (a.sold ?? 0)).slice(0, 40),
     states: [...st.values()].sort((a, b) => b.n - a.n).slice(0, 15) };
 }
+
+// ---------- regions (Jai's list, 2026-11-28): how the country tiles are grouped ----------
+export const REGIONS = ['North America', 'Central America & Caribbean', 'South America', 'Europe', 'Middle East & North Africa', 'Sub-Saharan Africa', 'Central & South Asia', 'East & Southeast Asia', 'Australia & Pacific Islands'] as const;
+export type Region = (typeof REGIONS)[number];
+const R: Record<Region, string> = {
+  'North America': 'us ca bm',
+  'Central America & Caribbean': 'mx ag bs bb bz vg ky cr dm do sv gd gt hn jm ms pa kn lc vc tt tc',
+  'South America': 'br ar cl co bo ec gy py pe uy ve',
+  'Europe': 'gb de fr it es nl se ch pl ie at be dk no fi pt al am az bg cz ee ge gr hu is xk lv lt lu md me mk ro ru rs si ua tr',
+  'Middle East & North Africa': 'ae il sa eg dz bh iq jo kw ly ma om qa tn ye',
+  'Sub-Saharan Africa': 'ng za ke ao bj bw bf cm cv td cg cd ci sz ga gm gw lr mg mw ml mr mu mz na ne rw st sn sc sl ug zm',
+  'Central & South Asia': 'in pk af bt kz kg mv np lk tj tm uz',
+  'East & Southeast Asia': 'jp kr cn tw hk sg vn th ph my id bn kh la mo mn mm',
+  'Australia & Pacific Islands': 'au nz fj fm nr pw pg sb to vu',
+};
+const REGION_OF: Record<string, Region> = Object.fromEntries(Object.entries(R).flatMap(([reg, ccs]) => ccs.split(' ').map((cc) => [cc, reg as Region])));
+export const regionOf = (cc: string): Region | 'Other' => REGION_OF[cc] ?? 'Other';
