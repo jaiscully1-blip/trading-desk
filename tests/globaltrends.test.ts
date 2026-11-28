@@ -144,3 +144,17 @@ describe('global trends: adding countries later', () => {
     expect(summarize(db).countries.find((c) => c.cc === 'it')!.fresh.map((x) => x.id)).toEqual(['newapp']);
   });
 });
+
+describe('global trends: every two weeks', () => {
+  it('"new" = first seen on the latest collection, and the change is vs the collection before', async () => {
+    const { summarize } = await import('../shared/globaltrends');
+    const n = (db: ReturnType<typeof emptyDb>, date: string, rows: [string, string, number][]) => mergeNight(db, rows.map(([id, where, rank]) => ({ src: 'apps-free' as const, where, id, name: id, rank })), date);
+    let db = n(emptyDb(), '2026-12-01', [['a', 'jp', 5], ['b', 'jp', 1]]);
+    expect(summarize(db).warmingUp).toBe(true); // one collection: nothing to compare
+    db = n(db, '2026-12-15', [['a', 'jp', 2], ['b', 'jp', 1], ['c', 'jp', 3]]);
+    const s = summarize(db), jp = s.countries.find((c) => c.cc === 'jp')!;
+    expect(s.warmingUp).toBe(false);
+    expect(jp.fresh.map((x) => x.id)).toEqual(['c']);
+    expect(jp.now['apps-free']!.find((x) => x.id === 'a')!.trend).toBe(3); // 5 -> 2: climbed 3 places since Dec 1
+  });
+});

@@ -3918,3 +3918,11 @@ img, a, svg { -webkit-user-drag: none; }
 .gtr-news li { overflow-wrap: anywhere; }
 .gtr-t .chip.up { margin-left: 6px; }
 .gtr-stack { margin: 8px 0 4px; text-transform: uppercase; letter-spacing: .05em; font-size: 10.5px; }
+
+/* Global trends: cleaner (coverage bars instead of flag walls, explanations in ⓘ) */
+.gtr-i { font-style: normal; color: var(--muted); cursor: help; margin-left: 6px; font-size: 12px; }
+.gtr-click { cursor: pointer; }
+.gtr-cov { width: 46%; }
+.gtr-bar { display: block; height: 6px; border-radius: 3px; background: var(--line); overflow: hidden; margin-bottom: 3px; }
+.gtr-bar i { display: block; height: 100%; background: var(--link); }
+.gtr-flags { display: flex; flex-wrap: wrap; gap: 4px 10px; margin-top: 6px; }
